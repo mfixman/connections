@@ -1,11 +1,10 @@
-import traceback
+import argparse
 import sys
+import traceback
 
 from connections.env import *
 
-import argparse
-
-parser = argparse.ArgumentParser(description='leanCoP Python version')
+parser = argparse.ArgumentParser(description="leanCoP Python version")
 parser.add_argument("file", help="The conjecture you want to prove")
 args = parser.parse_args()
 

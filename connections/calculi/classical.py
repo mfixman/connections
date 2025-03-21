@@ -1,68 +1,112 @@
+from typing import Any, Dict, List, Optional, Tuple
+
+from connections.env import Settings
 from connections.utils.unification import Substitution
+from connections.utils.primitives import Literal
 
 
 class Tableau:
-    def __init__(self, literal=None, parent=None):
-        self.literal = literal
-        self.parent = parent
-        self.children = []
-        self.proven = False
-        self.depth = parent.depth + 1 if parent is not None else -1
-        self.num_attempted = 0
-        self.actions = {}
+    """A node in the proof tableau.
 
-    def __str__(self):
+    Represents a node in the proof tree, containing a literal and its relationships
+    to parent and child nodes.
+
+    Attributes:
+        literal_idx: The index of the literal at this node.
+        copy_num: The number of the copy of the literal at this node.
+        path: The path from the root to this node.
+        depth: The depth of this node in the tableau.
+        children: The child nodes of this node.
+    """
+
+    def __init__(
+        self, 
+        literal_idx: Optional[tuple[int, int]] = None, 
+        clause_copy_num: int = 0, 
+        path: Optional[Dict[Tuple[bool, str], List["Tableau"]]] = None,
+        parent: Optional["Tableau"] = None
+    ) -> None:
+        """Initialize a tableau node.
+
+        Args:
+            literal_idx: The index of the literal at this node.
+            copy_num: The number of the copy of the literal at this node.
+            path: The polarity, predicate symbol, and node reference for each node in the path from the root to this node.
+        """
+        self.literal_idx = literal_idx
+        self.copy_num = clause_copy_num
+        self.path = path
+        self.parent = parent
+        self.children: List["Tableau"] = []
+        self.closed_branches: int = 0
+        
+        if path is not None and len(path) > 0:
+            self.depth = path[-1].depth + 1
+        else:
+            self.depth = -1
+
+    def __str__(self) -> str:
+        """Return a string representation of the tableau node and its children.
+
+        Returns:
+            A formatted string showing the tableau structure.
+        """
         angle = "└── " if self.depth >= 0 else ""
         ret = "    " * (self.depth) + angle + str(self.literal) + "\n"
         for child in self.children:
             ret += str(child)
         return ret
-
-    def path(self):
-        path = []
-        current = self.parent
-        while current.literal is not None:
-            path.append(current.literal)
-            current = current.parent
-        return path
-
-    def find_next(self):
-        parent = self
-        while parent is not None:
-            for child in parent.children:
-                if not child.proven:
-                    return child
-            parent.proven = True
-            parent = parent.parent
-        return None
-
-    def find_prev(self):
-        parent = self.parent
-        self_idx = parent.children.index(self)
-        if self_idx > 1 or (self_idx == 1 and parent.literal is None):
-            prev = parent.children[self_idx - 1]
-            while len(prev.children) > 1:
-                prev = prev.children[-1]
-        else:
-            prev = parent
-        return prev
+    
+    def propogate_closed(self) -> None:
+        """Propogate the closed branch status to the parent node."""
+        self.closed_branches += 1
+        if len(self.closed_branches) >= len(self.children):
+            self.parent.propogate_closed()
 
 
 class ConnectionState:
-    
-    def __init__(self, matrix, settings):
+    """State representation for classical connection calculus.
+
+    Maintains the current state of the proof search, including the tableau,
+    substitutions, and available actions.
+
+    Attributes:
+        matrix: The CNF matrix being proven.
+        settings: Configuration settings for the proof search.
+        max_depth: Maximum depth for iterative deepening.
+        tableau: The current proof tableau.
+        goal: The current goal node.
+        substitution: Current variable substitutions.
+        info: Information about the proof status.
+        is_terminal: Whether the proof search is complete.
+        proof_sequence: Sequence of actions taken in the proof.
+    """
+
+    def __init__(self, matrix: Any, settings: Settings) -> None:
+        """Initialize the connection state.
+
+        Args:
+            matrix: The CNF matrix to prove.
+            settings: Configuration settings for the proof search.
+        """
         self.matrix = matrix
         self.settings = settings
         self.reset()
 
-    def __str__(self):
+    def __str__(self) -> str:
+        """Return a string representation of the current state.
+
+        Returns:
+            A formatted string showing the tableau, substitutions, and available actions.
+        """
         substitution = "\n".join(
             f"{k} → {v}" for k, v in self.substitution.to_dict().items()
         )
         actions = None
         if self.goal is not None:
             actions = "\n".join(
-                f"{i}. {str(action)}" for i, action in enumerate(self.goal.actions.values())
+                f"{i}. {str(action)}"
+                for i, action in enumerate(self.goal.actions.values())
             )
         return (
             f"=========================\n"
@@ -72,192 +116,211 @@ class ConnectionState:
             f"\n\nMax Depth: {self.max_depth}"
             f"\n========================="
         )
-    
-    def reset(self, depth=None):
+
+    def reset(self, depth: Optional[int] = None) -> None:
+        """Reset the state to its initial configuration.
+
+        Args:
+            depth: Optional maximum depth for iterative deepening.
+        """
         # Tableau fields
         self.max_depth = depth
         if depth is None:
             self.max_depth = self.settings.iterative_deepening_initial_depth
         self.tableau = Tableau()
-        self.goal = self.tableau
         self.substitution = Substitution()
-        self.goal.actions = self._legal_actions()
+        
+        # Legal start actions
+        self.legal_actions: Dict[Tableau, List[ConnectionAction]] = {}
+        self.legal_actions[self.tableau] = self._legal_actions(self.tableau)
+        if not self.legal_actions[self.tableau]:
+            self.info = "Non-Theorem: no positive start clauses"
+            self.is_terminal = True
+            return
 
         # Proof fields
         self.info = None
         self.is_terminal = False
-        self.proof_sequence = []
 
-    def _starts(self):
-        starts = []
-        start_clause_candidates = self.matrix.positive_clauses
-        if not self.settings.positive_start_clauses:
-            start_clause_candidates = self.matrix.clauses
-        for clause in start_clause_candidates:
-            clause_copy = self.matrix.copy(clause)
-            starts.append(
-                    ConnectionAction(
-                        type="st",
-                        clause_copy=clause_copy,
-                        id="st" + str(len(starts))
-                    )
-                )
-        if not starts:
-            starts.append(ConnectionAction(type="st", id="st0"))
-        return starts
-    
-    def _backtracks(self):
-        return [ConnectionAction(type='bt', id='bt')]
+    def _starts(self, node: Tableau) -> List["ConnectionAction"]:
+        """Get the list of possible start actions.
 
-    def _extensions(self):
+        Returns:
+            List of possible start actions.
+        """
+        start_clause_candidates = self.matrix.clauses
+        if self.settings.positive_start_clauses:
+            start_clause_candidates = self.matrix.positive_clauses
+            
+        return [ConnectionAction(action_type="start", 
+                                 principle_node=node, 
+                                 connection_idx=i) for i in start_clause_candidates]
+
+    def _undo(self, node: Tableau) -> List["ConnectionAction"]:
+        """Get the list of possible backtrack actions.
+
+        Returns:
+            List containing the backtrack action.
+        """
+        return [ConnectionAction(action_type="undo", principle_node=node)]
+
+    def _extensions(self, node: Tableau) -> List["ConnectionAction"]:
+        """Get the list of possible extension actions.
+
+        Returns:
+            List of possible extension actions.
+        """
         extensions = []
-        for clause_idx, lit_idx in self.matrix.complements(self.goal.literal):
-            clause_copy = self.matrix.copy(clause_idx)
-            unifies, updates = self.substitution.can_unify(self.goal.literal,clause_copy[lit_idx])
+        for clause_idx, lit_idx in self.matrix.complements(node.literal_idx):
+            
+            lit_copy_num = self.matrix.copy_counter[clause_idx] + 1
+            unifies, updates = self.substitution.can_unify(
+                (node.literal_idx, node.copy_num), (lit_idx, lit_copy_num)
+            )
+            
             if unifies:
                 extensions.append(
                     ConnectionAction(
-                        type="ex",
-                        principle_node=self.goal,
-                        sub_updates=updates,
-                        lit_idx=lit_idx,
-                        clause_copy=clause_copy,
-                        id="ex" + str(len(extensions)),
+                        action_type="extension",
+                        principle_node=node,
+                        lit_idx=(lit_idx, lit_copy_num)
                     )
                 )
         return extensions
 
-    def _reductions(self):
+    def _reductions(self, node: Tableau) -> List["ConnectionAction"]:
+        """Get the list of possible reduction actions.
+
+        Returns:
+            List of possible reduction actions.
+        """
         reductions = []
-        for lit in self.goal.path():
-            unifies = False
-            if self.goal.literal.neg != lit.neg and self.goal.literal.symbol == lit.symbol:
-                unifies, updates = self.substitution.can_unify(self.goal.literal, lit)
+        for path_node in node.path[(not node.literal.neg, node.literal.symbol)]:
+            unifies, updates = self.substitution.can_unify((node.literal_idx, node.copy_num), 
+                                                           (path_node.literal_idx, path_node.copy_num))
             if unifies:
                 reductions.append(
                     ConnectionAction(
-                        type="re",
-                        principle_node=self.goal,
-                        sub_updates=updates,
-                        path_lit=lit,
-                        id="re" + str(len(reductions)),
+                        action_type="reduction",
+                        principle_node=node,
+                        connection_idx=(path_node.literal_idx, path_node.copy_num)
                     )
                 )
         return reductions
 
-    def _regularizable(self, clause):
-        for path_lit in self.goal.path():
-            for clause_lit in clause:
-                #self.substitution.equal(path_lit, clause_lit)
-                if path_lit.neg == clause_lit.neg and path_lit.symbol == clause_lit.symbol:
-                    # print(self.substitution.to_dict())
-                    # print(path_lit, clause_lit)
-                    # print(self.substitution(path_lit), self.substitution(clause_lit))
-                    # if self.substitution(path_lit) == self.substitution(clause_lit):
-                    if self.substitution.equal(path_lit, clause_lit):
-                        return True
+    def _regularizable(self, node: Tableau) -> bool:
+        """Check if a clause is regularizable.
+
+        Args:
+            clause: The clause to check.
+
+        Returns:
+            True if the clause is regularizable, False otherwise.
+        """
+        for clause_node in node.parent.children:
+            clause_lit = self.matrix[clause_node.literal_idx]
+            for path_node in node.path[(clause_lit.neg, clause_lit.symbol)]:
+                if self.substitution.equal((path_node.literal_idx, path_node.copy_num),
+                                           (clause_node.literal_idx, clause_node.copy_num)):
+                    return True
         return False
 
-    def _legal_actions(self):
-        if self.goal.parent == None:
-            return {action.id: action for action in self._starts()}
-        current_clause = [node.literal for node in self.goal.parent.children[1:]]
-        reg = self._regularizable(current_clause)
-        if (self.goal is None) or reg:
-            actions = self._backtracks()
-        elif self.settings.iterative_deepening and (self.goal.depth >= self.max_depth):
-            actions = self._reductions() + self._backtracks()
+    def _legal_actions(self, node: Tableau) -> Dict[str, "ConnectionAction"]:
+        """Get the dictionary of legal actions in the current state.
+
+        Returns:
+            Dictionary mapping action IDs to their corresponding actions.
+        """
+        # Root node
+        if node.path == None:
+            return self._starts(node)
+        
+        # Non-root node
+        if self._regularizable(node):
+            return []
+        
+        if self.settings.iterative_deepening and (node.depth >= self.max_depth):
+            return self._reductions(node) + self._backtracks(node)
+        
+        return self._reductions(node) + self._extensions(node) + self._backtracks(node)
+    
+    def _gather_legal_actions(self, node: Tableau) -> None:
+        if node.children or node.closed_branches >= len(node.children):
+            self.legal_actions[node] = self._undo(node)
+            for child in node.children:
+                self._gather_legal_actions(child)
+                
         else:
-            actions = self._reductions() + self._extensions() + self._backtracks()
-        return {action.id: action for action in actions}
+            self.legal_actions[node] = self._legal_actions(node)
 
-    def backtrack(self):
-        # Backtrack to previous choice point (goal). If no choice points left, reset. 
-        actions = {}
-        while not actions or actions.keys() == ['bt'] or (self.settings.restricted_backtracking and (self.goal.num_attempted > self.settings.backtrack_after)):
-            self.goal = self.goal.find_prev()
 
-            if self.proof_sequence:
-                self.proof_sequence.pop()
+    def update_goals(self, action: "ConnectionAction") -> None:
+        """Update the state based on the selected action.
 
-            actions = self.goal.actions
-            self.substitution.backtrack()
-            self.goal.proven = False
-            self.goal.children = []
-
-            # If no new actions available for previous goals increase depth
-            if self.goal is self.tableau and not self.goal.actions:
-                self.reset(depth=self.max_depth+1)
-                break
-
-    def update_goal(self, action):
-        del self.goal.actions[action.id]
-        self.goal.num_attempted += 1
-
-        if action.type == 'bt':
-            self.backtrack()
+        Args:
+            action: The action to apply.
+        """
+        self.substitution.update(action.sub_updates)
+        
+        if action.type == "undo":
+            action.principle_node.children = []
+            action.principle_node.closed_branches = 0
+            self.gather_legal_actions(self.tableau)
             return
-        else:
-            self.substitution.update(action.sub_updates)
-            self.proof_sequence.append(action)
 
-        if action.type == 'st':
-            if action.clause_copy is None:
-                self.info = 'Non-Theorem: no positive start clauses'
-                self.is_terminal = True
-                return
-            self.goal.children = [Tableau(lit, self.goal) for lit in action.clause_copy]
-
-        # Make literal extended to child and mark as proven for backtracking purposes
-        if action.type == "ex":
-            self.goal.children = [Tableau(lit, self.goal) for lit in action.clause_copy]
-            self.goal.children[action.lit_idx].proven = True
-            self.goal.children.insert(0, self.goal.children.pop(action.lit_idx))
-
+        matrix_idx, copy_num = action.connection_idx
+        if action.type in ["st", "ex"]:
+            (connection_idx, clause_idx) = matrix_idx
+            self.matrix.copy_counter[clause_idx] += 1
+            
+            if action.action_type == "st":
+                path = {} 
+            else:
+                parent_lit = self.matrix[action.principle_node.literal_idx]
+                path = action.principle_node.path + {(parent_lit.neg, parent_lit.symbol): [action.principle_node]}
+            
+            children = [Tableau(lit_idx,copy_num, path, action.principal_node) for lit_idx in self.matrix[clause_idx]]
+            children[connection_idx].propogate_closed()
+            
         if action.type == "re":
-            self.goal.proven = True
+            children = [Tableau(matrix_idx,copy_num, action.principle_node.path, action.principal_node)]
+            children[0].propogate_closed()
+            
+        action.principle_node.children = children
 
-        # Find next goal node, if None, a proof has been found, otherwise backtrack
         self.theorem_or_next()
 
-    def theorem_or_next(self):
-        self.goal = self.goal.find_next()
-        if self.goal is None:
-            self.info = 'Theorem'
+    def theorem_or_next(self) -> None:
+        """Check if a theorem has been proven or find the next goal.
+
+        Updates the state's terminal status and goal node accordingly.
+        """
+        if self.tableau.closed_branches >= len(self.tableau.children):
+            self.info = "Theorem"
             self.is_terminal = True
             return
-        self.goal.actions = self._legal_actions()
+        
+        for goal in self.goals:
+            goal.actions = self._legal_actions(goal)
+
 
 class ConnectionAction:
-    """
-    Abstract action class defines functions required of an action in an
-    action space defined by a problem searched by an agent.
-    """
+    """Represents an action in the connection calculus proof search.
 
+    Attributes:
+        type: The type of action (start, extension, reduction, or backtrack).
+        principle_node: The node this action is applied to.
+        connection_idx: The matrix index of the connecting literal. ((lit_idx, clause_idx), copy_idx)
+    """
     def __init__(
-            self,
-            type,
-            principle_node=None,
-            sub_updates=[],
-            id=None,
-            lit_idx=None,
-            path_lit=None,
-            clause_copy=None,
-    ):
-        self.type = type
+        self,
+        action_type: str,
+        principle_node: Tableau = None,
+        connection_idx: Optional[Tuple[Tuple[int, int], int]] = None,
+    ) -> None:
+        self.action_type = action_type
         self.principle_node = principle_node
-        self.sub_updates = sub_updates
-        self.path_lit = path_lit
-        self.lit_idx = lit_idx
-        self.clause_copy = clause_copy
-        self.id = id
+        self.connection_idx = connection_idx
 
     def __repr__(self):
-        if self.type == "ex":
-            return f"{self.id}: {str(self.principle_node.literal)} -> {str(self.clause_copy)}"
-        if self.type == "re":
-            return f"{self.id}: {str(self.principle_node.literal)} <- {str(self.path_lit)}"
-        if self.type == "st":
-            return f"{self.id}: {str(self.clause_copy)}"
-        if self.type == "bt":
-            return 'Backtrack'
+        return f"{self.principle_node} -> {self.action_type} -> {self.connection_idx}"

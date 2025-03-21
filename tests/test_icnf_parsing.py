@@ -1,9 +1,10 @@
 from connections.utils.icnf_parsing import file2cnf
 
+
 class TestICNFParsing:
     # ARRANGE
-    m = '[[big_f(_3436), -big_f(f(_3436))], [big_f(_2806), big_f(f(_2806))], [-big_f(f(_2806)), -big_f(_2806)]]'
-    r = file2cnf('tests/icnf_problems/SYN081+1.cnf')
+    m = "[[big_f(_3436), -big_f(f(_3436))], [big_f(_2806), big_f(f(_2806))], [-big_f(f(_2806)), -big_f(_2806)]]"
+    r = file2cnf("tests/icnf_problems/SYN081+1.cnf")
 
     def test_file2cnf_print(self):
         # ASSERT
@@ -15,5 +16,5 @@ class TestICNFParsing:
 
     def test_file2cnf_second_prefix(self):
         # ASSERT
-        assert str(self.r.clauses[0][1].prefix.args[0]) == 'c_skolem(8, _3436)'
+        assert str(self.r.clauses[0][1].prefix.args[0]) == "c_skolem(8, _3436)"
         assert len(self.r.clauses[0][1].prefix.args) == 1

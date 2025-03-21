@@ -1,20 +1,79 @@
-[tool.poetry]
+[project]
 name = "connections"
 version = "0.1.0"
-description = ""
-authors = ["Fredrik Rømming <fr409@cam.ac.uk>"]
+description = "A Python implementation of connection calculi for automated theorem proving"
+authors = [
+    {name = "Fredrik Rømming", email = "fr409@cam.ac.uk"}
+]
 readme = "README.md"
+requires-python = ">=3.10"
+dependencies = []
+license = {text = "MIT"}
+keywords = ["theorem-proving", "automated-reasoning", "connection-calculi", "logic"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Scientific/Engineering :: Mathematics"
+]
 
-[tool.poetry.dependencies]
-python = "^3.10"
+[project.urls]
+Homepage = "https://github.com/fredrrom/connections"
+Repository = "https://github.com/fredrrom/connections.git"
+Documentation = "https://fredrrom.github.io/connections"
+Issues = "https://github.com/fredrrom/connections/issues"
 
-[tool.poetry.dev-dependencies]
-pytest = "^7.2.0"
-pytest-cov = "^4.0.0"
-jupyter = "^1.0.0"
-tqdm = "^4.64.1"
-pandas = "^1.5.1"
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.2.0",
+    "pytest-cov>=4.0.0",
+    "black>=24.2.0",
+    "isort[pyproject]>=5.13.2",
+    "flake8>=7.0.0",
+    "flake8-pyproject>=1.2.3",
+    "flake8-docstrings>=1.7.0",
+    "flake8-bugbear>=23.12.2",
+    "flake8-comprehensions>=3.14.0",
+    "mypy[pyproject]>=1.8.0",
+    "ipython>=8.21.0"
+]
+docs = [
+    "sphinx>=7.2.0",
+    "furo>=2024.1.29",
+    "sphinx-autodoc-typehints>=1.25.0",
+    "sphinx-copybutton>=0.5.0",
+    "sphinx-design>=0.5.0",
+    "myst-parser>=2.0.0",
+    "sphinxcontrib-mermaid>=0.9.2"
+]
 
 [build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.pytest.ini_options]
+addopts = "-ra -q --cov=connections --cov-report=term-missing"
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+
+[tool.setuptools]
+packages = ["connections"]
+include-package-data = false
+
+[tool.black]
+line-length = 88
+
+[tool.isort]
+profile = "black"
+
+[tool.flake8]
+extend-ignore = ["E203", "E501"]
+per-file-ignores = ["__init__.py:F401"]
+
+[tool.mypy]
+strict = true

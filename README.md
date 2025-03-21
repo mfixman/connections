@@ -1,11 +1,13 @@
 # Connections
 
-[![tests](https://github.com/fredrrom/CoPs/actions/workflows/python-app.yml/badge.svg?branch=main)](https://github.com/fredrrom/CoPs/actions/workflows/python-app.yml)
-[![License: MIT](https://img.shields.io/github/license/fredrrom/connections)](https://github.com/fredrrom/connections/blob/main/LICENSE)
+[![Python](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![Tests](https://img.shields.io/badge/tests-passing-brightgreen.svg)](https://github.com/fredrrom/connections/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/github/license/fredrrom/connections)](https://github.com/fredrrom/connections/blob/new_backtracking_semantics/LICENSE)
+[![Documentation](https://img.shields.io/badge/docs-sphinx-blue.svg)](https://fredrrom.github.io/connections/)
 
 Reinforcement learning environments for classical, intuitionistic, and modal first-order connection calculi in Python. 
 
-For further details see the [paper](https://ceur-ws.org/Vol-3613/AReCCa2023_paper8.pdf).
+For further details, see the [documentation](https://fredrrom.github.io/connections/).
 
 ## Requirements
 
@@ -17,9 +19,9 @@ For further details see the [paper](https://ceur-ws.org/Vol-3613/AReCCa2023_pape
 
 ### Reinforcement Learning Environments
 
-To begin using the reinforcement learning environments, simply install the `connections` Python package using the folllowing command:
+To begin using the reinforcement learning environments, simply install the `connections` Python package using the following command:
 
-```
+```bash
 pip install git+https://github.com/fredrrom/connections.git 
 ```
 
@@ -29,7 +31,7 @@ Each `connections` environment is initialized with a first-order conjecture as i
 
 To translate TPTP/QMLTP formated files or run the standalone pyCoP provers, either clone the repository:
 
-```
+```bash
 git clone https://github.com/fredrrom/connections.git
 ```
 
@@ -53,7 +55,7 @@ while True:
         break
 ```
 
-In addition to classical first-order logic, `ConnectionEnv` supports intuitionistic logic and modal logics S4, S5, D, and T each for the constant, cumulative, and varying domains. Logic and domain can be specifified during the creation of the environment as by passing settings as follows:
+In addition to classical first-order logic, `ConnectionEnv` supports intuitionistic logic and modal logics S4, S5, D, and T each for the constant, cumulative, and varying domains. Logic and domain can be specified during the creation of the environment as follows:
 
 ```python
 settings = Settings(logic="S5", domain="varying")
@@ -61,13 +63,13 @@ settings = Settings(logic="S5", domain="varying")
 env = ConnectionEnv("problem_path", settings=settings)
 ```
 
-**NB** The environments cannot be registered as gym environments, as their state and action spaces do not inherit from `gym.spaces`. 
-They are, however, designed to be used as backends for your own gym environments.
+**NB** The environments cannot be registered as gym environments, as their state and action spaces do not inherit from `gym.spaces`. They are, however, designed to be used as backends for your own gym environments.
 
 ## A Worked Example
-Consider double-negation elimination, that $p$ is equivalent to $\lnot \lnot p$. This is a theorem in classical logic, and is saved in the file `tests/cnf_problems/SYN001+1.p`
 
-That file contains 5 clauses, which are found by means of Definition 3 in [Otten's "Restricting Backtracking in Connection Calculi"](http://www.otten1.de/papers/restricting_backtracking_aicom10.pdf). 
+Consider double-negation elimination, that $p$ is equivalent to $\lnot \lnot p$. This is a theorem in classical logic, and is saved in the file `tests/cnf_problems/SYN001+1.p`.
+
+That file contains 5 clauses, which are found by means of Definition 3 in [Otten's "Restricting Backtracking in Connection Calculi"](http://www.otten1.de/papers/restricting_backtracking_aicom10.pdf).
 
 Running the following code (from inside this project's directory):
 ```python
@@ -91,13 +93,14 @@ should print
 
 {'status': 'Theorem'}
 ```
+
 The latter line tells us that this is a theorem, i.e. that the formula is valid. The former line gives us the proof sequence reached at the end, from which one can reconstruct the full proof tree. Alternatively, one can inspect the tableau by calling `print(observation.tableau)`.
 
 ## TPTP/QMLTP Translation
 
 To translate TPTP/QMLTP formatted files into the `connections` format, run the following command
 
-```
+```bash
 translation/<logic>/translate.sh <file>
 ```
 
@@ -111,7 +114,7 @@ To guarantee correct translation, please use SWI-Prolog version 8.4.3 and ensure
 
 The provers can be invoked (at the top level directory of this repository) with the following command
 
-```
+```bash
 python pycop.py <file> [logic] [domain]
 ```
 
@@ -119,9 +122,11 @@ where `<file>` is the path to the problem file in TPTP/QMLTP syntax, the optiona
 
 These connection provers are equivalent to version 1.0f of the leanCoP, ileanCoP and MleanCoP provers for classical, intuitionistic and modal logic, respectively, which can be found in the `comparisons` directory.
 
-## BibTeX Citation
+## Citation
 
-```
+If you use this software in your research, please cite it as follows:
+
+```bibtex
 @inproceedings{connections_2023,
     author     = {Rømming, Fredrik and Otten, Jens and Holden, Sean B.},
     title      = {Connections: {Markov} {Decision} {Processes} for {Classical}, 
@@ -133,4 +138,3 @@ These connection provers are equivalent to version 1.0f of the leanCoP, ileanCoP
     year       = {2023},
     pages      = {107--118},
 }
-```

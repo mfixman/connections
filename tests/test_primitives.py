@@ -10,7 +10,7 @@ class TestVariable:
         y = self.x.copy(1)
 
         # ASSERT
-        assert str(self.x) + '1' == str(y)
+        assert str(self.x) + "1" == str(y)
 
 
 class TestFunction:
@@ -20,7 +20,7 @@ class TestFunction:
 
     def test_function_str(self):
         # ACT and ASSERT
-        assert str(self.f) == 'f(X)'
+        assert str(self.f) == "f(X)"
 
 
 class TestLiteral:
@@ -31,14 +31,14 @@ class TestLiteral:
 
     def test_literal_str(self):
         # ACT and ASSERT
-        assert str(self.p) == 'p(f(X))'
+        assert str(self.p) == "p(f(X))"
 
     def test_literal_copy(self):
         # ACT
         y = self.p.copy(1)
 
         # ASSERT
-        assert 'p(f(X1))' == str(y)
+        assert "p(f(X1))" == str(y)
 
 
 class TestMatrix:
@@ -60,7 +60,7 @@ class TestMatrix:
         copy = self.m.copy(0)
 
         # ASSERT
-        assert str(copy) == '[p(f(X1))]'
+        assert str(copy) == "[p(f(X1))]"
 
     def test_lit_idx(self):
         # ACT

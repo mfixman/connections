@@ -1,28 +1,32 @@
-import sys
-import os 
-import subprocess
+import argparse
+import os
 import signal
+import subprocess
+import sys
 import traceback
-from os.path import dirname, abspath
+from os.path import abspath, dirname
 
 from connections.env import *
-import argparse
 
-parser = argparse.ArgumentParser(description='Python equivalent of version 1.0f of leanCoP, ileanCoP, and mleanCoP')
+parser = argparse.ArgumentParser(
+    description="Python equivalent of version 1.0f of leanCoP, ileanCoP, and mleanCoP"
+)
 parser.add_argument("file", help="The conjecture you want to prove")
-parser.add_argument('logic', nargs='?', default='classical', help="Which logic")
-parser.add_argument('domain', nargs='?', default='constant', help="Which domain")
+parser.add_argument("logic", nargs="?", default="classical", help="Which logic")
+parser.add_argument("domain", nargs="?", default="constant", help="Which domain")
 args = parser.parse_args()
 
-if args.logic == 'classical':
-    translator_path = 'translation/classical/translate.sh'
-elif args.logic == 'intuitionistic':
-    translator_path = 'translation/intuitionistic/translate.sh'
+if args.logic == "classical":
+    translator_path = "translation/classical/translate.sh"
+elif args.logic == "intuitionistic":
+    translator_path = "translation/intuitionistic/translate.sh"
 else:
-    translator_path = 'translation/modal/translate.sh'
+    translator_path = "translation/modal/translate.sh"
 
 problem = os.path.basename(os.path.normpath(args.file))
-with subprocess.Popen([translator_path, args.file, problem], preexec_fn=os.setsid) as process:
+with subprocess.Popen(
+    [translator_path, args.file, problem], preexec_fn=os.setsid
+) as process:
     try:
         output, errors = process.communicate(timeout=1)
     except subprocess.TimeoutExpired as err:

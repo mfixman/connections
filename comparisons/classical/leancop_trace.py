@@ -1,15 +1,14 @@
 import sys
 import traceback
-
-from os.path import dirname, abspath
+from os.path import abspath, dirname
 
 sys.path.append(dirname(dirname(abspath(__file__))))
 
-from connections.env import *
-
 import argparse
 
-parser = argparse.ArgumentParser(description='leanCoP Python version')
+from connections.env import *
+
+parser = argparse.ArgumentParser(description="leanCoP Python version")
 parser.add_argument("file", help="The conjecture you want to prove")
 args = parser.parse_args()
 
