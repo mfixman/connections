@@ -1,8 +1,21 @@
 from dataclasses import dataclass
 from typing import Optional, Literal
 
-LogicType = Literal['classical','intuitionistic','D','T','S4','S5']
-DomainType = Literal['constant','cumulative','varying']
+from enum import StrEnum, auto
+
+class Logic(StrEnum):
+    Classical = auto()
+    Intuitionistic = auto()
+    Modal = auto()
+    D = auto()
+    T = auto()
+    S4 = auto()
+    S5 = auto()
+
+class Domain(StrEnum):
+    Constant = auto()
+    Cumulative = auto()
+    Varying = auto()
 
 @dataclass
 class Settings:
@@ -11,8 +24,8 @@ class Settings:
     iterative_deepening_initial_depth: int = 1
     restricted_backtracking: bool = False
     backtrack_after: int = 2
-    logic: LogicType = 'classical'
-    domain: DomainType = 'constant'
+    logic: Logic = Logic.Classical
+    domain: Domain = Domain.Constant
 
 class ConnectionEnv:
     def __init__(self, path: str, settings: Optional[Settings] = None):
@@ -25,7 +38,7 @@ class ConnectionEnv:
         self._init_state()
 
     def _parse_matrix(self, path: str):
-        if self.settings.logic == 'classical':
+        if self.settings.logic == Logic.Classical:
             from connections.utils.cnf_parsing import file2cnf
         else:
             from connections.utils.icnf_parsing import file2cnf
@@ -33,12 +46,12 @@ class ConnectionEnv:
 
     def _init_state(self):
         logic_state_map = {
-            'classical': 'connections.calculi.classical.ConnectionState',
-            'intuitionistic': 'connections.calculi.intuitionistic.IConnectionState',
-            'D': 'connections.calculi.modal_d.DConnectionState',
-            'T': 'connections.calculi.modal_t.TConnectionState',
-            'S4': 'connections.calculi.modal_s4.S4ConnectionState',
-            'S5': 'connections.calculi.modal_s5.S5ConnectionState'
+            Logic.Classical: 'connections.calculi.classical.ConnectionState',
+            Logic.Intuitionistic: 'connections.calculi.intuitionistic.IConnectionState',
+            Logic.D: 'connections.calculi.modal_d.DConnectionState',
+            Logic.T: 'connections.calculi.modal_t.TConnectionState',
+            Logic.S4: 'connections.calculi.modal_s4.S4ConnectionState',
+            Logic.S5: 'connections.calculi.modal_s5.S5ConnectionState'
         }
 
         state_class_path = logic_state_map[self.settings.logic]

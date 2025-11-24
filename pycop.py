@@ -8,39 +8,43 @@ from os.path import dirname, abspath
 from connections.env import *
 import argparse
 
-parser = argparse.ArgumentParser(description='Python equivalent of version 1.0f of leanCoP, ileanCoP, and mleanCoP')
-parser.add_argument("file", help="The conjecture you want to prove")
-parser.add_argument('logic', nargs='?', default='classical', help="Which logic")
-parser.add_argument('domain', nargs='?', default='constant', help="Which domain")
-args = parser.parse_args()
+from pathlib import Path
 
-if args.logic == 'classical':
-    translator_path = 'translation/classical/translate.sh'
-elif args.logic == 'intuitionistic':
-    translator_path = 'translation/intuitionistic/translate.sh'
-else:
-    translator_path = 'translation/modal/translate.sh'
+def parse_args():
+    parser = argparse.ArgumentParser(description = 'Python equivalent of version 1.0f of leanCoP, ileanCoP, and mleanCoP')
+    parser.add_argument('--logic', default = 'classical', type = Logic, help = "Which logic")
+    parser.add_argument('--domain', default = 'constant', help = "Which domain")
+    parser.add_argument('--translate', action = 'store_true', help = 'Whether to translate the logic with Prolog.')
+    parser.add_argument("file", help = "The conjecture you want to prove")
+    return parser.parse_args()
 
-problem = os.path.basename(os.path.normpath(args.file))
-with subprocess.Popen([translator_path, args.file, problem], preexec_fn=os.setsid) as process:
-    try:
-        output, errors = process.communicate(timeout=1)
-    except subprocess.TimeoutExpired as err:
-        os.killpg(os.getpgid(process.pid), signal.SIGTERM)
-if os.path.exists(problem):
-    os.remove(problem)
+def translate_logic(file: str, logic: Logic) -> str:
+    translator_path = Path('translation') / str(logic) / 'translate.sh'
 
-env = ConnectionEnv(args.file, Settings(logic=args.logic, domain=args.domain))
+    problem = os.path.basename(os.path.normpath(args.file))
+    with subprocess.Popen([translator_path, args.file, problem], preexec_fn = os.setsid) as process:
+        try:
+            output, errors = process.communicate(timeout = 1)
+        except subprocess.TimeoutExpired as err:
+            os.killpg(os.getpgid(process.pid), signal.SIGTERM)
 
-try:
+    print(errors, file = sys.stderr)
+    return output
+
+def main():
+    args = parse_args()
+
+    env = ConnectionEnv(args.file, Settings(logic = args.logic, domain = args.domain))
+
     observation = env.reset()
-    while True:
+
+    done = False
+    while not done:
         action = env.action_space[0]
         print(action)
         observation, reward, done, info = env.step(action)
-        if done:
-            break
+
     print(info)
-except Exception:
-    print(traceback.format_exc())
-    print(sys.exc_info()[2])
+
+if __name__ == '__main__':
+    main()

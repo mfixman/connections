@@ -1,6 +1,5 @@
 from connections.utils.unification import Substitution
 
-
 class Tableau:
     def __init__(self, literal=None, parent=None):
         self.literal = literal
