@@ -2,8 +2,9 @@ from dataclasses import dataclass
 from typing import Optional, Literal
 
 from enum import StrEnum, auto
+from Utils import *
 
-class Logic(StrEnum):
+class Logic(UncaseEnum):
     Classical = auto()
     Intuitionistic = auto()
     Modal = auto()
@@ -12,7 +13,7 @@ class Logic(StrEnum):
     S4 = auto()
     S5 = auto()
 
-class Domain(StrEnum):
+class Domain(UncaseEnum):
     Constant = auto()
     Cumulative = auto()
     Varying = auto()
