@@ -1,9 +1,11 @@
 import re
+import sys
 
 from connections.utils.primitives import *
 
 
 def file2cnf(path):
+    print(f'Opening "{path}"', file = sys.stderr)
     with open(path, "r") as file:
         return parse_fof(file.read())
 

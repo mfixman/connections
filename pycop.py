@@ -30,9 +30,7 @@ with subprocess.Popen([translator_path, args.file, problem], preexec_fn=os.setsi
 if os.path.exists(problem):
     os.remove(problem)
 
-env = ConnectionEnv(problem, Settings(logic=args.logic, domain=args.domain))
-
-print(env)
+env = ConnectionEnv(args.file, Settings(logic=args.logic, domain=args.domain))
 
 try:
     observation = env.reset()
