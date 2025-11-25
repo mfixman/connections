@@ -4,7 +4,15 @@ from typing import Optional, Literal
 from enum import StrEnum, auto
 from Utils import *
 
+from connections.calculi.classical import ConnectionState
+from connections.calculi.intuitionistic import IConnectionState
+from connections.calculi.modal_d import DConnectionState
+from connections.calculi.modal_t import TConnectionState
+from connections.calculi.modal_s4 import S4ConnectionState
+from connections.calculi.modal_s5 import S5ConnectionState
+
 class Logic(UncaseEnum):
+    ClassicalSAT = auto()
     Classical = auto()
     Intuitionistic = auto()
     Modal = auto()
@@ -12,6 +20,18 @@ class Logic(UncaseEnum):
     T = auto()
     S4 = auto()
     S5 = auto()
+
+    def state_class(self):
+        class_map = {
+            Logic.Classical: ConnectionState,
+            Logic.Intuitionistic: IConnectionState,
+            Logic.D: DConnectionState,
+            Logic.T: TConnectionState,
+            Logic.S4: S4ConnectionState,
+            Logic.S5: S5ConnectionState
+        }
+
+        return class_map[self]
 
 class Domain(UncaseEnum):
     Constant = auto()
@@ -46,21 +66,7 @@ class ConnectionEnv:
         self.matrix = file2cnf(path)
 
     def _init_state(self):
-        logic_state_map = {
-            Logic.Classical: 'connections.calculi.classical.ConnectionState',
-            Logic.Intuitionistic: 'connections.calculi.intuitionistic.IConnectionState',
-            Logic.D: 'connections.calculi.modal_d.DConnectionState',
-            Logic.T: 'connections.calculi.modal_t.TConnectionState',
-            Logic.S4: 'connections.calculi.modal_s4.S4ConnectionState',
-            Logic.S5: 'connections.calculi.modal_s5.S5ConnectionState'
-        }
-
-        state_class_path = logic_state_map[self.settings.logic]
-        module_name, class_name = state_class_path.rsplit('.', 1)
-        module = __import__(module_name, fromlist=[class_name])
-        state_class = getattr(module, class_name)
-
-        self.state = state_class(self.matrix, self.settings)
+        self.state = self.settings.logic.state_class()(self.matrix, self.settings)
 
     @property
     def action_space(self):
