@@ -4,12 +4,16 @@ from typing import Optional, Literal
 from enum import StrEnum, auto
 from Utils import *
 
+from connections.calculi.classicalsat import SATConnectionState
 from connections.calculi.classical import ConnectionState
 from connections.calculi.intuitionistic import IConnectionState
 from connections.calculi.modal_d import DConnectionState
 from connections.calculi.modal_t import TConnectionState
 from connections.calculi.modal_s4 import S4ConnectionState
 from connections.calculi.modal_s5 import S5ConnectionState
+
+from connections.utils.cnf_parsing import file2cnf as CNF
+from connections.utils.icnf_parsing import file2cnf as ICNF
 
 class Logic(UncaseEnum):
     ClassicalSAT = auto()
@@ -23,6 +27,7 @@ class Logic(UncaseEnum):
 
     def state_class(self):
         class_map = {
+            Logic.ClassicalSAT: SATConnectionState,
             Logic.Classical: ConnectionState,
             Logic.Intuitionistic: IConnectionState,
             Logic.D: DConnectionState,
@@ -32,6 +37,16 @@ class Logic(UncaseEnum):
         }
 
         return class_map[self]
+
+    def parser(self):
+        match self:
+            case Logic.Classical | Logic.ClassicalSAT:
+                return CNF
+
+            case Logic.Intuitionistic | Logic.D | Logic.T | Logic.S4 | Logic.S5:
+                return ICNF
+
+        raise LookupError(f'Unknown parser for logic {self}')
 
 class Domain(UncaseEnum):
     Constant = auto()
@@ -59,11 +74,7 @@ class ConnectionEnv:
         self._init_state()
 
     def _parse_matrix(self, path: str):
-        if self.settings.logic == Logic.Classical:
-            from connections.utils.cnf_parsing import file2cnf
-        else:
-            from connections.utils.icnf_parsing import file2cnf
-        self.matrix = file2cnf(path)
+        self.matrix = self.settings.logic.parser()(path)
 
     def _init_state(self):
         self.state = self.settings.logic.state_class()(self.matrix, self.settings)
