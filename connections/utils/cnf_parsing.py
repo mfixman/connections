@@ -3,12 +3,11 @@ import sys
 
 from connections.utils.primitives import *
 
-
 def file2cnf(path):
     print(f'Opening "{path}"', file = sys.stderr)
     with open(path, "r") as file:
-        return parse_fof(file.read())
-
+        text = re.sub(r'\s+', '', file.read())
+        return parse_fof(text)
 
 def parse_fof(fof):
     clauses_str = re.findall(r"\[.*\]", fof)[0][2:-2].split(r"],[")
@@ -16,14 +15,12 @@ def parse_fof(fof):
         return Matrix([])
     return Matrix([parse_clause(clause_str) for clause_str in clauses_str])
 
-
 def parse_clause(clause_str):
     literals = []
     for literal_str in split_bracket(clause_str):
         lit = parse_literal(literal_str)
         literals.append(lit)
     return literals
-
 
 def parse_literal(literal_str):
     neg = False

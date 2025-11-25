@@ -49,7 +49,6 @@ class Tableau:
             prev = parent
         return prev
 
-
 class SATConnectionState:
     def __init__(self, matrix, settings):
         self.matrix = matrix
@@ -151,12 +150,7 @@ class SATConnectionState:
     def regularizable(self, clause):
         for path_lit in self.goal.path():
             for clause_lit in clause:
-                #self.substitution.equal(path_lit, clause_lit)
                 if path_lit.neg == clause_lit.neg and path_lit.symbol == clause_lit.symbol:
-                    # print(self.substitution.to_dict())
-                    # print(path_lit, clause_lit)
-                    # print(self.substitution(path_lit), self.substitution(clause_lit))
-                    # if self.substitution(path_lit) == self.substitution(clause_lit):
                     if self.substitution.equal(path_lit, clause_lit):
                         return True
         return False

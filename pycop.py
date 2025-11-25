@@ -20,6 +20,7 @@ def parse_args():
 
 def translate_logic(file: str, logic: Logic) -> str:
     translator_path = Path('translation') / str(logic) / 'translate.sh'
+    print(translator_path)
 
     problem = os.path.basename(os.path.normpath(args.file))
     with subprocess.Popen([translator_path, args.file, problem], preexec_fn = os.setsid) as process:
@@ -35,7 +36,6 @@ def main():
     args = parse_args()
 
     env = ConnectionEnv(args.file, Settings(logic = args.logic, domain = args.domain))
-
     observation = env.reset()
 
     done = False
