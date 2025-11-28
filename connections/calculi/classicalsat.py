@@ -1,7 +1,11 @@
 from connections.utils.unification import Substitution
+from connections.utils.primitives import Matrix
+from typing import Optional
+
+import re
 
 class Tableau:
-    def __init__(self, literal=None, parent=None):
+    def __init__(self, literal = None, parent = None):
         self.literal = literal
         self.parent = parent
         self.children = []
@@ -9,6 +13,10 @@ class Tableau:
         self.depth = parent.depth + 1 if parent is not None else -1
         self.num_attempted = 0
         self.actions = {}
+
+        if self.literal is not None and re.search(r'_[0-9]{6,}', str(self.literal)):
+            import ipdb
+            ipdb.set_trace()
 
     def __str__(self):
         angle = "└── " if self.depth >= 0 else ""
@@ -49,13 +57,58 @@ class Tableau:
             prev = parent
         return prev
 
+class ConnectionAction:
+    """
+    Abstract action class defines functions required of an action in an
+    action space defined by a problem searched by an agent.
+    """
+
+    def __init__(
+            self,
+            type,
+            principle_node = None,
+            sub_updates = [],
+            id = None,
+            lit_idx = None,
+            path_lit = None,
+            clause_copy = None,
+    ):
+        self.type = type
+        self.principle_node = principle_node
+        self.sub_updates = sub_updates
+        self.path_lit = path_lit
+        self.lit_idx = lit_idx
+        self.clause_copy = clause_copy
+        self.id = id
+
+    def __repr__(self):
+        if self.type == "ex":
+            return f"{self.id}: {str(self.principle_node.literal)} -> {str(self.clause_copy)}"
+        if self.type == "re":
+            return f"{self.id}: {str(self.principle_node.literal)} <- {str(self.path_lit)}"
+        if self.type == "st":
+            return f"{self.id}: {str(self.clause_copy)}"
+        if self.type == "bt":
+            return 'Backtrack'
+
 class SATConnectionState:
-    def __init__(self, matrix, settings):
+    matrix: Matrix
+
+    tableau: Tableau
+    goal: Tableau
+    substitution: Substitution
+    max_depth: int
+
+    info: Optional[str]
+    is_terminal: bool
+    proof_sequence: list[ConnectionAction]
+
+    def __init__(self, matrix: Matrix, settings):
         self.matrix = matrix
         self.settings = settings
         self.reset()
 
-    def __str__(self):
+    def __str__(self) -> str:
         substitution = "\n".join(
             f"{k} → {v}" for k, v in self.substitution.to_dict().items()
         )
@@ -65,17 +118,17 @@ class SATConnectionState:
                 f"{i}. {str(action)}" for i, action in enumerate(self.goal.actions.values())
             )
         return (
-            f"=========================\n"
+            f" = == = == = == = == = == = == = == = == = \n"
             f"Tableau:\n{self.tableau}\n\n"
             f"Substitution:\n{substitution}\n\n"
             f"Available Actions:\n{actions}"
             f"\n\nMax Depth: {self.max_depth}"
-            f"\n========================="
+            f"\n = == = == = == = == = == = == = == = == = "
         )
     
-    def reset(self, depth=None):
+    def reset(self, depth: Optional[int] = None):
         # Tableau fields
-        self.max_depth = depth
+        self.max_depth = depth if depth is not None else 10
 
         if depth is None:
             self.max_depth = self.settings.iterative_deepening_initial_depth
@@ -90,8 +143,8 @@ class SATConnectionState:
         self.is_terminal = False
         self.proof_sequence = []
 
-    def starts(self):
-        starts = []
+    def starts(self) -> list[ConnectionAction]:
+        starts: list[ConnectionAction] = []
         start_clause_candidates = self.matrix.positive_clauses
         if not self.settings.positive_start_clauses:
             start_clause_candidates = self.matrix.clauses
@@ -99,38 +152,40 @@ class SATConnectionState:
             clause_copy = self.matrix.copy(clause)
             starts.append(
                     ConnectionAction(
-                        type="st",
-                        clause_copy=clause_copy,
-                        id="st" + str(len(starts))
+                        type = "st",
+                        clause_copy = clause_copy,
+                        id = "st" + str(len(starts))
                     )
                 )
         if not starts:
-            starts.append(ConnectionAction(type="st", id="st0"))
+            starts.append(ConnectionAction(type = "st", id = "st0"))
+
         return starts
     
-    def backtracks(self):
-        return [ConnectionAction(type='bt', id='bt')]
+    def backtracks(self) -> list[ConnectionAction]:
+        return [ConnectionAction(type = 'bt', id = 'bt')]
 
-    def extensions(self):
-        extensions = []
+    def extensions(self) -> list[ConnectionAction]:
+        extensions: list[ConnectionAction] = []
+
         for clause_idx, lit_idx in self.matrix.complements(self.goal.literal):
             clause_copy = self.matrix.copy(clause_idx)
             unifies, updates = self.substitution.can_unify(self.goal.literal,clause_copy[lit_idx])
             if unifies:
                 extensions.append(
                     ConnectionAction(
-                        type="ex",
-                        principle_node=self.goal,
-                        sub_updates=updates,
-                        lit_idx=lit_idx,
-                        clause_copy=clause_copy,
-                        id="ex" + str(len(extensions)),
+                        type = "ex",
+                        principle_node = self.goal,
+                        sub_updates = updates,
+                        lit_idx = lit_idx,
+                        clause_copy = clause_copy,
+                        id = "ex" + str(len(extensions)),
                     )
                 )
         return extensions
 
-    def reductions(self):
-        reductions = []
+    def reductions(self) -> list[ConnectionAction]:
+        reductions: list[ConnectionAction] = []
         for lit in self.goal.path():
             unifies = False
             if self.goal.literal.neg != lit.neg and self.goal.literal.symbol == lit.symbol:
@@ -138,11 +193,11 @@ class SATConnectionState:
             if unifies:
                 reductions.append(
                     ConnectionAction(
-                        type="re",
-                        principle_node=self.goal,
-                        sub_updates=updates,
-                        path_lit=lit,
-                        id="re" + str(len(reductions)),
+                        type = "re",
+                        principle_node = self.goal,
+                        sub_updates = updates,
+                        path_lit = lit,
+                        id = "re" + str(len(reductions)),
                     )
                 )
         return reductions
@@ -155,7 +210,7 @@ class SATConnectionState:
                         return True
         return False
 
-    def legal_actions(self):
+    def legal_actions(self) -> dict[int, ConnectionAction]:
         if self.goal.parent == None:
             return {action.id: action for action in self.starts()}
 
@@ -170,9 +225,9 @@ class SATConnectionState:
 
         return {action.id: action for action in actions}
 
-    def backtrack(self):
+    def backtrack(self) -> None:
         # Backtrack to previous choice point (goal). If no choice points left, reset. 
-        actions = {}
+        actions: dict[int, ConnectionAction] = {}
         while not actions or actions.keys() == ['bt'] or (self.settings.restricted_backtracking and (self.goal.num_attempted > self.settings.backtrack_after)):
             self.goal = self.goal.find_prev()
 
@@ -186,7 +241,7 @@ class SATConnectionState:
 
             # If no new actions available for previous goals increase depth
             if self.goal is self.tableau and not self.goal.actions:
-                self.reset(depth=self.max_depth+1)
+                self.reset(depth = self.max_depth + 1)
                 break
 
     def update_goal(self, action):
@@ -227,36 +282,3 @@ class SATConnectionState:
             return
         self.goal.actions = self.legal_actions()
 
-class ConnectionAction:
-    """
-    Abstract action class defines functions required of an action in an
-    action space defined by a problem searched by an agent.
-    """
-
-    def __init__(
-            self,
-            type,
-            principle_node=None,
-            sub_updates=[],
-            id=None,
-            lit_idx=None,
-            path_lit=None,
-            clause_copy=None,
-    ):
-        self.type = type
-        self.principle_node = principle_node
-        self.sub_updates = sub_updates
-        self.path_lit = path_lit
-        self.lit_idx = lit_idx
-        self.clause_copy = clause_copy
-        self.id = id
-
-    def __repr__(self):
-        if self.type == "ex":
-            return f"{self.id}: {str(self.principle_node.literal)} -> {str(self.clause_copy)}"
-        if self.type == "re":
-            return f"{self.id}: {str(self.principle_node.literal)} <- {str(self.path_lit)}"
-        if self.type == "st":
-            return f"{self.id}: {str(self.clause_copy)}"
-        if self.type == "bt":
-            return 'Backtrack'

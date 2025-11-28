@@ -138,3 +138,4 @@ class Matrix:
         :return: index of the literal in the flattened matrix
         """
         return self.flattened_idx[literal.matrix_pos]
+

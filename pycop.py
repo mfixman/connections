@@ -5,6 +5,8 @@ import signal
 import traceback
 from os.path import dirname, abspath
 
+import random
+
 from connections.env import *
 import argparse
 
@@ -41,7 +43,9 @@ def main():
     done = False
     while not done:
         action = env.action_space[0]
-        print(action)
+        if random.randint(0, 1000) == 0:
+            print(action)
+            print(info)
         observation, reward, done, info = env.step(action)
 
     print(info)
