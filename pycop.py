@@ -17,7 +17,7 @@ def parse_args():
     parser.add_argument('--logic', default = Logic.Classical, choices = list(Logic), type = Logic, help = "Which logic")
     parser.add_argument('--domain', default = Domain.Constant, choices = list(Domain), type = Domain, help = "Which domain")
     parser.add_argument('--translate', action = 'store_true', help = 'Whether to translate the logic with Prolog.')
-    parser.add_argument('--print-ratio', type = int, default = 1000, help = 'Ratio of messages to be printed')
+    parser.add_argument('--print-ratio', '-pr', type = int, default = 1, help = 'Ratio of messages to be printed')
     parser.add_argument("file", help = "The conjecture you want to prove")
     return parser.parse_args()
 
@@ -42,11 +42,13 @@ def main():
     observation = env.reset()
 
     done = False
+    info = None
     while not done:
         action = env.action_space[0]
         if random.randint(0, args.print_ratio) == 0:
             print(action)
-            print(info)
+            if info:
+                print(info)
 
         observation, reward, done, info = env.step(action)
 

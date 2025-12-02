@@ -87,11 +87,11 @@ class ConnectionEnv:
         return actions
 
     def step(self, action):
-        if self.state.is_terminal:
-            return self.state, int(self.state.is_terminal), self.state.is_terminal, {"status": self.state.info}
-        else:
+        if not self.state.is_terminal:
             self.state.update_goal(action)
-        return self.state, int(self.state.is_terminal), self.state.is_terminal, {"status": self.state.info}
+
+        status = None if not self.state.info else {"status": self.state.info}
+        return self.state, int(self.state.is_terminal), self.state.is_terminal, status
 
     def reset(self):
         self.matrix.reset()
