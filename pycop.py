@@ -18,6 +18,7 @@ def parse_args():
     parser.add_argument('--domain', default = Domain.Constant, choices = list(Domain), type = Domain, help = "Which domain")
     parser.add_argument('--translate', action = 'store_true', help = 'Whether to translate the logic with Prolog.')
     parser.add_argument('--print-ratio', '-pr', type = int, default = 1, help = 'Ratio of messages to be printed')
+    parser.add_argument('--max-steps', default = 100000, type = int, help = 'Maximum amount of steps before breaking.')
     parser.add_argument("file", help = "The conjecture you want to prove")
     return parser.parse_args()
 
@@ -43,16 +44,23 @@ def main():
 
     done = False
     info = None
+
+    steps = 0
     while not done:
+        if args.max_steps is not None and steps >= args.max_steps:
+            info = {'Solution': 'Unknown'}
+            break
+
         action = env.action_space[0]
-        if random.randint(0, args.print_ratio) == 0:
+        if args.print_ratio > 0 and random.randint(0, args.print_ratio - 1) == 1:
             print(action)
             if info:
                 print(info)
 
         observation, reward, done, info = env.step(action)
+        steps += 1
 
-    print(info)
+    print(info | {'steps': steps})
 
 if __name__ == '__main__':
     main()
