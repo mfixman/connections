@@ -167,7 +167,7 @@ class SATConnectionState:
                 sat_clause = self.ground_clause(action.clause_copy)
                 self.solver.add_clause(sat_clause)
 
-                print(f'Reset clause: {sat_clause} from {action}')
+                # print(f'Reset clause: {sat_clause} from {action}')
 
     # Converts a logical Literal to a SAT integer.
     def ground_literal(self, literal: Literal) -> int:
@@ -333,11 +333,11 @@ class SATConnectionState:
                 sat_clause = self.ground_clause(action.clause_copy)
                 self.solver.add_clause(sat_clause)
 
-                print(f'Extension clause: {sat_clause} from {action.clause_copy}')
+                # print(f'Extension clause: {sat_clause} from {action.clause_copy}')
    
                 # Check for Global Refutation
                 if not self.solver.solve():
-                    print(f'Solved by an extension clause (global refutation).')
+                    # print(f'Solved by an extension clause (global refutation).')
                     self.is_terminal = True
                     self.info = 'Theorem (SAT)'
                     return

@@ -6,7 +6,9 @@ from connections.utils.primitives import *
 def file2cnf(path):
     print(f'Opening "{path}"', file = sys.stderr)
     with open(path, "r") as file:
-        text = re.sub(r'\s+', '', file.read())
+        text = file.read()
+        text = re.sub(r'^\s*%.*$', '', text)
+        text = re.sub(r'\s+', '', text)
         return parse_fof(text)
 
 def parse_fof(fof):
