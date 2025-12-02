@@ -1,8 +1,6 @@
 from connections.utils.unification import Substitution
-from connections.utils.primitives import Matrix
-from typing import Optional
 
-import re
+from enum import StrEnum, auto
 
 class Tableau:
     def __init__(self, literal = None, parent = None):
@@ -14,9 +12,9 @@ class Tableau:
         self.num_attempted = 0
         self.actions = {}
 
-        if self.literal is not None and re.search(r'_[0-9]{6,}', str(self.literal)):
-            import ipdb
-            ipdb.set_trace()
+        # if self.literal is not None and re.search(r'_[0-9]{6,}', str(self.literal)):
+            # import ipdb
+            # ipdb.set_trace()
 
     def __str__(self):
         angle = "└── " if self.depth >= 0 else ""
@@ -65,7 +63,7 @@ class ConnectionAction:
 
     def __init__(
             self,
-            type,
+            type: SATConnectionAction.type,
             principle_node = None,
             sub_updates = [],
             id = None,
@@ -92,16 +90,26 @@ class ConnectionAction:
             return 'Backtrack'
 
 class SATConnectionState:
+    class Type(StrEnum):
+       Start = auto()
+       Extension = auto()
+       Reduction = auto()
+       Backtrack = auto()
+
+
     matrix: Matrix
 
     tableau: Tableau
     goal: Tableau
     substitution: Substitution
     max_depth: int
+    type: SATConnectionAction.type
 
     info: Optional[str]
     is_terminal: bool
     proof_sequence: list[ConnectionAction]
+
+    settings
 
     def __init__(self, matrix: Matrix, settings):
         self.matrix = matrix
