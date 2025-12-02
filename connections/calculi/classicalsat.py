@@ -167,6 +167,8 @@ class SATConnectionState:
                 sat_clause = self.ground_clause(action.clause_copy)
                 self.solver.add_clause(sat_clause)
 
+                print(f'Reset clause: {sat_clause} from {action}')
+
     # Converts a logical Literal to a SAT integer.
     def ground_literal(self, literal: Literal) -> int:
         # Apply substitution to get the most grounded version
@@ -314,19 +316,6 @@ class SATConnectionState:
             self.substitution.update(action.sub_updates)
             self.proof_sequence.append(action)
 
-        # --- SAT ADDITION: Accumulate & Check UNSAT ---
-        if action.type == State.Extension:
-             # Ground the clause used for extension
-             sat_clause = self.ground_clause(action.clause_copy)
-             self.solver.add_clause(sat_clause)
-
-             # Check for Global Refutation
-             if not self.solver.solve():
-                 self.is_terminal = True
-                 self.info = 'Theorem (SAT)'
-                 return
-        # ----------------------------------------------
-
         match action.type:
             case State.Backtrack:
                 self.backtrack()
@@ -340,6 +329,19 @@ class SATConnectionState:
                 self.goal.children = [Tableau(lit, self.goal) for lit in action.clause_copy]
 
             case State.Extension:
+                # Ground the clause used for extension
+                sat_clause = self.ground_clause(action.clause_copy)
+                self.solver.add_clause(sat_clause)
+
+                print(f'Extension clause: {sat_clause} from {action.clause_copy}')
+   
+                # Check for Global Refutation
+                if not self.solver.solve():
+                    print(f'Solved by an extension clause (global refutation).')
+                    self.is_terminal = True
+                    self.info = 'Theorem (SAT)'
+                    return
+
                 self.goal.children = [Tableau(lit, self.goal) for lit in action.clause_copy]
                 self.goal.children[action.lit_idx].proven = True
                 self.goal.children.insert(0, self.goal.children.pop(action.lit_idx))
@@ -352,25 +354,10 @@ class SATConnectionState:
 
     def theorem_or_next(self):
         self.goal = self.goal.find_next()
-
-        # --- SAT ADDITION: Model-Based Lemmata (Pruning) ---
-        if self.goal is not None:
-            # Check if the SAT solver has a model where this goal is FALSE
-            if self.solver.solve():
-                model = set(self.solver.get_model())
-                ground_goal_lit = self.ground_literal(self.goal.literal)
-
-                # If Goal is False in Model (i.e., -Goal is True in Model)
-                if -ground_goal_lit in model:
-                    # Skip this goal (Treat as proven)
-                    self.goal.proven = True
-                    self.theorem_or_next()
-                    return
-        # ---------------------------------------------------
-
         if self.goal is None:
             # Standard success condition if no SAT pruning
             self.info = 'Theorem'
             self.is_terminal = True
             return
+
         self.goal.actions = self.legal_actions()
