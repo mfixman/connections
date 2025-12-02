@@ -1,5 +1,8 @@
 from connections.utils.unification import Substitution
-
+from connections.utils.primitives import Matrix
+from typing import Optional
+ 
+import re
 from enum import StrEnum, auto
 
 class Tableau:
@@ -55,6 +58,12 @@ class Tableau:
             prev = parent
         return prev
 
+class State(StrEnum):
+   Start = auto()
+   Extension = auto()
+   Reduction = auto()
+   Backtrack = auto()
+
 class ConnectionAction:
     """
     Abstract action class defines functions required of an action in an
@@ -63,7 +72,7 @@ class ConnectionAction:
 
     def __init__(
             self,
-            type: SATConnectionAction.type,
+            type: State,
             principle_node = None,
             sub_updates = [],
             id = None,
@@ -80,36 +89,28 @@ class ConnectionAction:
         self.id = id
 
     def __repr__(self):
-        if self.type == "ex":
-            return f"{self.id}: {str(self.principle_node.literal)} -> {str(self.clause_copy)}"
-        if self.type == "re":
-            return f"{self.id}: {str(self.principle_node.literal)} <- {str(self.path_lit)}"
-        if self.type == "st":
-            return f"{self.id}: {str(self.clause_copy)}"
-        if self.type == "bt":
-            return 'Backtrack'
+        match self.type:
+            case State.Extension:
+                return f"{self.id}: {str(self.principle_node.literal)} -> {str(self.clause_copy)}"
+            case State.Reduction:
+                return f"{self.id}: {str(self.principle_node.literal)} <- {str(self.path_lit)}"
+            case State.Start:
+                return f"{self.id}: {str(self.clause_copy)}"
+            case State.Backtrack:
+                return 'Backtrack'
 
 class SATConnectionState:
-    class Type(StrEnum):
-       Start = auto()
-       Extension = auto()
-       Reduction = auto()
-       Backtrack = auto()
-
-
     matrix: Matrix
 
     tableau: Tableau
     goal: Tableau
     substitution: Substitution
     max_depth: int
-    type: SATConnectionAction.type
+    type: State
 
     info: Optional[str]
     is_terminal: bool
     proof_sequence: list[ConnectionAction]
-
-    settings
 
     def __init__(self, matrix: Matrix, settings):
         self.matrix = matrix
@@ -160,18 +161,18 @@ class SATConnectionState:
             clause_copy = self.matrix.copy(clause)
             starts.append(
                     ConnectionAction(
-                        type = "st",
+                        type = State.Start,
                         clause_copy = clause_copy,
                         id = "st" + str(len(starts))
                     )
                 )
         if not starts:
-            starts.append(ConnectionAction(type = "st", id = "st0"))
+            starts.append(ConnectionAction(type = State.Start, id = "st0"))
 
         return starts
     
     def backtracks(self) -> list[ConnectionAction]:
-        return [ConnectionAction(type = 'bt', id = 'bt')]
+        return [ConnectionAction(type = State.Backtrack, id = 'bt')]
 
     def extensions(self) -> list[ConnectionAction]:
         extensions: list[ConnectionAction] = []
@@ -182,7 +183,7 @@ class SATConnectionState:
             if unifies:
                 extensions.append(
                     ConnectionAction(
-                        type = "ex",
+                        type = State.Extension,
                         principle_node = self.goal,
                         sub_updates = updates,
                         lit_idx = lit_idx,
@@ -201,7 +202,7 @@ class SATConnectionState:
             if unifies:
                 reductions.append(
                     ConnectionAction(
-                        type = "re",
+                        type = State.Reduction,
                         principle_node = self.goal,
                         sub_updates = updates,
                         path_lit = lit,
@@ -236,7 +237,7 @@ class SATConnectionState:
     def backtrack(self) -> None:
         # Backtrack to previous choice point (goal). If no choice points left, reset. 
         actions: dict[int, ConnectionAction] = {}
-        while not actions or actions.keys() == ['bt'] or (self.settings.restricted_backtracking and (self.goal.num_attempted > self.settings.backtrack_after)):
+        while not actions or actions.keys() == [State.Backtrack] or (self.settings.restricted_backtracking and (self.goal.num_attempted > self.settings.backtrack_after)):
             self.goal = self.goal.find_prev()
 
             if self.proof_sequence:
@@ -256,28 +257,30 @@ class SATConnectionState:
         del self.goal.actions[action.id]
         self.goal.num_attempted += 1
 
-        if action.type == 'bt':
-            self.backtrack()
-            return
-        else:
+        if action.type != State.Backtrack:
             self.substitution.update(action.sub_updates)
             self.proof_sequence.append(action)
 
-        if action.type == 'st':
-            if action.clause_copy is None:
-                self.info = 'Non-Theorem: no positive start clauses'
-                self.is_terminal = True
+        match action.type:
+            case State.Backtrack:
+                self.backtrack()
                 return
-            self.goal.children = [Tableau(lit, self.goal) for lit in action.clause_copy]
 
-        # Make literal extended to child and mark as proven for backtracking purposes
-        if action.type == "ex":
-            self.goal.children = [Tableau(lit, self.goal) for lit in action.clause_copy]
-            self.goal.children[action.lit_idx].proven = True
-            self.goal.children.insert(0, self.goal.children.pop(action.lit_idx))
+            case State.Start :
+                if action.clause_copy is None:
+                    self.info = 'Non-Theorem: no positive start clauses'
+                    self.is_terminal = True
+                    return
+                self.goal.children = [Tableau(lit, self.goal) for lit in action.clause_copy]
 
-        if action.type == "re":
-            self.goal.proven = True
+            # Make literal extended to child and mark as proven for backtracking purposes
+            case State.Extension:
+                self.goal.children = [Tableau(lit, self.goal) for lit in action.clause_copy]
+                self.goal.children[action.lit_idx].proven = True
+                self.goal.children.insert(0, self.goal.children.pop(action.lit_idx))
+
+            case State.Reduction:
+                self.goal.proven = True
 
         # Find next goal node, if None, a proof has been found, otherwise backtrack
         self.theorem_or_next()
