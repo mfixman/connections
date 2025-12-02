@@ -1,9 +1,12 @@
 from connections.utils.unification import Substitution
 from connections.utils.primitives import Matrix
 from typing import Optional
- 
+
 import re
 from enum import StrEnum, auto
+
+import pysat
+from pysat.solver import Solver
 
 class Tableau:
     def __init__(self, literal = None, parent = None):
@@ -58,6 +61,7 @@ class Tableau:
             prev = parent
         return prev
 
+# This should be several dataclasses that inherit from ConnectionAction.
 class State(StrEnum):
    Start = auto()
    Extension = auto()
@@ -112,10 +116,16 @@ class SATConnectionState:
     is_terminal: bool
     proof_sequence: list[ConnectionAction]
 
+    sat_solver: Solver
+    atom_map: dict[str, int]
+
     def __init__(self, matrix: Matrix, settings):
         self.matrix = matrix
         self.settings = settings
         self.reset()
+
+        self.sat_solver = Solver(name = 'picosat')
+        self.sat_atom_map = {}
 
     def __str__(self) -> str:
         substitution = "\n".join(
@@ -134,7 +144,7 @@ class SATConnectionState:
             f"\n\nMax Depth: {self.max_depth}"
             f"\n = == = == = == = == = == = == = == = == = "
         )
-    
+
     def reset(self, depth: Optional[int] = None):
         # Tableau fields
         self.max_depth = depth if depth is not None else 10
@@ -152,11 +162,33 @@ class SATConnectionState:
         self.is_terminal = False
         self.proof_sequence = []
 
+        # SAT Actions
+        for action in self.starts():
+            if action.clause_copy:
+                self.solver.add_clause(self.ground(action.clause_copy)
+
+    def legal_actions(self) -> dict[int, ConnectionAction]:
+        if self.goal.parent == None:
+            return {action.id: action for action in self.starts()}
+
+        current_clause = [node.literal for node in self.goal.parent.children[1:]]
+        reg = self.regularizable(current_clause)
+        if (self.goal is None) or reg:
+            actions = self.backtracks()
+        elif self.settings.iterative_deepening and (self.goal.depth >= self.max_depth):
+            actions = self.reductions() + self.backtracks()
+        else:
+            actions = self.reductions() + self.extensions() + self.backtracks()
+
+        return {action.id: action for action in actions}
+
     def starts(self) -> list[ConnectionAction]:
         starts: list[ConnectionAction] = []
         start_clause_candidates = self.matrix.positive_clauses
+
         if not self.settings.positive_start_clauses:
             start_clause_candidates = self.matrix.clauses
+
         for clause in start_clause_candidates:
             clause_copy = self.matrix.copy(clause)
             starts.append(
@@ -166,13 +198,37 @@ class SATConnectionState:
                         id = "st" + str(len(starts))
                     )
                 )
+
         if not starts:
             starts.append(ConnectionAction(type = State.Start, id = "st0"))
 
         return starts
-    
-    def backtracks(self) -> list[ConnectionAction]:
-        return [ConnectionAction(type = State.Backtrack, id = 'bt')]
+
+    def regularizable(self, clause):
+        for path_lit in self.goal.path():
+            for clause_lit in clause:
+                if path_lit.neg == clause_lit.neg and path_lit.symbol == clause_lit.symbol:
+                    if self.substitution.equal(path_lit, clause_lit):
+                        return True
+        return False
+
+    def reductions(self) -> list[ConnectionAction]:
+        reductions: list[ConnectionAction] = []
+        for lit in self.goal.path():
+            unifies = False
+            if self.goal.literal.neg != lit.neg and self.goal.literal.symbol == lit.symbol:
+                unifies, updates = self.substitution.can_unify(self.goal.literal, lit)
+            if unifies:
+                reductions.append(
+                    ConnectionAction(
+                        type = State.Reduction,
+                        principle_node = self.goal,
+                        sub_updates = updates,
+                        path_lit = lit,
+                        id = "re" + str(len(reductions)),
+                    )
+                )
+        return reductions
 
     def extensions(self) -> list[ConnectionAction]:
         extensions: list[ConnectionAction] = []
@@ -193,46 +249,8 @@ class SATConnectionState:
                 )
         return extensions
 
-    def reductions(self) -> list[ConnectionAction]:
-        reductions: list[ConnectionAction] = []
-        for lit in self.goal.path():
-            unifies = False
-            if self.goal.literal.neg != lit.neg and self.goal.literal.symbol == lit.symbol:
-                unifies, updates = self.substitution.can_unify(self.goal.literal, lit)
-            if unifies:
-                reductions.append(
-                    ConnectionAction(
-                        type = State.Reduction,
-                        principle_node = self.goal,
-                        sub_updates = updates,
-                        path_lit = lit,
-                        id = "re" + str(len(reductions)),
-                    )
-                )
-        return reductions
-
-    def regularizable(self, clause):
-        for path_lit in self.goal.path():
-            for clause_lit in clause:
-                if path_lit.neg == clause_lit.neg and path_lit.symbol == clause_lit.symbol:
-                    if self.substitution.equal(path_lit, clause_lit):
-                        return True
-        return False
-
-    def legal_actions(self) -> dict[int, ConnectionAction]:
-        if self.goal.parent == None:
-            return {action.id: action for action in self.starts()}
-
-        current_clause = [node.literal for node in self.goal.parent.children[1:]]
-        reg = self.regularizable(current_clause)
-        if (self.goal is None) or reg:
-            actions = self.backtracks()
-        elif self.settings.iterative_deepening and (self.goal.depth >= self.max_depth):
-            actions = self.reductions() + self.backtracks()
-        else:
-            actions = self.reductions() + self.extensions() + self.backtracks()
-
-        return {action.id: action for action in actions}
+    def backtracks(self) -> list[ConnectionAction]:
+        return [ConnectionAction(type = State.Backtrack, id = 'bt')]
 
     def backtrack(self) -> None:
         # Backtrack to previous choice point (goal). If no choice points left, reset. 
@@ -292,4 +310,3 @@ class SATConnectionState:
             self.is_terminal = True
             return
         self.goal.actions = self.legal_actions()
-
