@@ -1,12 +1,10 @@
 from connections.utils.unification import Substitution
-from connections.utils.primitives import Matrix
+from connections.utils.primitives import Matrix, Literal, Variable
 from typing import Optional
-
-import re
 from enum import StrEnum, auto
+import re
 
-import pysat
-from pysat.solver import Solver
+from pysat.solvers import Solver
 
 class Tableau:
     def __init__(self, literal = None, parent = None):
@@ -17,10 +15,6 @@ class Tableau:
         self.depth = parent.depth + 1 if parent is not None else -1
         self.num_attempted = 0
         self.actions = {}
-
-        # if self.literal is not None and re.search(r'_[0-9]{6,}', str(self.literal)):
-            # import ipdb
-            # ipdb.set_trace()
 
     def __str__(self):
         angle = "└── " if self.depth >= 0 else ""
@@ -63,16 +57,18 @@ class Tableau:
 
 # This should be several dataclasses that inherit from ConnectionAction.
 class State(StrEnum):
-   Start = auto()
-   Extension = auto()
-   Reduction = auto()
-   Backtrack = auto()
+    Start = auto()
+    Extension = auto()
+    Reduction = auto()
+    Backtrack = auto()
 
 class ConnectionAction:
     """
     Abstract action class defines functions required of an action in an
     action space defined by a problem searched by an agent.
     """
+
+    type: State
 
     def __init__(
             self,
@@ -110,22 +106,24 @@ class SATConnectionState:
     goal: Tableau
     substitution: Substitution
     max_depth: int
-    type: State
+
+    solver: Solver
+    atom_map: dict[str, int]
+    next_atom_id: int
 
     info: Optional[str]
     is_terminal: bool
     proof_sequence: list[ConnectionAction]
 
-    sat_solver: Solver
-    atom_map: dict[str, int]
-
     def __init__(self, matrix: Matrix, settings):
         self.matrix = matrix
         self.settings = settings
-        self.reset()
 
-        self.sat_solver = Solver(name = 'picosat')
-        self.sat_atom_map = {}
+        self.solver = Solver(name='cadical153')
+        self.atom_map = {}
+        self.next_atom_id = 1
+
+        self.reset()
 
     def __str__(self) -> str:
         substitution = "\n".join(
@@ -162,10 +160,48 @@ class SATConnectionState:
         self.is_terminal = False
         self.proof_sequence = []
 
-        # SAT Actions
+        # SAT Accumulation: Ensure start clauses are in the solver
+        # We re-add them on reset to be safe (solver is monotonic/idempotent for clauses)
         for action in self.starts():
             if action.clause_copy:
-                self.solver.add_clause(self.ground(action.clause_copy)
+                sat_clause = self.ground_clause(action.clause_copy)
+                self.solver.add_clause(sat_clause)
+
+    # Converts a logical Literal to a SAT integer.
+    def ground_literal(self, literal: Literal) -> int:
+        # Apply substitution to get the most grounded version
+        if self.substitution:
+            ground_lit = self.substitution(literal)
+        else:
+            ground_lit = literal
+
+        # Canonicalize: Map all variables to a single constant '*'
+        # This implements the "simplest scheme" from the paper.
+        atom_str = self.canonicalize_atom(ground_lit)
+
+        if atom_str not in self.atom_map:
+            self.atom_map[atom_str] = self.next_atom_id
+            self.next_atom_id += 1
+
+        sat_id = self.atom_map[atom_str]
+        return -sat_id if ground_lit.neg else sat_id
+
+    def canonicalize_atom(self, literal: Literal) -> str:
+        return self.stringify_term(literal)
+
+    def stringify_term(self, term) -> str:
+        if isinstance(term, Variable):
+            # THis is the weird part of the paper. Check it later.
+            return "var"
+
+        # if hasattr(term, 'args') and term.args:
+            # args_str = ",".join(self.stringify_term(a) for a in term.args)
+            # return f"{term.symbol}({args_str})"
+
+        return str(term.symbol)
+
+    def ground_clause(self, clause: list[Literal]) -> list[int]:
+        return [self.ground_literal(lit) for lit in clause]
 
     def legal_actions(self) -> dict[int, ConnectionAction]:
         if self.goal.parent == None:
@@ -198,7 +234,6 @@ class SATConnectionState:
                         id = "st" + str(len(starts))
                     )
                 )
-
         if not starts:
             starts.append(ConnectionAction(type = State.Start, id = "st0"))
 
@@ -279,6 +314,19 @@ class SATConnectionState:
             self.substitution.update(action.sub_updates)
             self.proof_sequence.append(action)
 
+        # --- SAT ADDITION: Accumulate & Check UNSAT ---
+        if action.type == State.Extension:
+             # Ground the clause used for extension
+             sat_clause = self.ground_clause(action.clause_copy)
+             self.solver.add_clause(sat_clause)
+
+             # Check for Global Refutation
+             if not self.solver.solve():
+                 self.is_terminal = True
+                 self.info = 'Theorem (SAT)'
+                 return
+        # ----------------------------------------------
+
         match action.type:
             case State.Backtrack:
                 self.backtrack()
@@ -291,7 +339,6 @@ class SATConnectionState:
                     return
                 self.goal.children = [Tableau(lit, self.goal) for lit in action.clause_copy]
 
-            # Make literal extended to child and mark as proven for backtracking purposes
             case State.Extension:
                 self.goal.children = [Tableau(lit, self.goal) for lit in action.clause_copy]
                 self.goal.children[action.lit_idx].proven = True
@@ -305,7 +352,24 @@ class SATConnectionState:
 
     def theorem_or_next(self):
         self.goal = self.goal.find_next()
+
+        # --- SAT ADDITION: Model-Based Lemmata (Pruning) ---
+        if self.goal is not None:
+            # Check if the SAT solver has a model where this goal is FALSE
+            if self.solver.solve():
+                model = set(self.solver.get_model())
+                ground_goal_lit = self.ground_literal(self.goal.literal)
+
+                # If Goal is False in Model (i.e., -Goal is True in Model)
+                if -ground_goal_lit in model:
+                    # Skip this goal (Treat as proven)
+                    self.goal.proven = True
+                    self.theorem_or_next()
+                    return
+        # ---------------------------------------------------
+
         if self.goal is None:
+            # Standard success condition if no SAT pruning
             self.info = 'Theorem'
             self.is_terminal = True
             return
