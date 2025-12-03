@@ -58,7 +58,12 @@ def main():
             if info:
                 print(info)
 
-        observation, reward, done, info = env.step(action)
+        try:
+            observation, reward, done, info = env.step(action)
+        except RecursionError:
+            logging.error('Recursion error.')
+            steps = args.max_steps - 1
+
         steps += 1
 
     print(info | {'steps': steps})

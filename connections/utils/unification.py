@@ -59,8 +59,10 @@ class Substitution:
         term_root = self.find(term, add=False)
         if var == term_root:
             return True
+
         if isinstance(term_root, Expression):
             return any(self.occurs_check(var, arg) for arg in term_root.args)
+
         return False
     
     def backtrack(self):
