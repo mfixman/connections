@@ -12,6 +12,7 @@ from connections.env import *
 import argparse
 
 from pathlib import Path
+import ipdb
 
 def parse_args():
     parser = argparse.ArgumentParser(description = 'Python equivalent of version 1.0f of leanCoP, ileanCoP, and mleanCoP')
@@ -36,11 +37,12 @@ def translate_logic(file: str, logic: Logic) -> str:
 
     return output
 
+@ipdb.launch_ipdb_on_exception()
 def main():
     args = parse_args()
     logging.basicConfig(level = logging.INFO if args.verbose else logging.WARN, format = '[%(relativeCreated)d] %(message)s')
 
-    env = ConnectionEnv(args.file, Settings(logic = args.logic, domain = args.domain))
+    env = ConnectionEnv(args.file, Settings(positive_start_clauses = False, logic = args.logic, domain = args.domain))
     observation = env.reset()
 
     done = False

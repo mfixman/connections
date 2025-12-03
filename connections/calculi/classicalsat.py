@@ -170,6 +170,7 @@ class SATConnectionState:
             if action.clause_copy:
                 sat_clause = self.ground_clause(action.clause_copy)
                 self.solver.add_clause(sat_clause)
+                logging.info(f'Adding {sat_clause}')
 
     # Converts a logical Literal to a SAT integer.
     def ground_literal(self, literal: Literal) -> int:
@@ -188,6 +189,8 @@ class SATConnectionState:
             self.next_atom_id += 1
 
         sat_id = self.atom_map[atom_str]
+        import ipdb
+        ipdb.set_trace()
         return -sat_id if literal.neg else sat_id
 
     def canonicalize_atom(self, literal: Literal) -> str:
@@ -307,6 +310,7 @@ class SATConnectionState:
 
             # If no new actions available for previous goals increase depth
             if self.goal is self.tableau and not self.goal.actions:
+                logging.info(f'Increasing depth to {max_depth + 1}')
                 self.reset(depth = self.max_depth + 1)
                 break
 

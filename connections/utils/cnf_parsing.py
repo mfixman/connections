@@ -22,22 +22,29 @@ def parse_clause(clause_str):
     for literal_str in split_bracket(clause_str):
         lit = parse_literal(literal_str)
         literals.append(lit)
+
     return literals
 
 def parse_literal(literal_str):
     neg = False
     if literal_str[0] == "-":
         neg = True
-        literal_str = literal_str[2:-1]
+
+        literal_str = literal_str[1:]
+        if literal_str[0] == '(':
+            literal_str = literal_str.removeprefix('(').removesuffix(')')
+
     split = literal_str.split(r"(", 1)
     terms = []
+
     if len(split) > 1:
         terms_str = split[1][:-1]
         for term_str in split_bracket(terms_str):
             terms.append(parse_term(term_str))
-    literal = Literal(split[0], terms, neg=neg)
-    return literal
 
+    literal = Literal(split[0], terms, neg=neg)
+
+    return literal
 
 def parse_term(term_str):
     if term_str[0] == "_":
