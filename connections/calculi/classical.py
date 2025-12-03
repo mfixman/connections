@@ -160,8 +160,10 @@ class ConnectionState:
     def _legal_actions(self):
         if self.goal.parent == None:
             return {action.id: action for action in self._starts()}
+
         current_clause = [node.literal for node in self.goal.parent.children[1:]]
         reg = self._regularizable(current_clause)
+
         if (self.goal is None) or reg:
             actions = self._backtracks()
         elif self.settings.iterative_deepening and (self.goal.depth >= self.max_depth):

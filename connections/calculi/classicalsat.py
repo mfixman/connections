@@ -6,6 +6,8 @@ import re
 
 from pysat.solvers import Solver
 
+import logging
+
 class Tableau:
     def __init__(self, literal = None, parent = None):
         self.literal = literal
@@ -150,6 +152,8 @@ class SATConnectionState:
         if depth is None:
             self.max_depth = self.settings.iterative_deepening_initial_depth
 
+        # print(f"Resetting Tableau (Depth {self.max_depth})")
+
         self.tableau = Tableau()
         self.goal = self.tableau
         self.substitution = Substitution()
@@ -166,8 +170,6 @@ class SATConnectionState:
             if action.clause_copy:
                 sat_clause = self.ground_clause(action.clause_copy)
                 self.solver.add_clause(sat_clause)
-
-                print(f'Reset clause: {sat_clause} from {action}')
 
     # Converts a logical Literal to a SAT integer.
     def ground_literal(self, literal: Literal) -> int:
@@ -186,7 +188,7 @@ class SATConnectionState:
             self.next_atom_id += 1
 
         sat_id = self.atom_map[atom_str]
-        return -sat_id if ground_lit.neg else sat_id
+        return -sat_id if literal.neg else sat_id
 
     def canonicalize_atom(self, literal: Literal) -> str:
         return self.stringify_term(literal)
@@ -316,6 +318,7 @@ class SATConnectionState:
             self.substitution.update(action.sub_updates)
             self.proof_sequence.append(action)
 
+        logging.info(action)
         match action.type:
             case State.Backtrack:
                 self.backtrack()
@@ -333,11 +336,8 @@ class SATConnectionState:
                 sat_clause = self.ground_clause(action.clause_copy)
                 self.solver.add_clause(sat_clause)
 
-                print(f'Extension clause: {sat_clause} from {action.clause_copy}')
-   
                 # Check for Global Refutation
                 if not self.solver.solve():
-                    print(f'Solved by an extension clause (global refutation).')
                     self.is_terminal = True
                     self.info = 'Theorem (SAT)'
                     return

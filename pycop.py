@@ -6,6 +6,7 @@ import traceback
 from os.path import dirname, abspath
 
 import random
+import logging
 
 from connections.env import *
 import argparse
@@ -19,12 +20,12 @@ def parse_args():
     parser.add_argument('--translate', action = 'store_true', help = 'Whether to translate the logic with Prolog.')
     parser.add_argument('--print-ratio', '-pr', type = int, default = 1, help = 'Ratio of messages to be printed')
     parser.add_argument('--max-steps', default = 100000, type = int, help = 'Maximum amount of steps before breaking.')
+    parser.add_argument('--verbose', '-v', action = 'store_true', help = 'Verbose messages.')
     parser.add_argument("file", help = "The conjecture you want to prove")
     return parser.parse_args()
 
 def translate_logic(file: str, logic: Logic) -> str:
     translator_path = Path('translation') / str(logic) / 'translate.sh'
-    print(translator_path)
 
     problem = os.path.basename(os.path.normpath(args.file))
     with subprocess.Popen([translator_path, args.file, problem], preexec_fn = os.setsid) as process:
@@ -33,11 +34,11 @@ def translate_logic(file: str, logic: Logic) -> str:
         except subprocess.TimeoutExpired as err:
             os.killpg(os.getpgid(process.pid), signal.SIGTERM)
 
-    print(errors, file = sys.stderr)
     return output
 
 def main():
     args = parse_args()
+    logging.basicConfig(level = logging.INFO if args.verbose else logging.WARN, format = '[%(relativeCreated)d] %(message)s')
 
     env = ConnectionEnv(args.file, Settings(logic = args.logic, domain = args.domain))
     observation = env.reset()
