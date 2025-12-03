@@ -102,6 +102,7 @@ class Matrix:
         self.complement = defaultdict(list)
         self.flattened_idx = {}
         self.positive_clauses = []
+        self.negative_clauses = []
         self.num_lits = sum([len(clause) for clause in self.clauses])
         lit_idx = 0
         for i, clause in enumerate(self.clauses):
@@ -115,6 +116,8 @@ class Matrix:
                     positive = False
             if positive:
                 self.positive_clauses.append(i)
+            else:
+                self.negative_clauses.append(i)
 
     def complements(self, literal):
         """

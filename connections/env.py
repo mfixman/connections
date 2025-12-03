@@ -1,3 +1,4 @@
+import dataclasses
 from dataclasses import dataclass
 from typing import Optional, Literal
 
@@ -48,6 +49,13 @@ class Logic(UncaseEnum):
 
         raise LookupError(f'Unknown parser for logic {self}')
 
+    def overrides(self):
+        match self:
+            case Logic.ClassicalSAT:
+                return dict(positive_start_clauses = False)
+
+        return {}
+
 class Domain(UncaseEnum):
     Constant = auto()
     Cumulative = auto()
@@ -67,6 +75,8 @@ class ConnectionEnv:
     def __init__(self, path: str, settings: Optional[Settings] = None):
         if settings is None:
             settings = Settings()
+
+        settings = dataclasses.replace(settings, **settings.logic.overrides())
 
         self.path = path
         self.settings = settings

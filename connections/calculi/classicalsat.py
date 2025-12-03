@@ -189,8 +189,6 @@ class SATConnectionState:
             self.next_atom_id += 1
 
         sat_id = self.atom_map[atom_str]
-        import ipdb
-        ipdb.set_trace()
         return -sat_id if literal.neg else sat_id
 
     def canonicalize_atom(self, literal: Literal) -> str:
@@ -230,7 +228,7 @@ class SATConnectionState:
         start_clause_candidates = self.matrix.positive_clauses
 
         if not self.settings.positive_start_clauses:
-            start_clause_candidates = self.matrix.clauses
+            start_clause_candidates += self.matrix.negative_clauses
 
         for clause in start_clause_candidates:
             clause_copy = self.matrix.copy(clause)
