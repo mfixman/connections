@@ -42,7 +42,7 @@ def main():
     args = parse_args()
     logging.basicConfig(level = logging.INFO if args.verbose else logging.WARN, format = '[%(relativeCreated)d] %(message)s')
 
-    env = ConnectionEnv(args.file, Settings(positive_start_clauses = False, logic = args.logic, domain = args.domain))
+    env = ConnectionEnv(args.file, Settings(logic = args.logic, domain = args.domain))
     observation = env.reset()
 
     done = False
