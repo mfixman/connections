@@ -7,6 +7,8 @@ import re
 from pysat.solvers import Solver
 
 import logging
+from dataclasses import dataclass
+from typing import cast
 
 class Tableau:
     def __init__(self, literal = None, parent = None):
@@ -57,49 +59,40 @@ class Tableau:
             prev = parent
         return prev
 
-# This should be several dataclasses that inherit from ConnectionAction.
-class State(StrEnum):
-    Start = auto()
-    Extension = auto()
-    Reduction = auto()
-    Backtrack = auto()
-
+@dataclass
 class ConnectionAction:
-    """
-    Abstract action class defines functions required of an action in an
-    action space defined by a problem searched by an agent.
-    """
+    id: str
 
-    type: State
-
-    def __init__(
-            self,
-            type: State,
-            principle_node = None,
-            sub_updates = [],
-            id = None,
-            lit_idx = None,
-            path_lit = None,
-            clause_copy = None,
-    ):
-        self.type = type
-        self.principle_node = principle_node
-        self.sub_updates = sub_updates
-        self.path_lit = path_lit
-        self.lit_idx = lit_idx
-        self.clause_copy = clause_copy
-        self.id = id
+@dataclass
+class Start(ConnectionAction):
+    clause_copy: list[Literal] = None
 
     def __repr__(self):
-        match self.type:
-            case State.Extension:
-                return f"{self.id}: {str(self.principle_node.literal)} -> {str(self.clause_copy)}"
-            case State.Reduction:
-                return f"{self.id}: {str(self.principle_node.literal)} <- {str(self.path_lit)}"
-            case State.Start:
-                return f"{self.id}: {str(self.clause_copy)}"
-            case State.Backtrack:
-                return 'Backtrack'
+        return f"{self.id}: {str(self.clause_copy)}"
+
+@dataclass
+class Reduction(ConnectionAction):
+    principle_node: Tableau
+    sub_updates: int
+    path_lit: int
+
+    def __repr__(self):
+        return f"{self.id}: {str(self.principle_node.literal)} <- {str(self.path_lit)}"
+
+@dataclass
+class Extension(ConnectionAction):
+    principle_node: Tableau
+    sub_updates: int
+    lit_idx: int
+    clause_copy: list[Literal]
+
+    def __repr__(self):
+        return f"{self.id}: {str(self.principle_node.literal)} -> {str(self.clause_copy)}"
+
+@dataclass
+class Backtrack(ConnectionAction):
+    def __repr__(self):
+        return 'Backtrack'
 
 class SATConnectionState:
     matrix: Matrix
@@ -208,23 +201,25 @@ class SATConnectionState:
     def ground_clause(self, clause: list[Literal]) -> list[int]:
         return [self.ground_literal(lit) for lit in clause]
 
-    def legal_actions(self) -> dict[int, ConnectionAction]:
+    def legal_actions(self) -> dict[str, ConnectionAction]:
         if self.goal.parent == None:
             return {action.id: action for action in self.starts()}
 
         current_clause = [node.literal for node in self.goal.parent.children[1:]]
         reg = self.regularizable(current_clause)
+
+        actions: list[ConnectionAction]
         if (self.goal is None) or reg:
-            actions = self.backtracks()
+            actions = cast(list[ConnectionAction], self.backtracks())
         elif self.settings.iterative_deepening and (self.goal.depth >= self.max_depth):
-            actions = self.reductions() + self.backtracks()
+            actions = cast(list[ConnectionAction], self.reductions() + self.backtracks())
         else:
-            actions = self.reductions() + self.extensions() + self.backtracks()
+            actions = cast(list[ConnectionAction], self.reductions() + self.extensions() + self.backtracks())
 
         return {action.id: action for action in actions}
 
-    def starts(self) -> list[ConnectionAction]:
-        starts: list[ConnectionAction] = []
+    def starts(self) -> list[Start]:
+        starts: list[Start] = []
         start_clause_candidates = self.matrix.positive_clauses
 
         if not self.settings.positive_start_clauses:
@@ -233,14 +228,13 @@ class SATConnectionState:
         for clause in start_clause_candidates:
             clause_copy = self.matrix.copy(clause)
             starts.append(
-                    ConnectionAction(
-                        type = State.Start,
+                    Start(
+                        id = "st" + str(len(starts)),
                         clause_copy = clause_copy,
-                        id = "st" + str(len(starts))
                     )
                 )
         if not starts:
-            starts.append(ConnectionAction(type = State.Start, id = "st0"))
+            starts.append(Start(id = "st0"))
 
         return starts
 
@@ -252,16 +246,15 @@ class SATConnectionState:
                         return True
         return False
 
-    def reductions(self) -> list[ConnectionAction]:
-        reductions: list[ConnectionAction] = []
+    def reductions(self) -> list[Reduction]:
+        reductions: list[Reduction] = []
         for lit in self.goal.path():
             unifies = False
             if self.goal.literal.neg != lit.neg and self.goal.literal.symbol == lit.symbol:
                 unifies, updates = self.substitution.can_unify(self.goal.literal, lit)
             if unifies:
                 reductions.append(
-                    ConnectionAction(
-                        type = State.Reduction,
+                    Reduction(
                         principle_node = self.goal,
                         sub_updates = updates,
                         path_lit = lit,
@@ -270,16 +263,15 @@ class SATConnectionState:
                 )
         return reductions
 
-    def extensions(self) -> list[ConnectionAction]:
-        extensions: list[ConnectionAction] = []
+    def extensions(self) -> list[Extension]:
+        extensions: list[Extension] = []
 
         for clause_idx, lit_idx in self.matrix.complements(self.goal.literal):
             clause_copy = self.matrix.copy(clause_idx)
             unifies, updates = self.substitution.can_unify(self.goal.literal,clause_copy[lit_idx])
             if unifies:
                 extensions.append(
-                    ConnectionAction(
-                        type = State.Extension,
+                    Extension(
                         principle_node = self.goal,
                         sub_updates = updates,
                         lit_idx = lit_idx,
@@ -289,13 +281,15 @@ class SATConnectionState:
                 )
         return extensions
 
-    def backtracks(self) -> list[ConnectionAction]:
-        return [ConnectionAction(type = State.Backtrack, id = 'bt')]
+    def backtracks(self) -> list[Backtrack]:
+        return [Backtrack(id = 'bt')]
 
     def backtrack(self) -> None:
         # Backtrack to previous choice point (goal). If no choice points left, reset. 
-        actions: dict[int, ConnectionAction] = {}
-        while not actions or actions.keys() == [State.Backtrack] or (self.settings.restricted_backtracking and (self.goal.num_attempted > self.settings.backtrack_after)):
+        actions: dict[str, ConnectionAction] = {}
+
+        limit = self.settings.backtrack_after if self.settings.restricted_backtracking else float('inf')
+        while all(isinstance(x, Backtrack) for x in actions.values()) or self.goal.num_attempted > limit:
             self.goal = self.goal.find_prev()
 
             if self.proof_sequence:
@@ -308,34 +302,37 @@ class SATConnectionState:
 
             # If no new actions available for previous goals increase depth
             if self.goal is self.tableau and not self.goal.actions:
-                logging.info(f'Increasing depth to {max_depth + 1}')
+                logging.info(f'Increasing depth to {self.max_depth + 1}')
                 self.reset(depth = self.max_depth + 1)
                 break
 
-    def update_goal(self, action):
+    def update_goal(self, action: ConnectionAction):
         del self.goal.actions[action.id]
         self.goal.num_attempted += 1
 
-        if action.type != State.Backtrack:
+        if isinstance(action, (Reduction, Extension)):
             self.substitution.update(action.sub_updates)
+
+        if not isinstance(action, Backtrack):
             self.proof_sequence.append(action)
 
         logging.info(action)
-        match action.type:
-            case State.Backtrack:
+        match action:
+            case Backtrack():
                 self.backtrack()
                 return
 
-            case State.Start :
-                if action.clause_copy is None:
+            case Start(clause_copy = clause_copy):
+                if clause_copy is None:
                     self.info = 'Non-Theorem: no positive start clauses'
                     self.is_terminal = True
                     return
-                self.goal.children = [Tableau(lit, self.goal) for lit in action.clause_copy]
 
-            case State.Extension:
+                self.goal.children = [Tableau(lit, self.goal) for lit in clause_copy]
+
+            case Extension(clause_copy = clause_copy, lit_idx = lit_idx):
                 # Ground the clause used for extension
-                sat_clause = self.ground_clause(action.clause_copy)
+                sat_clause = self.ground_clause(clause_copy)
                 self.solver.add_clause(sat_clause)
 
                 # Check for Global Refutation
@@ -344,11 +341,11 @@ class SATConnectionState:
                     self.info = 'Theorem (SAT)'
                     return
 
-                self.goal.children = [Tableau(lit, self.goal) for lit in action.clause_copy]
-                self.goal.children[action.lit_idx].proven = True
-                self.goal.children.insert(0, self.goal.children.pop(action.lit_idx))
+                self.goal.children = [Tableau(lit, self.goal) for lit in clause_copy]
+                self.goal.children[lit_idx].proven = True
+                self.goal.children.insert(0, self.goal.children.pop(lit_idx))
 
-            case State.Reduction:
+            case Reduction():
                 self.goal.proven = True
 
         # Find next goal node, if None, a proof has been found, otherwise backtrack
