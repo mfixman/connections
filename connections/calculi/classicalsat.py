@@ -4,7 +4,7 @@ from typing import Optional
 from enum import StrEnum, auto
 import re
 
-from pysat.solvers import Solver
+from pysat.solvers import Solver, Glucose4
 
 import logging
 from dataclasses import dataclass
@@ -114,9 +114,19 @@ class SATConnectionState:
         self.matrix = matrix
         self.settings = settings
 
-        self.solver = Solver(name='cadical153')
+        self.solver = Glucose4(with_proof = True)
         self.atom_map = {}
         self.next_atom_id = 1
+        self.substitution = Substitution()
+
+        self.clauses = []
+
+        for action in self.starts():
+            if action.clause_copy:
+                sat_clause = self.ground_clause(action.clause_copy)
+                print(f'Start: {sat_clause}')
+                self.clauses.append((sat_clause, action.clause_copy))
+                self.solver.add_clause(sat_clause)
 
         self.reset()
 
@@ -149,21 +159,12 @@ class SATConnectionState:
 
         self.tableau = Tableau()
         self.goal = self.tableau
-        self.substitution = Substitution()
         self.goal.actions = self.legal_actions()
 
         # Proof fields
         self.info = None
         self.is_terminal = False
         self.proof_sequence = []
-
-        # SAT Accumulation: Ensure start clauses are in the solver
-        # We re-add them on reset to be safe (solver is monotonic/idempotent for clauses)
-        for action in self.starts():
-            if action.clause_copy:
-                sat_clause = self.ground_clause(action.clause_copy)
-                self.solver.add_clause(sat_clause)
-                logging.info(f'Adding {sat_clause}')
 
     # Converts a logical Literal to a SAT integer.
     def ground_literal(self, literal: Literal) -> int:
@@ -181,6 +182,8 @@ class SATConnectionState:
             self.atom_map[atom_str] = self.next_atom_id
             self.next_atom_id += 1
 
+        print(f'{atom_str} -> {self.atom_map[atom_str]}')
+
         sat_id = self.atom_map[atom_str]
         return -sat_id if literal.neg else sat_id
 
@@ -189,14 +192,14 @@ class SATConnectionState:
 
     def stringify_term(self, term) -> str:
         if isinstance(term, Variable):
-            # THis is the weird part of the paper. Check it later.
+            # This is the weird part of the paper. Check it later.
             return "var"
 
         # if hasattr(term, 'args') and term.args:
             # args_str = ",".join(self.stringify_term(a) for a in term.args)
             # return f"{term.symbol}({args_str})"
 
-        return str(term.symbol)
+        return str(term)
 
     def ground_clause(self, clause: list[Literal]) -> list[int]:
         return [self.ground_literal(lit) for lit in clause]
@@ -331,14 +334,28 @@ class SATConnectionState:
                 self.goal.children = [Tableau(lit, self.goal) for lit in clause_copy]
 
             case Extension(clause_copy = clause_copy, lit_idx = lit_idx):
+                # Check for Global Refutation
+                if not self.solver.solve():
+                    self.is_terminal = True
+                    self.info = 'Theorem (SAT)'
+                    print(self.solver.get_proof())
+                    import ipdb
+                    ipdb.set_trace()
+                    return
+
                 # Ground the clause used for extension
                 sat_clause = self.ground_clause(clause_copy)
+                print(f'Extension: {sat_clause}')
+                self.clauses.append((sat_clause, clause_copy))
                 self.solver.add_clause(sat_clause)
 
                 # Check for Global Refutation
                 if not self.solver.solve():
                     self.is_terminal = True
                     self.info = 'Theorem (SAT)'
+                    print(self.solver.get_proof())
+                    import ipdb
+                    ipdb.set_trace()
                     return
 
                 self.goal.children = [Tableau(lit, self.goal) for lit in clause_copy]

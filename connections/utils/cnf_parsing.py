@@ -4,7 +4,6 @@ import sys
 from connections.utils.primitives import *
 
 def file2cnf(path):
-    # print(f'Opening "{path}"', file = sys.stderr)
     with open(path, "r") as file:
         text = file.read()
         text = re.sub(r'^\s*%.*$', '', text)
