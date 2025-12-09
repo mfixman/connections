@@ -79,7 +79,6 @@ class SATConnectionState:
         for action in self.starts():
             if action.clause_copy:
                 sat_clause = self.ground_clause(action.clause_copy)
-                # print(f'Start: {sat_clause}')
                 self.clauses.append((sat_clause, action.clause_copy))
                 self.solver.add_clause(sat_clause)
 
@@ -110,7 +109,7 @@ class SATConnectionState:
         if depth is None:
             self.max_depth = self.settings.iterative_deepening_initial_depth
 
-        # print(f"Resetting Tableau (Depth {self.max_depth})")
+        logging.info(f"Resetting Tableau (Depth {self.max_depth})")
 
         self.tableau = Tableau()
         self.goal = self.tableau
@@ -136,8 +135,6 @@ class SATConnectionState:
         if atom_str not in self.atom_map:
             self.atom_map[atom_str] = self.next_atom_id
             self.next_atom_id += 1
-
-        # print(f'{atom_str} -> {self.atom_map[atom_str]}')
 
         sat_id = self.atom_map[atom_str]
         return -sat_id if literal.neg else sat_id
@@ -226,7 +223,8 @@ class SATConnectionState:
 
         for clause_idx, lit_idx in self.matrix.complements(self.goal.literal):
             clause_copy = self.matrix.copy(clause_idx)
-            unifies, updates = self.substitution.can_unify(self.goal.literal,clause_copy[lit_idx])
+            unifies, updates = self.substitution.can_unify(self.goal.literal, clause_copy[lit_idx])
+            # logging.info(f"{'United' if unifies else 'Diff'}\t{self.goal.literal}\t{clause_copy[lit_idx]}")
             if unifies:
                 extensions.append(
                     Extension(
@@ -248,8 +246,6 @@ class SATConnectionState:
 
         limit = self.settings.backtrack_after if self.settings.restricted_backtracking else float('inf')
         while all(isinstance(x, Backtrack) for x in actions.values()) or self.goal.num_attempted > limit:
-            # import ipdb
-            # ipdb.set_trace()
             self.goal = self.goal.find_prev()
 
             if self.proof_sequence:
@@ -274,7 +270,8 @@ class SATConnectionState:
             self.substitution.update(action.sub_updates)
             self.proof_sequence.append(action)
 
-        logging.info(action)
+        # print(self.tableau)
+        # logging.info(action)
         match action:
             case Backtrack():
                 self.backtrack()
@@ -291,17 +288,14 @@ class SATConnectionState:
             case Extension(clause_copy = clause_copy, lit_idx = lit_idx):
                 # Ground the clause used for extension
                 sat_clause = self.ground_clause(clause_copy)
-                # print(f'Extension: {sat_clause}')
                 self.clauses.append((sat_clause, clause_copy))
                 self.solver.add_clause(sat_clause)
 
                 # Check for Global Refutation
                 if not self.solver.solve():
+                    self.info = 'Theorem (SAT)'
                     self.is_terminal = True
-                    # self.info = 'Theorem (SAT)'
                     print(self.solver.get_proof())
-                    # import ipdb
-                    # ipdb.set_trace()
                     return
 
                 self.goal.children = [Tableau(lit, self.goal) for lit in clause_copy]

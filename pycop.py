@@ -68,7 +68,7 @@ def main():
 
         steps += 1
 
-    print(info | {'steps': steps})
+    print((info or {}) | {'steps': steps})
 
 if __name__ == '__main__':
     main()
