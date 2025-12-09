@@ -52,7 +52,10 @@ class Logic(UncaseEnum):
     def overrides(self):
         match self:
             case Logic.ClassicalSAT:
-                return dict(positive_start_clauses = False)
+                return dict(
+                    positive_start_clauses = False,
+                    iterative_deepening = True,
+                )
 
         return {}
 

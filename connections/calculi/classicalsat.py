@@ -1,63 +1,17 @@
 from connections.utils.unification import Substitution
 from connections.utils.primitives import Matrix, Literal, Variable
+from connections.utils.tableau import Tableau
 from typing import Optional
 from enum import StrEnum, auto
 import re
 
+import sys
+
 from pysat.solvers import Solver, Glucose4
 
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import cast
-
-class Tableau:
-    def __init__(self, literal = None, parent = None):
-        self.literal = literal
-        self.parent = parent
-        self.children = []
-        self.proven = False
-        self.depth = parent.depth + 1 if parent is not None else -1
-        self.num_attempted = 0
-        self.actions = {}
-
-    def __str__(self):
-        angle = "└── " if self.depth >= 0 else ""
-        ret = "    " * (self.depth) + angle + str(self.literal) + "\n"
-        for child in self.children:
-            ret += str(child)
-        return ret
-
-    def path(self):
-        path = []
-        current = self.parent
-        while current.literal is not None:
-            path.append(current.literal)
-            current = current.parent
-        return path
-
-    # DFS over tree, find next unproven node.
-    def find_next(self):
-        parent = self
-        while parent is not None:
-            for child in parent.children:
-                if not child.proven:
-                    return child
-
-            parent.proven = True
-            parent = parent.parent
-
-        return None
-
-    def find_prev(self):
-        parent = self.parent
-        self_idx = parent.children.index(self)
-        if self_idx > 1 or (self_idx == 1 and parent.literal is None):
-            prev = parent.children[self_idx - 1]
-            while len(prev.children) > 1:
-                prev = prev.children[-1]
-        else:
-            prev = parent
-        return prev
 
 @dataclass
 class ConnectionAction:
@@ -65,7 +19,8 @@ class ConnectionAction:
 
 @dataclass
 class Start(ConnectionAction):
-    clause_copy: list[Literal] = None
+    clause_copy: list[Literal] = field(default_factory = lambda: [])
+    sub_updates: list[Literal] = field(default_factory = lambda: [])
 
     def __repr__(self):
         return f"{self.id}: {str(self.clause_copy)}"
@@ -124,7 +79,7 @@ class SATConnectionState:
         for action in self.starts():
             if action.clause_copy:
                 sat_clause = self.ground_clause(action.clause_copy)
-                print(f'Start: {sat_clause}')
+                # print(f'Start: {sat_clause}')
                 self.clauses.append((sat_clause, action.clause_copy))
                 self.solver.add_clause(sat_clause)
 
@@ -182,7 +137,7 @@ class SATConnectionState:
             self.atom_map[atom_str] = self.next_atom_id
             self.next_atom_id += 1
 
-        print(f'{atom_str} -> {self.atom_map[atom_str]}')
+        # print(f'{atom_str} -> {self.atom_map[atom_str]}')
 
         sat_id = self.atom_map[atom_str]
         return -sat_id if literal.neg else sat_id
@@ -293,6 +248,8 @@ class SATConnectionState:
 
         limit = self.settings.backtrack_after if self.settings.restricted_backtracking else float('inf')
         while all(isinstance(x, Backtrack) for x in actions.values()) or self.goal.num_attempted > limit:
+            # import ipdb
+            # ipdb.set_trace()
             self.goal = self.goal.find_prev()
 
             if self.proof_sequence:
@@ -313,10 +270,8 @@ class SATConnectionState:
         del self.goal.actions[action.id]
         self.goal.num_attempted += 1
 
-        if isinstance(action, (Reduction, Extension)):
-            self.substitution.update(action.sub_updates)
-
         if not isinstance(action, Backtrack):
+            self.substitution.update(action.sub_updates)
             self.proof_sequence.append(action)
 
         logging.info(action)
@@ -334,28 +289,19 @@ class SATConnectionState:
                 self.goal.children = [Tableau(lit, self.goal) for lit in clause_copy]
 
             case Extension(clause_copy = clause_copy, lit_idx = lit_idx):
-                # Check for Global Refutation
-                if not self.solver.solve():
-                    self.is_terminal = True
-                    self.info = 'Theorem (SAT)'
-                    print(self.solver.get_proof())
-                    import ipdb
-                    ipdb.set_trace()
-                    return
-
                 # Ground the clause used for extension
                 sat_clause = self.ground_clause(clause_copy)
-                print(f'Extension: {sat_clause}')
+                # print(f'Extension: {sat_clause}')
                 self.clauses.append((sat_clause, clause_copy))
                 self.solver.add_clause(sat_clause)
 
                 # Check for Global Refutation
                 if not self.solver.solve():
                     self.is_terminal = True
-                    self.info = 'Theorem (SAT)'
+                    # self.info = 'Theorem (SAT)'
                     print(self.solver.get_proof())
-                    import ipdb
-                    ipdb.set_trace()
+                    # import ipdb
+                    # ipdb.set_trace()
                     return
 
                 self.goal.children = [Tableau(lit, self.goal) for lit in clause_copy]
