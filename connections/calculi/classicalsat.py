@@ -7,7 +7,8 @@ import re
 
 import sys
 
-from pydical import Solver
+from pydical import Solver as Cadical
+from pysat import Solver, Glucose4
 
 import logging
 from dataclasses import dataclass, field
@@ -69,10 +70,11 @@ class SATConnectionState:
         self.matrix = matrix
         self.settings = settings
 
-        self.solver = Solver()
-        self.solver.set('score', 1)
-        self.solver.set('stabilize', 1)
-        self.solver.set('walk', 0)
+        self.cadical = Cadical()
+        self.cadical.set('score', 1)
+        self.cadical.set('stabilize', 1)
+        self.cadical.set('walk', 0)
+        self.solver = Glucose4(with_proof = True)
 
         self.atom_map = {}
         self.next_atom_id = 1
