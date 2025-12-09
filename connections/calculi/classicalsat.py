@@ -7,7 +7,7 @@ import re
 
 import sys
 
-from pysat.solvers import Solver, Glucose4
+from pydical import Solver
 
 import logging
 from dataclasses import dataclass, field
@@ -69,7 +69,11 @@ class SATConnectionState:
         self.matrix = matrix
         self.settings = settings
 
-        self.solver = Glucose4(with_proof = True)
+        self.solver = Solver()
+        self.solver.set('score', 1)
+        self.solver.set('stabilize', 1)
+        self.solver.set('walk', 0)
+
         self.atom_map = {}
         self.next_atom_id = 1
         self.substitution = Substitution()
@@ -81,6 +85,12 @@ class SATConnectionState:
                 sat_clause = self.ground_clause(action.clause_copy)
                 self.clauses.append((sat_clause, action.clause_copy))
                 self.solver.add_clause(sat_clause)
+
+        if not self.solver.solve():
+            self.info = 'Theorem (SAT)'
+            self.is_terminal = True
+            logging.info(self.solver.get_proof())
+            return
 
         self.reset()
 
@@ -183,11 +193,11 @@ class SATConnectionState:
         for clause in start_clause_candidates:
             clause_copy = self.matrix.copy(clause)
             starts.append(
-                    Start(
-                        id = "st" + str(len(starts)),
-                        clause_copy = clause_copy,
-                    )
+                Start(
+                    id = "st" + str(len(starts)),
+                    clause_copy = clause_copy,
                 )
+            )
         if not starts:
             starts.append(Start(id = "st0"))
 
@@ -224,17 +234,20 @@ class SATConnectionState:
         for clause_idx, lit_idx in self.matrix.complements(self.goal.literal):
             clause_copy = self.matrix.copy(clause_idx)
             unifies, updates = self.substitution.can_unify(self.goal.literal, clause_copy[lit_idx])
-            # logging.info(f"{'United' if unifies else 'Diff'}\t{self.goal.literal}\t{clause_copy[lit_idx]}")
-            if unifies:
-                extensions.append(
-                    Extension(
-                        principle_node = self.goal,
-                        sub_updates = updates,
-                        lit_idx = lit_idx,
-                        clause_copy = clause_copy,
-                        id = "ex" + str(len(extensions)),
-                    )
+
+            if not unifies:
+                continue
+
+            extensions.append(
+                Extension(
+                    principle_node = self.goal,
+                    sub_updates = updates,
+                    lit_idx = lit_idx,
+                    clause_copy = clause_copy,
+                    id = "ex" + str(len(extensions)),
                 )
+            )
+
         return extensions
 
     def backtracks(self) -> list[Backtrack]:
@@ -270,8 +283,8 @@ class SATConnectionState:
             self.substitution.update(action.sub_updates)
             self.proof_sequence.append(action)
 
-        # print(self.tableau)
-        # logging.info(action)
+        print(self.tableau)
+        logging.info(action)
         match action:
             case Backtrack():
                 self.backtrack()
@@ -295,7 +308,7 @@ class SATConnectionState:
                 if not self.solver.solve():
                     self.info = 'Theorem (SAT)'
                     self.is_terminal = True
-                    print(self.solver.get_proof())
+                    logging.info(self.solver.get_proof())
                     return
 
                 self.goal.children = [Tableau(lit, self.goal) for lit in clause_copy]
@@ -305,11 +318,14 @@ class SATConnectionState:
             case Reduction():
                 self.goal.proven = True
 
-        # Find next goal node, if None, a proof has been found, otherwise backtrack
         self.theorem_or_next()
 
+    def clause_score(self, lit: Literal) -> int:
+        sat_clause = self.ground_literal(lit)
+        return self.solver.score(sat_clause)
+
     def theorem_or_next(self):
-        self.goal = self.goal.find_next()
+        self.goal = self.goal.find_best(self.clause_score)
         if self.goal is None:
             # Standard success condition if no SAT pruning
             self.info = 'Theorem'
