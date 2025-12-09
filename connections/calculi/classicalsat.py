@@ -325,7 +325,8 @@ class SATConnectionState:
         return self.solver.score(sat_clause)
 
     def theorem_or_next(self):
-        self.goal = self.goal.find_best(self.clause_score)
+        # self.goal = self.goal.find_best(self.clause_score)
+        self.goal = self.goal.find_next()
         if self.goal is None:
             # Standard success condition if no SAT pruning
             self.info = 'Theorem'
