@@ -1,9 +1,9 @@
+% Some comment
 cnf(
     'PUZ001_minus_one_literal',
     conjecture,
     [
         [ killed(butler,agatha), killed(charles,agatha) ],
-		[ -killed(f_skolem(0), agatha) ],
         [ lives(agatha) ],
         [ lives(butler) ],
         [ lives(charles) ],

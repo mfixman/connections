@@ -321,11 +321,6 @@ class SATConnectionState:
 
                     failed = [x for x in range(-self.next_atom_id + 1, self.next_atom_id) if x != 0 and self.solver.failed(x)]
                     self.info['core'] = str(failed)
-
-                    print(self.info)
-                    import ipdb
-                    ipdb.set_trace()
-
                     return
 
                 self.goal.children = [Tableau(lit, self.goal) for lit in clause_copy]
