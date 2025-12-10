@@ -7,8 +7,8 @@ import re
 
 import sys
 
-from pydical import Solver as Cadical
-from pysat import Solver, Glucose4
+from pydical import Solver as Cadical, UNSATISFIABLE
+from pysat.solvers import Solver, Glucose4, Cadical153, Minisat22
 
 import logging
 from dataclasses import dataclass, field
@@ -62,7 +62,7 @@ class SATConnectionState:
     atom_map: dict[str, int]
     next_atom_id: int
 
-    info: Optional[str]
+    info: dict[str, str]
     is_terminal: bool
     proof_sequence: list[ConnectionAction]
 
@@ -71,10 +71,10 @@ class SATConnectionState:
         self.settings = settings
 
         self.cadical = Cadical()
-        self.cadical.set('score', 1)
-        self.cadical.set('stabilize', 1)
-        self.cadical.set('walk', 0)
-        self.solver = Glucose4(with_proof = True)
+        self.cadical.set('verbose', 0)
+        self.pysat = Minisat22()
+
+        self.solver = self.cadical
 
         self.atom_map = {}
         self.next_atom_id = 1
@@ -86,12 +86,16 @@ class SATConnectionState:
             if action.clause_copy:
                 sat_clause = self.ground_clause(action.clause_copy)
                 self.clauses.append((sat_clause, action.clause_copy))
+                logging.info((sat_clause, action.clause_copy))
                 self.solver.add_clause(sat_clause)
 
         if not self.solver.solve():
-            self.info = 'Theorem (SAT)'
+            self.info['status'] = 'Theorem (SAT)'
             self.is_terminal = True
-            logging.info(self.solver.get_proof())
+
+            failed = [x for x in range(-self.next_atom_id + 1, self.next_atom_id) if self.solver.failed(x)]
+            self.info['core'] = str(failed)
+
             return
 
         self.reset()
@@ -128,7 +132,7 @@ class SATConnectionState:
         self.goal.actions = self.legal_actions()
 
         # Proof fields
-        self.info = None
+        self.info = {}
         self.is_terminal = False
         self.proof_sequence = []
 
@@ -277,7 +281,10 @@ class SATConnectionState:
                 self.reset(depth = self.max_depth + 1)
                 break
 
+    steps = 0
     def update_goal(self, action: ConnectionAction):
+        self.steps += 1
+
         del self.goal.actions[action.id]
         self.goal.num_attempted += 1
 
@@ -285,8 +292,8 @@ class SATConnectionState:
             self.substitution.update(action.sub_updates)
             self.proof_sequence.append(action)
 
-        print(self.tableau)
-        logging.info(action)
+        # print(self.tableau)
+        # logging.info(action)
         match action:
             case Backtrack():
                 self.backtrack()
@@ -294,7 +301,7 @@ class SATConnectionState:
 
             case Start(clause_copy = clause_copy):
                 if clause_copy is None:
-                    self.info = 'Non-Theorem: no positive start clauses'
+                    self.info['status'] = 'Non-Theorem: no positive start clauses'
                     self.is_terminal = True
                     return
 
@@ -304,13 +311,21 @@ class SATConnectionState:
                 # Ground the clause used for extension
                 sat_clause = self.ground_clause(clause_copy)
                 self.clauses.append((sat_clause, clause_copy))
+
+                logging.info((sat_clause, clause_copy))
                 self.solver.add_clause(sat_clause)
 
-                # Check for Global Refutation
-                if not self.solver.solve():
-                    self.info = 'Theorem (SAT)'
+                if self.solver.solve() in (False, UNSATISFIABLE):
+                    self.info['status'] = 'Theorem (SAT)'
                     self.is_terminal = True
-                    logging.info(self.solver.get_proof())
+
+                    failed = [x for x in range(-self.next_atom_id + 1, self.next_atom_id) if x != 0 and self.solver.failed(x)]
+                    self.info['core'] = str(failed)
+
+                    print(self.info)
+                    import ipdb
+                    ipdb.set_trace()
+
                     return
 
                 self.goal.children = [Tableau(lit, self.goal) for lit in clause_copy]
@@ -327,11 +342,11 @@ class SATConnectionState:
         return self.solver.score(sat_clause)
 
     def theorem_or_next(self):
-        # self.goal = self.goal.find_best(self.clause_score)
-        self.goal = self.goal.find_next()
+        self.goal = self.goal.find_best(self.clause_score)
+        # self.goal = self.goal.find_next()
         if self.goal is None:
             # Standard success condition if no SAT pruning
-            self.info = 'Theorem'
+            self.info['status'] = 'Theorem'
             self.is_terminal = True
             return
 

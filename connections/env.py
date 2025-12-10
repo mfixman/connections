@@ -103,7 +103,7 @@ class ConnectionEnv:
         if not self.state.is_terminal:
             self.state.update_goal(action)
 
-        status = None if not self.state.info else {"status": self.state.info}
+        status = None if not self.state.info else self.state.info
         return self.state, int(self.state.is_terminal), self.state.is_terminal, status
 
     def reset(self):
