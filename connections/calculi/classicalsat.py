@@ -332,13 +332,23 @@ class SATConnectionState:
 
         self.theorem_or_next()
 
+    def theorem_or_next(self):
+        self.goal = self.goal.find_next()
+        if self.goal is None:
+            # Standard success condition if no SAT pruning
+            self.info['status'] = 'Theorem'
+            self.is_terminal = True
+            return
+
+        self.goal.actions = self.legal_actions()
+
+class SearchSATConnectionState(SATConnectionState):
     def clause_score(self, lit: Literal) -> int:
         sat_clause = self.ground_literal(lit)
         return self.solver.score(sat_clause)
 
     def theorem_or_next(self):
         self.goal = self.goal.find_best(self.clause_score)
-        # self.goal = self.goal.find_next()
         if self.goal is None:
             # Standard success condition if no SAT pruning
             self.info['status'] = 'Theorem'

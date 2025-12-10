@@ -68,7 +68,12 @@ def main():
 
         steps += 1
 
-    print((info or {}) | {'steps': steps})
+    if info is None:
+        info = {}
+    elif type(info) is str:
+        info = {'info': info}
+
+    print(info | {'steps': steps})
 
 if __name__ == '__main__':
     main()

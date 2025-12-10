@@ -5,7 +5,7 @@ from typing import Optional, Literal
 from enum import StrEnum, auto
 from Utils import *
 
-from connections.calculi.classicalsat import SATConnectionState
+from connections.calculi.classicalsat import SATConnectionState, SearchSATConnectionState
 from connections.calculi.classical import ConnectionState
 from connections.calculi.intuitionistic import IConnectionState
 from connections.calculi.modal_d import DConnectionState
@@ -17,6 +17,7 @@ from connections.utils.cnf_parsing import file2cnf as CNF
 from connections.utils.icnf_parsing import file2cnf as ICNF
 
 class Logic(UncaseEnum):
+    SearchSAT = auto()
     ClassicalSAT = auto()
     Classical = auto()
     Intuitionistic = auto()
@@ -28,6 +29,7 @@ class Logic(UncaseEnum):
 
     def state_class(self):
         class_map = {
+            Logic.SearchSAT: SearchSATConnectionState,
             Logic.ClassicalSAT: SATConnectionState,
             Logic.Classical: ConnectionState,
             Logic.Intuitionistic: IConnectionState,
@@ -41,7 +43,7 @@ class Logic(UncaseEnum):
 
     def parser(self):
         match self:
-            case Logic.Classical | Logic.ClassicalSAT:
+            case Logic.Classical | Logic.ClassicalSAT | Logic.SearchSAT:
                 return CNF
 
             case Logic.Intuitionistic | Logic.D | Logic.T | Logic.S4 | Logic.S5:
@@ -51,7 +53,7 @@ class Logic(UncaseEnum):
 
     def overrides(self):
         match self:
-            case Logic.ClassicalSAT:
+            case Logic.ClassicalSAT | Logic.SearchSAT:
                 return dict(
                     positive_start_clauses = False,
                     iterative_deepening = True,
