@@ -1,14 +1,16 @@
 import multiprocessing
 import subprocess
 import os
+import sys
 import signal
 import time
 import pandas as pd
+from pathlib import Path
 
 SAVE_LOGS = False
 
 out_path = 'output'
-fof_path = '../../../conjectures/TPTP-v6.4.0/Problems/'
+fof_path = Path(os.getenv('TPTP', '../../../conjectures/TPTP-v6.4.0/')) / 'Problems'
 translator_path = 'leancop_trans_v22fb/leancop_trans.sh'
 leancop_path = 'leancop10f_trace/leancop10.sh'
 pycop_path = 'leancop_trace.py'
@@ -17,7 +19,6 @@ fof_filter = lambda filename : '+' in filename and '.p' in filename and filename
 
 def run_theorem_prover(problempath):
     problem = os.path.basename(os.path.normpath(problempath))
-    print(problem)
     with subprocess.Popen([translator_path, problempath, problem], preexec_fn=os.setsid) as process:
         try:
             output, errors = process.communicate(timeout=1)
@@ -32,7 +33,7 @@ def run_theorem_prover(problempath):
     os.makedirs(f'{out_path}/log', exist_ok=True)
     start_time = time.time()
     with open(f"{out_path}/out/{problem}_pycop.out", 'w+') as f:
-        with subprocess.Popen(['python',pycop_path,problem], stdout=f, preexec_fn=os.setsid) as process:
+        with subprocess.Popen([sys.executable, pycop_path,problem], stdout=f, preexec_fn=os.setsid) as process:
             try:
                 output, errors = process.communicate(timeout=1)
                 if output is not None: f.write(output)
@@ -47,7 +48,8 @@ def run_theorem_prover(problempath):
         with subprocess.Popen([leancop_path, problempath], stdout=f, preexec_fn=os.setsid) as process:
             try:
                 output, errors = process.communicate(timeout=1)
-                if output is not None: f.write(output)
+                if output is not None:
+                    f.write(output)
             except subprocess.TimeoutExpired as err:
                 if err.stdout is not None:
                     f.write(err.stdout.decode("utf-8"))
@@ -55,7 +57,6 @@ def run_theorem_prover(problempath):
             info['leanCoP time'] = time.time() - start_time
 
     with open(f'{out_path}/out/{problem}_pycop.out') as file_1, open(f'{out_path}/out/{problem}_leancop.out') as file_2:
-
         with open(f'{out_path}/log/{problem}_pycop.log', "w+") as new_py:
             for line in file_1.readlines():
                 if line[:2] in ['st','Ba']:
@@ -97,14 +98,16 @@ def run_theorem_prover(problempath):
 
 
 if __name__ == '__main__':
-    num_processes = multiprocessing.cpu_count() - 1
+    num_processes = multiprocessing.cpu_count()
     results = []
     for folder in os.listdir(fof_path):
-        if not os.path.isdir(os.path.join(fof_path,folder)):
+        if not os.path.isdir(fof_path / folder):
             continue
-        problems = [os.path.join(fof_path,folder,filename) for filename in os.listdir(fof_path+folder) if fof_filter(filename)]
+
+        problems = [fof_path / folder / filename for filename in os.listdir(fof_path / folder) if fof_filter(filename)]
         with multiprocessing.Pool(processes=num_processes) as pool:
             results.extend(pool.map(run_theorem_prover, problems))
+        # results = [run_theorem_prover(x) for x in problems]
     results = filter(None,results)
     df = pd.DataFrame(results) 
     df.to_csv("results.csv", index=False)

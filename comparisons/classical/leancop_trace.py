@@ -3,7 +3,7 @@ import traceback
 
 from os.path import dirname, abspath
 
-sys.path.append(dirname(dirname(abspath(__file__))))
+sys.path.append('../..')
 
 from connections.env import *
 

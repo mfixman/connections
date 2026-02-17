@@ -30,7 +30,7 @@ PROLOG_OPTIONS='--debug=false -O -q -g'
 #PROLOG_OPTIONS='-nodebug -O -L120M -G120M -T100M -q -g'
 
 # set TPTP library path
-export TPTP=../../../conjectures/TPTP-v6.4.0
+# export TPTP=../../../conjectures/TPTP-v6.4.0
 
 #-------------
 # Main Program
