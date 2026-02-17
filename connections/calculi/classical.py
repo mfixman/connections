@@ -1,8 +1,9 @@
 from connections.utils.unification import Substitution
+from connections.utils.primitives import Matrix, Literal
 from connections.utils.tableau import Tableau
 
 from dataclasses import dataclass, field
-from typing import cast
+from typing import Optional, cast
 
 @dataclass
 class ConnectionAction:
@@ -10,43 +11,52 @@ class ConnectionAction:
 
 @dataclass
 class Start(ConnectionAction):
-    clause_copy: list[object] = field(default_factory = lambda: [])
-    sub_updates: list[object] = field(default_factory = lambda: [])
+    clause_copy: list[Literal] = field(default_factory = lambda: [])
+    sub_updates: list[Literal] = field(default_factory = lambda: [])
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"{self.id}: {str(self.clause_copy)}"
 
 @dataclass
 class Reduction(ConnectionAction):
-    principle_node: 'Tableau'
+    principle_node: Tableau
     sub_updates: list[object]
-    path_lit: object
+    path_lit: Literal
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"{self.id}: {str(self.principle_node.literal)} <- {str(self.path_lit)}"
 
 @dataclass
 class Extension(ConnectionAction):
-    principle_node: 'Tableau'
+    principle_node: Tableau
     sub_updates: list[object]
     lit_idx: int
-    clause_copy: list[object]
+    clause_copy: list[Literal]
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"{self.id}: {str(self.principle_node.literal)} -> {str(self.clause_copy)}"
 
 @dataclass
 class Backtrack(ConnectionAction):
-    def __repr__(self):
+    def __repr__(self) -> str:
         return 'Backtrack'
 
 class ConnectionState:
-    def __init__(self, matrix, settings):
+    matrix: Matrix
+    tableau: Tableau
+    goal: Tableau
+    substitution: Substitution
+    max_depth: int
+    info: Optional[str]
+    is_terminal: bool
+    proof_sequence: list[ConnectionAction]
+
+    def __init__(self, matrix: Matrix, settings) -> None:
         self.matrix = matrix
         self.settings = settings
         self.reset()
 
-    def __str__(self):
+    def __str__(self) -> str:
         substitution = "\n".join(
             f"{k} → {v}" for k, v in self.substitution.to_dict().items()
         )
@@ -64,16 +74,16 @@ class ConnectionState:
             f"\n========================="
         )
 
-    def reset(self, depth = None):
+    def reset(self, depth: Optional[int] = None) -> None:
         # Tableau fields
-        self.max_depth = depth
+        self.max_depth = depth if depth is not None else 10
         if depth is None:
             self.max_depth = self.settings.iterative_deepening_initial_depth
 
         self.tableau = Tableau()
         self.goal = self.tableau
         self.substitution = Substitution()
-        self.goal.actions = self._legal_actions()
+        self.goal.actions = self.legal_actions()
 
         # Proof fields
         self.info = None
@@ -142,7 +152,7 @@ class ConnectionState:
                 )
         return reductions
 
-    def _regularizable(self, clause):
+    def _regularizable(self, clause: list[Literal]) -> bool:
         for path_lit in self.goal.path():
             for clause_lit in clause:
                 if path_lit.neg == clause_lit.neg and path_lit.symbol == clause_lit.symbol:
@@ -150,7 +160,7 @@ class ConnectionState:
                         return True
         return False
 
-    def _legal_actions(self):
+    def legal_actions(self) -> dict[str, ConnectionAction]:
         if self.goal.parent == None:
             return {action.id: action for action in self._starts()}
 
@@ -167,7 +177,7 @@ class ConnectionState:
 
         return {action.id: action for action in actions}
 
-    def backtrack(self):
+    def backtrack(self) -> None:
         # Backtrack to previous choice point (goal). If no choice points left, reset.
         actions: dict[str, ConnectionAction] = {}
 
@@ -188,7 +198,7 @@ class ConnectionState:
                 self.reset(depth = self.max_depth + 1)
                 break
 
-    def update_goal(self, action: ConnectionAction):
+    def update_goal(self, action: ConnectionAction) -> None:
         del self.goal.actions[action.id]
         self.goal.num_attempted += 1
 
@@ -219,11 +229,11 @@ class ConnectionState:
 
         self.theorem_or_next()
 
-    def theorem_or_next(self):
+    def theorem_or_next(self) -> None:
         self.goal = self.goal.find_next()
         if self.goal is None:
             self.info = 'Theorem'
             self.is_terminal = True
             return
 
-        self.goal.actions = self._legal_actions()
+        self.goal.actions = self.legal_actions()
