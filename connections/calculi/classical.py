@@ -90,7 +90,7 @@ class ConnectionState:
         self.is_terminal = False
         self.proof_sequence = []
 
-    def _starts(self) -> list[Start]:
+    def starts(self) -> list[Start]:
         starts: list[Start] = []
         start_clause_candidates = self.matrix.positive_clauses
 
@@ -110,10 +110,10 @@ class ConnectionState:
 
         return starts
 
-    def _backtracks(self) -> list[Backtrack]:
+    def backtracks(self) -> list[Backtrack]:
         return [Backtrack(id = 'bt')]
 
-    def _extensions(self) -> list[Extension]:
+    def extensions(self) -> list[Extension]:
         extensions: list[Extension] = []
 
         for clause_idx, lit_idx in self.matrix.complements(self.goal.literal):
@@ -135,7 +135,8 @@ class ConnectionState:
 
         return extensions
 
-    def _reductions(self) -> list[Reduction]:
+
+    def reductions(self) -> list[Reduction]:
         reductions: list[Reduction] = []
         for lit in self.goal.path():
             unifies = False
@@ -152,7 +153,7 @@ class ConnectionState:
                 )
         return reductions
 
-    def _regularizable(self, clause: list[Literal]) -> bool:
+    def regularizable(self, clause: list[Literal]) -> bool:
         for path_lit in self.goal.path():
             for clause_lit in clause:
                 if path_lit.neg == clause_lit.neg and path_lit.symbol == clause_lit.symbol:
@@ -162,18 +163,18 @@ class ConnectionState:
 
     def legal_actions(self) -> dict[str, ConnectionAction]:
         if self.goal.parent == None:
-            return {action.id: action for action in self._starts()}
+            return {action.id: action for action in self.starts()}
 
         current_clause = [node.literal for node in self.goal.parent.children[1:]]
-        reg = self._regularizable(current_clause)
+        reg = self.regularizable(current_clause)
 
         actions: list[ConnectionAction]
         if (self.goal is None) or reg:
-            actions = cast(list[ConnectionAction], self._backtracks())
+            actions = cast(list[ConnectionAction], self.backtracks())
         elif self.settings.iterative_deepening and (self.goal.depth >= self.max_depth):
-            actions = cast(list[ConnectionAction], self._reductions() + self._backtracks())
+            actions = cast(list[ConnectionAction], self.reductions() + self.backtracks())
         else:
-            actions = cast(list[ConnectionAction], self._reductions() + self._extensions() + self._backtracks())
+            actions = cast(list[ConnectionAction], self.reductions() + self.extensions() + self.backtracks())
 
         return {action.id: action for action in actions}
 
