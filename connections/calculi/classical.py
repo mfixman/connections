@@ -1,4 +1,5 @@
 from connections.utils.unification import Substitution
+from connections.utils.tableau import Tableau
 
 from dataclasses import dataclass, field
 from typing import cast
@@ -38,56 +39,6 @@ class Extension(ConnectionAction):
 class Backtrack(ConnectionAction):
     def __repr__(self):
         return 'Backtrack'
-
-class Tableau:
-    def __init__(self, literal = None, parent = None):
-        self.literal = literal
-        self.parent = parent
-        self.children = []
-        self.proven = False
-        self.depth = parent.depth + 1 if parent is not None else -1
-        self.num_attempted = 0
-        self.actions = {}
-
-    def __str__(self):
-        angle = "└── " if self.depth >= 0 else ""
-        ret = "    " * (self.depth) + angle + str(self.literal) + "\n"
-        for child in self.children:
-            ret += str(child)
-        return ret
-
-    def path(self):
-        path = []
-        current = self.parent
-        while current.literal is not None:
-            path.append(current.literal)
-            current = current.parent
-        return path
-
-    def find_next(self):
-        parent = self
-        while parent is not None:
-            for child in parent.children:
-                if not child.proven:
-                    return child
-
-            parent.proven = True
-            parent = parent.parent
-
-        return None
-
-    def find_prev(self):
-        parent = self.parent
-        self_idx = parent.children.index(self)
-
-        if self_idx > 1 or (self_idx == 1 and parent.literal is None):
-            prev = parent.children[self_idx - 1]
-            while len(prev.children) > 1:
-                prev = prev.children[-1]
-        else:
-            prev = parent
-
-        return prev
 
 class ConnectionState:
     def __init__(self, matrix, settings):
