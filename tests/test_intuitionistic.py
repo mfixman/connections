@@ -3,7 +3,7 @@ from connections.utils.primitives import *
 
 class TestIntuitionisticState:
     # ARRANGE
-    settings = Settings(logic='intuitionistic')
+    settings = Settings(logic=Logic.Intuitionistic)
     env = ConnectionEnv('tests/icnf_problems/SYN081+1.cnf', settings=settings)
     state = env.state
 
@@ -36,8 +36,7 @@ class TestIntuitionisticState:
 
 class TestIConnectionEnv:
     # ARRANGE
-    settings = Settings(iterative_deepening=True,
-                        logic='intuitionistic')
+    settings = Settings(iterative_deepening=True, logic=Logic.Intuitionistic)
     env = ConnectionEnv('tests/icnf_problems/SYN081+1.cnf', settings=settings)
 
     def test_iterative_deepening_steps(self):

@@ -1,8 +1,70 @@
+import dataclasses
 from dataclasses import dataclass
-from typing import Optional, Literal
+from typing import Optional
 
-LogicType = Literal['classical','intuitionistic','D','T','S4','S5']
-DomainType = Literal['constant','cumulative','varying']
+from enum import StrEnum, auto
+from Utils import *
+
+from connections.calculi.classicalsat import SATConnectionState, SearchSATConnectionState
+from connections.calculi.classical import ConnectionState
+from connections.calculi.intuitionistic import IConnectionState
+from connections.calculi.modal_d import DConnectionState
+from connections.calculi.modal_t import TConnectionState
+from connections.calculi.modal_s4 import S4ConnectionState
+from connections.calculi.modal_s5 import S5ConnectionState
+
+from connections.utils.cnf_parsing import file2cnf as CNF
+from connections.utils.icnf_parsing import file2cnf as ICNF
+
+class Logic(UncaseEnum):
+    SearchSAT = auto()
+    ClassicalSAT = auto()
+    Classical = auto()
+    Intuitionistic = auto()
+    Modal = auto()
+    D = auto()
+    T = auto()
+    S4 = auto()
+    S5 = auto()
+
+    def state_class(self):
+        class_map = {
+            Logic.SearchSAT: SearchSATConnectionState,
+            Logic.ClassicalSAT: SATConnectionState,
+            Logic.Classical: ConnectionState,
+            Logic.Intuitionistic: IConnectionState,
+            Logic.D: DConnectionState,
+            Logic.T: TConnectionState,
+            Logic.S4: S4ConnectionState,
+            Logic.S5: S5ConnectionState
+        }
+
+        return class_map[self]
+
+    def parser(self):
+        match self:
+            case Logic.Classical | Logic.ClassicalSAT | Logic.SearchSAT:
+                return CNF
+
+            case Logic.Intuitionistic | Logic.D | Logic.T | Logic.S4 | Logic.S5:
+                return ICNF
+
+        raise LookupError(f'Unknown parser for logic {self}')
+
+    def overrides(self):
+        match self:
+            case Logic.ClassicalSAT | Logic.SearchSAT:
+                return dict(
+                    positive_start_clauses = False,
+                    iterative_deepening = True,
+                )
+
+        return {}
+
+class Domain(UncaseEnum):
+    Constant = auto()
+    Cumulative = auto()
+    Varying = auto()
 
 @dataclass
 class Settings:
@@ -11,13 +73,15 @@ class Settings:
     iterative_deepening_initial_depth: int = 1
     restricted_backtracking: bool = False
     backtrack_after: int = 2
-    logic: LogicType = 'classical'
-    domain: DomainType = 'constant'
+    logic: Logic = Logic.Classical
+    domain: Domain = Domain.Constant
 
 class ConnectionEnv:
     def __init__(self, path: str, settings: Optional[Settings] = None):
         if settings is None:
             settings = Settings()
+
+        settings = dataclasses.replace(settings, **settings.logic.overrides())
 
         self.path = path
         self.settings = settings
@@ -25,28 +89,10 @@ class ConnectionEnv:
         self._init_state()
 
     def _parse_matrix(self, path: str):
-        if self.settings.logic == 'classical':
-            from connections.utils.cnf_parsing import file2cnf
-        else:
-            from connections.utils.icnf_parsing import file2cnf
-        self.matrix = file2cnf(path)
+        self.matrix = self.settings.logic.parser()(path)
 
     def _init_state(self):
-        logic_state_map = {
-            'classical': 'connections.calculi.classical.ConnectionState',
-            'intuitionistic': 'connections.calculi.intuitionistic.IConnectionState',
-            'D': 'connections.calculi.modal_d.DConnectionState',
-            'T': 'connections.calculi.modal_t.TConnectionState',
-            'S4': 'connections.calculi.modal_s4.S4ConnectionState',
-            'S5': 'connections.calculi.modal_s5.S5ConnectionState'
-        }
-
-        state_class_path = logic_state_map[self.settings.logic]
-        module_name, class_name = state_class_path.rsplit('.', 1)
-        module = __import__(module_name, fromlist=[class_name])
-        state_class = getattr(module, class_name)
-
-        self.state = state_class(self.matrix, self.settings)
+        self.state = self.settings.logic.state_class()(self.matrix, self.settings)
 
     @property
     def action_space(self):
@@ -56,11 +102,11 @@ class ConnectionEnv:
         return actions
 
     def step(self, action):
-        if self.state.is_terminal:
-            return self.state, int(self.state.is_terminal), self.state.is_terminal, {"status": self.state.info}
-        else:
+        if not self.state.is_terminal:
             self.state.update_goal(action)
-        return self.state, int(self.state.is_terminal), self.state.is_terminal, {"status": self.state.info}
+
+        status = None if not self.state.info else self.state.info
+        return self.state, int(self.state.is_terminal), self.state.is_terminal, status
 
     def reset(self):
         self.matrix.reset()

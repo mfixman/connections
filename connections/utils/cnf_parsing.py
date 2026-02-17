@@ -1,12 +1,14 @@
 import re
+import sys
 
 from connections.utils.primitives import *
 
-
 def file2cnf(path):
     with open(path, "r") as file:
-        return parse_fof(file.read())
-
+        text = file.read()
+        text = re.sub(r'^\s*%.*$', '', text)
+        text = re.sub(r'\s+', '', text)
+        return parse_fof(text)
 
 def parse_fof(fof):
     clauses_str = re.findall(r"\[.*\]", fof)[0][2:-2].split(r"],[")
@@ -14,29 +16,35 @@ def parse_fof(fof):
         return Matrix([])
     return Matrix([parse_clause(clause_str) for clause_str in clauses_str])
 
-
 def parse_clause(clause_str):
     literals = []
     for literal_str in split_bracket(clause_str):
         lit = parse_literal(literal_str)
         literals.append(lit)
-    return literals
 
+    return literals
 
 def parse_literal(literal_str):
     neg = False
     if literal_str[0] == "-":
         neg = True
-        literal_str = literal_str[2:-1]
+
+        # Doubtful; check this
+        literal_str = literal_str[1:]
+        if literal_str[0] == '(':
+            literal_str = literal_str.removeprefix('(').removesuffix(')')
+
     split = literal_str.split(r"(", 1)
     terms = []
+
     if len(split) > 1:
         terms_str = split[1][:-1]
         for term_str in split_bracket(terms_str):
             terms.append(parse_term(term_str))
-    literal = Literal(split[0], terms, neg=neg)
-    return literal
 
+    literal = Literal(split[0], terms, neg=neg)
+
+    return literal
 
 def parse_term(term_str):
     if term_str[0] == "_":

@@ -5,44 +5,75 @@ import signal
 import traceback
 from os.path import dirname, abspath
 
+import random
+import logging
+
 from connections.env import *
 import argparse
 
-parser = argparse.ArgumentParser(description='Python equivalent of version 1.0f of leanCoP, ileanCoP, and mleanCoP')
-parser.add_argument("file", help="The conjecture you want to prove")
-parser.add_argument('logic', nargs='?', default='classical', help="Which logic")
-parser.add_argument('domain', nargs='?', default='constant', help="Which domain")
-args = parser.parse_args()
+from pathlib import Path
+import ipdb
 
-if args.logic == 'classical':
-    translator_path = 'translation/classical/translate.sh'
-elif args.logic == 'intuitionistic':
-    translator_path = 'translation/intuitionistic/translate.sh'
-else:
-    translator_path = 'translation/modal/translate.sh'
+def parse_args():
+    parser = argparse.ArgumentParser(description = 'Python equivalent of version 1.0f of leanCoP, ileanCoP, and mleanCoP')
+    parser.add_argument('--logic', default = Logic.Classical, choices = list(Logic), type = Logic, help = "Which logic")
+    parser.add_argument('--domain', default = Domain.Constant, choices = list(Domain), type = Domain, help = "Which domain")
+    parser.add_argument('--translate', action = 'store_true', help = 'Whether to translate the logic with Prolog.')
+    parser.add_argument('--print-ratio', '-pr', type = int, default = 1, help = 'Ratio of messages to be printed')
+    parser.add_argument('--max-steps', default = 100000, type = int, help = 'Maximum amount of steps before breaking.')
+    parser.add_argument('--verbose', '-v', action = 'store_true', help = 'Verbose messages.')
+    parser.add_argument("file", help = "The conjecture you want to prove")
+    return parser.parse_args()
 
-problem = os.path.basename(os.path.normpath(args.file))
-with subprocess.Popen([translator_path, args.file, problem], preexec_fn=os.setsid) as process:
-    try:
-        output, errors = process.communicate(timeout=1)
-    except subprocess.TimeoutExpired as err:
-        os.killpg(os.getpgid(process.pid), signal.SIGTERM)
-if os.path.exists(problem):
-    os.remove(problem)
+def translate_logic(file: str, logic: Logic) -> str:
+    translator_path = Path('translation') / str(logic) / 'translate.sh'
 
-env = ConnectionEnv(problem, Settings(logic=args.logic, domain=args.domain))
+    problem = os.path.basename(os.path.normpath(file))
+    with subprocess.Popen([translator_path, file, problem], preexec_fn = os.setsid) as process:
+        try:
+            output, errors = process.communicate(timeout = 1)
+        except subprocess.TimeoutExpired as err:
+            os.killpg(os.getpgid(process.pid), signal.SIGTERM)
 
-print(env)
+    return str(output)
 
-try:
+@ipdb.launch_ipdb_on_exception()
+def main():
+    args = parse_args()
+    logging.basicConfig(level = logging.INFO if args.verbose else logging.WARN, format = '[%(relativeCreated)d] %(message)s')
+
+    env = ConnectionEnv(args.file, Settings(logic = args.logic, domain = args.domain))
     observation = env.reset()
-    while True:
-        action = env.action_space[0]
-        print(action)
-        observation, reward, done, info = env.step(action)
-        if done:
+
+    done = False
+    info = None
+
+    steps = 0
+    while not done:
+        if args.max_steps is not None and steps >= args.max_steps:
+            info = {'Solution': 'Unknown'}
             break
-    print(info)
-except Exception:
-    print(traceback.format_exc())
-    print(sys.exc_info()[2])
+
+        action = env.action_space[0]
+        if args.print_ratio > 0 and random.randint(0, args.print_ratio - 1) == 1:
+            print(action)
+            if info:
+                print(info)
+
+        try:
+            observation, reward, done, info = env.step(action)
+        except RecursionError:
+            logging.error('Recursion error.')
+            steps = args.max_steps - 1
+
+        steps += 1
+
+    if info is None:
+        info = {}
+    elif type(info) is str:
+        info = {'info': info}
+
+    print(info | {'steps': steps})
+
+if __name__ == '__main__':
+    main()
