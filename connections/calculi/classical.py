@@ -1,7 +1,46 @@
 from connections.utils.unification import Substitution
 
+from dataclasses import dataclass, field
+from typing import cast
+
+@dataclass
+class ConnectionAction:
+    id: str
+
+@dataclass
+class Start(ConnectionAction):
+    clause_copy: list[object] = field(default_factory = lambda: [])
+    sub_updates: list[object] = field(default_factory = lambda: [])
+
+    def __repr__(self):
+        return f"{self.id}: {str(self.clause_copy)}"
+
+@dataclass
+class Reduction(ConnectionAction):
+    principle_node: 'Tableau'
+    sub_updates: list[object]
+    path_lit: object
+
+    def __repr__(self):
+        return f"{self.id}: {str(self.principle_node.literal)} <- {str(self.path_lit)}"
+
+@dataclass
+class Extension(ConnectionAction):
+    principle_node: 'Tableau'
+    sub_updates: list[object]
+    lit_idx: int
+    clause_copy: list[object]
+
+    def __repr__(self):
+        return f"{self.id}: {str(self.principle_node.literal)} -> {str(self.clause_copy)}"
+
+@dataclass
+class Backtrack(ConnectionAction):
+    def __repr__(self):
+        return 'Backtrack'
+
 class Tableau:
-    def __init__(self, literal=None, parent=None):
+    def __init__(self, literal = None, parent = None):
         self.literal = literal
         self.parent = parent
         self.children = []
@@ -31,24 +70,26 @@ class Tableau:
             for child in parent.children:
                 if not child.proven:
                     return child
+
             parent.proven = True
             parent = parent.parent
+
         return None
 
     def find_prev(self):
         parent = self.parent
         self_idx = parent.children.index(self)
+
         if self_idx > 1 or (self_idx == 1 and parent.literal is None):
             prev = parent.children[self_idx - 1]
             while len(prev.children) > 1:
                 prev = prev.children[-1]
         else:
             prev = parent
+
         return prev
 
-
 class ConnectionState:
-    
     def __init__(self, matrix, settings):
         self.matrix = matrix
         self.settings = settings
@@ -71,12 +112,13 @@ class ConnectionState:
             f"\n\nMax Depth: {self.max_depth}"
             f"\n========================="
         )
-    
-    def reset(self, depth=None):
+
+    def reset(self, depth = None):
         # Tableau fields
         self.max_depth = depth
         if depth is None:
             self.max_depth = self.settings.iterative_deepening_initial_depth
+
         self.tableau = Tableau()
         self.goal = self.tableau
         self.substitution = Substitution()
@@ -87,59 +129,64 @@ class ConnectionState:
         self.is_terminal = False
         self.proof_sequence = []
 
-    def _starts(self):
-        starts = []
+    def _starts(self) -> list[Start]:
+        starts: list[Start] = []
         start_clause_candidates = self.matrix.positive_clauses
+
         if not self.settings.positive_start_clauses:
-            start_clause_candidates = self.matrix.clauses
+            start_clause_candidates += self.matrix.negative_clauses
+
         for clause in start_clause_candidates:
             clause_copy = self.matrix.copy(clause)
             starts.append(
-                    ConnectionAction(
-                        type="st",
-                        clause_copy=clause_copy,
-                        id="st" + str(len(starts))
-                    )
+                Start(
+                    id = "st" + str(len(starts)),
+                    clause_copy = clause_copy,
                 )
+            )
         if not starts:
-            starts.append(ConnectionAction(type="st", id="st0"))
-        return starts
-    
-    def _backtracks(self):
-        return [ConnectionAction(type='bt', id='bt')]
+            starts.append(Start(id = "st0"))
 
-    def _extensions(self):
-        extensions = []
+        return starts
+
+    def _backtracks(self) -> list[Backtrack]:
+        return [Backtrack(id = 'bt')]
+
+    def _extensions(self) -> list[Extension]:
+        extensions: list[Extension] = []
+
         for clause_idx, lit_idx in self.matrix.complements(self.goal.literal):
             clause_copy = self.matrix.copy(clause_idx)
-            unifies, updates = self.substitution.can_unify(self.goal.literal,clause_copy[lit_idx])
-            if unifies:
-                extensions.append(
-                    ConnectionAction(
-                        type="ex",
-                        principle_node=self.goal,
-                        sub_updates=updates,
-                        lit_idx=lit_idx,
-                        clause_copy=clause_copy,
-                        id="ex" + str(len(extensions)),
-                    )
+            unifies, updates = self.substitution.can_unify(self.goal.literal, clause_copy[lit_idx])
+
+            if not unifies:
+                continue
+
+            extensions.append(
+                Extension(
+                    principle_node = self.goal,
+                    sub_updates = updates,
+                    lit_idx = lit_idx,
+                    clause_copy = clause_copy,
+                    id = "ex" + str(len(extensions)),
                 )
+            )
+
         return extensions
 
-    def _reductions(self):
-        reductions = []
+    def _reductions(self) -> list[Reduction]:
+        reductions: list[Reduction] = []
         for lit in self.goal.path():
             unifies = False
             if self.goal.literal.neg != lit.neg and self.goal.literal.symbol == lit.symbol:
                 unifies, updates = self.substitution.can_unify(self.goal.literal, lit)
             if unifies:
                 reductions.append(
-                    ConnectionAction(
-                        type="re",
-                        principle_node=self.goal,
-                        sub_updates=updates,
-                        path_lit=lit,
-                        id="re" + str(len(reductions)),
+                    Reduction(
+                        principle_node = self.goal,
+                        sub_updates = updates,
+                        path_lit = lit,
+                        id = "re" + str(len(reductions)),
                     )
                 )
         return reductions
@@ -147,12 +194,7 @@ class ConnectionState:
     def _regularizable(self, clause):
         for path_lit in self.goal.path():
             for clause_lit in clause:
-                #self.substitution.equal(path_lit, clause_lit)
                 if path_lit.neg == clause_lit.neg and path_lit.symbol == clause_lit.symbol:
-                    # print(self.substitution.to_dict())
-                    # print(path_lit, clause_lit)
-                    # print(self.substitution(path_lit), self.substitution(clause_lit))
-                    # if self.substitution(path_lit) == self.substitution(clause_lit):
                     if self.substitution.equal(path_lit, clause_lit):
                         return True
         return False
@@ -164,18 +206,22 @@ class ConnectionState:
         current_clause = [node.literal for node in self.goal.parent.children[1:]]
         reg = self._regularizable(current_clause)
 
+        actions: list[ConnectionAction]
         if (self.goal is None) or reg:
-            actions = self._backtracks()
+            actions = cast(list[ConnectionAction], self._backtracks())
         elif self.settings.iterative_deepening and (self.goal.depth >= self.max_depth):
-            actions = self._reductions() + self._backtracks()
+            actions = cast(list[ConnectionAction], self._reductions() + self._backtracks())
         else:
-            actions = self._reductions() + self._extensions() + self._backtracks()
+            actions = cast(list[ConnectionAction], self._reductions() + self._extensions() + self._backtracks())
+
         return {action.id: action for action in actions}
 
     def backtrack(self):
-        # Backtrack to previous choice point (goal). If no choice points left, reset. 
-        actions = {}
-        while not actions or actions.keys() == ['bt'] or (self.settings.restricted_backtracking and (self.goal.num_attempted > self.settings.backtrack_after)):
+        # Backtrack to previous choice point (goal). If no choice points left, reset.
+        actions: dict[str, ConnectionAction] = {}
+
+        limit = self.settings.backtrack_after if self.settings.restricted_backtracking else float('inf')
+        while all(isinstance(x, Backtrack) for x in actions.values()) or self.goal.num_attempted > limit:
             self.goal = self.goal.find_prev()
 
             if self.proof_sequence:
@@ -188,37 +234,38 @@ class ConnectionState:
 
             # If no new actions available for previous goals increase depth
             if self.goal is self.tableau and not self.goal.actions:
-                self.reset(depth=self.max_depth+1)
+                self.reset(depth = self.max_depth + 1)
                 break
 
-    def update_goal(self, action):
+    def update_goal(self, action: ConnectionAction):
         del self.goal.actions[action.id]
         self.goal.num_attempted += 1
 
-        if action.type == 'bt':
-            self.backtrack()
-            return
-        else:
+        if isinstance(action, Start | Reduction | Extension):
             self.substitution.update(action.sub_updates)
             self.proof_sequence.append(action)
 
-        if action.type == 'st':
-            if action.clause_copy is None:
-                self.info = 'Non-Theorem: no positive start clauses'
-                self.is_terminal = True
+        match action:
+            case Backtrack():
+                self.backtrack()
                 return
-            self.goal.children = [Tableau(lit, self.goal) for lit in action.clause_copy]
 
-        # Make literal extended to child and mark as proven for backtracking purposes
-        if action.type == "ex":
-            self.goal.children = [Tableau(lit, self.goal) for lit in action.clause_copy]
-            self.goal.children[action.lit_idx].proven = True
-            self.goal.children.insert(0, self.goal.children.pop(action.lit_idx))
+            case Start(clause_copy = clause_copy):
+                if clause_copy is None:
+                    self.info = 'Non-Theorem: no positive start clauses'
+                    self.is_terminal = True
+                    return
 
-        if action.type == "re":
-            self.goal.proven = True
+                self.goal.children = [Tableau(lit, self.goal) for lit in clause_copy]
 
-        # Find next goal node, if None, a proof has been found, otherwise backtrack
+            case Extension(clause_copy = clause_copy, lit_idx = lit_idx):
+                self.goal.children = [Tableau(lit, self.goal) for lit in clause_copy]
+                self.goal.children[lit_idx].proven = True
+                self.goal.children.insert(0, self.goal.children.pop(lit_idx))
+
+            case Reduction():
+                self.goal.proven = True
+
         self.theorem_or_next()
 
     def theorem_or_next(self):
@@ -227,38 +274,5 @@ class ConnectionState:
             self.info = 'Theorem'
             self.is_terminal = True
             return
+
         self.goal.actions = self._legal_actions()
-
-class ConnectionAction:
-    """
-    Abstract action class defines functions required of an action in an
-    action space defined by a problem searched by an agent.
-    """
-
-    def __init__(
-            self,
-            type,
-            principle_node=None,
-            sub_updates=[],
-            id=None,
-            lit_idx=None,
-            path_lit=None,
-            clause_copy=None,
-    ):
-        self.type = type
-        self.principle_node = principle_node
-        self.sub_updates = sub_updates
-        self.path_lit = path_lit
-        self.lit_idx = lit_idx
-        self.clause_copy = clause_copy
-        self.id = id
-
-    def __repr__(self):
-        if self.type == "ex":
-            return f"{self.id}: {str(self.principle_node.literal)} -> {str(self.clause_copy)}"
-        if self.type == "re":
-            return f"{self.id}: {str(self.principle_node.literal)} <- {str(self.path_lit)}"
-        if self.type == "st":
-            return f"{self.id}: {str(self.clause_copy)}"
-        if self.type == "bt":
-            return 'Backtrack'
