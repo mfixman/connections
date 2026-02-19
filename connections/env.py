@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from typing import Optional
 
 from enum import StrEnum, auto
-from Utils import *
+from connections.Utils import *
 
 from connections.calculi.classicalsat import SATConnectionState, SearchSATConnectionState
 from connections.calculi.classical import ConnectionState
