@@ -7,6 +7,7 @@ from connections.Utils import *
 
 from connections.calculi.classicalsat import SATConnectionState, SearchSATConnectionState
 from connections.calculi.classical import ConnectionState
+from connections.calculi.classicalcut import ClassicalCut
 from connections.calculi.intuitionistic import IConnectionState
 from connections.calculi.modal_d import DConnectionState
 from connections.calculi.modal_t import TConnectionState
@@ -20,6 +21,7 @@ class Logic(UncaseEnum):
     SearchSAT = auto()
     ClassicalSAT = auto()
     Classical = auto()
+    ClassicalCut = auto()
     Intuitionistic = auto()
     Modal = auto()
     D = auto()
@@ -32,6 +34,7 @@ class Logic(UncaseEnum):
             Logic.SearchSAT: SearchSATConnectionState,
             Logic.ClassicalSAT: SATConnectionState,
             Logic.Classical: ConnectionState,
+            Logic.ClassicalCut: ClassicalCut,
             Logic.Intuitionistic: IConnectionState,
             Logic.D: DConnectionState,
             Logic.T: TConnectionState,
@@ -43,7 +46,7 @@ class Logic(UncaseEnum):
 
     def parser(self):
         match self:
-            case Logic.Classical | Logic.ClassicalSAT | Logic.SearchSAT:
+            case Logic.Classical | Logic.ClassicalCut | Logic.ClassicalSAT | Logic.SearchSAT:
                 return CNF
 
             case Logic.Intuitionistic | Logic.D | Logic.T | Logic.S4 | Logic.S5:
