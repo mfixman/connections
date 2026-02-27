@@ -9,6 +9,9 @@ class Tableau:
         self.parent = parent
         self.children = []
         self.proven = False
+        # Cut-related state is always present on all nodes.
+        self.cut_committed = False
+        self.pending_cut = False
         self.depth = parent.depth + 1 if parent is not None else -1
         self.num_attempted = 0
         self.actions = {}

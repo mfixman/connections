@@ -2,12 +2,13 @@ from connections.utils.unification import Substitution
 from connections.utils.primitives import Matrix, Literal
 from connections.utils.tableau import Tableau
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Optional, cast
 
 @dataclass
 class ConnectionAction:
     id: str
+    cut: bool = False
 
 @dataclass
 class Start(ConnectionAction):
@@ -19,27 +20,36 @@ class Start(ConnectionAction):
 
 @dataclass
 class Reduction(ConnectionAction):
-    principle_node: Tableau
-    sub_updates: list[object]
-    path_lit: Literal
+    principle_node: Tableau = field(default = None)
+    sub_updates: list[object] = field(default_factory = lambda: [])
+    path_lit: Literal = field(default = None)
 
     def __repr__(self) -> str:
-        return f"{self.id}: {str(self.principle_node.literal)} <- {str(self.path_lit)}"
+        suffix = " [cut]" if self.cut else ""
+        return f"{self.id}: {str(self.principle_node.literal)} <- {str(self.path_lit)}{suffix}"
 
 @dataclass
 class Extension(ConnectionAction):
-    principle_node: Tableau
-    sub_updates: list[object]
-    lit_idx: int
-    clause_copy: list[Literal]
+    principle_node: Tableau = field(default = None)
+    sub_updates: list[object] = field(default_factory = lambda: [])
+    lit_idx: int = -1
+    clause_copy: list[Literal] = field(default_factory = lambda: [])
 
     def __repr__(self) -> str:
-        return f"{self.id}: {str(self.principle_node.literal)} -> {str(self.clause_copy)}"
+        suffix = " [cut]" if self.cut else ""
+        return f"{self.id}: {str(self.principle_node.literal)} -> {str(self.clause_copy)}{suffix}"
 
 @dataclass
 class Backtrack(ConnectionAction):
     def __repr__(self) -> str:
         return 'Backtrack'
+
+
+@dataclass
+class Reset(ConnectionAction):
+    def __repr__(self) -> str:
+        return 'Reset'
+
 
 class ClassicalCut:
     matrix: Matrix
@@ -56,10 +66,24 @@ class ClassicalCut:
         self.settings = settings
         self.reset()
 
+    def finalize_pending_cuts(self) -> None:
+        stack = [self.tableau]
+        while stack:
+            node = stack.pop()
+            if node.pending_cut and node.proven:
+                node.pending_cut = False
+                node.cut_committed = True
+            stack.extend(node.children)
+
+    def with_cut_variants(self, actions: list[ConnectionAction]) -> list[ConnectionAction]:
+        with_cut: list[ConnectionAction] = []
+        for action in actions:
+            with_cut.append(action)
+            with_cut.append(replace(action, id = f"{action.id}c", cut = True))
+        return with_cut
+
     def __str__(self) -> str:
-        substitution = "\n".join(
-            f"{k} → {v}" for k, v in self.substitution.to_dict().items()
-        )
+        substitution = "\n".join(f"{k} → {v}" for k, v in self.substitution.to_dict().items())
         actions = None
         if self.goal is not None:
             actions = "\n".join(
@@ -75,7 +99,6 @@ class ClassicalCut:
         )
 
     def reset(self, depth: Optional[int] = None) -> None:
-        # Tableau fields
         self.max_depth = depth if depth is not None else 10
         if depth is None:
             self.max_depth = self.settings.iterative_deepening_initial_depth
@@ -85,7 +108,6 @@ class ClassicalCut:
         self.substitution = Substitution()
         self.goal.actions = self.legal_actions()
 
-        # Proof fields
         self.info = None
         self.is_terminal = False
         self.proof_sequence = []
@@ -99,12 +121,7 @@ class ClassicalCut:
 
         for clause in start_clause_candidates:
             clause_copy = self.matrix.copy(clause)
-            starts.append(
-                Start(
-                    id = "st" + str(len(starts)),
-                    clause_copy = clause_copy,
-                )
-            )
+            starts.append(Start(id = "st" + str(len(starts)), clause_copy = clause_copy))
         if not starts:
             starts.append(Start(id = "st0"))
 
@@ -112,6 +129,9 @@ class ClassicalCut:
 
     def backtracks(self) -> list[Backtrack]:
         return [Backtrack(id = 'bt')]
+
+    def resets(self) -> list[Reset]:
+        return [Reset(id = 'rs')]
 
     def extensions(self) -> list[Extension]:
         extensions: list[Extension] = []
@@ -134,7 +154,6 @@ class ClassicalCut:
             )
 
         return extensions
-
 
     def reductions(self) -> list[Reduction]:
         reductions: list[Reduction] = []
@@ -162,7 +181,7 @@ class ClassicalCut:
         return False
 
     def legal_actions(self) -> dict[str, ConnectionAction]:
-        if self.goal.parent == None:
+        if self.goal.parent is None:
             return {action.id: action for action in self.starts()}
 
         current_clause = [node.literal for node in self.goal.parent.children[1:]]
@@ -170,34 +189,45 @@ class ClassicalCut:
 
         actions: list[ConnectionAction]
         if (self.goal is None) or reg:
-            actions = cast(list[ConnectionAction], self.backtracks())
+            actions = cast(list[ConnectionAction], self.backtracks() + self.resets())
         elif self.settings.iterative_deepening and (self.goal.depth >= self.max_depth):
-            actions = cast(list[ConnectionAction], self.reductions() + self.backtracks())
+            actions = cast(list[ConnectionAction], self.with_cut_variants(self.reductions()) + self.backtracks() + self.resets())
         else:
-            actions = cast(list[ConnectionAction], self.reductions() + self.extensions() + self.backtracks())
+            actions = cast(
+                list[ConnectionAction],
+                self.with_cut_variants(self.reductions())
+                + self.with_cut_variants(self.extensions())
+                + self.backtracks()
+                + self.resets(),
+            )
 
         return {action.id: action for action in actions}
 
     def backtrack(self) -> None:
-        # Backtrack to previous choice point (goal). If no choice points left, reset.
-        actions: dict[str, ConnectionAction] = {}
-
-        limit = self.settings.backtrack_after if self.settings.restricted_backtracking else float('inf')
-        while all(isinstance(x, Backtrack) for x in actions.values()) or self.goal.num_attempted > limit:
+        while True:
             self.goal = self.goal.find_prev()
 
             if self.proof_sequence:
                 self.proof_sequence.pop()
 
-            actions = self.goal.actions
+            if self.goal.pending_cut:
+                self.goal.pending_cut = False
+
             self.substitution.backtrack()
             self.goal.proven = False
             self.goal.children = []
 
-            # If no new actions available for previous goals increase depth
+            actions = self.goal.actions
+            only_backtracks = all(isinstance(x, Backtrack) for x in actions.values())
+
             if self.goal is self.tableau and not self.goal.actions:
                 self.reset(depth = self.max_depth + 1)
                 break
+
+            if self.goal.cut_committed or only_backtracks:
+                continue
+
+            break
 
     def update_goal(self, action: ConnectionAction) -> None:
         del self.goal.actions[action.id]
@@ -212,6 +242,10 @@ class ClassicalCut:
                 self.backtrack()
                 return
 
+            case Reset():
+                self.reset(depth = self.max_depth + 1)
+                return
+
             case Start(clause_copy = clause_copy):
                 if clause_copy is None:
                     self.info = 'Non-Theorem: no positive start clauses'
@@ -220,18 +254,23 @@ class ClassicalCut:
 
                 self.goal.children = [Tableau(lit, self.goal) for lit in clause_copy]
 
-            case Extension(clause_copy = clause_copy, lit_idx = lit_idx):
+            case Extension(clause_copy = clause_copy, lit_idx = lit_idx, cut = cut):
                 self.goal.children = [Tableau(lit, self.goal) for lit in clause_copy]
                 self.goal.children[lit_idx].proven = True
                 self.goal.children.insert(0, self.goal.children.pop(lit_idx))
+                if cut:
+                    self.goal.pending_cut = True
 
-            case Reduction():
+            case Reduction(cut = cut):
                 self.goal.proven = True
+                if cut:
+                    self.goal.cut_committed = True
 
         self.theorem_or_next()
 
     def theorem_or_next(self) -> None:
         self.goal = self.goal.find_next()
+        self.finalize_pending_cuts()
         if self.goal is None:
             self.info = 'Theorem'
             self.is_terminal = True

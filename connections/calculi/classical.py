@@ -57,9 +57,7 @@ class ConnectionState:
         self.reset()
 
     def __str__(self) -> str:
-        substitution = "\n".join(
-            f"{k} → {v}" for k, v in self.substitution.to_dict().items()
-        )
+        substitution = "\n".join(f"{k} → {v}" for k, v in self.substitution.to_dict().items())
         actions = None
         if self.goal is not None:
             actions = "\n".join(
@@ -99,12 +97,7 @@ class ConnectionState:
 
         for clause in start_clause_candidates:
             clause_copy = self.matrix.copy(clause)
-            starts.append(
-                Start(
-                    id = "st" + str(len(starts)),
-                    clause_copy = clause_copy,
-                )
-            )
+            starts.append( Start(id = "st" + str(len(starts)), clause_copy = clause_copy))
         if not starts:
             starts.append(Start(id = "st0"))
 
@@ -135,7 +128,6 @@ class ConnectionState:
 
         return extensions
 
-
     def reductions(self) -> list[Reduction]:
         reductions: list[Reduction] = []
         for lit in self.goal.path():
@@ -162,7 +154,7 @@ class ConnectionState:
         return False
 
     def legal_actions(self) -> dict[str, ConnectionAction]:
-        if self.goal.parent == None:
+        if self.goal.parent is None:
             return {action.id: action for action in self.starts()}
 
         current_clause = [node.literal for node in self.goal.parent.children[1:]]
