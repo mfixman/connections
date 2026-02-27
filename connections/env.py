@@ -76,7 +76,7 @@ class Settings:
     iterative_deepening_initial_depth: int = 1
     restricted_backtracking: bool = False
     backtrack_after: int = 2
-    logic: Logic = Logic.Classical
+    logic: str = 'Classical'
     domain: Domain = Domain.Constant
 
 class ConnectionEnv:
@@ -84,7 +84,8 @@ class ConnectionEnv:
         if settings is None:
             settings = Settings()
 
-        settings = dataclasses.replace(settings, **settings.logic.overrides())
+        self.logic = Logic(settings.logic)
+        settings = dataclasses.replace(settings, **self.logic.overrides())
 
         self.path = path
         self.settings = settings
@@ -92,10 +93,10 @@ class ConnectionEnv:
         self._init_state()
 
     def _parse_matrix(self, path: str):
-        self.matrix = self.settings.logic.parser()(path)
+        self.matrix = self.logic.parser()(path)
 
     def _init_state(self):
-        self.state = self.settings.logic.state_class()(self.matrix, self.settings)
+        self.state = self.logic.state_class()(self.matrix, self.settings)
 
     @property
     def action_space(self):
