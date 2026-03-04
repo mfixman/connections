@@ -161,7 +161,7 @@ class ConnectionState:
         reg = self.regularizable(current_clause)
 
         actions: list[ConnectionAction]
-        if (self.goal is None) or reg:
+        if self.goal is None or reg:
             actions = cast(list[ConnectionAction], self.backtracks())
         elif self.settings.iterative_deepening and (self.goal.depth >= self.max_depth):
             actions = cast(list[ConnectionAction], self.reductions() + self.backtracks())

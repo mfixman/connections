@@ -54,6 +54,7 @@ def main():
             info = {'Solution': 'Unknown'}
             break
 
+        # Always choose first action.
         action = env.action_space[0]
         if args.print_ratio > 0 and random.randint(0, args.print_ratio - 1) == 1:
             print(action)
