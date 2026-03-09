@@ -2,7 +2,7 @@ from connections.utils.unification import Substitution
 from connections.utils.primitives import Matrix, Literal
 from connections.utils.tableau import Tableau
 
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, field
 from typing import Optional, cast
 
 @dataclass
@@ -74,13 +74,6 @@ class ClassicalCut:
                 node.pending_cut = False
                 node.cut_committed = True
             stack.extend(node.children)
-
-    def with_cut_variants(self, actions: list[ConnectionAction]) -> list[ConnectionAction]:
-        with_cut: list[ConnectionAction] = []
-        for action in actions:
-            with_cut.append(action)
-            with_cut.append(replace(action, id = f"{action.id}c", cut = True))
-        return with_cut
 
     def __str__(self) -> str:
         substitution = "\n".join(f"{k} → {v}" for k, v in self.substitution.to_dict().items())
@@ -180,28 +173,25 @@ class ClassicalCut:
                         return True
         return False
 
+    def legal_forward_actions(self) -> dict[str, ConnectionAction]:
+        current_clause = [node.literal for node in self.goal.parent.children[1:]]
+        reg = self.regularizable(current_clause)
+
+        if (self.goal is None) or reg:
+            actions = []
+        elif self.settings.iterative_deepening and (self.goal.depth >= self.max_depth):
+            actions = cast(list[ConnectionAction], self.reductions())
+        else:
+            actions = cast(list[ConnectionAction], self.reductions() + self.extensions())
+
+        return {action.id: action for action in actions}
+
     def legal_actions(self) -> dict[str, ConnectionAction]:
         if self.goal.parent is None:
             return {action.id: action for action in self.starts()}
 
-        current_clause = [node.literal for node in self.goal.parent.children[1:]]
-        reg = self.regularizable(current_clause)
-
-        actions: list[ConnectionAction]
-        if (self.goal is None) or reg:
-            actions = cast(list[ConnectionAction], self.backtracks() + self.resets())
-        elif self.settings.iterative_deepening and (self.goal.depth >= self.max_depth):
-            actions = cast(list[ConnectionAction], self.with_cut_variants(self.reductions()) + self.backtracks() + self.resets())
-        else:
-            actions = cast(
-                list[ConnectionAction],
-                self.with_cut_variants(self.reductions())
-                + self.with_cut_variants(self.extensions())
-                + self.backtracks()
-                + self.resets(),
-            )
-
-        return {action.id: action for action in actions}
+        back = cast(list[ConnectionAction], self.backtracks() + self.resets())
+        return {**self.legal_forward_actions(), **{a.id: a for a in back}}
 
     def backtrack(self) -> None:
         while True:
@@ -276,4 +266,4 @@ class ClassicalCut:
             self.is_terminal = True
             return
 
-        self.goal.actions = self.legal_actions()
+        self.goal.actions = self.legal_forward_actions()
