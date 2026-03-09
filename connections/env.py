@@ -106,6 +106,8 @@ class ConnectionEnv:
             return [None]
 
         actions = list(self.state.goal.actions.values())
+        if hasattr(self.state, 'control_actions'):
+            actions.extend(self.state.control_actions())
         return actions
 
     def step(self, action):
