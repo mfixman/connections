@@ -56,13 +56,16 @@ class Logic(UncaseEnum):
 
     def overrides(self):
         match self:
-            case Logic.ClassicalSAT | Logic.SearchSAT:
+            case Logic.ClassicalSAT | Logic.SearchSAT | Logic.ClassicalCut:
                 return dict(
                     positive_start_clauses = False,
                     iterative_deepening = True,
                 )
 
         return {}
+
+    def has_cuts(self):
+        return self is Logic.ClassicalCut
 
 class Domain(UncaseEnum):
     Constant = auto()
@@ -98,10 +101,10 @@ class ConnectionEnv:
     def _init_state(self):
         self.state = self.logic.state_class()(self.matrix, self.settings)
 
-    @property
-    def action_space(self):
+    def legal_actions(self):
         if self.state.goal is None:
             return [None]
+
         actions = list(self.state.goal.actions.values())
         return actions
 
