@@ -37,21 +37,21 @@ class SmartCut(Strategy):
         distribution via softmax, and the Shannon entropy of that
         distribution decides whether to cut. Low entropy means the
         policy is confident, so cut is safe.
-        (Zombori et al. 2021, "The Role of Entropy in Guiding a
-        Connection Prover")
+        (Zombori et al. 2021, \"The Role of Entropy in Guiding a
+        Connection Prover\")
 
     Backtrack vs reset:
         When no forward actions are available, the strategy decides
         between backtracking and resetting based on consecutive failure
         count and constraint saturation.
-        (Li et al. 2024, "A Reinforcement Learning based Reset Policy
-        for CDCL SAT Solvers")
+        (Li et al. 2024, \"A Reinforcement Learning based Reset Policy
+        for CDCL SAT Solvers\")
 
     Action scoring heuristic:
         Reductions are preferred over extensions (they close branches).
         Among extensions, shorter clauses are preferred.
-        (Letz and Stenz 2001, "Model Elimination and Connection Tableau
-        Procedures" — fewest-solutions and shortest-clause principles)
+        (Letz and Stenz 2001, \"Model Elimination and Connection Tableau
+        Procedures\" — fewest-solutions and shortest-clause principles)
     """
 
     def __init__(self, env):
@@ -137,7 +137,7 @@ class SmartCut(Strategy):
         Standard iterative deepening increments by 1. If the current
         depth has been unproductive (high failure-to-step ratio), we
         skip ahead by 2 — a simplified version of the partial reset
-        from Li et al. (2024), where the amount of "forgetting" is
+        from Li et al. (2024), where the amount of \"forgetting\" is
         adapted to search productivity.
         """
         state = self.env.state
