@@ -109,8 +109,10 @@ class SmartCut(Strategy):
         entropy = -sum(p * math.log(p) for p in probs if p > 0)
         return probs, entropy
 
-    def should_reset(self) -> bool:
+    def should_reset(self) -> tuple[bool, str]:
         """Decide whether to reset instead of backtracking.
+
+        Returns (should_reset, reason_string).
 
         Resets when the search appears unproductive: too many
         consecutive failures, or the constraint store is saturated
@@ -123,11 +125,11 @@ class SmartCut(Strategy):
         (restart window global learning rate) from Li et al. (2024).
         """
         if self.consecutive_failures >= self.max_consecutive_failures:
-            return True
+            return True, f'{self.consecutive_failures} consecutive failures'
         state = self.env.state
         if len(state.constraints) > state.matrix.num_lits * 2:
-            return True
-        return False
+            return True, f'{len(state.constraints)} constraints (> {state.matrix.num_lits * 2})'
+        return False, ''
 
     def choose_reset_depth(self) -> int:
         """Choose the depth for the next iteration after a reset.
@@ -160,10 +162,13 @@ class SmartCut(Strategy):
             self.consecutive_failures += 1
             self.failures_at_depth[state.max_depth] += 1
 
-            if self.should_reset():
+            do_reset, reason = self.should_reset()
+            if do_reset:
                 depth = self.choose_reset_depth()
+                delta = depth - state.max_depth
                 self.consecutive_failures = 0
-                return Reset(id = 'rs', depth = depth)
+                return Reset(id = 'rs', depth = depth,
+                             reason = f'{reason}, +{delta} depth')
             return Backtrack(id = 'bt')
 
         self.consecutive_failures = 0

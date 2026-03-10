@@ -36,10 +36,10 @@ for f in "$DIR"/*.p; do
         --strategy "$STRAT2" --max-steps "$MAX_STEPS" --print-ratio 0 \
         "$f" 2>/dev/null)
 
-    steps1=$(echo "$out1" | grep -o "steps': [0-9]*" | grep -o '[0-9]*$' | tr -d '[:space:]')
-    steps2=$(echo "$out2" | grep -o "steps': [0-9]*" | grep -o '[0-9]*$' | tr -d '[:space:]')
-    thm1=$(echo "$out1" | grep -c "Theorem")
-    thm2=$(echo "$out2" | grep -c "Theorem")
+    steps1=$(python3 -c "import re,sys; m=re.search(r\"'steps': (\\d+)\", sys.stdin.read()); print(m.group(1) if m else '')" <<< "$out1")
+    steps2=$(python3 -c "import re,sys; m=re.search(r\"'steps': (\\d+)\", sys.stdin.read()); print(m.group(1) if m else '')" <<< "$out2")
+    thm1=$(echo "$out1" | grep --color=never -c "Theorem")
+    thm2=$(echo "$out2" | grep --color=never -c "Theorem")
 
     [ "$thm1" -eq 1 ] && solved1=$((solved1 + 1))
     [ "$thm2" -eq 1 ] && solved2=$((solved2 + 1))
@@ -48,7 +48,7 @@ for f in "$DIR"/*.p; do
     if [ "$thm1" -eq 1 ]; then col1="${PASS}${steps1}${RESET}"; else col1="${FAIL}timeout${RESET}"; fi
     if [ "$thm2" -eq 1 ]; then col2="${PASS}${steps2}${RESET}"; else col2="${FAIL}timeout${RESET}"; fi
 
-    delta=""
+    delta="both timeout"
     if [ "$thm1" -eq 1 ] && [ "$thm2" -eq 1 ] && [ -n "$steps1" ] && [ -n "$steps2" ]; then
         if [ "$steps2" -lt "$steps1" ]; then
             pct=$(( (steps1 - steps2) * 100 / steps1 ))

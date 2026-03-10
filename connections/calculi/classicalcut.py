@@ -63,6 +63,7 @@ class Backtrack(ConnectionAction):
 @dataclass
 class Reset(ConnectionAction):
     depth: Optional[int] = None
+    reason: str = ''
 
     def __repr__(self) -> str:
         if self.depth is not None:
