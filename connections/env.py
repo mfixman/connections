@@ -14,7 +14,7 @@ from connections.calculi.modal_t import TConnectionState
 from connections.calculi.modal_s4 import S4ConnectionState
 from connections.calculi.modal_s5 import S5ConnectionState
 
-from connections.utils.cnf_parsing import file2cnf as CNF
+from connections.utils.classical_problem_parsing import file2cnf as CNF
 from connections.utils.icnf_parsing import file2cnf as ICNF
 
 class Logic(UncaseEnum):

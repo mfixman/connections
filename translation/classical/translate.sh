@@ -30,7 +30,14 @@ PROLOG_OPTIONS='--debug=false -O -q -g'
 #PROLOG_OPTIONS='-nodebug -O -L120M -G120M -T100M -q -g'
 
 # set TPTP library path
-export TPTP=../conjectures/TPTP-v6.4.0
+if [ -z "${TPTP:-}" ]; then
+ if [ -d Axioms ]; then
+  export TPTP=.
+ else
+  echo "Error: expected an Axioms directory in the repository root" >&2
+  exit 2
+ fi
+fi
 
 #----------
 # Functions
@@ -70,4 +77,3 @@ set +m
 # invoke leanCoP core prover with different settings SET
 
 SET="[]"; leancop_tr
-
