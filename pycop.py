@@ -59,8 +59,6 @@ def main():
             logging.error('Recursion error.')
             steps = args.max_steps - 1
 
-        strategy.step()
-
         steps += 1
 
     if info is None:

@@ -1,0 +1,18 @@
+cnf(
+    'GRP001-2.p',
+    [
+        [equal(X,X)],
+        [~equal(X,Y),equal(Y,X)],
+        [~equal(X,Y),~equal(Y,Z),equal(X,Z)],
+        [~equal(X1,Y1),~equal(X2,Y2),equal(multiply(X1,X2),multiply(Y1,Y2))],
+        [~equal(X1,Y1),equal(inverse(X1),inverse(Y1))],
+        [equal(multiply(identity,X),X)],
+        [equal(multiply(inverse(X),X),identity)],
+        [equal(multiply(multiply(X,Y),Z),multiply(X,multiply(Y,Z)))],
+        [equal(multiply(X,identity),X)],
+        [equal(multiply(X,inverse(X)),identity)],
+        [equal(multiply(X,X),identity)],
+        [equal(multiply(a,b),c)],
+        [~equal(multiply(b,a),c)]
+    ]
+)
