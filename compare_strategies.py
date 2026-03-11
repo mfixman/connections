@@ -6,6 +6,8 @@ import multiprocessing as mp
 import re
 import sys
 import time
+import traceback
+from multiprocessing.connection import Connection, wait
 from pathlib import Path
 from typing import Optional
 
@@ -33,8 +35,31 @@ def rpad(s: str, width: int) -> str:
 
 # ── Worker ────────────────────────────────────────────────────────────────────
 
-def _run_problem(queue: mp.Queue, path: str, strategy_name: str, logic: str, max_steps: int) -> None:
-    """Worker function: run one strategy on one problem and push result to queue."""
+def _status_label(result: Optional[dict]) -> str:
+    if result is None:
+        return 'timeout'
+    return result.get('status', 'error')
+
+
+def _recv_result(conn: Connection, proc: mp.Process) -> dict:
+    try:
+        return conn.recv()
+    except EOFError:
+        return {
+            'status': 'error',
+            'solved': False,
+            'error': f'worker exited with code {proc.exitcode}',
+        }
+
+
+def _run_problem(
+    conn: Connection,
+    path: str,
+    strategy_name: str,
+    logic: str,
+    max_steps: int,
+) -> None:
+    """Worker function: run one strategy on one problem and send back a result."""
     try:
         env = ConnectionEnv(path, Settings(logic=logic))
         strategy = Strategy.strategies()[strategy_name](env)
@@ -43,11 +68,12 @@ def _run_problem(queue: mp.Queue, path: str, strategy_name: str, logic: str, max
         done = False
         info = None
         steps = 0
+        hit_max_steps = False
         start = time.perf_counter()
 
         while not done:
             if steps >= max_steps:
-                info = {'Solution': 'Unknown'}
+                hit_max_steps = True
                 break
             action = strategy.step()
             try:
@@ -58,15 +84,31 @@ def _run_problem(queue: mp.Queue, path: str, strategy_name: str, logic: str, max
 
         elapsed = time.perf_counter() - start
 
-        solved = (info == 'Theorem')
+        status_info = info.get('status') if isinstance(info, dict) else info
+        solved = status_info in {'Theorem', 'Theorem (SAT)'}
+        status = 'solved'
+        if not solved:
+            status = 'max_steps' if hit_max_steps else 'unsolved'
 
-        queue.put({
+        result = {
+            'status': status,
             'solved': solved,
             'steps': steps,
             'time': elapsed,
-        })
+        }
+        if status_info is not None:
+            result['info'] = str(status_info)
+
+        conn.send(result)
     except Exception as exc:
-        queue.put({'error': str(exc)})
+        conn.send({
+            'status': 'error',
+            'solved': False,
+            'error': f'{type(exc).__name__}: {exc}',
+            'traceback': traceback.format_exc(),
+        })
+    finally:
+        conn.close()
 
 
 def run_strategies(
@@ -76,32 +118,63 @@ def run_strategies(
     max_steps: int,
     timeout: float,
 ) -> dict[str, Optional[dict]]:
-    """Run all strategies on a problem in parallel, with a shared timeout deadline."""
-    queues: dict[str, mp.Queue] = {s: mp.Queue() for s in strategies}
-    procs: dict[str, mp.Process] = {
-        s: mp.Process(
+    """Run all strategies concurrently and enforce a real wall-clock timeout."""
+    parent_conns: dict[str, Connection] = {}
+    procs: dict[str, mp.Process] = {}
+
+    for strategy_name in strategies:
+        parent_conn, child_conn = mp.Pipe(duplex=False)
+        parent_conns[strategy_name] = parent_conn
+        proc = mp.Process(
             target=_run_problem,
-            args=(queues[s], path, s, logic, max_steps),
+            args=(child_conn, path, strategy_name, logic, max_steps),
             daemon=True,
         )
-        for s in strategies
-    }
+        procs[strategy_name] = proc
+        proc.start()
+        child_conn.close()
 
-    for p in procs.values():
-        p.start()
-
-    deadline = time.monotonic() + timeout
     results: dict[str, Optional[dict]] = {}
-    for s in strategies:
-        remaining = max(0.0, deadline - time.monotonic())
-        procs[s].join(remaining)
-        if procs[s].is_alive():
-            procs[s].terminate()
-            procs[s].join()
-            results[s] = None
+    pending = set(strategies)
+    deadline = time.monotonic() + timeout
+
+    while pending:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            break
+
+        ready = wait(
+            [parent_conns[strategy_name] for strategy_name in pending],
+            timeout=remaining,
+        )
+        if not ready:
+            break
+
+        for strategy_name in list(pending):
+            conn = parent_conns[strategy_name]
+            if conn not in ready:
+                continue
+            results[strategy_name] = _recv_result(conn, procs[strategy_name])
+            procs[strategy_name].join()
+            conn.close()
+            pending.remove(strategy_name)
+
+    for strategy_name in pending:
+        proc = procs[strategy_name]
+        conn = parent_conns[strategy_name]
+        if proc.is_alive():
+            proc.terminate()
+            proc.join()
+            results[strategy_name] = {'status': 'timeout', 'solved': False}
+        elif conn.poll():
+            results[strategy_name] = _recv_result(conn, proc)
         else:
-            r = queues[s].get() if not queues[s].empty() else None
-            results[s] = None if (r is None or 'error' in r) else r
+            results[strategy_name] = {
+                'status': 'error',
+                'solved': False,
+                'error': f'worker exited with code {proc.exitcode}',
+            }
+        conn.close()
 
     return results
 
@@ -109,8 +182,22 @@ def run_strategies(
 # ── Formatting helpers ────────────────────────────────────────────────────────
 
 def fmt_result(r: Optional[dict], show_steps: bool, show_time: bool) -> str:
-    if r is None or not r['solved']:
+    if r is None:
         return red('timeout')
+    status = r.get('status')
+    if status == 'timeout':
+        return red('timeout')
+    if status == 'max_steps':
+        return bold('max-steps')
+    if status == 'unsolved':
+        info = r.get('info', 'unsolved')
+        if str(info).startswith('Non-Theorem'):
+            return dim('non-theorem')
+        return dim('unsolved')
+    if status == 'error':
+        return red('error')
+    if not r['solved']:
+        return dim('unsolved')
     parts = []
     if show_steps:
         parts.append(f'{r["steps"]:,}')
@@ -128,7 +215,11 @@ def fmt_delta(
     s2 = r2 is not None and r2['solved']
 
     if not s1 and not s2:
-        return dim('both timeout')
+        label1 = _status_label(r1)
+        label2 = _status_label(r2)
+        if label1 == label2:
+            return dim(f'both {label1}')
+        return dim(f'{label1} / {label2}')
     if s1 and not s2:
         return red(f'{name1} only')
     if s2 and not s1:
@@ -241,6 +332,7 @@ def main() -> None:
     step_wins = {s: 0 for s in strategies}
     ties = 0
     total = 0
+    errors: list[tuple[str, str, str]] = []
 
     for problem in problems:
         total += 1
@@ -251,6 +343,8 @@ def main() -> None:
         for s in strategies:
             if results[s] and results[s]['solved']:
                 solved_counts[s] += 1
+            elif results[s] and results[s].get('status') == 'error':
+                errors.append((problem.name, s, results[s]['error']))
 
         row = rpad(problem.name, name_w)
         for s in strategies:
@@ -287,6 +381,11 @@ def main() -> None:
     else:
         wins_str = ''
     print(f'Solved: {solved_str}{wins_str}')
+
+    if errors:
+        print('\nErrors:')
+        for problem_name, strategy_name, error in errors:
+            print(f'  {problem_name} [{strategy_name}]: {error}')
 
 
 if __name__ == '__main__':
