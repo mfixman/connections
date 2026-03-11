@@ -33,6 +33,22 @@ def rpad(s: str, width: int) -> str:
     return s + ' ' * max(0, width - vlen(s))
 
 
+def show_progress(s: str, width: int) -> None:
+    """Show an in-place progress label without changing final table output."""
+    if not sys.stdout.isatty():
+        return
+    sys.stdout.write('\033[2K\r' + rpad(s, width))
+    sys.stdout.flush()
+
+
+def clear_progress() -> None:
+    """Clear the in-place progress label before printing a completed row."""
+    if not sys.stdout.isatty():
+        return
+    sys.stdout.write('\033[2K\r')
+    sys.stdout.flush()
+
+
 # ── Worker ────────────────────────────────────────────────────────────────────
 
 def _status_label(result: Optional[dict]) -> str:
@@ -325,8 +341,8 @@ def main() -> None:
         header += '  ' + rpad(s, col_w)
     if two:
         header += '  ' + f'Δ ({strategies[1]} vs {strategies[0]})'
-    print(header)
-    print(sep)
+    print(header, flush=True)
+    print(sep, flush=True)
 
     solved_counts = {s: 0 for s in strategies}
     step_wins = {s: 0 for s in strategies}
@@ -336,6 +352,7 @@ def main() -> None:
 
     for problem in problems:
         total += 1
+        show_progress(problem.name, name_w)
         results = run_strategies(
             str(problem), strategies, args.logic, args.max_steps, args.timeout,
         )
@@ -368,9 +385,10 @@ def main() -> None:
             elif s2:
                 step_wins[strategies[1]] += 1
 
-        print(row)
+        clear_progress()
+        print(row, flush=True)
 
-    print(sep)
+    print(sep, flush=True)
     solved_str = '  '.join(f'{s}={solved_counts[s]}/{total}' for s in strategies)
     if two:
         wins_str = (
@@ -380,12 +398,12 @@ def main() -> None:
         )
     else:
         wins_str = ''
-    print(f'Solved: {solved_str}{wins_str}')
+    print(f'Solved: {solved_str}{wins_str}', flush=True)
 
     if errors:
-        print('\nErrors:')
+        print('\nErrors:', flush=True)
         for problem_name, strategy_name, error in errors:
-            print(f'  {problem_name} [{strategy_name}]: {error}')
+            print(f'  {problem_name} [{strategy_name}]: {error}', flush=True)
 
 
 if __name__ == '__main__':

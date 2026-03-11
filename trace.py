@@ -9,7 +9,9 @@ Example:
     python trace.py tests/cnf_problems/SET027+3.p SmartCut 10000 --color | less -R
 """
 
+import os
 import sys
+from pathlib import Path
 from connections.env import ConnectionEnv, Settings
 from connections.calculi.classicalcut import (
     Start, Reduction, Extension, Backtrack, Reset,
@@ -28,6 +30,62 @@ def CYAN():   return _c('\033[36m')
 def YELLOW(): return _c('\033[33m')
 def RED():    return _c('\033[31m')
 def RESET():  return _c('\033[0m')
+
+
+def resolve_problem_path(path: str) -> str:
+    """Resolve a problem from the local path or from the `TPTP` tree."""
+    problem_path = Path(path)
+
+    for candidate in _candidate_paths(problem_path):
+        if candidate.exists():
+            return str(candidate)
+
+    tptp_root = os.getenv('TPTP')
+    if tptp_root is None:
+        raise FileNotFoundError(f'could not find problem {path!r} and TPTP is not set')
+
+    matches = _find_tptp_matches(problem_path, Path(tptp_root))
+    if len(matches) == 1:
+        return str(matches[0])
+    if not matches:
+        raise FileNotFoundError(f'could not find problem {path!r} under {tptp_root}')
+
+    formatted = ', '.join(str(match) for match in matches[:5])
+    if len(matches) > 5:
+        formatted += ', ...'
+    raise FileNotFoundError(f'problem {path!r} is ambiguous under {tptp_root}: {formatted}')
+
+
+def _candidate_paths(path: Path) -> list[Path]:
+    """Return the exact name and the optional `.p` variant to try."""
+    candidates = [path]
+    if path.suffix:
+        return candidates
+
+    candidates.append(path.with_suffix('.p'))
+    return candidates
+
+
+def _find_tptp_matches(path: Path, tptp_root: Path) -> list[Path]:
+    """Search the TPTP tree for an exact filename or bare codename."""
+    matches = []
+
+    for candidate in _candidate_paths(path):
+        rooted = (tptp_root / candidate).resolve()
+        if rooted.exists():
+            matches.append(rooted)
+
+    if matches:
+        return _unique_paths(matches)
+
+    for candidate in _candidate_paths(path):
+        matches.extend(found.resolve() for found in tptp_root.rglob(candidate.name))
+    return _unique_paths(matches)
+
+
+def _unique_paths(paths: list[Path]) -> list[Path]:
+    """Deduplicate and sort resolved paths for stable lookup errors."""
+    return sorted(set(paths))
 
 
 def fmt_action(action, step: int, highlight_special: bool) -> str:
@@ -122,7 +180,7 @@ if __name__ == '__main__':
     if '--color' in flags:
         _color = True
 
-    path = args[0]
+    path = resolve_problem_path(args[0])
     strategy = args[1]
     max_steps = int(args[2]) if len(args) > 2 else 10000
 
