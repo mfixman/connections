@@ -28,7 +28,7 @@ def translate_logic(file: str, logic: Logic) -> str:
 
     return str(output)
 
-# @ipdb.launch_ipdb_on_exception()
+@ipdb.launch_ipdb_on_exception()
 def main():
     args = parse_args()
     logging.basicConfig(level = logging.INFO if args.verbose else logging.WARN, format = '[%(relativeCreated)d] %(message)s')

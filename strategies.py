@@ -2,10 +2,7 @@ import math
 from collections import defaultdict
 
 from connections.env import ConnectionEnv
-from connections.calculi.classicalcut import (
-    ConnectionAction, Start, Reduction, Extension, Backtrack, Reset,
-)
-
+from connections.calculi.classicalcut import ConnectionAction, Start, Reduction, Extension, Backtrack, Reset
 
 class Strategy:
     env: ConnectionEnv
@@ -18,16 +15,11 @@ class Strategy:
 
     @classmethod
     def strategies(cls):
-        return {
-            'FirstAction': FirstAction,
-            'SmartCut': SmartCut,
-        }
-
+        return {subcls.__name__: subcls for subcls in cls.__subclasses__()}
 
 class FirstAction(Strategy):
     def step(self):
         return self.env.legal_actions()[0]
-
 
 class SmartCut(Strategy):
     """Strategy combining entropy-based cut with constraint-aware control.
