@@ -248,3 +248,9 @@ fabric.properties
 Axioms
 leancop21
 TPTP_subset
+
+*.aux
+*.bbl
+*.blg
+*.fdb_latexmk
+*.fls
