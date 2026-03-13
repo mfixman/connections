@@ -3,6 +3,7 @@
 
 import argparse
 import multiprocessing as mp
+import os
 import re
 import sys
 import time
@@ -195,6 +196,83 @@ def run_strategies(
     return results
 
 
+# ── Problem resolution ────────────────────────────────────────────────────────
+
+def resolve_problem_path(path: str) -> str:
+    """Resolve a problem from the local path or from the `TPTP` tree."""
+    problem_path = Path(path)
+
+    for candidate in _candidate_paths(problem_path):
+        if candidate.exists():
+            return str(candidate)
+
+    tptp_root = os.getenv('TPTP')
+    if tptp_root is None:
+        raise FileNotFoundError(f'could not find problem {path!r} and TPTP is not set')
+
+    matches = _find_tptp_matches(problem_path, Path(tptp_root))
+    if len(matches) == 1:
+        return str(matches[0])
+    if not matches:
+        raise FileNotFoundError(f'could not find problem {path!r} under {tptp_root}')
+
+    formatted = ', '.join(str(match) for match in matches[:5])
+    if len(matches) > 5:
+        formatted += ', ...'
+    raise FileNotFoundError(f'problem {path!r} is ambiguous under {tptp_root}: {formatted}')
+
+
+def _candidate_paths(path: Path) -> list[Path]:
+    """Return the exact name and the optional `.p` variant to try."""
+    candidates = [path]
+    if path.suffix:
+        return candidates
+
+    candidates.append(path.with_suffix('.p'))
+    return candidates
+
+
+def _find_tptp_matches(path: Path, tptp_root: Path) -> list[Path]:
+    """Search the TPTP tree for an exact filename or bare codename."""
+    matches = []
+
+    for candidate in _candidate_paths(path):
+        rooted = (tptp_root / candidate).resolve()
+        if rooted.exists():
+            matches.append(rooted)
+
+    if matches:
+        return _unique_paths(matches)
+
+    for candidate in _candidate_paths(path):
+        matches.extend(found.resolve() for found in tptp_root.rglob(candidate.name))
+    return _unique_paths(matches)
+
+
+def _unique_paths(paths: list[Path]) -> list[Path]:
+    """Deduplicate and sort resolved paths for stable lookup errors."""
+    return sorted(set(paths))
+
+
+def expand_problem_inputs(inputs: list[str]) -> list[Path]:
+    """Expand directories and problem names into a deduplicated list of files."""
+    if not inputs:
+        inputs = ['tests/cnf_problems']
+
+    problems: list[Path] = []
+    for raw in inputs:
+        input_path = Path(raw)
+        if input_path.exists() and input_path.is_dir():
+            dir_problems = sorted(input_path.glob('*.p'))
+            if not dir_problems:
+                raise FileNotFoundError(f'no .p files found in {raw!r}')
+            problems.extend(dir_problems)
+        else:
+            problems.append(Path(resolve_problem_path(raw)))
+
+    return _unique_paths([problem.resolve() for problem in problems])
+
+
 # ── Formatting helpers ────────────────────────────────────────────────────────
 
 def fmt_result(r: Optional[dict], show_steps: bool, show_time: bool) -> str:
@@ -267,6 +345,7 @@ def fmt_delta(
 
 def parse_args() -> argparse.Namespace:
     available_strategies = list(Strategy.strategies().keys())
+    default_strategies = [available_strategies[0], available_strategies[-1]]
     available_logics = [str(l) for l in Logic]
 
     parser = argparse.ArgumentParser(
@@ -282,19 +361,25 @@ def parse_args() -> argparse.Namespace:
             '  %(prog)s tests/cnf_problems\n'
             '  %(prog)s comparisons/classical --timeout 60 --max-steps 100000\n'
             '  %(prog)s tests --strategies FirstAction SmartCut\n'
+            '  %(prog)s tests --all-strategies\n'
             '  %(prog)s tests --no-time\n'
             '  %(prog)s tests --no-steps\n'
         ),
     )
     parser.add_argument(
-        'dir', nargs='?', default='tests/cnf_problems', metavar='DIR',
-        help='directory of .p problem files (default: tests/cnf_problems)',
+        'inputs', nargs='*', metavar='DIR_OR_FILE',
+        help='directories and/or problem files/codenames (default: tests/cnf_problems)',
     )
-    parser.add_argument(
+
+    strategy_group = parser.add_mutually_exclusive_group()
+    strategy_group.add_argument(
         '--strategies', nargs='+',
-        default=available_strategies[:2],
         choices=available_strategies, metavar='STRATEGY',
-        help=f'strategies to compare (default: {" ".join(available_strategies[:2])})',
+        help=f'strategies to compare (default: {" ".join(default_strategies)})',
+    )
+    strategy_group.add_argument(
+        '--all-strategies', action='store_true',
+        help='compare all available strategies',
     )
     parser.add_argument(
         '--logic', default='ClassicalCut', choices=available_logics, metavar='LOGIC',
@@ -316,7 +401,14 @@ def parse_args() -> argparse.Namespace:
         '--time', default=True, action=argparse.BooleanOptionalAction,
         help='show wall-clock time in results (default: on)',
     )
-    return parser.parse_args()
+    args = parser.parse_args()
+
+    if args.all_strategies:
+        args.strategies = available_strategies
+    elif args.strategies is None:
+        args.strategies = default_strategies
+
+    return args
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────
@@ -324,9 +416,10 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
 
-    problems = sorted(Path(args.dir).glob('*.p'))
-    if not problems:
-        sys.exit(f'error: no .p files found in {args.dir!r}')
+    try:
+        problems = expand_problem_inputs(args.inputs)
+    except FileNotFoundError as exc:
+        sys.exit(f'error: {exc}')
 
     strategies = args.strategies
     two = len(strategies) == 2
