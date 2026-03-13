@@ -171,6 +171,61 @@ class HeuristicSelection(Strategy, _SmartSupport):
         return chosen
 
 
+class SubgoalReordering(Strategy, _SmartSupport):
+    """Strict categorical ordering: reductions first, then extensions
+    sorted by clause length (ascending), then starts by clause length.
+
+    Source:
+        Letz and Stenz (2001), "Model Elimination and Connection
+        Tableau Procedures", §2.6.1–2.6.2. The fewest-solutions
+        principle states that subgoals producing fewer solutions should
+        be preferred. Reductions close the current subgoal immediately
+        (0 new subgoals), so they are tried first. Among extensions,
+        the shortest-clause principle prefers clauses with fewer
+        literals, since the number of solutions from a clause is the
+        product of the solutions of its subgoals (footnote 3, p. 2031).
+
+    Design choice:
+        The paper describes subgoal alternation — interleaving choice
+        points across multiple open subgoals — which our step-at-a-time
+        framework cannot directly express. We implement the core
+        ranking: reductions > extensions sorted by number of new
+        subgoals (len(clause_copy) - 1). Ties preserve the default
+        depth-first order, matching the paper's baseline (§2.6, "depth-
+        first left-most/right-most selection").
+    """
+
+    def _action_key(self, action: ConnectionAction) -> tuple[int, int]:
+        """Sort key: (category, new_subgoal_count).
+
+        Category 0 = Reduction (closes branch, 0 new subgoals).
+        Category 1 = Extension (sorted by clause length ascending).
+        Category 2 = Start (sorted by clause length ascending).
+        """
+        if isinstance(action, Reduction):
+            return (0, 0)
+        elif isinstance(action, Extension):
+            # clause_copy includes the head literal; new subgoals = len - 1
+            return (1, len(action.clause_copy) - 1)
+        elif isinstance(action, Start):
+            return (2, len(action.clause_copy))
+        return (3, 0)
+
+    def step(self):
+        actions = self.env.legal_actions()
+        forward = [a for a in actions if isinstance(a, (Start, Reduction, Extension))]
+
+        if not forward:
+            return choose_action_of_type(actions, Backtrack) or choose_action_of_type(actions, Reset)
+
+        if len(forward) == 1:
+            return forward[0]
+
+        # Stable sort preserves depth-first order within same category+length.
+        forward.sort(key=self._action_key)
+        return forward[0]
+
+
 class EntropyCut(Strategy, _SmartSupport):
     """Add a cut when the forward-action distribution has low entropy.
 
