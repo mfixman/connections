@@ -31,7 +31,7 @@ class Start(ConnectionAction):
     sub_updates: list[Literal] = field(default_factory = lambda: [])
 
     def __repr__(self) -> str:
-        return f"{self.id}: {str(self.clause_copy)}"
+        return f"Start {self.id}: {str(self.clause_copy)}"
 
 @dataclass
 class Reduction(ConnectionAction):
@@ -41,7 +41,7 @@ class Reduction(ConnectionAction):
 
     def __repr__(self) -> str:
         suffix = " [cut]" if self.cut else ""
-        return f"{self.id}: {str(self.principle_node.literal)} <- {str(self.path_lit)}{suffix}"
+        return f"Reduction {self.id}: {str(self.principle_node.literal)} <- {str(self.path_lit)}{suffix}"
 
 @dataclass
 class Extension(ConnectionAction):
@@ -52,13 +52,12 @@ class Extension(ConnectionAction):
 
     def __repr__(self) -> str:
         suffix = " [cut]" if self.cut else ""
-        return f"{self.id}: {str(self.principle_node.literal)} -> {str(self.clause_copy)}{suffix}"
+        return f"Excention {self.id}: {str(self.principle_node.literal)} -> {str(self.clause_copy)}{suffix}"
 
 @dataclass
 class Backtrack(ConnectionAction):
     def __repr__(self) -> str:
         return 'Backtrack'
-
 
 @dataclass
 class Reset(ConnectionAction):
@@ -69,7 +68,6 @@ class Reset(ConnectionAction):
         if self.depth is not None:
             return f'Reset({self.depth})'
         return 'Reset'
-
 
 class ClassicalCut:
     matrix: Matrix
@@ -343,8 +341,8 @@ class ClassicalCut:
                 self.backtrack()
                 return
 
-            case Reset():
-                new_depth = action.depth if action.depth is not None else self.max_depth + 1
+            case Reset(depth = depth):
+                new_depth = depth if depth is not None else self.max_depth + 1
                 self.reset(depth = new_depth)
                 return
 

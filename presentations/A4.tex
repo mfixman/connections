@@ -1,18 +1,38 @@
 \documentclass[11pt,twocolumn]{article}
 
 \usepackage{microtype}
-\usepackage[scale=0.85]{geometry}
+\usepackage[margin=55pt]{geometry}
 \usepackage{lipsum}
+\usepackage{titlesec}
 
 \bibliographystyle{plain}
+\titlelabel{}
 
-\title{Modifying LeanCoP Options On the Fly \\ \normalsize (aka ``the PAAR paper'')}
+\newcommand{\atom}[1]{\texttt{#1}}
+
+\title{Modifying LeanCoP Options On the Fly \\[3pt] \large (aka ``the PAAR paper'')}
 \date{}
 \author{}
 
 \begin{document}
-	\maketitle{}
-	Hello\cite{mangla2022a}.
-	\lipsum[1-5]{}
-\bibliography{bibliography.bib}
+\maketitle{}
+
+\section{Introduction and Research}
+
+LeanCoP inspired a large family of provers which, with a small amount of modifications, could improve the performance of the connection prover in a large set of problems\cite{Otten2023leanCoP20}.
+The ones that inspired this work change one property of the original LeanCoP at the initial time.
+
+LeanCoP 2.0\cite{ottenLeanCoP20} added several options, most notably \atom{cut} and \atom{scut} to restrict backtracking in connection calculus.
+That version also enables \emph{iterative deepening} with \atom{comp(J)}, which iteratively limits the height 1 at a time of the tree when the prover is saturated\footnotemark{} until it reaches maximum height \atom{J}.
+Afterwards it restarts iterative deepening from 1, but without any other option active.
+
+\section{Novel Idea}
+
+\section{Implementation}
+
+\section{Preliminary Results}
+
+{
+\small\bibliography{bibliography.bib}
+}
 \end{document}

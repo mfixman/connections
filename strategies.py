@@ -21,7 +21,6 @@ class FirstAction(Strategy):
     def step(self):
         return self.env.legal_actions()[0]
 
-
 class LeanCopCut(Strategy):
     """Mirror leanCoP's `cut` option for forward proof steps.
 
@@ -37,12 +36,22 @@ class LeanCopCut(Strategy):
         unchanged.
     """
 
+    max_instance: int = 7
+
+    should_comp: bool
+
+    def __init__(self, env):
+        super().__init__(env)
+        self.should_comp = True
+
     def step(self):
         action = self.env.legal_actions()[0]
-        if isinstance(action, (Reduction, Extension)):
-            action.cut = True
-        return action
+        print(action)
 
+        if self.should_comp:
+            if isinstance(action, (Reduction, Extension)):
+                action.cut = True
+        return action
 
 class _SmartSupport:
     """Shared helpers for the SmartCut variants."""
