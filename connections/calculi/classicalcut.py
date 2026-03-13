@@ -61,13 +61,11 @@ class Backtrack(ConnectionAction):
 
 @dataclass
 class Reset(ConnectionAction):
-    depth: Optional[int] = None
+    depth: int = 1
     reason: str = ''
 
     def __repr__(self) -> str:
-        if self.depth is not None:
-            return f'Reset({self.depth})'
-        return 'Reset'
+        return f'Reset {self.depth}'
 
 class ClassicalCut:
     matrix: Matrix
@@ -148,10 +146,12 @@ class ClassicalCut:
         return starts
 
     def backtracks(self) -> list[Backtrack]:
+        if self.goal.parent is None:
+            return []
         return [Backtrack(id = 'bt')]
 
     def resets(self) -> list[Reset]:
-        return [Reset(id = 'rs')]
+        return [Reset(id = 'rs', depth = self.max_depth + 1)]
 
     def extensions(self) -> list[Extension]:
         extensions: list[Extension] = []
@@ -284,12 +284,16 @@ class ClassicalCut:
 
     def legal_actions(self) -> dict[str, ConnectionAction]:
         if self.goal.parent is None:
-            return {action.id: action for action in self.starts()}
+            actions = cast(list[ConnectionAction], self.starts() + self.resets())
+            return {action.id: action for action in actions}
 
         back = cast(list[ConnectionAction], self.backtracks() + self.resets())
         return {**self.legal_forward_actions(), **{a.id: a for a in back}}
 
     def backtrack(self) -> None:
+        if self.goal.parent is None:
+            return
+
         while True:
             self.goal = self.goal.find_prev()
 
@@ -312,10 +316,6 @@ class ClassicalCut:
                 k: v for k, v in self.goal.actions.items()
                 if not self.violates_constraint(v)
             }
-
-            if self.goal is self.tableau and not self.goal.actions:
-                self.reset(depth = self.max_depth + 1)
-                break
 
             if self.goal.cut_committed or not self.goal.actions:
                 continue
@@ -342,8 +342,7 @@ class ClassicalCut:
                 return
 
             case Reset(depth = depth):
-                new_depth = depth if depth is not None else self.max_depth + 1
-                self.reset(depth = new_depth)
+                self.reset(depth = depth)
                 return
 
             case Start(clause_copy = clause_copy):

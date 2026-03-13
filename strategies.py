@@ -1,8 +1,16 @@
 import math
 from collections import defaultdict
+from typing import Optional, TypeVar
 
 from connections.env import ConnectionEnv
 from connections.calculi.classicalcut import ConnectionAction, Start, Reduction, Extension, Backtrack, Reset
+
+TAction = TypeVar('TAction', bound = ConnectionAction)
+
+
+def choose_action_of_type(actions: list[ConnectionAction], action_type: type[TAction]) -> Optional[TAction]:
+    return next((a for a in actions if isinstance(a, action_type)), None)
+
 
 class Strategy:
     env: ConnectionEnv
@@ -36,9 +44,9 @@ class LeanCopCut(Strategy):
         unchanged.
     """
 
-    max_instance: int = 7
-
+    max_cut_height: int = 7
     should_comp: bool
+    cut_has: bool
 
     def __init__(self, env):
         super().__init__(env)
@@ -46,11 +54,19 @@ class LeanCopCut(Strategy):
 
     def step(self):
         action = self.env.legal_actions()[0]
-        print(action)
 
-        if self.should_comp:
-            if isinstance(action, (Reduction, Extension)):
+        if not self.should_comp:
+            return action
+
+        match action:
+            case Reduction() | Extension():
                 action.cut = True
+
+            case Reset(depth = depth):
+                if depth > self.max_cut_height:
+                    self.should_comp = False
+                    return Reset(id = 'rs', depth = 1)
+
         return action
 
 class _SmartSupport:
@@ -146,7 +162,7 @@ class HeuristicSelection(Strategy, _SmartSupport):
         forward = [a for a in actions if isinstance(a, (Start, Reduction, Extension))]
 
         if not forward:
-            return Backtrack(id = 'bt')
+            return choose_action_of_type(actions, Backtrack) or choose_action_of_type(actions, Reset)
 
         if len(forward) == 1:
             return forward[0]
@@ -180,7 +196,7 @@ class EntropyCut(Strategy, _SmartSupport):
         forward = [a for a in actions if isinstance(a, (Start, Reduction, Extension))]
 
         if not forward:
-            return Backtrack(id = 'bt')
+            return choose_action_of_type(actions, Backtrack) or choose_action_of_type(actions, Reset)
 
         if len(forward) == 1:
             return forward[0]
@@ -227,7 +243,7 @@ class AdaptiveReset(Strategy, _SmartSupport):
                 delta = depth - state.max_depth
                 self.consecutive_failures = 0
                 return Reset(id = 'rs', depth = depth, reason = f'{reason}, +{delta} depth')
-            return Backtrack(id = 'bt')
+            return choose_action_of_type(actions, Backtrack) or choose_action_of_type(actions, Reset)
 
         self.consecutive_failures = 0
         return forward[0]
@@ -265,7 +281,7 @@ class SmartCut(Strategy, _SmartSupport):
                 delta = depth - state.max_depth
                 self.consecutive_failures = 0
                 return Reset(id = 'rs', depth = depth, reason = f'{reason}, +{delta} depth')
-            return Backtrack(id = 'bt')
+            return choose_action_of_type(actions, Backtrack) or choose_action_of_type(actions, Reset)
 
         self.consecutive_failures = 0
 
