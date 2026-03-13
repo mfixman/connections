@@ -7,9 +7,34 @@ from connections.calculi.classicalcut import ConnectionAction, Start, Reduction,
 
 TAction = TypeVar('TAction', bound = ConnectionAction)
 
+def backtrack_or_reset(actions: list[ConnectionAction]) -> ConnectionAction:
+    backtracks = (a for a in actions if isinstance(a, Backtrack))
+    resets = (a for a in actions if isinstance(a, Reset))
+    return next(backtracks, None) or next(resets)
 
-def choose_action_of_type(actions: list[ConnectionAction], action_type: type[TAction]) -> Optional[TAction]:
-    return next((a for a in actions if isinstance(a, action_type)), None)
+def _action_score(action: ConnectionAction) -> float:
+    """Heuristic score for a forward action.  Higher is better.
+
+    Source:
+        Inspired by the fewest-solutions and shortest-clause principles
+        from Letz and Stenz (2001), "Model Elimination and Connection
+        Tableau Procedures", §2.6.1–2.6.2.
+
+    Design choices (not from the paper):
+        The paper states qualitative ordering principles — prefer
+        subgoals with fewer solutions, and use clause length as a proxy
+        — but never proposes a numeric scoring function.  The specific
+        values (Reduction = 2.0, Extension/Start = 1 / clause_length)
+        are our adaptation.  Reductions score highest because they close
+        a subgoal immediately (0 new subgoals); extensions score
+        inversely with clause length as a rough proxy for the
+        shortest-clause principle.
+    """
+    if isinstance(action, Reduction):
+        return 2.0
+    elif isinstance(action, (Extension, Start)):
+        return 1.0 / max(len(action.clause_copy), 1)
+    return 0.0
 
 
 class Strategy:
@@ -23,25 +48,49 @@ class Strategy:
 
     @classmethod
     def strategies(cls):
-        return {subcls.__name__: subcls for subcls in cls.__subclasses__()}
+        result = {}
+        queue = list(cls.__subclasses__())
+        while queue:
+            subcls = queue.pop(0)
+            result[subcls.__name__] = subcls
+            queue.extend(subcls.__subclasses__())
+        return result
 
 class FirstAction(Strategy):
     def step(self):
         return self.env.legal_actions()[0]
 
 class LeanCopCut(Strategy):
-    """Mirror leanCoP's `cut` option for forward proof steps.
+    """Mirror leanCoP's ``cut`` option for forward proof steps.
 
     This strategy follows the baseline proof-search order of
-    `FirstAction`, but if the selected action is an `Extension` or a
-    `Reduction`, it sets `cut=True` before returning it.
+    ``FirstAction``, but if the selected action is an ``Extension`` or a
+    ``Reduction``, it sets ``cut=True`` before returning it.
+
+    Source:
+        Otten (2010), "Restricting backtracking in connection calculi",
+        §4.3, Definition 8.  Restricted backtracking cuts off
+        alternative rule applications once a literal has been solved.
+        The Prolog implementation inserts a ``!`` (cut) after each
+        successful proof step (line 14 of Figure 11).  The ``scut``
+        variant additionally restricts start-clause backtracking
+        (§5.4, line c).
 
     Consistency with leanCoP:
-        The Prolog `cut` option in leanCoP applies restricted
+        The Prolog ``cut`` option in leanCoP applies restricted
         backtracking after successful reduction and extension steps.
         It does not force a cut on start steps; that is the separate
-        `scut` option. This strategy therefore leaves `Start` actions
-        unchanged.
+        ``scut`` option.  This strategy therefore leaves ``Start``
+        actions unchanged.
+
+    Design choices (not from the paper):
+        leanCoP's ``cut`` is unconditional: every reduction/extension
+        step gets a cut.  This strategy reproduces that behaviour
+        exactly for the ``cut`` option; ``scut`` is not implemented
+        here.  The ``comp(J)`` logic (``should_comp`` and
+        ``max_cut_height``) follows Otten (2010), §5.4 verbatim:
+        run with cut until iterative deepening exceeds depth J,
+        then restart from depth 1 without cut.
     """
 
     max_cut_height: int = 7
@@ -69,92 +118,21 @@ class LeanCopCut(Strategy):
 
         return action
 
-class _SmartSupport:
-    """Shared helpers for the SmartCut variants."""
 
-    def _init_entropy_cut(self):
-        # Entropy threshold below which we set cut=True.
-        # Lower values = more conservative (cut less often).
-        # With softmax over our heuristic scores, entropy of ln(2)
-        # ≈ 0.693 is the minimum for 2 actions. A threshold just
-        # below this means we only cut when there is a single dominant
-        # action type (e.g., one reduction vs one extension).
-        self.entropy_threshold = 0.69
-
-    def _init_reset_policy(self):
-        # How many consecutive dead-ends before considering a reset.
-        self.max_consecutive_failures = 5
-
-        # Tracks consecutive steps where no forward action was available.
-        self.consecutive_failures = 0
-
-        # Per-depth productivity tracking for adaptive reset depth.
-        self.steps_at_depth: dict[int, int] = defaultdict(int)
-        self.failures_at_depth: dict[int, int] = defaultdict(int)
-
-    def score(self, action: ConnectionAction) -> float:
-        """Heuristic score for a forward action. Higher is better."""
-        if isinstance(action, Reduction):
-            return 2.0
-        elif isinstance(action, Extension):
-            return 1.0 / max(len(action.clause_copy), 1)
-        elif isinstance(action, Start):
-            return 1.0 / max(len(action.clause_copy), 1)
-        return 0.0
-
-    def choose_forward_action(self, forward: list[ConnectionAction]) -> tuple[ConnectionAction, list[float]]:
-        scores = [self.score(a) for a in forward]
-        best_idx = max(range(len(forward)), key = lambda i: scores[i])
-        return forward[best_idx], scores
-
-    def softmax_entropy(self, scores: list[float]) -> tuple[list[float], float]:
-        """Compute softmax probabilities and Shannon entropy."""
-        max_s = max(scores)
-        exp_scores = [math.exp(s - max_s) for s in scores]
-        total = sum(exp_scores)
-        probs = [e / total for e in exp_scores]
-        entropy = -sum(p * math.log(p) for p in probs if p > 0)
-        return probs, entropy
-
-    def apply_entropy_cut(self, chosen: ConnectionAction, scores: list[float]) -> ConnectionAction:
-        """Annotate the chosen action with cut=True if confidence is high."""
-        _, entropy = self.softmax_entropy(scores)
-        chosen.cut = (entropy < self.entropy_threshold)
-        return chosen
-
-    def should_reset(self) -> tuple[bool, str]:
-        """Decide whether to reset instead of backtracking."""
-        if self.consecutive_failures >= self.max_consecutive_failures:
-            return True, f'{self.consecutive_failures} consecutive failures'
-        state = self.env.state
-        if len(state.constraints) > state.matrix.num_lits * 2:
-            return True, f'{len(state.constraints)} constraints (> {state.matrix.num_lits * 2})'
-        return False, ''
-
-    def choose_reset_depth(self) -> int:
-        """Choose the depth for the next iteration after a reset."""
-        state = self.env.state
-        current = state.max_depth
-        steps = self.steps_at_depth[current]
-        failures = self.failures_at_depth[current]
-        if steps > 0 and failures / steps > 0.8:
-            return current + 2
-        return current + 1
-
-
-class HeuristicSelection(Strategy, _SmartSupport):
-    """Prefer reductions, then short extensions, then long extensions.
+class HeuristicSelection(Strategy):
+    """Select the highest-scored forward action.
 
     Source:
         Inspired by Letz and Stenz (2001), "Model Elimination and
         Connection Tableau Procedures", especially the fewest-solutions
-        and shortest-clause principles.
+        and shortest-clause principles (§2.6.1–2.6.2).
 
     Design choice:
-        The exact numeric scoring scheme in `score()` is an adaptation
-        for this codebase. In particular, scoring reductions as 2.0 and
-        extensions as 1 / clause_length is not taken verbatim from the
-        paper.
+        The paper gives qualitative ordering principles (prefer
+        reductions, then shorter clauses) applied to subgoal reordering
+        within a clause.  We repurpose them as a numeric scoring
+        function for action selection at choice points.  See
+        ``_action_score`` for details.
     """
 
     def step(self):
@@ -162,25 +140,26 @@ class HeuristicSelection(Strategy, _SmartSupport):
         forward = [a for a in actions if isinstance(a, (Start, Reduction, Extension))]
 
         if not forward:
-            return choose_action_of_type(actions, Backtrack) or choose_action_of_type(actions, Reset)
+            return backtrack_or_reset(actions)
 
         if len(forward) == 1:
             return forward[0]
 
-        chosen, _ = self.choose_forward_action(forward)
-        return chosen
+        scores = [_action_score(a) for a in forward]
+        best_idx = max(range(len(forward)), key = lambda i: scores[i])
+        return forward[best_idx]
 
 
-class SubgoalReordering(Strategy, _SmartSupport):
+class SubgoalReordering(Strategy):
     """Strict categorical ordering: reductions first, then extensions
     sorted by clause length (ascending), then starts by clause length.
 
     Source:
         Letz and Stenz (2001), "Model Elimination and Connection
-        Tableau Procedures", §2.6.1–2.6.2. The fewest-solutions
+        Tableau Procedures", §2.6.1–2.6.2.  The fewest-solutions
         principle states that subgoals producing fewer solutions should
-        be preferred. Reductions close the current subgoal immediately
-        (0 new subgoals), so they are tried first. Among extensions,
+        be preferred.  Reductions close the current subgoal immediately
+        (0 new subgoals), so they are tried first.  Among extensions,
         the shortest-clause principle prefers clauses with fewer
         literals, since the number of solutions from a clause is the
         product of the solutions of its subgoals (footnote 3, p. 2031).
@@ -188,9 +167,9 @@ class SubgoalReordering(Strategy, _SmartSupport):
     Design choice:
         The paper describes subgoal alternation — interleaving choice
         points across multiple open subgoals — which our step-at-a-time
-        framework cannot directly express. We implement the core
+        framework cannot directly express.  We implement the core
         ranking: reductions > extensions sorted by number of new
-        subgoals (len(clause_copy) - 1). Ties preserve the default
+        subgoals (len(clause_copy) - 1).  Ties preserve the default
         depth-first order, matching the paper's baseline (§2.6, "depth-
         first left-most/right-most selection").
     """
@@ -216,7 +195,7 @@ class SubgoalReordering(Strategy, _SmartSupport):
         forward = [a for a in actions if isinstance(a, (Start, Reduction, Extension))]
 
         if not forward:
-            return choose_action_of_type(actions, Backtrack) or choose_action_of_type(actions, Reset)
+            return backtrack_or_reset(actions)
 
         if len(forward) == 1:
             return forward[0]
@@ -226,122 +205,210 @@ class SubgoalReordering(Strategy, _SmartSupport):
         return forward[0]
 
 
-class EntropyCut(Strategy, _SmartSupport):
-    """Add a cut when the forward-action distribution has low entropy.
+class EntropyCut(Strategy):
+    """Selective restricted backtracking based on action-distribution
+    entropy.
+
+    Analogous to leanCoP's ``cut`` option (Otten 2010, Definition 8),
+    which cuts off non-essential backtracking after every successful
+    proof step.  Rather than cutting unconditionally, this strategy
+    cuts only when the heuristic score distribution has low entropy
+    (i.e. one action type clearly dominates).
 
     Source:
-        Inspired by Zombori et al. (2021), "The Role of Entropy in
-        Guiding a Connection Prover".
-        The underlying cut semantics come from Otten (2010) and Otten
-        (2023) on restricted backtracking in leanCoP.
+        Otten (2010), "Restricting backtracking in connection calculi",
+        §4.3, Definition 8: restricted backtracking cuts off
+        alternative rule applications once a literal is solved.  The
+        Prolog implementation inserts a ``!`` after each successful
+        proof step (line 14 of Figure 11).
 
-    Design choice:
-        The runtime rule "softmax over hand-written action scores, then
-        cut when entropy < 0.69" is an original adaptation here. This
-        class preserves baseline action choice and only changes whether
-        the chosen forward action is annotated with `cut=True`.
+        Zombori et al. (2021), "The Role of Entropy in Guiding a
+        Connection Prover": uses entropy of a learned neural policy to
+        measure search confidence.  When entropy is low the prover is
+        confident and can commit to a branch.
+
+    Design choices (not from the papers):
+        leanCoP's ``cut`` is unconditional — every forward step is
+        cut.  Zombori et al. use a *learned* neural policy whose
+        entropy is a natural confidence measure.  We combine the two
+        ideas but replace the neural policy with hand-written heuristic
+        scores (see ``_action_score``).  The specific mechanism —
+        softmax over heuristic scores, then cut when Shannon entropy
+        < 0.69 — is original to this project.
+
+        The threshold 0.69 ≈ ln(2) is the minimum entropy for two
+        equally-scored actions; a threshold just below this means we
+        cut only when one action type clearly dominates (e.g. one
+        reduction vs. one extension).
+
+        This strategy does *not* reorder forward actions; it always
+        takes the first available action (baseline depth-first order)
+        and only decides whether to annotate it with ``cut=True``.
     """
 
-    def __init__(self, env):
-        super().__init__(env)
-        self._init_entropy_cut()
+    entropy_threshold: float = 0.69
+
+    def _softmax_entropy(self, scores: list[float]) -> float:
+        """Shannon entropy of the softmax distribution over scores."""
+        max_s = max(scores)
+        exp_scores = [math.exp(s - max_s) for s in scores]
+        total = sum(exp_scores)
+        probs = [e / total for e in exp_scores]
+        return -sum(p * math.log(p) for p in probs if p > 0)
+
+    def _apply_entropy_cut(self, chosen: ConnectionAction, forward: list[ConnectionAction]) -> ConnectionAction:
+        """Set ``cut=True`` on *chosen* if the action distribution has
+        low entropy (high confidence)."""
+        scores = [_action_score(a) for a in forward]
+        entropy = self._softmax_entropy(scores)
+        chosen.cut = (entropy < self.entropy_threshold)
+        return chosen
 
     def step(self):
         actions = self.env.legal_actions()
         forward = [a for a in actions if isinstance(a, (Start, Reduction, Extension))]
 
         if not forward:
-            return choose_action_of_type(actions, Backtrack) or choose_action_of_type(actions, Reset)
+            return backtrack_or_reset(actions)
 
         if len(forward) == 1:
             return forward[0]
 
-        chosen = forward[0]
-        scores = [self.score(a) for a in forward]
-        return self.apply_entropy_cut(chosen, scores)
+        return self._apply_entropy_cut(forward[0], forward)
 
 
-class AdaptiveReset(Strategy, _SmartSupport):
-    """Choose between backtracking, Reset(+1), and Reset(+2).
+class AdaptiveReset(Strategy):
+    """Adaptive restart policy: backtrack, reset(+1), or reset(+2).
+
+    Analogous to leanCoP's ``comp(J)`` option (Otten 2010, §5.4),
+    which restarts proof search with a complete (cut-free) strategy
+    once iterative deepening exceeds a fixed depth limit J.  Rather
+    than a fixed threshold, this strategy uses dynamic signals to
+    decide when and how far to reset.
 
     Source:
-        Loosely inspired by Li et al. (2024), "A Reinforcement
-        Learning based Reset Policy for CDCL SAT Solvers", and by the
-        SAT restart literature summarized in Holden (2021).
+        Otten (2010), "Restricting backtracking in connection calculi",
+        §5.4: ``comp(Limit)`` restores completeness by restarting from
+        depth 1 without cut once PathLim exceeds Limit.
 
-    Design choice:
-        The concrete policy here is original to this project: dead-end
-        resets, the threshold of 5 consecutive failures, the
-        constraint-saturation test, and the +1/+2 depth jump heuristic
-        are not taken verbatim from those papers.
+        Holden (2021), "Machine Learning for Automated Theorem
+        Proving", Chapter 3: surveys SAT restart strategies that adapt
+        restart frequency based on solver state (Luby restarts, glucose-
+        style dynamic restarts).
+
+        Li et al. (2024), "A Reinforcement Learning based Reset Policy
+        for CDCL SAT Solvers": proposes Thompson Sampling to choose
+        between restart policies in SAT.  Does not transfer to
+        connection calculi (see project memory for negative result).
+
+    Design choices (not from the papers):
+        leanCoP's ``comp(J)`` uses a fixed depth limit; we replace it
+        with two dynamic triggers:
+
+        1. Consecutive failure count ≥ 5: if the prover hits 5
+           dead-ends in a row, the current search direction is
+           unlikely to lead to a proof.  The threshold of 5 is
+           hand-tuned.
+        2. Constraint saturation: if the number of learned constraints
+           exceeds 2 × num_lits, further search at the current depth
+           is unpromising.  This test is original to this project.
+
+        The depth increment (+1 or +2) is decided by per-depth failure
+        rate: if more than 80% of steps at the current depth were
+        dead-ends, skip a level (+2); otherwise increment normally
+        (+1).  This heuristic has no paper basis.
+
+        Like ``EntropyCut``, this strategy does *not* reorder forward
+        actions; it only affects the dead-end handling (backtrack vs
+        reset).
     """
+
+    max_consecutive_failures: int = 5
 
     def __init__(self, env):
         super().__init__(env)
-        self._init_reset_policy()
+        self.consecutive_failures: int = 0
+        self.steps_at_depth: dict[int, int] = defaultdict(int)
+        self.failures_at_depth: dict[int, int] = defaultdict(int)
 
-    def step(self):
+    def _track_step(self, has_forward: bool) -> None:
+        """Update per-depth statistics and failure counter."""
         state = self.env.state
-        actions = self.env.legal_actions()
-        forward = [a for a in actions if isinstance(a, (Start, Reduction, Extension))]
-
-        # Track per-depth statistics.
         self.steps_at_depth[state.max_depth] += 1
-
-        if not forward:
+        if has_forward:
+            self.consecutive_failures = 0
+        else:
             self.consecutive_failures += 1
             self.failures_at_depth[state.max_depth] += 1
 
-            do_reset, reason = self.should_reset()
-            if do_reset:
-                depth = self.choose_reset_depth()
-                delta = depth - state.max_depth
-                self.consecutive_failures = 0
-                return Reset(id = 'rs', depth = depth, reason = f'{reason}, +{delta} depth')
-            return choose_action_of_type(actions, Backtrack) or choose_action_of_type(actions, Reset)
+    def _should_reset(self) -> tuple[bool, str]:
+        """Decide whether to reset instead of backtracking."""
+        if self.consecutive_failures >= self.max_consecutive_failures:
+            return True, f'{self.consecutive_failures} consecutive failures'
+        state = self.env.state
+        if len(state.constraints) > state.matrix.num_lits * 2:
+            return True, f'{len(state.constraints)} constraints (> {state.matrix.num_lits * 2})'
+        return False, ''
 
-        self.consecutive_failures = 0
+    def _choose_reset_depth(self) -> int:
+        """Choose the depth for the next iteration after a reset."""
+        state = self.env.state
+        current = state.max_depth
+        steps = self.steps_at_depth[current]
+        failures = self.failures_at_depth[current]
+        if steps > 0 and failures / steps > 0.8:
+            return current + 2
+        return current + 1
+
+    def _handle_dead_end(self, actions: list[ConnectionAction]) -> ConnectionAction:
+        """Return a Reset (with chosen depth) or fall back to Backtrack."""
+        do_reset, reason = self._should_reset()
+        if do_reset:
+            state = self.env.state
+            depth = self._choose_reset_depth()
+            delta = depth - state.max_depth
+            self.consecutive_failures = 0
+            return Reset(id = 'rs', depth = depth, reason = f'{reason}, +{delta} depth')
+        return backtrack_or_reset(actions)
+
+    def step(self):
+        actions = self.env.legal_actions()
+        forward = [a for a in actions if isinstance(a, (Start, Reduction, Extension))]
+
+        self._track_step(bool(forward))
+
+        if not forward:
+            return self._handle_dead_end(actions)
+
         return forward[0]
 
 
-class SmartCut(Strategy, _SmartSupport):
-    """Combine the three SmartCut mechanisms.
+class SmartCut(AdaptiveReset, EntropyCut):
+    """Entropy-based cut combined with adaptive reset.
 
-    This strategy combines:
-        1. heuristic forward-action selection,
-        2. entropy-based cut annotation,
-        3. adaptive backtrack/reset control.
+    Analogous to leanCoP's ``[cut, comp(J)]`` strategy combination
+    (Otten 2010, §5.5): restricted backtracking is active during the
+    search, with a restart mechanism to recover from dead-end regions.
+
+    Combines:
+        ``EntropyCut`` — selective restricted backtracking (≈ ``cut``).
+        ``AdaptiveReset`` — adaptive restart policy (≈ ``comp(J)``).
+
+    This class does *not* reorder forward actions.  It follows the
+    baseline depth-first order and only adds cut annotations and
+    reset decisions.
     """
 
-    def __init__(self, env):
-        super().__init__(env)
-        self._init_entropy_cut()
-        self._init_reset_policy()
-
     def step(self):
-        state = self.env.state
         actions = self.env.legal_actions()
         forward = [a for a in actions if isinstance(a, (Start, Reduction, Extension))]
 
-        # Track per-depth statistics.
-        self.steps_at_depth[state.max_depth] += 1
+        self._track_step(bool(forward))
 
         if not forward:
-            self.consecutive_failures += 1
-            self.failures_at_depth[state.max_depth] += 1
-
-            do_reset, reason = self.should_reset()
-            if do_reset:
-                depth = self.choose_reset_depth()
-                delta = depth - state.max_depth
-                self.consecutive_failures = 0
-                return Reset(id = 'rs', depth = depth, reason = f'{reason}, +{delta} depth')
-            return choose_action_of_type(actions, Backtrack) or choose_action_of_type(actions, Reset)
-
-        self.consecutive_failures = 0
+            return self._handle_dead_end(actions)
 
         if len(forward) == 1:
             return forward[0]
 
-        chosen, scores = self.choose_forward_action(forward)
-        return self.apply_entropy_cut(chosen, scores)
+        return self._apply_entropy_cut(forward[0], forward)
