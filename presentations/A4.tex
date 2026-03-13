@@ -1,12 +1,18 @@
-\documentclass[11pt]{article}
+\documentclass[11pt,twocolumn]{article}
 
 \usepackage{microtype}
-\usepackage{geometry}
+\usepackage[scale=0.85]{geometry}
+\usepackage{lipsum}
 
 \bibliographystyle{plain}
 
-\begin{document}
-	Hello\cite{mangla2022a}.
+\title{Modifying LeanCoP Options On the Fly \\ \normalsize (aka ``the PAAR paper'')}
+\date{}
+\author{}
 
+\begin{document}
+	\maketitle{}
+	Hello\cite{mangla2022a}.
+	\lipsum[1-5]{}
 \bibliography{bibliography.bib}
 \end{document}
