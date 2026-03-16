@@ -1,14 +1,19 @@
 \documentclass[11pt,twocolumn]{article}
 
-\usepackage{microtype}
+% \usepackage{microtype}
 \usepackage[margin=55pt]{geometry}
 \usepackage{lipsum}
 \usepackage{titlesec}
+\usepackage[numbers]{natbib}
+\usepackage{xurl}
+\usepackage[hidelinks]{hyperref}
 
-\bibliographystyle{plain}
+\bibliographystyle{plainnat}
 \titlelabel{}
 
 \newcommand{\atom}[1]{\texttt{#1}}
+\newcommand{\citen}[1]{~\cite{#1}}
+\newcommand{\citeay}[1]{\hyperlink{cite.#1}{\citeauthor{#1}~(\citeyear{#1})}}
 
 \title{Modifying LeanCoP Options On the Fly \\[3pt] \large (aka ``the PAAR paper'')}
 \date{}
@@ -19,20 +24,39 @@
 
 \section{Introduction and Research}
 
-LeanCoP inspired a large family of provers which, with a small amount of modifications, could improve the performance of the connection prover in a large set of problems\cite{Otten2023leanCoP20}.
+LeanCoP inspired a large family of provers which, with a small amount of modifications, could improve the performance of the connection prover in a large set of problems\citen{Otten2023leanCoP20}.
 The ones that inspired this work change one property of the original LeanCoP at the initial time.
 
-LeanCoP 2.0\cite{ottenLeanCoP20} added several options, most notably \atom{cut} and \atom{scut} to restrict backtracking in connection calculus.
-That version also enables \emph{iterative deepening} with \atom{comp(J)}, which iteratively limits the height 1 at a time of the tree when the prover is saturated\footnotemark{} until it reaches maximum height \atom{J}.
+LeanCoP 2.0\citen{ottenLeanCoP20} added several options, most notably \atom{cut} and \atom{scut} to restrict backtracking in connection calculus and \emph{iterative deepening} with \atom{comp(J)}, which iteratively limits the height 1 at a time of the tree when the prover is saturated\footnotemark{} until it reaches maximum height \atom{J}.
 Afterwards it restarts iterative deepening from 1, but without any cut active.
 
+This work also gathers ideas from other implementations of other provers from various different domains.
+
+\citeay{letzModelEliminationConnection2001} generally shows that reductions should be preferred over extensions in connections provers because they close the current subgoal immediately\citen{letzModelEliminationConnection2001}.
+Generally shorter clauses tend to produce better solutions.
+
+\citeay{zomboriRoleEntropyGuiding2021} introduces an entropy measurement to show how ``confident'' each policy should be: higher entropy suggests that the next step should be exploration, while lower entropy suggests that it should be exploitation\citen{zomboriRoleEntropyGuiding2021}.
+Adding entropy regularisation improves training performance, and can make simpler models have better results than more complex ones.
+
+\citeay{liReinforcementLearningBased2024} frames the reset choice in SAT solvers as an online policy problem\citen{liReinforcementLearningBased2024}.
+It shows that recent search productivity should influence reset behaviour.
+Similar policies related to restarts are also presented in chapter 2 of \citeay{HoldenSATQSAT}.
+
 \section{Novel Idea}
+
+The three atoms in LeanCoP that can change the completeness of the current tree, \atom{cut}, \atom{scut}, and \atom{comp(I)}, can be triggered dynamically using heuristics from the current tree rather than being chosen from the start.
+
+It is possible to do a solution using reinforcement learning rather than heuristics.
+This would produce a connection prover that solves the same or fewer trees than existing provers such as rlCop\citen{Kaliszyk2018RLTP} or learnCoP~[{\scriptsize citation~soon!}], thus making it redundant compared to the existing provers.
+
+Ideally, an implementation that changes these atoms on the fly should be faster than both LeanCoP and RLCoP in a subset of TPTP problems.
 
 \section{Implementation}
 
 \section{Preliminary Results}
 
-{
-\small\bibliography{bibliography.bib}
-}
+\begin{small}
+	\bibliography{bibliography.bib}
+\end{small}
+
 \end{document}
