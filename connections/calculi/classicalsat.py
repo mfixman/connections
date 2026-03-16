@@ -7,9 +7,8 @@ import re
 
 import sys
 
-from pydical import Solver as Cadical, UNSATISFIABLE
-
 try:
+    from pydical import Solver as Cadical, UNSATISFIABLE
     from pysat.solvers import Solver, Glucose4, Cadical153, Minisat22
 except ModuleNotFoundError:
     class Solver:
