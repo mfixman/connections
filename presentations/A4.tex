@@ -1,6 +1,6 @@
 \documentclass[11pt,twocolumn]{article}
 
-% \usepackage{microtype}
+\usepackage{microtype}
 \usepackage[margin=55pt]{geometry}
 \usepackage{lipsum}
 \usepackage{titlesec}
@@ -47,13 +47,32 @@ Similar policies related to restarts are also presented in chapter 2 of \citeay{
 The three atoms in LeanCoP that can change the completeness of the current tree, \atom{cut}, \atom{scut}, and \atom{comp(I)}, can be triggered dynamically using heuristics from the current tree rather than being chosen from the start.
 
 It is possible to do a solution using reinforcement learning rather than heuristics.
-This would produce a connection prover that solves the same or fewer trees than existing provers such as rlCop\citen{Kaliszyk2018RLTP} or learnCoP~[{\scriptsize citation~soon!}], thus making it redundant compared to the existing provers.
+This would produce a connection prover that solves the same or fewer trees than existing provers such as rlCop\citen{Kaliszyk2018RLTP} or learnCoP[{\scriptsize citation~soon!}], thus making it redundant compared to the existing provers.
 
 Ideally, an implementation that changes these atoms on the fly should be faster than both LeanCoP and RLCoP in a subset of TPTP problems.
 
 \section{Implementation}
 
+I use the existing connection prover implementation as a base for this code\cite{connections_2023}.
+This allows me to use the existing code for hard things like Prolog parsing, and also to use PyCoP as a control group.
+
+My code implemented 6 different strategies.
+\begin{description}
+	\item[FirstAction] \emph{(control)} run the first legal action (PyCoP default).
+	\item[LeanCoPCut] \emph{(control)} always run \atom{cut}, \atom{scut}, and \atom{comp(7)}, like LeanCoP.
+	\item[HeuristicSelection] Choose reductions if possible, otherwise choose the extension with the shortest clause.
+	\item[EntropyCut] Run the first legal action, but add a cut to an extension if the Shannon entropy of the amount of atoms of this is high compared to the rest, and the prover is certain that this is the solution.
+	\item[AdaptiveReset] Resets the tree if the prover hits 5 dead-ends in a row.
+	\item[SmartCut\footnotemark{}] Combines the last three strategies.
+\end{description}
+
+\footnotetext{Better name TBD.}
+
 \section{Preliminary Results}
+
+I tried this on 
+
+\section{Future Work}
 
 \begin{small}
 	\bibliography{bibliography.bib}
