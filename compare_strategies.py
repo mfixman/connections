@@ -2,12 +2,16 @@
 """Compare proof strategies across a set of problems."""
 
 import argparse
+import contextlib
+import csv
 import multiprocessing as mp
 import os
 import re
 import sys
 import time
 import traceback
+import logging
+from collections import deque
 from multiprocessing.connection import Connection, wait
 from pathlib import Path
 from typing import Optional
@@ -69,6 +73,20 @@ def _recv_result(conn: Connection, proc: mp.Process) -> dict:
         }
 
 
+def _cleanup_task_process(conn: Connection, proc: mp.Process) -> dict:
+    if proc.is_alive():
+        proc.terminate()
+        proc.join()
+        return {'status': 'timeout', 'solved': False}
+    if conn.poll():
+        return _recv_result(conn, proc)
+    return {
+        'status': 'error',
+        'solved': False,
+        'error': f'worker exited with code {proc.exitcode}',
+    }
+
+
 def _run_problem(
     conn: Connection,
     path: str,
@@ -78,122 +96,96 @@ def _run_problem(
 ) -> None:
     """Worker function: run one strategy on one problem and send back a result."""
     try:
-        env = ConnectionEnv(path, Settings(logic=logic))
-        strategy = Strategy.strategies()[strategy_name](env)
-        env.reset()
+        with open(os.devnull, 'w') as devnull:
+            with contextlib.redirect_stdout(devnull), contextlib.redirect_stderr(devnull):
+                logging.disable(logging.CRITICAL)
+                try:
+                    env = ConnectionEnv(path, Settings(logic=logic))
+                    strategy = Strategy.strategies()[strategy_name](env)
+                    env.reset()
 
-        done = False
-        info = None
-        steps = 0
-        hit_max_steps = False
-        start = time.perf_counter()
+                    done = False
+                    info = None
+                    steps = 0
+                    hit_max_steps = False
+                    start = time.perf_counter()
 
-        while not done:
-            if steps >= max_steps:
-                hit_max_steps = True
-                break
-            action = strategy.step()
-            try:
-                _, _, done, info = env.step(action)
-            except RecursionError:
-                steps = max_steps - 1
-            steps += 1
+                    while not done:
+                        if steps >= max_steps:
+                            hit_max_steps = True
+                            break
+                        action = strategy.step()
+                        try:
+                            _, _, done, info = env.step(action)
+                        except RecursionError:
+                            steps = max_steps - 1
+                        steps += 1
 
-        elapsed = time.perf_counter() - start
+                    elapsed = time.perf_counter() - start
 
-        status_info = info.get('status') if isinstance(info, dict) else info
-        solved = status_info in {'Theorem', 'Theorem (SAT)'}
-        status = 'solved'
-        if not solved:
-            status = 'max_steps' if hit_max_steps else 'unsolved'
+                    status_info = info.get('status') if isinstance(info, dict) else info
+                    solved = status_info in {'Theorem', 'Theorem (SAT)'}
+                    status = 'solved'
+                    if not solved:
+                        status = 'max_steps' if hit_max_steps else 'unsolved'
 
-        result = {
-            'status': status,
-            'solved': solved,
-            'steps': steps,
-            'time': elapsed,
-        }
-        if status_info is not None:
-            result['info'] = str(status_info)
+                    result = {
+                        'status': status,
+                        'solved': solved,
+                        'steps': steps,
+                        'time': elapsed,
+                    }
+                    if status_info is not None:
+                        result['info'] = str(status_info)
 
-        conn.send(result)
-    except Exception as exc:
-        conn.send({
-            'status': 'error',
-            'solved': False,
-            'error': f'{type(exc).__name__}: {exc}',
-            'traceback': traceback.format_exc(),
-        })
+                    conn.send(result)
+                except Exception as exc:
+                    conn.send({
+                        'status': 'error',
+                        'solved': False,
+                        'error': f'{type(exc).__name__}: {exc}',
+                        'traceback': traceback.format_exc(),
+                    })
     finally:
         conn.close()
 
 
-def run_strategies(
-    path: str,
-    strategies: list[str],
-    logic: str,
-    max_steps: int,
-    timeout: float,
-) -> dict[str, Optional[dict]]:
-    """Run all strategies concurrently and enforce a real wall-clock timeout."""
-    parent_conns: dict[str, Connection] = {}
-    procs: dict[str, mp.Process] = {}
+def _parse_slurm_cpus_per_task(raw: Optional[str]) -> Optional[int]:
+    if raw is None:
+        return None
+    try:
+        value = int(raw)
+    except ValueError:
+        return None
+    return value if value > 0 else None
 
-    for strategy_name in strategies:
-        parent_conn, child_conn = mp.Pipe(duplex=False)
-        parent_conns[strategy_name] = parent_conn
-        proc = mp.Process(
-            target=_run_problem,
-            args=(child_conn, path, strategy_name, logic, max_steps),
-            daemon=True,
-        )
-        procs[strategy_name] = proc
-        proc.start()
-        child_conn.close()
 
-    results: dict[str, Optional[dict]] = {}
-    pending = set(strategies)
-    deadline = time.monotonic() + timeout
+def _process_cpu_count() -> Optional[int]:
+    process_cpu_count = getattr(os, 'process_cpu_count', None)
+    if process_cpu_count is None:
+        return None
+    return process_cpu_count()
 
-    while pending:
-        remaining = deadline - time.monotonic()
-        if remaining <= 0:
-            break
 
-        ready = wait(
-            [parent_conns[strategy_name] for strategy_name in pending],
-            timeout=remaining,
-        )
-        if not ready:
-            break
+def determine_worker_count(total_tasks: int) -> int:
+    slurm_raw = os.getenv('SLURM_CPUS_PER_TASK')
+    slurm_cpus = _parse_slurm_cpus_per_task(slurm_raw)
+    process_cpus = _process_cpu_count()
 
-        for strategy_name in list(pending):
-            conn = parent_conns[strategy_name]
-            if conn not in ready:
-                continue
-            results[strategy_name] = _recv_result(conn, procs[strategy_name])
-            procs[strategy_name].join()
-            conn.close()
-            pending.remove(strategy_name)
+    logging.info(f'SLURM_CPUS_PER_TASK={slurm_raw!r}')
+    logging.info(f'os.process_cpu_count()={process_cpus!r}')
 
-    for strategy_name in pending:
-        proc = procs[strategy_name]
-        conn = parent_conns[strategy_name]
-        if proc.is_alive():
-            proc.terminate()
-            proc.join()
-            results[strategy_name] = {'status': 'timeout', 'solved': False}
-        elif conn.poll():
-            results[strategy_name] = _recv_result(conn, proc)
-        else:
-            results[strategy_name] = {
-                'status': 'error',
-                'solved': False,
-                'error': f'worker exited with code {proc.exitcode}',
-            }
-        conn.close()
+    candidates = [count for count in (slurm_cpus, process_cpus) if count is not None]
+    if not candidates:
+        workers = 1
+    else:
+        workers = min(candidates)
 
-    return results
+    workers = max(1, min(workers, total_tasks))
+    worker_label = 'worker process' if workers == 1 else 'worker processes'
+    task_label = 'task' if total_tasks == 1 else 'tasks'
+    logging.info(f'using {workers} {worker_label} for {total_tasks} {task_label}')
+    return workers
 
 
 # ── Problem resolution ────────────────────────────────────────────────────────
@@ -341,6 +333,168 @@ def fmt_delta(
     return ', '.join(parts) if parts else dim('tie')
 
 
+def _problem_display_name(problem: Path) -> str:
+    return problem.name
+
+
+def _problem_csv_name(problem: Path) -> str:
+    return problem.name
+
+
+def print_task_result(
+    problem: Path,
+    strategy_name: str,
+    result: dict,
+    show_steps: bool,
+    show_time: bool,
+    problem_width: int,
+    strategy_width: int,
+) -> None:
+    row = (
+        f'{rpad(_problem_display_name(problem), problem_width)}  '
+        f'{rpad(strategy_name, strategy_width)}  '
+        f'{fmt_result(result, show_steps, show_time)}'
+    )
+    print(row, flush=True)
+
+
+def print_task_error(problem: Path, strategy_name: str, result: dict) -> None:
+    error = result.get('error', 'unknown error')
+    print(
+        f'error: {_problem_display_name(problem)} [{strategy_name}]: {error}',
+        file=sys.stderr,
+        flush=True,
+    )
+
+
+def run_tasks(
+    problems: list[Path],
+    strategies: list[str],
+    logic: str,
+    max_steps: int,
+    timeout: float,
+    max_workers: int,
+    show_steps: bool,
+    show_time: bool,
+) -> tuple[dict[Path, dict[str, dict]], list[tuple[str, str, str]]]:
+    task_queue = deque((problem, strategy) for problem in problems for strategy in strategies)
+    results: dict[Path, dict[str, dict]] = {problem: {} for problem in problems}
+    errors: list[tuple[str, str, str]] = []
+
+    problem_width = max(max(len(_problem_display_name(problem)) for problem in problems), len('Problem'))
+    strategy_width = max(max(len(strategy) for strategy in strategies), len('Strategy'))
+    header = (
+        f'{rpad("Problem", problem_width)}  '
+        f'{rpad("Strategy", strategy_width)}  '
+        'Result'
+    )
+    sep = '-' * (problem_width + strategy_width + len('Result') + 4)
+    print(header, flush=True)
+    print(sep, flush=True)
+
+    active: dict[Connection, tuple[Path, str, mp.Process, float]] = {}
+
+    def start_task(problem: Path, strategy_name: str) -> None:
+        parent_conn, child_conn = mp.Pipe(duplex=False)
+        proc = mp.Process(
+            target=_run_problem,
+            args=(child_conn, str(problem), strategy_name, logic, max_steps),
+            daemon=True,
+        )
+        proc.start()
+        child_conn.close()
+        active[parent_conn] = (problem, strategy_name, proc, time.monotonic() + timeout)
+
+    while task_queue and len(active) < max_workers:
+        start_task(*task_queue.popleft())
+
+    while active:
+        now = time.monotonic()
+        expired = [
+            conn for conn, (_, _, _, deadline) in active.items()
+            if deadline <= now
+        ]
+        for conn in expired:
+            problem, strategy_name, proc, _ = active.pop(conn)
+            result = _cleanup_task_process(conn, proc)
+            conn.close()
+            results[problem][strategy_name] = result
+            print_task_result(
+                problem, strategy_name, result,
+                show_steps, show_time, problem_width, strategy_width,
+            )
+            if result.get('status') == 'error':
+                error = result.get('error', 'unknown error')
+                errors.append((_problem_display_name(problem), strategy_name, error))
+                print_task_error(problem, strategy_name, result)
+
+        while task_queue and len(active) < max_workers:
+            start_task(*task_queue.popleft())
+
+        if not active:
+            break
+
+        next_deadline = min(deadline for _, _, _, deadline in active.values())
+        timeout_remaining = max(0.0, next_deadline - time.monotonic())
+        ready = wait(list(active), timeout=timeout_remaining)
+        for conn in ready:
+            problem, strategy_name, proc, _ = active.pop(conn)
+            result = _recv_result(conn, proc)
+            proc.join()
+            conn.close()
+            results[problem][strategy_name] = result
+            print_task_result(
+                problem, strategy_name, result,
+                show_steps, show_time, problem_width, strategy_width,
+            )
+            if result.get('status') == 'error':
+                error = result.get('error', 'unknown error')
+                errors.append((_problem_display_name(problem), strategy_name, error))
+                print_task_error(problem, strategy_name, result)
+
+        while task_queue and len(active) < max_workers:
+            start_task(*task_queue.popleft())
+
+    print(sep, flush=True)
+    return results, errors
+
+
+def write_results_csv(
+    csv_path: str,
+    problems: list[Path],
+    strategies: list[str],
+    results: dict[Path, dict[str, dict]],
+) -> None:
+    fieldnames = [
+        'problem',
+        'strategy',
+        'status',
+        'solved',
+        'steps',
+        'time_ms',
+        'info',
+        'error',
+    ]
+    with open(csv_path, 'w', newline='') as csv_file:
+        writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
+        writer.writeheader()
+        for problem in problems:
+            for strategy_name in strategies:
+                result = results[problem].get(strategy_name, {})
+                writer.writerow({
+                    'problem': _problem_csv_name(problem),
+                    'strategy': strategy_name,
+                    'status': result.get('status'),
+                    'solved': result.get('solved'),
+                    'steps': result.get('steps'),
+                    'time_ms': (
+                        None if result.get('time') is None else round(result['time'] * 1000)
+                    ),
+                    'info': result.get('info'),
+                    'error': result.get('error'),
+                })
+
+
 # ── Argument parsing ──────────────────────────────────────────────────────────
 
 def parse_args() -> argparse.Namespace:
@@ -401,6 +555,10 @@ def parse_args() -> argparse.Namespace:
         '--time', default=True, action=argparse.BooleanOptionalAction,
         help='show wall-clock time in results (default: on)',
     )
+    parser.add_argument(
+        '--csv', default='results.csv', metavar='PATH',
+        help='write final results as CSV to PATH (default: results.csv)',
+    )
     args = parser.parse_args()
 
     if args.all_strategies:
@@ -414,6 +572,7 @@ def parse_args() -> argparse.Namespace:
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 def main() -> None:
+    logging.basicConfig(level = logging.INFO, format = '[%(relativeCreated)d] %(message)s')
     args = parse_args()
 
     try:
@@ -423,65 +582,43 @@ def main() -> None:
 
     strategies = args.strategies
     two = len(strategies) == 2
+    total = len(problems)
+    total_tasks = total * len(strategies)
+    max_workers = determine_worker_count(total_tasks)
 
-    name_w = max(max(len(p.name) for p in problems), len('Problem'))
-    col_w = 24
-
-    # Header
-    sep = '-' * (name_w + (col_w + 2) * len(strategies) + (18 if two else 0))
-    header = rpad('Problem', name_w)
-    for s in strategies:
-        header += '  ' + rpad(s, col_w)
-    if two:
-        header += '  ' + f'Δ ({strategies[1]} vs {strategies[0]})'
-    print(header, flush=True)
-    print(sep, flush=True)
+    results, errors = run_tasks(
+        problems, strategies, args.logic, args.max_steps, args.timeout, max_workers,
+        args.steps, args.time,
+    )
 
     solved_counts = {s: 0 for s in strategies}
     step_wins = {s: 0 for s in strategies}
     ties = 0
-    total = 0
-    errors: list[tuple[str, str, str]] = []
 
     for problem in problems:
-        total += 1
-        show_progress(problem.name, name_w)
-        results = run_strategies(
-            str(problem), strategies, args.logic, args.max_steps, args.timeout,
-        )
+        for strategy_name in strategies:
+            result = results[problem].get(strategy_name)
+            if result and result.get('solved'):
+                solved_counts[strategy_name] += 1
 
-        for s in strategies:
-            if results[s] and results[s]['solved']:
-                solved_counts[s] += 1
-            elif results[s] and results[s].get('status') == 'error':
-                errors.append((problem.name, s, results[s]['error']))
+        if not two:
+            continue
 
-        row = rpad(problem.name, name_w)
-        for s in strategies:
-            row += '  ' + rpad(fmt_result(results[s], args.steps, args.time), col_w)
-
-        if two:
-            r1, r2 = results[strategies[0]], results[strategies[1]]
-            row += '  ' + fmt_delta(r1, r2, args.steps, args.time, strategies[0], strategies[1])
-
-            s1 = r1 is not None and r1['solved']
-            s2 = r2 is not None and r2['solved']
-            if s1 and s2:
-                if r1['steps'] < r2['steps']:
-                    step_wins[strategies[0]] += 1
-                elif r2['steps'] < r1['steps']:
-                    step_wins[strategies[1]] += 1
-                else:
-                    ties += 1
-            elif s1:
+        r1, r2 = results[problem].get(strategies[0]), results[problem].get(strategies[1])
+        s1 = r1 is not None and r1['solved']
+        s2 = r2 is not None and r2['solved']
+        if s1 and s2:
+            if r1['steps'] < r2['steps']:
                 step_wins[strategies[0]] += 1
-            elif s2:
+            elif r2['steps'] < r1['steps']:
                 step_wins[strategies[1]] += 1
+            else:
+                ties += 1
+        elif s1:
+            step_wins[strategies[0]] += 1
+        elif s2:
+            step_wins[strategies[1]] += 1
 
-        clear_progress()
-        print(row, flush=True)
-
-    print(sep, flush=True)
     solved_str = '  '.join(f'{s}={solved_counts[s]}/{total}' for s in strategies)
     if two:
         wins_str = (
@@ -494,9 +631,10 @@ def main() -> None:
     print(f'Solved: {solved_str}{wins_str}', flush=True)
 
     if errors:
-        print('\nErrors:', flush=True)
-        for problem_name, strategy_name, error in errors:
-            print(f'  {problem_name} [{strategy_name}]: {error}', flush=True)
+        print(f'Errors: {len(errors)}', file=sys.stderr, flush=True)
+
+    write_results_csv(args.csv, problems, strategies, results)
+    print(f'CSV: {args.csv}', flush=True)
 
 
 if __name__ == '__main__':
