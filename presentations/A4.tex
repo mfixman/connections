@@ -24,8 +24,6 @@
 \newcommand{\citen}[1]{~\cite{#1}}
 \newcommand{\citeay}[1]{\hyperlink{cite.#1}{\citeauthor{#1}~(\citeyear{#1})}}
 
-\setlength{\defaultaddspace}{3pt}
-
 \title{Modifying LeanCoP Options On the Fly \\[3pt] \large (aka ``the PAAR paper'')}
 \date{}
 \author{}
@@ -97,19 +95,21 @@ My code implemented 6 different strategies.
 	table-text-alignment = right,
 }
 
+\setlength{\defaultaddspace}{4pt}
+
 \begin{table*}[t]
 	\centering
 	\scriptsize
-	\begin{tabular}{@{}>{\ttfamily}l S S S[table-format=16.0] S S[table-format=13.0] S@{}}
+	\begin{tabular}{@{}>{\ttfamily}l @{\hspace{0pt}} S S @{\hspace{30pt}} S[table-format=16.0] S S[table-format=13.0] S@{}}
 		\toprule
 		{\rmfamily\bfseries Problem} & {\bfseries FirstAction} & {\bfseries LeanCopCut} & {\bfseries HeuristicSelection} & {\bfseries EntropyCut} & {\bfseries AdaptiveReset} & {\bfseries SmartCut} \\
 		\midrule
 		GEO179+3      & 11987 &       4744  &       9629  &       11979 & \best 2546  &        \MS \\
-		GEO181+3      & 11929 & \best 4778  &       9812  &       11925 &       \MS   &        \TO \\
+		GEO181+3      & 11929 &       4778  &       9812  &       11925 &       \MS   &        \TO \\
  		\addlinespace
-		HWV026-3      & 10174 & \best 4212  &       \MS   &       10174 &       10174 &        \MS \\
+		HWV026-3      & 10174 &       4212  &       \MS   &       10174 &       10174 &        \MS \\
  		\addlinespace
-		KRS095+1      & 552   & \best 504   &       952   &       548   &       552   &       1014 \\
+		KRS095+1      & 552   &       504   &       952   &       548   &       552   &       1014 \\
  		\addlinespace
 		LCL186-1      & 245   &       477   &       297   & \best 245   &       368   &        \TO \\
 		LCL644+1.001  & 8     &       8     & \best 2     &       8     &       8     &          2 \\
@@ -117,31 +117,31 @@ My code implemented 6 different strategies.
  		\addlinespace
 		MSC015-1.005  & 25401 &       29037 &       26257 &       28251 & \best 7556  &       8816 \\
  		\addlinespace
-		NUM291+1      & 32860 & \best 19936 &       \MS   &       32860 &       32860 &        \MS \\
-		NUM300+1      & 11135 & \best 7471  &       18308 &       11135 &       11135 &      18306 \\
-		NUM615+1      & \MS   & \best 42778 &       \MS   &       \MS   &       \MS   &        \MS \\
+		NUM291+1      & 32860 &       19936 &       \MS   &       32860 &       32860 &        \MS \\
+		NUM300+1      & 11135 &       7471  &       18308 &       11135 &       11135 &      18306 \\
+		NUM615+1      & \MS   &       42778 &       \MS   &       \MS   &       \MS   &        \MS \\
 		NUM634+3      & \TO   &       \TO   & \best 2     &       \TO   &       \TO   &          2 \\
  		\addlinespace
-		SET062+3      & 24    & \best 24    &       26    &       24    &       24    &         26 \\
+		SET062+3      & 24    &       24    &       26    &       24    &       24    &         26 \\
 		SET175+3      & \MS   &       12401 &       \MS   &       \MS   &       1062  & \best 1031 \\
-		SET603+3      & \MS   &       9953  &       \MS   &       \MS   &       \TO   &  \best 853 \\
-		SET626+3      & \MS   & \best 35231 &       \MS   &       \MS   &       \TO   &        \TO \\
-		SET886+1      & \MS   & \best 24582 &       \MS   &       \MS   &       \TO   &        \TO \\
-		SET904+1      & 105   & \best 101   &       140   & \best 101   &       105   &        140 \\
-		SEU121+2      & \MS   & \best 34536 &       \MS   &       \MS   &       \TO   &        \TO \\
+		SET603+3      & \MS   &       9953  &       \MS   &       \MS   &       \TO   & \best  853 \\
+		SET626+3      & \MS   &       35231 &       \MS   &       \MS   &       \TO   &        \TO \\
+		SET886+1      & \MS   &       24582 &       \MS   &       \MS   &       \TO   &        \TO \\
+		SET904+1      & 105   &       101   &       140   &       101   &       105   &        140 \\
+		SEU121+2      & \MS   &       34536 &       \MS   &       \MS   &       \TO   &        \TO \\
  		\addlinespace
 		SWV232+1      & 54    &       54    &       \TO   &       54    &       54    &        \TO \\
 		SWV248-2      & \TO   &       \TO   &       7016  & \best 6018  &       \TO   &        \TO \\
 		SWV264-2      & 9     &       9     &       11    &       9     &       9     &         11 \\
  		\addlinespace
 		SYN061-1      & 46    &       46    &       46    &       46    &       46    &         46 \\
-		SYN582-1      & 15843 & \best 11650 &       40624 &       15430 &       \TO   &        \TO \\
+		SYN582-1      & 15843 &       11650 &       40624 &       15430 &       \TO   &        \TO \\
 		SYN663-1      & 5651  &       \MS   & \best 5588  &       5626  &       \TO   &        \MS \\
-		SYN709-1      & 16642 & \best 5238  &       11201 &       16065 &       \MS   &        \MS \\
+		SYN709-1      & 16642 &       5238  &       11201 &       16065 &       \MS   &        \MS \\
 		SYN726-1      & \MS   &       \MS   & \best 4468  &       \MS   &       \TO   &        \MS \\
 		\bottomrule
 	\end{tabular}
-	\caption{Results of running the current experiment on 247 representative TPTP problems. Only 27 of these problems finished within the time and step limit; larger experiments are coming.}
+	\caption{Results of running the current experiment on 247 representative TPTP problems. {\best Green} numbers show significantly best results compared to the control groups. Only 27 of these problems finished within the time and step limit; larger experiments with a higher time limit are coming.}
 	\label{big_table}
 \end{table*}
 
