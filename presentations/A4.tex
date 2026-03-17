@@ -1,12 +1,21 @@
 \documentclass[11pt,twocolumn]{article}
 
 \usepackage{microtype}
-\usepackage[margin=55pt]{geometry}
+\usepackage[scale=0.85]{geometry}
 \usepackage{lipsum}
 \usepackage{titlesec}
 \usepackage[numbers]{natbib}
 \usepackage{xurl}
 \usepackage[hidelinks]{hyperref}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{array}
+\usepackage{siunitx}
+\usepackage[dvipsnames]{xcolor}
+\usepackage[font=footnotesize, labelfont=bf]{caption}
+\usepackage[nameinlink,capitalise]{cleveref}
+\usepackage{enumitem}
+\usepackage[symbol]{footmisc}
 
 \bibliographystyle{plainnat}
 \titlelabel{}
@@ -15,19 +24,28 @@
 \newcommand{\citen}[1]{~\cite{#1}}
 \newcommand{\citeay}[1]{\hyperlink{cite.#1}{\citeauthor{#1}~(\citeyear{#1})}}
 
+\setlength{\defaultaddspace}{3pt}
+
 \title{Modifying LeanCoP Options On the Fly \\[3pt] \large (aka ``the PAAR paper'')}
 \date{}
 \author{}
 
 \begin{document}
-\maketitle{}
+\twocolumn[
+	\centering
+	\vspace{1em}
+	{\LARGE Modifying LeanCoP Options On the Fly \par} \vspace{3pt}
+	{\large (aka ``the PAAR paper'') \par}
+	\vspace{2em}
+]
+% \maketitle
 
 \section{Introduction and Research}
 
 LeanCoP inspired a large family of provers which, with a small amount of modifications, could improve the performance of the connection prover in a large set of problems\citen{Otten2023leanCoP20}.
 The ones that inspired this work change one property of the original LeanCoP at the initial time.
 
-LeanCoP 2.0\citen{ottenLeanCoP20} added several options, most notably \atom{cut} and \atom{scut} to restrict backtracking in connection calculus and \emph{iterative deepening} with \atom{comp(J)}, which iteratively limits the height 1 at a time of the tree when the prover is saturated\footnotemark{} until it reaches maximum height \atom{J}.
+LeanCoP 2.0\citen{ottenLeanCoP20} added several options, most notably \atom{cut} and \atom{scut} to restrict backtracking in connection calculus and \emph{iterative deepening} with \atom{comp(J)}, which iteratively limits the height 1 at a time of the tree when the prover is saturated until it reaches maximum height \atom{J}.
 Afterwards it restarts iterative deepening from 1, but without any cut active.
 
 This work also gathers ideas from other implementations of other provers from various different domains.
@@ -57,12 +75,12 @@ I use the existing connection prover implementation as a base for this code\cite
 This allows me to use the existing code for hard things like Prolog parsing, and also to use PyCoP as a control group.
 
 My code implemented 6 different strategies.
-\begin{description}
-	\item[FirstAction] \emph{(control)} run the first legal action (PyCoP default).
-	\item[LeanCoPCut] \emph{(control)} always run \atom{cut}, \atom{scut}, and \atom{comp(7)}, like LeanCoP.
+\begin{description}[style=nextline]
+	\item[FirstAction \emph{\mdseries (control)}] Run the first legal action (PyCoP default).
+	\item[LeanCoPCut \emph{\mdseries (control)}] Run \atom{cut}, \atom{scut}, and \atom{comp(7)}, like LeanCoP.
 	\item[HeuristicSelection] Choose reductions if possible, otherwise choose the extension with the shortest clause.
 	\item[EntropyCut] Run the first legal action, but add a cut to an extension if the Shannon entropy of the amount of atoms of this is high compared to the rest, and the prover is certain that this is the solution.
-	\item[AdaptiveReset] Resets the tree if the prover hits 5 dead-ends in a row.
+	\item[AdaptiveReset] Resets the tree if it hits 5 dead-ends in a row.
 	\item[SmartCut\footnotemark{}] Combines the last three strategies.
 \end{description}
 
@@ -70,9 +88,71 @@ My code implemented 6 different strategies.
 
 \section{Preliminary Results}
 
-I tried this on 
+\newcommand{\MS}{{\color{BrickRed}\bfseries max-steps}}
+\newcommand{\TO}{{\color{OrangeRed}\bfseries timeout}}
+\newcommand{\best}{\color{Green}}
 
-\section{Future Work}
+\sisetup{
+    table-format = 11.0,
+	table-text-alignment = right,
+}
+
+\begin{table*}[t]
+	\centering
+	\scriptsize
+	\begin{tabular}{@{}>{\ttfamily}l S S S[table-format=16.0] S S[table-format=13.0] S@{}}
+		\toprule
+		{\rmfamily\bfseries Problem} & {\bfseries FirstAction} & {\bfseries LeanCopCut} & {\bfseries HeuristicSelection} & {\bfseries EntropyCut} & {\bfseries AdaptiveReset} & {\bfseries SmartCut} \\
+		\midrule
+		GEO179+3      & 11987 &       4744  &       9629  &       11979 & \best 2546  &        \MS \\
+		GEO181+3      & 11929 & \best 4778  &       9812  &       11925 &       \MS   &        \TO \\
+ 		\addlinespace
+		HWV026-3      & 10174 & \best 4212  &       \MS   &       10174 &       10174 &        \MS \\
+ 		\addlinespace
+		KRS095+1      & 552   & \best 504   &       952   &       548   &       552   &       1014 \\
+ 		\addlinespace
+		LCL186-1      & 245   &       477   &       297   & \best 245   &       368   &        \TO \\
+		LCL644+1.001  & 8     &       8     & \best 2     &       8     &       8     &          2 \\
+		LCL679+1.001  & 1     &       1     &       1     &       1     &       1     &          1 \\
+ 		\addlinespace
+		MSC015-1.005  & 25401 &       29037 &       26257 &       28251 & \best 7556  &       8816 \\
+ 		\addlinespace
+		NUM291+1      & 32860 & \best 19936 &       \MS   &       32860 &       32860 &        \MS \\
+		NUM300+1      & 11135 & \best 7471  &       18308 &       11135 &       11135 &      18306 \\
+		NUM615+1      & \MS   & \best 42778 &       \MS   &       \MS   &       \MS   &        \MS \\
+		NUM634+3      & \TO   &       \TO   & \best 2     &       \TO   &       \TO   &          2 \\
+ 		\addlinespace
+		SET062+3      & 24    & \best 24    &       26    &       24    &       24    &         26 \\
+		SET175+3      & \MS   &       12401 &       \MS   &       \MS   &       1062  & \best 1031 \\
+		SET603+3      & \MS   &       9953  &       \MS   &       \MS   &       \TO   &  \best 853 \\
+		SET626+3      & \MS   & \best 35231 &       \MS   &       \MS   &       \TO   &        \TO \\
+		SET886+1      & \MS   & \best 24582 &       \MS   &       \MS   &       \TO   &        \TO \\
+		SET904+1      & 105   & \best 101   &       140   & \best 101   &       105   &        140 \\
+		SEU121+2      & \MS   & \best 34536 &       \MS   &       \MS   &       \TO   &        \TO \\
+ 		\addlinespace
+		SWV232+1      & 54    &       54    &       \TO   &       54    &       54    &        \TO \\
+		SWV248-2      & \TO   &       \TO   &       7016  & \best 6018  &       \TO   &        \TO \\
+		SWV264-2      & 9     &       9     &       11    &       9     &       9     &         11 \\
+ 		\addlinespace
+		SYN061-1      & 46    &       46    &       46    &       46    &       46    &         46 \\
+		SYN582-1      & 15843 & \best 11650 &       40624 &       15430 &       \TO   &        \TO \\
+		SYN663-1      & 5651  &       \MS   & \best 5588  &       5626  &       \TO   &        \MS \\
+		SYN709-1      & 16642 & \best 5238  &       11201 &       16065 &       \MS   &        \MS \\
+		SYN726-1      & \MS   &       \MS   & \best 4468  &       \MS   &       \TO   &        \MS \\
+		\bottomrule
+	\end{tabular}
+	\caption{Results of running the current experiment on 247 representative TPTP problems. Only 27 of these problems finished within the time and step limit; larger experiments are coming.}
+	\label{big_table}
+\end{table*}
+
+A subset of 247 ``representative'' TPTP problems was used for testing these problems\citen{chvalovsky2021characteristic}.
+The results with any significance are fount in \cref{big_table}.
+
+The comparer runs all 6 policies in parallel, with a 30-second time limit.
+A larger experiment, with the entirety of TPTP and a longer time limit, will come in the future.
+
+The results show that all three policies have marked improvements in certain problems.
+It's likely that with further exploration we might get even better results than the control groups.
 
 \begin{small}
 	\bibliography{bibliography.bib}
