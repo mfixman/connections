@@ -246,10 +246,46 @@ def _unique_paths(paths: list[Path]) -> list[Path]:
     return sorted(set(paths))
 
 
+def _unique_paths_in_order(paths: list[Path]) -> list[Path]:
+    """Deduplicate while preserving first-seen order."""
+    return list(dict.fromkeys(paths))
+
+
+def _problem_priority_key(problem: Path) -> tuple[int, str, str]:
+    """Prefer SYN, then PUZ, then the rest for bulk TPTP runs."""
+    if problem.name.startswith('SYN'):
+        priority = 0
+    elif problem.name.startswith('PUZ'):
+        priority = 1
+    else:
+        priority = 2
+    return (priority, problem.name, str(problem))
+
+
+def _all_tptp_problem_paths() -> list[Path]:
+    """Return all TPTP `.p` problems, prioritising SYN and PUZ first."""
+    tptp_root_raw = os.getenv('TPTP')
+    if tptp_root_raw is None:
+        raise FileNotFoundError('no input problems provided and TPTP is not set')
+
+    problems_root = Path(tptp_root_raw) / 'Problems'
+    if not problems_root.is_dir():
+        raise FileNotFoundError(f'could not find TPTP problems directory at {problems_root}')
+
+    problems = sorted(
+        (path.resolve() for path in problems_root.glob('*/*.p')),
+        key=_problem_priority_key,
+    )
+    if not problems:
+        raise FileNotFoundError(f'no .p files found under {problems_root}')
+
+    return problems
+
+
 def expand_problem_inputs(inputs: list[str]) -> list[Path]:
     """Expand directories and problem names into a deduplicated list of files."""
     if not inputs:
-        inputs = ['tests/cnf_problems']
+        return _all_tptp_problem_paths()
 
     problems: list[Path] = []
     for raw in inputs:
@@ -262,7 +298,7 @@ def expand_problem_inputs(inputs: list[str]) -> list[Path]:
         else:
             problems.append(Path(resolve_problem_path(raw)))
 
-    return _unique_paths([problem.resolve() for problem in problems])
+    return _unique_paths_in_order([problem.resolve() for problem in problems])
 
 
 # ── Formatting helpers ────────────────────────────────────────────────────────
@@ -522,7 +558,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         'inputs', nargs='*', metavar='DIR_OR_FILE',
-        help='directories and/or problem files/codenames (default: tests/cnf_problems)',
+        help='directories and/or problem files/codenames (default: all $TPTP/Problems/*/*.p)',
     )
 
     strategy_group = parser.add_mutually_exclusive_group()
