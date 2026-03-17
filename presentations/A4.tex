@@ -4,7 +4,6 @@
 \usepackage[scale=0.85]{geometry}
 \usepackage{lipsum}
 \usepackage{titlesec}
-\usepackage[numbers]{natbib}
 \usepackage{xurl}
 \usepackage[hidelinks]{hyperref}
 \usepackage{booktabs}
@@ -16,13 +15,16 @@
 \usepackage[nameinlink,capitalise]{cleveref}
 \usepackage{enumitem}
 \usepackage[symbol]{footmisc}
+\usepackage{parskip}
+\usepackage[url=false,doi=false]{biblatex}
 
-\bibliographystyle{plainnat}
+\addbibresource{bibliography.bib}
+
 \titlelabel{}
 
 \newcommand{\atom}[1]{\texttt{#1}}
-\newcommand{\citen}[1]{~\cite{#1}}
-\newcommand{\citeay}[1]{\hyperlink{cite.#1}{\citeauthor{#1}~(\citeyear{#1})}}
+\newcommand{\citen}[1]{~\parencite{#1}}
+\newcommand{\citeay}[1]{\textcite{#1}}
 
 \title{Modifying LeanCoP Options On the Fly \\[3pt] \large (aka ``the PAAR paper'')}
 \date{}
@@ -40,32 +42,31 @@
 
 \section{Introduction and Research}
 
-LeanCoP inspired a large family of provers which, with a small amount of modifications, could improve the performance of the connection prover in a large set of problems\citen{Otten2023leanCoP20}.
-The ones that inspired this work change one property of the original LeanCoP at the initial time.
+LeanCoP inspired a large family of connection provers with significant improvements over the original version with small improvements to the original version\citen{Otten2023leanCoP20}.
 
-LeanCoP 2.0\citen{ottenLeanCoP20} added several options, most notably \atom{cut} and \atom{scut} to restrict backtracking in connection calculus and \emph{iterative deepening} with \atom{comp(J)}, which iteratively limits the height 1 at a time of the tree when the prover is saturated until it reaches maximum height \atom{J}.
-Afterwards it restarts iterative deepening from 1, but without any cut active.
+LeanCoP 2.0\citen{ottenLeanCoP20} added 3 control options to the original LeanCoP: \atom{cut} and \atom{scut}, to restrict backtracking in connection calculus, and \atom{comp(J)}, which enables \emph{iterative deepening} by limiting the height 1 at a time of the tree when the prover is saturated until it reaches maximum height \atom{J}.
+After exhausting that final tree, LeanCoP restarts iterative deepening from max height 1 but disables cuts.
 
-This work also gathers ideas from other implementations of other provers from various different domains.
+This work gathers ideas from other implementations of connection provers from various domains.
 
-\citeay{letzModelEliminationConnection2001} generally shows that reductions should be preferred over extensions in connections provers because they close the current subgoal immediately\citen{letzModelEliminationConnection2001}.
-Generally shorter clauses tend to produce better solutions.
+\citeay{letzModelEliminationConnection2001} show that, in tableau search, reordering clauses to prioritise shorter ones tend to produce fewer solutions, since the search will have a smaller search space.
 
-\citeay{zomboriRoleEntropyGuiding2021} introduces an entropy measurement to show how ``confident'' each policy should be: higher entropy suggests that the next step should be exploration, while lower entropy suggests that it should be exploitation\citen{zomboriRoleEntropyGuiding2021}.
-Adding entropy regularisation improves training performance, and can make simpler models have better results than more complex ones.
+% \citeay{zomboriRoleEntropyGuiding2021} introduces an entropy measurement to show how ``confident'' each policy should be: higher entropy suggests that the next step should be exploration, while lower entropy suggests that it should be exploitation\citen{zomboriRoleEntropyGuiding2021}.
+% Adding entropy regularisation improves training performance, and can make simpler models have better results than more complex ones.
 
-\citeay{liReinforcementLearningBased2024} frames the reset choice in SAT solvers as an online policy problem\citen{liReinforcementLearningBased2024}.
+\citeay{zomboriRoleEntropyGuiding2021} show that the entropy of a learned policy's action distribution is a key factor in guiding connection provers: policies whose entropy is too low tend to overcommit to narrow search paths, while policies whose entropy is too high spread effort too thinly.
+This can be adapted by adding the runtime insight that measures the Shannon entropy of heuristic action scores at each proof step and use low entropy as a signal to add a \atom{cut} to the current connection action.
+
+\citeay{liReinforcementLearningBased2024} frame the reset choice in SAT solvers as a multi-armed bandit problem.
 It shows that recent search productivity should influence reset behaviour.
-Similar policies related to restarts are also presented in chapter 2 of \citeay{HoldenSATQSAT}.
+Similar policies related to restarts are also presented in Chapter 2 of \citeay{HoldenSATQSAT}.
 
 \section{Novel Idea}
 
-The three atoms in LeanCoP that can change the completeness of the current tree, \atom{cut}, \atom{scut}, and \atom{comp(I)}, can be triggered dynamically using heuristics from the current tree rather than being chosen from the start.
+Triggering the three control atoms in LeanCoP, \atom{cut}, \atom{scut}, and \atom{comp(I)}, dynamically during the tree search rather than at the beginning can allow a prover to solve a tableau tree in less time and fewer steps.
 
-It is possible to do a solution using reinforcement learning rather than heuristics.
-This would produce a connection prover that solves the same or fewer trees than existing provers such as rlCop\citen{Kaliszyk2018RLTP} or learnCoP[{\scriptsize citation~soon!}], thus making it redundant compared to the existing provers.
-
-Ideally, an implementation that changes these atoms on the fly should be faster than both LeanCoP and RLCoP in a subset of TPTP problems.
+A possible solution would be using reinforcement learning, like RLCop\citen{Kaliszyk2018RLTP} or learnCoP[{\scriptsize citation coming soon!}].
+However, inference in these systems is slow and a heuristic-based solutions might solve problems quicker on a subset of TPTP problems.
 
 \section{Implementation}
 
@@ -100,7 +101,7 @@ My code implemented 6 different strategies.
 \begin{table*}[t]
 	\centering
 	\scriptsize
-	\begin{tabular}{@{}>{\ttfamily}l @{\hspace{0pt}} S S @{\hspace{30pt}} S[table-format=16.0] S S[table-format=13.0] S@{}}
+	\begin{tabular}{@{}>{\ttfamily}l @{\hspace{15pt}} S S @{\hspace{30pt}} S[table-format=16.0] S S[table-format=13.0] S@{}}
 		\toprule
 		{\rmfamily\bfseries Problem} & {\bfseries FirstAction} & {\bfseries LeanCopCut} & {\bfseries HeuristicSelection} & {\bfseries EntropyCut} & {\bfseries AdaptiveReset} & {\bfseries SmartCut} \\
 		\midrule
@@ -120,7 +121,7 @@ My code implemented 6 different strategies.
 		NUM291+1      & 32860 &       19936 &       \MS   &       32860 &       32860 &        \MS \\
 		NUM300+1      & 11135 &       7471  &       18308 &       11135 &       11135 &      18306 \\
 		NUM615+1      & \MS   &       42778 &       \MS   &       \MS   &       \MS   &        \MS \\
-		NUM634+3      & \TO   &       \TO   & \best 2     &       \TO   &       \TO   &          2 \\
+		NUM634+3      & \TO   &       \TO   &    \best 2  &       \TO   &       \TO   &          2 \\
  		\addlinespace
 		SET062+3      & 24    &       24    &       26    &       24    &       24    &         26 \\
 		SET175+3      & \MS   &       12401 &       \MS   &       \MS   &       1062  & \best 1031 \\
@@ -141,21 +142,20 @@ My code implemented 6 different strategies.
 		SYN726-1      & \MS   &       \MS   & \best 4468  &       \MS   &       \TO   &        \MS \\
 		\bottomrule
 	\end{tabular}
-	\caption{Results of running the current experiment on 247 representative TPTP problems. {\best Green} numbers show significantly best results compared to the control groups. Only 27 of these problems finished within the time and step limit; larger experiments with a higher time limit are coming.}
+	\caption{Amount of steps required to solve representative TPTP problems. {\best Green} numbers show maximal results that are significantly better than the control groups. Only 27 of these problems finished within the time and step limit; larger experiments with a higher time limit will give us more information.}
 	\label{big_table}
 \end{table*}
 
 A subset of 247 ``representative'' TPTP problems was used for testing these problems\citen{chvalovsky2021characteristic}.
 The results with any significance are fount in \cref{big_table}.
 
-The comparer runs all 6 policies in parallel, with a 30-second time limit.
+The comparer runs all 6 policies in parallel, with a 30-second time limit and a \num{50000} step limit.
 A larger experiment, with the entirety of TPTP and a longer time limit, will come in the future.
 
 The results show that all three policies have marked improvements in certain problems.
 It's likely that with further exploration we might get even better results than the control groups.
 
-\begin{small}
-	\bibliography{bibliography.bib}
-\end{small}
+\renewcommand*{\bibfont}{\footnotesize}
+\printbibliography{}
 
 \end{document}
