@@ -21,7 +21,10 @@ from connections.env import ConnectionEnv, Logic, Settings
 from strategies import Strategy
 
 
-# ── ANSI colour helpers ───────────────────────────────────────────────────────
+def green(s: str) -> str: return f'\033[32m{s}\033[0m'
+def red(s: str) -> str:   return f'\033[31m{s}\033[0m'
+def bold(s: str) -> str:  return f'\033[1;33m{s}\033[0m'
+def dim(s: str) -> str:   return f'\033[2m{s}\033[0m'
 
 _ANSI = re.compile(r'\033\[[0-9;]*m')
 
@@ -61,9 +64,6 @@ def clear_progress() -> None:
         return
     sys.stdout.write('\033[2K\r')
     sys.stdout.flush()
-
-
-# ── Worker ────────────────────────────────────────────────────────────────────
 
 def _status_label(result: Optional[dict]) -> str:
     if result is None:
@@ -158,7 +158,6 @@ def _run_problem(
     finally:
         conn.close()
 
-
 def _parse_slurm_cpus_per_task(raw: Optional[str]) -> Optional[int]:
     if raw is None:
         return None
@@ -196,8 +195,6 @@ def determine_worker_count(total_tasks: int) -> int:
     logging.info(f'using {workers} {worker_label} for {total_tasks} {task_label}')
     return workers
 
-
-# ── Problem resolution ────────────────────────────────────────────────────────
 
 def resolve_problem_path(path: str) -> str:
     """Resolve a problem from the local path or from the `TPTP` tree."""
@@ -309,8 +306,6 @@ def expand_problem_inputs(inputs: list[str]) -> list[Path]:
 
     return _unique_paths_in_order([problem.resolve() for problem in problems])
 
-
-# ── Formatting helpers ────────────────────────────────────────────────────────
 
 def fmt_result(r: Optional[dict], show_steps: bool, show_time: bool, use_color: bool = True) -> str:
     if r is None:
@@ -688,8 +683,6 @@ def write_results_csv(
                 })
 
 
-# ── Argument parsing ──────────────────────────────────────────────────────────
-
 def parse_args() -> argparse.Namespace:
     available_strategies = list(Strategy.strategies().keys())
     default_strategies = [available_strategies[0], available_strategies[-1]]
@@ -769,8 +762,6 @@ def parse_args() -> argparse.Namespace:
 
     return args
 
-
-# ── Main ──────────────────────────────────────────────────────────────────────
 
 def main() -> None:
     logging.basicConfig(level = logging.INFO, format = '[%(relativeCreated)d] %(message)s')
