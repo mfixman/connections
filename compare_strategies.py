@@ -12,6 +12,7 @@ import time
 import traceback
 import logging
 from collections import deque
+from dataclasses import dataclass
 from multiprocessing.connection import Connection, wait
 from pathlib import Path
 from typing import Optional
@@ -22,16 +23,24 @@ from strategies import Strategy
 
 # ── ANSI colour helpers ───────────────────────────────────────────────────────
 
-def green(s: str) -> str: return f'\033[32m{s}\033[0m'
-def red(s: str) -> str:   return f'\033[31m{s}\033[0m'
-def bold(s: str) -> str:  return f'\033[1;33m{s}\033[0m'
-def dim(s: str) -> str:   return f'\033[2m{s}\033[0m'
-
 _ANSI = re.compile(r'\033\[[0-9;]*m')
+
+def _colour(code: str, s: str, enabled: bool = True) -> str:
+    if not enabled:
+        return s
+    return f'\033[{code}m{s}\033[0m'
+
+def green(s: str, enabled: bool = True) -> str: return _colour('32', s, enabled)
+def red(s: str, enabled: bool = True) -> str:   return _colour('31', s, enabled)
+def bold(s: str, enabled: bool = True) -> str:  return _colour('1;33', s, enabled)
+def dim(s: str, enabled: bool = True) -> str:   return _colour('2', s, enabled)
+
+def strip_ansi(s: str) -> str:
+    return _ANSI.sub('', s)
 
 def vlen(s: str) -> int:
     """Visible length of a string, ignoring ANSI escape codes."""
-    return len(_ANSI.sub('', s))
+    return len(strip_ansi(s))
 
 def rpad(s: str, width: int) -> str:
     """Right-pad a string to visible width, ignoring ANSI escape codes."""
@@ -303,35 +312,36 @@ def expand_problem_inputs(inputs: list[str]) -> list[Path]:
 
 # ── Formatting helpers ────────────────────────────────────────────────────────
 
-def fmt_result(r: Optional[dict], show_steps: bool, show_time: bool) -> str:
+def fmt_result(r: Optional[dict], show_steps: bool, show_time: bool, use_color: bool = True) -> str:
     if r is None:
-        return red('timeout')
+        return red('timeout', use_color)
     status = r.get('status')
     if status == 'timeout':
-        return red('timeout')
+        return red('timeout', use_color)
     if status == 'max_steps':
-        return bold('max-steps')
+        return bold('max-steps', use_color)
     if status == 'unsolved':
         info = r.get('info', 'unsolved')
         if str(info).startswith('Non-Theorem'):
-            return dim('non-theorem')
-        return dim('unsolved')
+            return dim('non-theorem', use_color)
+        return dim('unsolved', use_color)
     if status == 'error':
-        return red('error')
+        return red('error', use_color)
     if not r['solved']:
-        return dim('unsolved')
+        return dim('unsolved', use_color)
     parts = []
     if show_steps:
         parts.append(f'{r["steps"]:,}')
     if show_time:
         parts.append(f'{r["time"] * 1000:.0f}ms')
-    return green(' / '.join(parts) if parts else 'solved')
+    return green(' / '.join(parts) if parts else 'solved', use_color)
 
 
 def fmt_delta(
     r1: Optional[dict], r2: Optional[dict],
     show_steps: bool, show_time: bool,
     name1: str, name2: str,
+    use_color: bool = True,
 ) -> str:
     s1 = r1 is not None and r1['solved']
     s2 = r2 is not None and r2['solved']
@@ -340,33 +350,33 @@ def fmt_delta(
         label1 = _status_label(r1)
         label2 = _status_label(r2)
         if label1 == label2:
-            return dim(f'both {label1}')
-        return dim(f'{label1} / {label2}')
+            return dim(f'both {label1}', use_color)
+        return dim(f'{label1} / {label2}', use_color)
     if s1 and not s2:
-        return red(f'{name1} only')
+        return red(f'{name1} only', use_color)
     if s2 and not s1:
-        return bold(f'{name2} only')
+        return bold(f'{name2} only', use_color)
 
     # Both solved
     parts = []
     if show_steps:
         pct = (r2['steps'] - r1['steps']) * 100 / max(r1['steps'], 1)
         if pct < 0:
-            parts.append(bold(f'{pct:+.0f}% steps'))
+            parts.append(bold(f'{pct:+.0f}% steps', use_color))
         elif pct > 0:
-            parts.append(red(f'{pct:+.0f}% steps'))
+            parts.append(red(f'{pct:+.0f}% steps', use_color))
         else:
             parts.append('=steps')
     if show_time:
         pct = (r2['time'] - r1['time']) * 100 / max(r1['time'], 1e-9)
         if pct < -5:
-            parts.append(bold(f'{pct:+.0f}% time'))
+            parts.append(bold(f'{pct:+.0f}% time', use_color))
         elif pct > 5:
-            parts.append(red(f'{pct:+.0f}% time'))
+            parts.append(red(f'{pct:+.0f}% time', use_color))
         else:
             parts.append('≈time')
 
-    return ', '.join(parts) if parts else dim('tie')
+    return ', '.join(parts) if parts else dim('tie', use_color)
 
 
 def _problem_display_name(problem: Path) -> str:
@@ -377,7 +387,19 @@ def _problem_csv_name(problem: Path) -> str:
     return problem.name
 
 
-def print_task_result(
+def report_layout(problems: list[Path], strategies: list[str]) -> tuple[int, int, str, str]:
+    problem_width = max(max(len(_problem_display_name(problem)) for problem in problems), len('Problem'))
+    strategy_width = max(max(len(strategy) for strategy in strategies), len('Strategy'))
+    header = (
+        f'{rpad("Problem", problem_width)}  '
+        f'{rpad("Strategy", strategy_width)}  '
+        'Result'
+    )
+    sep = '-' * (problem_width + strategy_width + len('Result') + 4)
+    return problem_width, strategy_width, header, sep
+
+
+def format_task_result(
     problem: Path,
     strategy_name: str,
     result: dict,
@@ -385,13 +407,12 @@ def print_task_result(
     show_time: bool,
     problem_width: int,
     strategy_width: int,
-) -> None:
-    row = (
+) -> str:
+    return (
         f'{rpad(_problem_display_name(problem), problem_width)}  '
         f'{rpad(strategy_name, strategy_width)}  '
         f'{fmt_result(result, show_steps, show_time)}'
     )
-    print(row, flush=True)
 
 
 def print_task_error(problem: Path, strategy_name: str, result: dict) -> None:
@@ -403,6 +424,142 @@ def print_task_error(problem: Path, strategy_name: str, result: dict) -> None:
     )
 
 
+def parse_result_text(text: str) -> Optional[dict]:
+    stripped = text.strip()
+    if not stripped:
+        return None
+
+    simple_statuses = {
+        'timeout': {'status': 'timeout', 'solved': False},
+        'max-steps': {'status': 'max_steps', 'solved': False},
+        'unsolved': {'status': 'unsolved', 'solved': False},
+        'non-theorem': {'status': 'unsolved', 'solved': False, 'info': 'Non-Theorem'},
+        'error': {'status': 'error', 'solved': False},
+        'solved': {'status': 'solved', 'solved': True},
+    }
+    if stripped in simple_statuses:
+        return dict(simple_statuses[stripped])
+
+    result = {'status': 'solved', 'solved': True}
+    for token in re.split(r'\s*/\s*', stripped):
+        if re.fullmatch(r'[0-9][0-9,]*', token):
+            result['steps'] = int(token.replace(',', ''))
+            continue
+        if re.fullmatch(r'[0-9]+(?:\.[0-9]+)?ms', token):
+            result['time'] = float(token[:-2]) / 1000
+            continue
+        return None
+    return result
+
+
+@dataclass
+class PartialReportState:
+    results: dict[Path, dict[str, dict]]
+    has_header: bool
+    has_summary: bool
+    has_csv_line: bool
+    last_line: Optional[str]
+
+
+def load_partial_report(
+    partial_path: Optional[Path],
+    problems: list[Path],
+    strategies: list[str],
+) -> PartialReportState:
+    results: dict[Path, dict[str, dict]] = {problem: {} for problem in problems}
+    if partial_path is None or not partial_path.exists():
+        return PartialReportState(results, False, False, False, None)
+
+    problem_by_name = {_problem_display_name(problem): problem for problem in problems}
+    strategy_names = set(strategies)
+    has_header = False
+    saw_summary = False
+    saw_csv_line = False
+    last_line = None
+
+    for raw_line in partial_path.read_text(encoding='utf-8', errors='replace').splitlines():
+        line = strip_ansi(raw_line).rstrip()
+        if not line:
+            continue
+
+        last_line = line
+        parts = re.split(r' {2,}', line, maxsplit=2)
+        if parts == ['Problem', 'Strategy', 'Result']:
+            has_header = True
+            continue
+        if line.startswith('Solved: '):
+            saw_summary = True
+            continue
+        if line.startswith('CSV: '):
+            saw_csv_line = True
+            continue
+        if len(parts) != 3:
+            continue
+
+        problem_name, strategy_name, result_text = parts
+        problem = problem_by_name.get(problem_name)
+        if problem is None or strategy_name not in strategy_names:
+            continue
+
+        result = parse_result_text(result_text)
+        if result is None:
+            continue
+        results[problem][strategy_name] = result
+
+    completed_tasks = sum(len(result_map) for result_map in results.values())
+    total_tasks = len(problems) * len(strategies)
+    if completed_tasks != total_tasks:
+        saw_summary = False
+        saw_csv_line = False
+
+    return PartialReportState(results, has_header, saw_summary, saw_csv_line, last_line)
+
+
+class ReportWriter:
+    def __init__(
+        self,
+        partial_path: Optional[Path],
+        partial_color: bool,
+        last_line: Optional[str] = None,
+    ) -> None:
+        self.partial_path = partial_path
+        self.partial_color = partial_color
+        self.last_line = last_line
+        self._partial_file = None
+        self._needs_leading_newline = False
+
+        if partial_path is not None and partial_path.exists() and partial_path.stat().st_size > 0:
+            with open(partial_path, 'rb') as existing:
+                existing.seek(-1, os.SEEK_END)
+                self._needs_leading_newline = existing.read(1) != b'\n'
+
+    def _open_partial(self):
+        if self.partial_path is None:
+            return None
+        if self._partial_file is None:
+            self._partial_file = open(self.partial_path, 'a', encoding='utf-8')
+        return self._partial_file
+
+    def emit(self, line: str) -> None:
+        print(line, flush=True)
+
+        partial = self._open_partial()
+        if partial is not None:
+            if self._needs_leading_newline:
+                partial.write('\n')
+                self._needs_leading_newline = False
+            partial.write(line if self.partial_color else strip_ansi(line))
+            partial.write('\n')
+            partial.flush()
+
+        self.last_line = strip_ansi(line)
+
+    def close(self) -> None:
+        if self._partial_file is not None:
+            self._partial_file.close()
+            self._partial_file = None
+
+
 def run_tasks(
     problems: list[Path],
     strategies: list[str],
@@ -412,21 +569,22 @@ def run_tasks(
     max_workers: int,
     show_steps: bool,
     show_time: bool,
+    reporter: ReportWriter,
+    initial_results: Optional[dict[Path, dict[str, dict]]] = None,
 ) -> tuple[dict[Path, dict[str, dict]], list[tuple[str, str, str]]]:
-    task_queue = deque((problem, strategy) for problem in problems for strategy in strategies)
-    results: dict[Path, dict[str, dict]] = {problem: {} for problem in problems}
+    results: dict[Path, dict[str, dict]] = {
+        problem: dict((initial_results or {}).get(problem, {}))
+        for problem in problems
+    }
+    task_queue = deque(
+        (problem, strategy)
+        for problem in problems
+        for strategy in strategies
+        if strategy not in results[problem]
+    )
     errors: list[tuple[str, str, str]] = []
 
-    problem_width = max(max(len(_problem_display_name(problem)) for problem in problems), len('Problem'))
-    strategy_width = max(max(len(strategy) for strategy in strategies), len('Strategy'))
-    header = (
-        f'{rpad("Problem", problem_width)}  '
-        f'{rpad("Strategy", strategy_width)}  '
-        'Result'
-    )
-    sep = '-' * (problem_width + strategy_width + len('Result') + 4)
-    print(header, flush=True)
-    print(sep, flush=True)
+    problem_width, strategy_width, _, _ = report_layout(problems, strategies)
 
     active: dict[Connection, tuple[Path, str, mp.Process, float]] = {}
 
@@ -455,10 +613,10 @@ def run_tasks(
             result = _cleanup_task_process(conn, proc)
             conn.close()
             results[problem][strategy_name] = result
-            print_task_result(
+            reporter.emit(format_task_result(
                 problem, strategy_name, result,
                 show_steps, show_time, problem_width, strategy_width,
-            )
+            ))
             if result.get('status') == 'error':
                 error = result.get('error', 'unknown error')
                 errors.append((_problem_display_name(problem), strategy_name, error))
@@ -479,10 +637,10 @@ def run_tasks(
             proc.join()
             conn.close()
             results[problem][strategy_name] = result
-            print_task_result(
+            reporter.emit(format_task_result(
                 problem, strategy_name, result,
                 show_steps, show_time, problem_width, strategy_width,
-            )
+            ))
             if result.get('status') == 'error':
                 error = result.get('error', 'unknown error')
                 errors.append((_problem_display_name(problem), strategy_name, error))
@@ -491,7 +649,6 @@ def run_tasks(
         while task_queue and len(active) < max_workers:
             start_task(*task_queue.popleft())
 
-    print(sep, flush=True)
     return results, errors
 
 
@@ -595,6 +752,14 @@ def parse_args() -> argparse.Namespace:
         '--csv', default='results.csv', metavar='PATH',
         help='write final results as CSV to PATH (default: results.csv)',
     )
+    parser.add_argument(
+        '--partial-file', metavar='PATH',
+        help='append report output to PATH and resume from any completed rows already present',
+    )
+    parser.add_argument(
+        '--color', '--colour', dest='color', action='store_true',
+        help='preserve ANSI colour codes in --partial-file output (default: off)',
+    )
     args = parser.parse_args()
 
     if args.all_strategies:
@@ -621,56 +786,82 @@ def main() -> None:
     total = len(problems)
     total_tasks = total * len(strategies)
     max_workers = determine_worker_count(total_tasks)
+    partial_path = None if args.partial_file is None else Path(args.partial_file)
+    partial_state = load_partial_report(partial_path, problems, strategies)
+    reporter = ReportWriter(partial_path, partial_color=args.color, last_line=partial_state.last_line)
 
-    results, errors = run_tasks(
-        problems, strategies, args.logic, args.max_steps, args.timeout, max_workers,
-        args.steps, args.time,
-    )
+    _, _, header, sep = report_layout(problems, strategies)
+    if not partial_state.has_header:
+        reporter.emit(header)
+        reporter.emit(sep)
 
-    solved_counts = {s: 0 for s in strategies}
-    step_wins = {s: 0 for s in strategies}
-    ties = 0
-
-    for problem in problems:
-        for strategy_name in strategies:
-            result = results[problem].get(strategy_name)
-            if result and result.get('solved'):
-                solved_counts[strategy_name] += 1
-
-        if not two:
-            continue
-
-        r1, r2 = results[problem].get(strategies[0]), results[problem].get(strategies[1])
-        s1 = r1 is not None and r1['solved']
-        s2 = r2 is not None and r2['solved']
-        if s1 and s2:
-            if r1['steps'] < r2['steps']:
-                step_wins[strategies[0]] += 1
-            elif r2['steps'] < r1['steps']:
-                step_wins[strategies[1]] += 1
-            else:
-                ties += 1
-        elif s1:
-            step_wins[strategies[0]] += 1
-        elif s2:
-            step_wins[strategies[1]] += 1
-
-    solved_str = '  '.join(f'{s}={solved_counts[s]}/{total}' for s in strategies)
-    if two:
-        wins_str = (
-            f'  |  step wins: {strategies[0]}={step_wins[strategies[0]]}'
-            f'  {strategies[1]}={step_wins[strategies[1]]}'
-            f'  ties={ties}'
+    try:
+        results, errors = run_tasks(
+            problems, strategies, args.logic, args.max_steps, args.timeout, max_workers,
+            args.steps, args.time, reporter, partial_state.results,
         )
-    else:
-        wins_str = ''
-    print(f'Solved: {solved_str}{wins_str}', flush=True)
 
-    if errors:
-        print(f'Errors: {len(errors)}', file=sys.stderr, flush=True)
+        solved_counts = {s: 0 for s in strategies}
+        step_wins = {s: 0 for s in strategies}
+        ties = 0
 
-    write_results_csv(args.csv, problems, strategies, results)
-    print(f'CSV: {args.csv}', flush=True)
+        for problem in problems:
+            for strategy_name in strategies:
+                result = results[problem].get(strategy_name)
+                if result and result.get('solved'):
+                    solved_counts[strategy_name] += 1
+
+            if not two:
+                continue
+
+            r1, r2 = results[problem].get(strategies[0]), results[problem].get(strategies[1])
+            s1 = r1 is not None and r1.get('solved')
+            s2 = r2 is not None and r2.get('solved')
+            if s1 and s2:
+                steps1 = r1.get('steps')
+                steps2 = r2.get('steps')
+                if steps1 is None or steps2 is None:
+                    ties += 1
+                elif steps1 < steps2:
+                    step_wins[strategies[0]] += 1
+                elif steps2 < steps1:
+                    step_wins[strategies[1]] += 1
+                else:
+                    ties += 1
+            elif s1:
+                step_wins[strategies[0]] += 1
+            elif s2:
+                step_wins[strategies[1]] += 1
+
+        solved_str = '  '.join(f'{s}={solved_counts[s]}/{total}' for s in strategies)
+        if two:
+            wins_str = (
+                f'  |  step wins: {strategies[0]}={step_wins[strategies[0]]}'
+                f'  {strategies[1]}={step_wins[strategies[1]]}'
+                f'  ties={ties}'
+            )
+        else:
+            wins_str = ''
+        summary_line = f'Solved: {solved_str}{wins_str}'
+
+        if not partial_state.has_summary:
+            if reporter.last_line != sep:
+                reporter.emit(sep)
+            reporter.emit(summary_line)
+        else:
+            print(summary_line, flush=True)
+
+        if errors:
+            print(f'Errors: {len(errors)}', file=sys.stderr, flush=True)
+
+        write_results_csv(args.csv, problems, strategies, results)
+        csv_line = f'CSV: {args.csv}'
+        if not partial_state.has_csv_line:
+            reporter.emit(csv_line)
+        else:
+            print(csv_line, flush=True)
+    finally:
+        reporter.close()
 
 
 if __name__ == '__main__':
