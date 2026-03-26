@@ -1,5 +1,8 @@
+import json
 import math
 from collections import defaultdict
+from dataclasses import dataclass
+from pathlib import Path
 from typing import Optional, TypeVar
 
 from connections.env import ConnectionEnv
@@ -412,3 +415,84 @@ class SmartCut(AdaptiveReset, EntropyCut):
             return forward[0]
 
         return self._apply_entropy_cut(forward[0], forward)
+
+
+@dataclass(frozen=True)
+class ScheduledStrategySlot:
+    strategy_name: str
+    step_budget: int
+
+
+class InitialSchedule(Strategy):
+    """Run a fixed multi-strategy schedule loaded from JSON.
+
+    The schedule file specifies a sequence of strategies and absolute
+    step budgets.  Each slot runs its underlying strategy from a fresh
+    prover state.  When the current slot exhausts its step budget, the
+    environment is reset and the next strategy takes over.
+
+    This mirrors the execution model used by
+    ``paramils_schedule_wrapper.py`` for static schedules, except that
+    budgets here are expressed directly in proof steps.
+    """
+
+    schedule_path = Path(__file__).resolve().parent / 'schedules' / 'initial_schedule.json'
+
+    def __init__(self, env):
+        super().__init__(env)
+        self._slots = self._load_slots()
+        self._slot_index = 0
+        self._slot_steps = 0
+        self._active_strategy = self._instantiate_strategy(self._slots[0].strategy_name)
+
+    @classmethod
+    def _load_slots(cls) -> tuple[ScheduledStrategySlot, ...]:
+        with open(cls.schedule_path, encoding = 'utf-8') as handle:
+            raw = json.load(handle)
+
+        raw_slots = raw.get('slots')
+        if not isinstance(raw_slots, list) or not raw_slots:
+            raise ValueError(f'{cls.schedule_path} must define a non-empty "slots" list')
+
+        slots: list[ScheduledStrategySlot] = []
+        for index, raw_slot in enumerate(raw_slots, start = 1):
+            if not isinstance(raw_slot, dict):
+                raise ValueError(f'slot {index} in {cls.schedule_path} must be an object')
+
+            strategy_name = raw_slot.get('strategy')
+            step_budget = raw_slot.get('step_budget')
+            if not isinstance(strategy_name, str) or not strategy_name:
+                raise ValueError(f'slot {index} in {cls.schedule_path} is missing a valid strategy name')
+            if not isinstance(step_budget, int) or step_budget <= 0:
+                raise ValueError(f'slot {index} in {cls.schedule_path} must have a positive integer step_budget')
+
+            slots.append(ScheduledStrategySlot(strategy_name = strategy_name, step_budget = step_budget))
+
+        return tuple(slots)
+
+    def _instantiate_strategy(self, strategy_name: str) -> Strategy:
+        strategies = Strategy.strategies()
+        if strategy_name == type(self).__name__:
+            raise ValueError(f'{type(self).__name__} cannot schedule itself')
+        if strategy_name not in strategies:
+            choices = ', '.join(sorted(strategies))
+            raise ValueError(f'unknown scheduled strategy {strategy_name!r}; available: {choices}')
+        return strategies[strategy_name](self.env)
+
+    def _advance_slot(self) -> bool:
+        if self._slot_index + 1 >= len(self._slots):
+            return False
+        self._slot_index += 1
+        self._slot_steps = 0
+        self.env.reset()
+        self._active_strategy = self._instantiate_strategy(self._slots[self._slot_index].strategy_name)
+        return True
+
+    def step(self):
+        current = self._slots[self._slot_index]
+        if self._slot_steps >= current.step_budget:
+            self._advance_slot()
+
+        action = self._active_strategy.step()
+        self._slot_steps += 1
+        return action
