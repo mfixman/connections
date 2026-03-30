@@ -2,6 +2,7 @@ import os
 import re
 import subprocess
 import tempfile
+import warnings
 from pathlib import Path
 
 from connections.utils.cnf_parsing import file2cnf as parse_connections_cnf
@@ -21,18 +22,34 @@ def file2cnf(path: str):
         case 'tptp-fof':
             return _translate_tptp_problem(file_path)
         case _:
-            return parse_connections_cnf(path)
+            _fail_for_unsupported_problem(file_path)
 
 
 def _problem_kind(path: Path, text: str) -> str:
     """Classify the file so the caller can choose the right loader."""
     if _is_connections_cnf(text):
         return 'connections'
-    if '+' in path.name:
-        return 'tptp-fof'
-    if '-' in path.name:
-        return 'tptp-cnf'
-    return 'connections'
+    if _has_supported_tptp_suffix(path):
+        if '+' in path.name:
+            return 'tptp-fof'
+        if '-' in path.name:
+            return 'tptp-cnf'
+    return 'unsupported'
+
+
+def _has_supported_tptp_suffix(path: Path) -> bool:
+    """Accept only normal top-level TPTP files for raw problem parsing."""
+    return ''.join(path.suffixes) in {'.p', '.ax'}
+
+
+def _fail_for_unsupported_problem(path: Path) -> None:
+    """Warn and fail fast for inputs we do not intentionally support."""
+    message = (
+        f'unsupported problem file {path}: expected translated connection CNF '
+        f'or a TPTP file with suffix .p/.ax and a "+" or "-" in the filename'
+    )
+    warnings.warn(message, stacklevel=2)
+    raise ValueError(message)
 
 
 def _is_connections_cnf(text: str) -> bool:
