@@ -596,6 +596,313 @@ class SmartCut(AdaptiveReset, EntropyCut):
         return self._apply_entropy_cut(forward[0], forward)
 
 
+class PathComplementCut(_ConfiguredCutStrategy):
+    """Order extensions by how many new subgoals have complements on the
+    current path (i.e. can immediately reduce), then apply leanCoP-style
+    inclusive cuts.
+
+    Source:
+        Letz and Stenz (2001), "Model Elimination and Connection
+        Tableau Procedures", §2.6.1–2.6.2: the fewest-solutions
+        principle recommends preferring subgoals that are easiest to
+        close.  Reductions close subgoals immediately and produce no
+        new work; among extensions, those that generate subgoals
+        reducible against the current path are closest to closing.
+
+        Otten (2010), "Restricting backtracking in connection calculi",
+        §4.3 and §5.4: inclusive cut on successful proof steps with
+        ``comp(J)`` for completeness recovery.
+
+    Design choices (not from the papers):
+        Letz and Stenz rank by total solution count, which is
+        expensive to compute exactly.  We approximate it: an extension
+        whose new subgoals already have path complements is likely to
+        produce fewer remaining subgoals (the reducible ones can be
+        closed at zero cost).  The specific scoring function —
+        ``-complement_count`` as primary key, clause length as
+        tiebreaker — is original to this project.
+
+        When no path is available (root/start), falls back to clause
+        length ordering identical to ``OrderedCut``.
+    """
+
+    cut_reduction = True
+    cut_extension = True
+    max_cut_height = 7
+
+    def _complement_count(self, action: Extension) -> int:
+        """Count new subgoals that have a complement on the path."""
+        path_lits = self.env.state.goal.path()
+        # A subgoal `s` can reduce against path literal `p` when
+        # p.neg != s.neg and p.symbol == s.symbol.  Build the set of
+        # (neg, symbol) pairs that would match.
+        reducible = {(not lit.neg, lit.symbol) for lit in path_lits}
+        return sum(
+            1 for i, lit in enumerate(action.clause_copy)
+            if i != action.lit_idx and (lit.neg, lit.symbol) in reducible
+        )
+
+    def _action_key(self, action: ConnectionAction) -> tuple:
+        if isinstance(action, Reduction):
+            return (0, 0, 0)
+        elif isinstance(action, Extension):
+            return (1, -self._complement_count(action), len(action.clause_copy))
+        elif isinstance(action, Start):
+            return (2, 0, len(action.clause_copy))
+        return (3, 0, 0)
+
+    def choose_forward(self, forward: list[ConnectionAction]) -> ConnectionAction:
+        if len(forward) == 1:
+            return forward[0]
+        return min(forward, key=self._action_key)
+
+
+class GoalDistanceCut(_ConfiguredCutStrategy):
+    """Order extensions by estimated proof distance: prefer subgoals
+    that are either path-reducible or have many matrix complements.
+
+    Sources:
+        Letz and Stenz (2001), "Model Elimination and Connection
+        Tableau Procedures", §2.6.1–2.6.2: fewest-solutions and
+        shortest-clause principles.
+
+        Otten (2010), "Restricting backtracking in connection
+        calculi", §4.3 and §5.4: inclusive cut with ``comp(J)``.
+
+    Design choices (not from the papers):
+        The fewest-solutions principle says to prefer subgoals with
+        fewer solutions — but computing this exactly requires
+        exhaustive search.  We estimate proof distance per subgoal:
+        a path-reducible subgoal costs 0 (one reduction step), while
+        a subgoal needing an extension costs ``1 / complement_count``
+        (more matrix complements = more chances to find a match).
+        A subgoal with zero complements gets a high penalty.  The
+        total over all new subgoals gives the extension's score.
+        This is strictly more informative than clause length alone.
+    """
+
+    cut_reduction = True
+    cut_extension = True
+    max_cut_height = 7
+
+    def _extension_distance(self, action: Extension) -> float:
+        """Estimated proof distance for new subgoals.  Lower = better."""
+        path_lits = self.env.state.goal.path()
+        reducible = {(not lit.neg, lit.symbol) for lit in path_lits}
+        matrix = self.env.state.matrix
+
+        distance = 0.0
+        for i, lit in enumerate(action.clause_copy):
+            if i == action.lit_idx:
+                continue
+            if (lit.neg, lit.symbol) in reducible:
+                pass  # free: can reduce
+            else:
+                n_complements = len(matrix.complements(lit))
+                if n_complements == 0:
+                    distance += 100.0
+                else:
+                    distance += 1.0 / n_complements
+        return distance
+
+    def choose_forward(self, forward: list[ConnectionAction]) -> ConnectionAction:
+        if len(forward) == 1:
+            return forward[0]
+
+        def key(action: ConnectionAction) -> tuple:
+            if isinstance(action, Reduction):
+                return (0, 0.0)
+            elif isinstance(action, Extension):
+                return (1, self._extension_distance(action))
+            elif isinstance(action, Start):
+                return (2, float(len(action.clause_copy)))
+            return (3, 0.0)
+
+        return min(forward, key=key)
+
+
+class FewAlternativesCut(Strategy):
+    """Cut only when few forward alternatives exist, preserving
+    exploration when the choice point is ambiguous.
+
+    Source:
+        Otten (2010), "Restricting backtracking in connection calculi",
+        §4.3, Definition 8: restricted backtracking.
+
+        Färber (2024), "A Curiously Effective Backtracking Strategy
+        for Connection Tableaux", §4: decomposing restricted
+        backtracking reveals that the benefit depends on how many
+        alternatives are pruned.
+
+    Design choices (not from the papers):
+        leanCoP's ``cut`` is unconditional — every forward step is
+        cut regardless of how many alternatives exist.  This strategy
+        hypothesises that cutting is most valuable when few
+        alternatives exist (the prover is unlikely to need them) and
+        risky when many alternatives exist (the first choice may be
+        wrong).  The threshold of 2 is hand-tuned: cut when ≤ 2
+        forward actions, skip cut when ≥ 3.
+
+        Uses ``comp(J)`` with J = 7 identically to leanCoP.
+    """
+
+    max_alternatives_for_cut: int = 2
+    max_cut_height: int = 7
+
+    def __init__(self, env):
+        super().__init__(env)
+        self.should_comp: bool = True
+
+    def step(self):
+        actions = self.env.legal_actions()
+        forward = _forward_actions(actions)
+
+        if not forward:
+            action = backtrack_or_reset(actions)
+            if (
+                self.should_comp
+                and isinstance(action, Reset)
+                and action.depth > self.max_cut_height
+            ):
+                self.should_comp = False
+                return Reset(id='rs', depth=1)
+            return action
+
+        chosen = forward[0]
+        if (
+            self.should_comp
+            and len(forward) <= self.max_alternatives_for_cut
+            and isinstance(chosen, (Reduction, Extension))
+        ):
+            chosen.cut = True
+        return chosen
+
+
+class DepthPhasedCut(Strategy):
+    """Depth-dependent cut policy: cut reductions at all depths, cut
+    extensions only at shallow depths.
+
+    Source:
+        Otten (2010), "Restricting backtracking in connection calculi",
+        §4.3 and §5.4: inclusive cut and ``comp(J)``.
+
+        Färber (2024), "A Curiously Effective Backtracking Strategy
+        for Connection Tableaux", §4 and §6: decomposing restricted
+        backtracking into reduction cut (R) and extension cut (EI/EX)
+        as separate dimensions.
+
+    Design choices (not from the papers):
+        Färber shows that reduction cuts are almost always beneficial,
+        while extension cuts are more problem-dependent.  We
+        hypothesise that extension cuts are most valuable at shallow
+        depths (where the search tree is wide and pruning saves the
+        most work) and risky at deeper depths (where committing to a
+        wrong extension is harder to recover from).
+
+        The threshold is half the current iterative-deepening depth
+        limit: extensions at depth ≤ max_depth/2 are cut, deeper ones
+        are not.  This lets the strategy adapt as iterative deepening
+        increases the depth limit.
+
+        Uses ``comp(10)`` instead of ``comp(7)`` to give the phased
+        policy more room before falling back to complete search.
+    """
+
+    max_cut_height: int = 10
+
+    def __init__(self, env):
+        super().__init__(env)
+        self.should_comp: bool = True
+
+    def step(self):
+        actions = self.env.legal_actions()
+        forward = _forward_actions(actions)
+
+        if not forward:
+            action = backtrack_or_reset(actions)
+            if (
+                self.should_comp
+                and isinstance(action, Reset)
+                and action.depth > self.max_cut_height
+            ):
+                self.should_comp = False
+                return Reset(id='rs', depth=1)
+            return action
+
+        chosen = forward[0]
+        if self.should_comp and isinstance(chosen, (Reduction, Extension)):
+            if isinstance(chosen, Reduction):
+                chosen.cut = True
+            elif isinstance(chosen, Extension):
+                goal = self.env.state.goal
+                max_depth = self.env.state.max_depth
+                if goal is not None and goal.depth <= max_depth // 2:
+                    chosen.cut = True
+        return chosen
+
+
+class ProgressiveComp(Strategy):
+    """Multi-phase completeness recovery: try aggressive cuts at
+    progressively higher depth limits before falling back to complete
+    (cut-free) search.
+
+    Source:
+        Otten (2010), "Restricting backtracking in connection calculi",
+        §5.4: ``comp(J)`` runs with cut until depth J, then restarts
+        from depth 1 without cut.  This is a single-phase policy.
+
+    Design choices (not from the paper):
+        leanCoP uses a single ``comp(J)`` transition.  This strategy
+        generalises to multiple phases: ``comp(3) → comp(5) → comp(7)
+        → comp(10) → complete``.  Each phase restarts the search with
+        cuts active up to a higher depth limit.  The rationale is that
+        a proof at depth 4 might require different constraint
+        learning than a proof at depth 8; restarting with a fresh
+        constraint set at each phase gives the prover independent
+        chances to find it.
+
+        The specific schedule [3, 5, 7, 10] is hand-tuned.  It
+        favours early termination for easy problems (comp(3) is very
+        fast) while still reaching depth 10 before falling back to
+        the expensive complete search.
+    """
+
+    comp_schedule: tuple[int, ...] = (3, 5, 7, 10)
+
+    def __init__(self, env):
+        super().__init__(env)
+        self.phase: int = 0
+
+    def _cuts_active(self) -> bool:
+        return self.phase < len(self.comp_schedule)
+
+    def _current_threshold(self) -> Optional[int]:
+        if self.phase < len(self.comp_schedule):
+            return self.comp_schedule[self.phase]
+        return None
+
+    def step(self):
+        actions = self.env.legal_actions()
+        forward = _forward_actions(actions)
+
+        if not forward:
+            action = backtrack_or_reset(actions)
+            threshold = self._current_threshold()
+            if (
+                isinstance(action, Reset)
+                and threshold is not None
+                and action.depth > threshold
+            ):
+                self.phase += 1
+                return Reset(id='rs', depth=1)
+            return action
+
+        chosen = forward[0]
+        if self._cuts_active() and isinstance(chosen, (Reduction, Extension)):
+            chosen.cut = True
+        return chosen
+
+
 @dataclass(frozen=True)
 class ScheduledStrategySlot:
     strategy_name: str
