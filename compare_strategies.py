@@ -664,7 +664,7 @@ def write_results_csv(
         'error',
     ]
     with open(csv_path, 'w', newline='') as csv_file:
-        writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
+        writer = csv.DictWriter(csv_file, fieldnames=fieldnames, lineterminator='\n')
         writer.writeheader()
         for problem in problems:
             for strategy_name in strategies:

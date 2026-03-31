@@ -1,0 +1,166 @@
+\documentclass[11pt,twocolumn]{article}
+
+\usepackage{array}
+\usepackage[url=false, doi=false]{biblatex}
+\usepackage{booktabs}
+\usepackage[font=footnotesize, labelfont=bf]{caption}
+\usepackage{enumitem}
+\usepackage[symbol]{footmisc}
+\usepackage[scale=0.85]{geometry}
+\usepackage{lipsum}
+\usepackage{microtype}
+\usepackage{multirow}
+\usepackage{parskip}
+\usepackage{siunitx}
+\usepackage{titlesec}
+\usepackage[dvipsnames]{xcolor}
+\usepackage{xurl}
+\usepackage[hidelinks]{hyperref}
+\usepackage[nameinlink,capitalise]{cleveref}
+
+\addbibresource{bibliography.bib}
+
+\titlelabel{}
+
+\newcommand{\atom}[1]{\colorbox{Gray!30}{\ttfamily #1}}
+\newcommand{\citen}[1]{~\parencite{#1}}
+\newcommand{\citeay}[1]{\textcite{#1}}
+
+\setcounter{footnote}{1}
+
+\title{Modifying LeanCoP Options On the Fly \\[3pt] \large (aka ``the PAAR paper'')}
+\date{}
+\author{}
+
+\begin{document}
+\twocolumn[
+	\centering
+	\vspace{1em}
+	{\LARGE An improved schedule for LeanCoP options \par} \vspace{3pt}
+	{\large (aka ``the PAAR and/or AITP paper'') \par}
+	\vspace{2em}
+]
+% \maketitle
+
+\section{Introduction and Research}
+
+LeanCoP inspired a large family of connection provers that improve performance and completeness by making a small change to the control mechanism\citen{Otten2023leanCoP20}.
+
+LeanCoP 2.0\citen{ottenLeanCoP20} added 3 control options to the original LeanCoP: \atom{cut} and \atom{scut}, to restrict backtracking in connection calculus, and \atom{comp(J)}, which makes iterative deepening complete by restarting the search and increasing the maximum height of this tree 1 at a time until it reaches maximum height \atom{J}, and restarting from height 1 and with cuts disabled after exhausting the final tree.
+
+This work gathers ideas from other implementations of connection provers from different domains.
+
+\citeay{letzModelEliminationConnection2001} show that, in tableau search, it's preferable to have subgoals with fewer solutions to detect dead ends earlier.
+Reordering clauses to prioritise shorter clauses is a valid principle, because the number of solutions is roughly the product over the clause's subgoals.
+
+% \citeay{zomboriRoleEntropyGuiding2021} introduces an entropy measurement to show how ``confident'' each policy should be: higher entropy suggests that the next step should be exploration, while lower entropy suggests that it should be exploitation\citen{zomboriRoleEntropyGuiding2021}.
+% Adding entropy regularisation improves training performance, and can make simpler models have better results than more complex ones.
+
+\citeay{zomboriRoleEntropyGuiding2021} show that the entropy of a learned policy's action distribution is a key factor in guiding connection provers: policies whose entropy is too low tend to overcommit to narrow search paths, while policies whose entropy is too high spread effort too thinly.
+I adapt this insight at runtime by measuring the Shannon entropy of heuristic action scores at each proof step and use low entropy as a signal to add a \atom{cut} to the current connection action.
+
+\citeay{liReinforcementLearningBased2024} frame the reset choice in SAT solvers as a multi-armed bandit problem.
+They show that recent search productivity should influence reset behaviour.
+Similar restart strategies for SAT solvers are also surveyet in \citeay{HoldenSATQSAT}.
+
+\section{Novel Idea}
+
+Triggering the three control atoms in LeanCoP, \atom{cut}, \atom{scut}, and \atom{comp(I)}, dynamically during the tree search rather than at the beginning can allow a prover to solve a tableau tree in less time and fewer steps.
+
+A possible solution would be to use reinforcement learning, like RLCop\citen{Kaliszyk2018RLTP} or learnCoP [{\scriptsize citation coming soon!}].
+However, inference in these systems is slow and a heuristic-based solution might solve problems more quickly on a subset of TPTP problems.
+
+\section{Implementation}
+
+I use the existing connection prover implementation as a base for this code\citen{connections_2023}.
+This allows me to use the existing code for hard things like Prolog parsing, and also to use PyCoP as a control group.
+
+My code implements 6 different strategies.
+\begin{description}[style=nextline, itemsep=-3pt, leftmargin=16pt]
+	\item[FirstAction \emph{\mdseries (control)}] Run the first legal action (PyCoP default).
+	\item[LeanCoPCut \emph{\mdseries (control)}] Run \atom{cut}, \atom{scut}, and \atom{comp(7)}, like LeanCoP 2.0.
+	\item[HeuristicSelection] Choose reductions if possible, otherwise choose the extension with the shortest clause.
+	\item[EntropyCut] Run the first legal action, but add a cut when heuristic action scores have low entropy.
+	\item[AdaptiveReset] Resets the tree if it hits 5 dead-ends in a row.
+	\item[SmartCut] Combines the last three strategies.
+\end{description}
+
+% \footnotetext{Better name TBD.}
+
+\section{Results}
+
+\newcommand{\MS}{{\color{BrickRed}\bfseries max-steps}}
+\newcommand{\TO}{{\color{OrangeRed}\bfseries timeout}}
+\newcommand{\best}{\color{Green}}
+
+\sisetup{
+    table-format = 11.0,
+	table-text-alignment = right,
+}
+
+\setlength{\defaultaddspace}{4pt}
+
+Experiments were run on the University of Cambridge CSD3 Ice Lake cluster, using one node per experiment with 76 physical CPU cores and 256 GiB RAM.
+For comparative transparency, both the control and test groups were run with the same backend\citen{connections_2023}.
+
+\begin{table*}[t]
+	\centering
+	\scriptsize
+	\begin{tabular}{@{}>{\ttfamily}l @{\hspace{15pt}} S S @{\hspace{30pt}} S[table-format=16.0] S S[table-format=13.0] S@{}}
+		\toprule
+		{\rmfamily\bfseries Problem} & {\bfseries FirstAction} & {\bfseries LeanCopCut} & {\bfseries HeuristicSelection} & {\bfseries EntropyCut} & {\bfseries AdaptiveReset} & {\bfseries SmartCut} \\
+		\midrule
+		GEO179+3      & 11987 &       4744  &       9629  &       11979 & \best 2546  &        \MS \\
+		GEO181+3      & 11929 &       4778  &       9812  &       11925 &       \MS   &        \TO \\
+ 		\addlinespace
+		HWV026-3      & 10174 &       4212  &       \MS   &       10174 &       10174 &        \MS \\
+ 		\addlinespace
+		KRS095+1      & 552   &       504   &       952   &       548   &       552   &       1014 \\
+ 		\addlinespace
+		LCL186-1      & 245   &       477   &       297   & \best 245   &       368   &        \TO \\
+		LCL644+1.001  & 8     &       8     & \best 2     &       8     &       8     &          2 \\
+		LCL679+1.001  & 1     &       1     &       1     &       1     &       1     &          1 \\
+ 		\addlinespace
+		MSC015-1.005  & 25401 &       29037 &       26257 &       28251 & \best 7556  &       8816 \\
+ 		\addlinespace
+		NUM291+1      & 32860 &       19936 &       \MS   &       32860 &       32860 &        \MS \\
+		NUM300+1      & 11135 &       7471  &       18308 &       11135 &       11135 &      18306 \\
+		NUM615+1      & \MS   &       42778 &       \MS   &       \MS   &       \MS   &        \MS \\
+		NUM634+3      & \TO   &       \TO   &    \best 2  &       \TO   &       \TO   &          2 \\
+ 		\addlinespace
+		SET062+3      & 24    &       24    &       26    &       24    &       24    &         26 \\
+		SET175+3      & \MS   &       12401 &       \MS   &       \MS   &       1062  & \best 1031 \\
+		SET603+3      & \MS   &       9953  &       \MS   &       \MS   &       \TO   & \best  853 \\
+		SET626+3      & \MS   &       35231 &       \MS   &       \MS   &       \TO   &        \TO \\
+		SET886+1      & \MS   &       24582 &       \MS   &       \MS   &       \TO   &        \TO \\
+		SET904+1      & 105   &       101   &       140   &       101   &       105   &        140 \\
+		SEU121+2      & \MS   &       34536 &       \MS   &       \MS   &       \TO   &        \TO \\
+ 		\addlinespace
+		SWV232+1      & 54    &       54    &       \TO   &       54    &       54    &        \TO \\
+		SWV248-2      & \TO   &       \TO   &       7016  & \best 6018  &       \TO   &        \TO \\
+		SWV264-2      & 9     &       9     &       11    &       9     &       9     &         11 \\
+ 		\addlinespace
+		SYN061-1      & 46    &       46    &       46    &       46    &       46    &         46 \\
+		SYN582-1      & 15843 &       11650 &       40624 &       15430 &       \TO   &        \TO \\
+		SYN663-1      & 5651  &       \MS   & \best 5588  &       5626  &       \TO   &        \MS \\
+		SYN709-1      & 16642 &       5238  &       11201 &       16065 &       \MS   &        \MS \\
+		SYN726-1      & \MS   &       \MS   & \best 4468  &       \MS   &       \TO   &        \MS \\
+		\bottomrule
+	\end{tabular}
+	\caption{Amount of steps required to solve representative TPTP problems. {\best Green} numbers show best results that are significantly better than the control groups. Only 27 of these problems finished within the time and step limit; larger experiments with a higher time limit will give us more information.}
+	\label{big_table}
+\end{table*}
+
+A subset of 247 ``representative'' TPTP problems was used for evaluation\citen{chvalovsky2021characteristic}.
+The results with any significance are found in \cref{big_table}.
+
+The comparer runs all 6 policies in parallel, with a 30-second time limit and a \num{50000} step limit.
+A larger experiment, with the entirety of TPTP and a longer time limit, will come in the future.
+
+The results show that all three policies have marked improvements in certain problems.
+It's likely that with further exploration we might get even better results than the control groups.
+
+\renewcommand*{\bibfont}{\small}
+\printbibliography{}
+
+\end{document}
