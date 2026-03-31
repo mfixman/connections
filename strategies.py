@@ -40,6 +40,10 @@ def _action_score(action: ConnectionAction) -> float:
     return 0.0
 
 
+def _forward_actions(actions: list[ConnectionAction]) -> list[ConnectionAction]:
+    return [a for a in actions if isinstance(a, (Start, Reduction, Extension))]
+
+
 class Strategy:
     env: ConnectionEnv
 
@@ -58,6 +62,67 @@ class Strategy:
             result[subcls.__name__] = subcls
             queue.extend(subcls.__subclasses__())
         return result
+
+
+class _ConfiguredCutStrategy(Strategy):
+    """Base class for strategies that choose a forward action and
+    optionally annotate it with inclusive cuts.
+
+    This supports two orthogonal design choices already present in the
+    literature and codebase:
+
+    - action ordering (default, heuristic, subgoal-reordered)
+    - inclusive cuts on reduction and/or extension steps
+
+    If ``max_cut_height`` is set, cuts are disabled once iterative
+    deepening exceeds that height and the prover restarts from depth 1,
+    mirroring leanCoP's ``comp(J)`` behaviour from Otten (2010), §5.4.
+    """
+
+    cut_reduction: bool = False
+    cut_extension: bool = False
+    max_cut_height: Optional[int] = None
+    should_comp: bool
+
+    def __init__(self, env):
+        super().__init__(env)
+        self.should_comp = self.max_cut_height is not None
+
+    def choose_forward(self, forward: list[ConnectionAction]) -> ConnectionAction:
+        return forward[0]
+
+    def _cuts_enabled(self) -> bool:
+        return self.max_cut_height is None or self.should_comp
+
+    def _decorate_forward(self, action: ConnectionAction) -> ConnectionAction:
+        if self._cuts_enabled():
+            if isinstance(action, Reduction) and self.cut_reduction:
+                action.cut = True
+            elif isinstance(action, Extension) and self.cut_extension:
+                action.cut = True
+        return action
+
+    def _handle_control(self, actions: list[ConnectionAction]) -> ConnectionAction:
+        action = backtrack_or_reset(actions)
+        if (
+            self.max_cut_height is not None
+            and self.should_comp
+            and isinstance(action, Reset)
+            and action.depth > self.max_cut_height
+        ):
+            self.should_comp = False
+            return Reset(id = 'rs', depth = 1)
+        return action
+
+    def step(self):
+        actions = self.env.legal_actions()
+        forward = _forward_actions(actions)
+
+        if not forward:
+            return self._handle_control(actions)
+
+        chosen = self.choose_forward(forward)
+        return self._decorate_forward(chosen)
 
 class FirstAction(Strategy):
     def step(self):
@@ -122,6 +187,25 @@ class LeanCopCut(Strategy):
         return action
 
 
+class ReductionCut(_ConfiguredCutStrategy):
+    """Baseline depth-first order with cut on reductions only.
+
+    Source:
+        Färber (2024), "A Curiously Effective Backtracking Strategy
+        for Connection Tableaux", §4 and §6.  The paper decomposes
+        restricted backtracking into cut on reduction steps (R) and cut
+        on extension steps (EI/EX), and reports that adding R is often
+        beneficial.
+
+    Design choice:
+        This keeps the default depth-first action order and applies an
+        inclusive cut only to ``Reduction`` actions.  Unlike
+        ``LeanCopCut``, it does not force cuts on extensions.
+    """
+
+    cut_reduction = True
+
+
 class HeuristicSelection(Strategy):
     """Select the highest-scored forward action.
 
@@ -148,6 +232,38 @@ class HeuristicSelection(Strategy):
         if len(forward) == 1:
             return forward[0]
 
+        scores = [_action_score(a) for a in forward]
+        best_idx = max(range(len(forward)), key = lambda i: scores[i])
+        return forward[best_idx]
+
+
+class HeuristicCut(_ConfiguredCutStrategy):
+    """Heuristic forward selection with leanCoP-style inclusive cuts.
+
+    Sources:
+        Letz and Stenz (2001), "Model Elimination and Connection
+        Tableau Procedures", §2.6.1–2.6.2: fewest-solutions and
+        shortest-clause principles.
+
+        Otten (2010), "Restricting backtracking in connection
+        calculi", §4.3 and §5.4: inclusive cut on successful
+        reduction/extension steps, with ``comp(J)`` for completeness.
+
+    Design choice:
+        This fills a gap in the current strategy set: your existing
+        strategies test ordering without cut (``HeuristicSelection``)
+        and cut without reordered choice (``LeanCopCut``), but not the
+        combination.  The combination itself appears to be original to
+        this project.
+    """
+
+    cut_reduction = True
+    cut_extension = True
+    max_cut_height = 7
+
+    def choose_forward(self, forward: list[ConnectionAction]) -> ConnectionAction:
+        if len(forward) == 1:
+            return forward[0]
         scores = [_action_score(a) for a in forward]
         best_idx = max(range(len(forward)), key = lambda i: scores[i])
         return forward[best_idx]
@@ -206,6 +322,69 @@ class SubgoalReordering(Strategy):
         # Stable sort preserves depth-first order within same category+length.
         forward.sort(key=self._action_key)
         return forward[0]
+
+
+class OrderedCut(_ConfiguredCutStrategy):
+    """Subgoal-reordered forward selection with leanCoP-style cuts.
+
+    Sources:
+        Letz and Stenz (2001), "Model Elimination and Connection
+        Tableau Procedures", §2.6.1–2.6.2.
+
+        Otten (2010), "Restricting backtracking in connection
+        calculi", §4.3 and §5.4.
+
+    Design choice:
+        This is the same order-plus-cut combination as ``HeuristicCut``
+        but uses the stricter categorical ordering from
+        ``SubgoalReordering``: reductions first, then shorter
+        extensions, then shorter starts.
+    """
+
+    cut_reduction = True
+    cut_extension = True
+    max_cut_height = 7
+
+    def _action_key(self, action: ConnectionAction) -> tuple[int, int]:
+        if isinstance(action, Reduction):
+            return (0, 0)
+        elif isinstance(action, Extension):
+            return (1, len(action.clause_copy) - 1)
+        elif isinstance(action, Start):
+            return (2, len(action.clause_copy))
+        return (3, 0)
+
+    def choose_forward(self, forward: list[ConnectionAction]) -> ConnectionAction:
+        if len(forward) == 1:
+            return forward[0]
+        return sorted(forward, key = self._action_key)[0]
+
+
+class HeuristicReductionCut(_ConfiguredCutStrategy):
+    """Heuristic forward selection with cut on reductions only.
+
+    Sources:
+        Letz and Stenz (2001), "Model Elimination and Connection
+        Tableau Procedures", §2.6.1–2.6.2.
+
+        Färber (2024), "A Curiously Effective Backtracking Strategy
+        for Connection Tableaux", §4 and §6: reduction cut (R) as a
+        separate design dimension.
+
+    Design choice:
+        This tests whether the main gain comes from choosing stronger
+        forward actions while keeping extension alternatives available.
+        It is cheaper and less committal than ``HeuristicCut``.
+    """
+
+    cut_reduction = True
+
+    def choose_forward(self, forward: list[ConnectionAction]) -> ConnectionAction:
+        if len(forward) == 1:
+            return forward[0]
+        scores = [_action_score(a) for a in forward]
+        best_idx = max(range(len(forward)), key = lambda i: scores[i])
+        return forward[best_idx]
 
 
 class EntropyCut(Strategy):
