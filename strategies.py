@@ -903,6 +903,200 @@ class ProgressiveComp(Strategy):
         return chosen
 
 
+class GoalDistanceFewCut(Strategy):
+    """Goal-distance ordering with selective cuts: only cut when few
+    alternatives exist.
+
+    Sources:
+        Letz and Stenz (2001), "Model Elimination and Connection
+        Tableau Procedures", §2.6.1–2.6.2: fewest-solutions principle
+        (estimated via goal distance).
+
+        Otten (2010), "Restricting backtracking in connection calculi",
+        §4.3: restricted backtracking.
+
+        Färber (2024), "A Curiously Effective Backtracking Strategy
+        for Connection Tableaux", §4: decomposing cut dimensions.
+
+    Design choices (not from the papers):
+        Combines two independently effective ideas:
+        (1) ``GoalDistanceCut``'s ordering by estimated proof distance
+            (path-complement + matrix-complement scoring).
+        (2) ``FewAlternativesCut``'s selective cut policy (cut only
+            when ≤ 2 alternatives).
+        The combination is original to this project; neither paper
+        proposes pairing ordering heuristics with selective cuts.
+    """
+
+    max_alternatives_for_cut: int = 2
+    max_cut_height: int = 7
+
+    def __init__(self, env):
+        super().__init__(env)
+        self.should_comp: bool = True
+
+    def _extension_distance(self, action: Extension) -> float:
+        path_lits = self.env.state.goal.path()
+        reducible = {(not lit.neg, lit.symbol) for lit in path_lits}
+        matrix = self.env.state.matrix
+        distance = 0.0
+        for i, lit in enumerate(action.clause_copy):
+            if i == action.lit_idx:
+                continue
+            if (lit.neg, lit.symbol) in reducible:
+                pass
+            else:
+                n_complements = len(matrix.complements(lit))
+                distance += 100.0 if n_complements == 0 else 1.0 / n_complements
+        return distance
+
+    def _choose_forward(self, forward: list[ConnectionAction]) -> ConnectionAction:
+        if len(forward) == 1:
+            return forward[0]
+
+        def key(action: ConnectionAction) -> tuple:
+            if isinstance(action, Reduction):
+                return (0, 0.0)
+            elif isinstance(action, Extension):
+                return (1, self._extension_distance(action))
+            elif isinstance(action, Start):
+                return (2, float(len(action.clause_copy)))
+            return (3, 0.0)
+
+        return min(forward, key=key)
+
+    def step(self):
+        actions = self.env.legal_actions()
+        forward = _forward_actions(actions)
+
+        if not forward:
+            action = backtrack_or_reset(actions)
+            if (
+                self.should_comp
+                and isinstance(action, Reset)
+                and action.depth > self.max_cut_height
+            ):
+                self.should_comp = False
+                return Reset(id='rs', depth=1)
+            return action
+
+        chosen = self._choose_forward(forward)
+        if (
+            self.should_comp
+            and len(forward) <= self.max_alternatives_for_cut
+            and isinstance(chosen, (Reduction, Extension))
+        ):
+            chosen.cut = True
+        return chosen
+
+
+class PathComplementFewCut(Strategy):
+    """Path-complement ordering with selective cuts.
+
+    Sources:
+        Letz and Stenz (2001), "Model Elimination and Connection
+        Tableau Procedures", §2.6.1–2.6.2: fewest-solutions principle
+        (reductions > path-reducible extensions > others).
+
+        Otten (2010), "Restricting backtracking in connection calculi",
+        §4.3: restricted backtracking.
+
+    Design choices (not from the papers):
+        Combines ``PathComplementCut``'s ordering (prefer extensions
+        whose subgoals can reduce against the path) with
+        ``FewAlternativesCut``'s selective cut policy.
+    """
+
+    max_alternatives_for_cut: int = 2
+    max_cut_height: int = 7
+
+    def __init__(self, env):
+        super().__init__(env)
+        self.should_comp: bool = True
+
+    def _complement_count(self, action: Extension) -> int:
+        path_lits = self.env.state.goal.path()
+        reducible = {(not lit.neg, lit.symbol) for lit in path_lits}
+        return sum(
+            1 for i, lit in enumerate(action.clause_copy)
+            if i != action.lit_idx and (lit.neg, lit.symbol) in reducible
+        )
+
+    def _choose_forward(self, forward: list[ConnectionAction]) -> ConnectionAction:
+        if len(forward) == 1:
+            return forward[0]
+
+        def key(action: ConnectionAction) -> tuple:
+            if isinstance(action, Reduction):
+                return (0, 0, 0)
+            elif isinstance(action, Extension):
+                return (1, -self._complement_count(action), len(action.clause_copy))
+            elif isinstance(action, Start):
+                return (2, 0, len(action.clause_copy))
+            return (3, 0, 0)
+
+        return min(forward, key=key)
+
+    def step(self):
+        actions = self.env.legal_actions()
+        forward = _forward_actions(actions)
+
+        if not forward:
+            action = backtrack_or_reset(actions)
+            if (
+                self.should_comp
+                and isinstance(action, Reset)
+                and action.depth > self.max_cut_height
+            ):
+                self.should_comp = False
+                return Reset(id='rs', depth=1)
+            return action
+
+        chosen = self._choose_forward(forward)
+        if (
+            self.should_comp
+            and len(forward) <= self.max_alternatives_for_cut
+            and isinstance(chosen, (Reduction, Extension))
+        ):
+            chosen.cut = True
+        return chosen
+
+
+class ReductionCutOrdered(_ConfiguredCutStrategy):
+    """Subgoal-reordered forward selection with cut on reductions only.
+
+    Sources:
+        Letz and Stenz (2001), "Model Elimination and Connection
+        Tableau Procedures", §2.6.1–2.6.2: subgoal reordering.
+
+        Färber (2024), "A Curiously Effective Backtracking Strategy
+        for Connection Tableaux", §4 and §6: reduction-only cut.
+
+    Design choices (not from the papers):
+        Combines the categorical ordering from ``SubgoalReordering``
+        with the reduction-only cut from ``ReductionCut``.  The
+        ordering improves action selection while reduction cuts add
+        safe pruning without the aggressiveness of full cuts.
+    """
+
+    cut_reduction = True
+    cut_extension = False
+
+    def _action_key(self, action: ConnectionAction) -> tuple[int, int]:
+        if isinstance(action, Reduction):
+            return (0, 0)
+        elif isinstance(action, Extension):
+            return (1, len(action.clause_copy) - 1)
+        elif isinstance(action, Start):
+            return (2, len(action.clause_copy))
+        return (3, 0)
+
+    def choose_forward(self, forward: list[ConnectionAction]) -> ConnectionAction:
+        if len(forward) == 1:
+            return forward[0]
+        return sorted(forward, key=self._action_key)[0]
+
+
 @dataclass(frozen=True)
 class ScheduledStrategySlot:
     strategy_name: str
