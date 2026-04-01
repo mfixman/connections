@@ -14,7 +14,7 @@ from connections.calculi.modal_t import TConnectionState
 from connections.calculi.modal_s4 import S4ConnectionState
 from connections.calculi.modal_s5 import S5ConnectionState
 
-from connections.utils.cnf_parsing import file2cnf as CNF
+from connections.utils.classical_problem_parsing import file2cnf as CNF
 from connections.utils.icnf_parsing import file2cnf as ICNF
 
 class Logic(UncaseEnum):
@@ -56,13 +56,16 @@ class Logic(UncaseEnum):
 
     def overrides(self):
         match self:
-            case Logic.ClassicalSAT | Logic.SearchSAT:
+            case Logic.ClassicalSAT | Logic.SearchSAT | Logic.ClassicalCut:
                 return dict(
                     positive_start_clauses = False,
                     iterative_deepening = True,
                 )
 
         return {}
+
+    def has_cuts(self):
+        return self is Logic.ClassicalCut
 
 class Domain(UncaseEnum):
     Constant = auto()
@@ -98,11 +101,13 @@ class ConnectionEnv:
     def _init_state(self):
         self.state = self.logic.state_class()(self.matrix, self.settings)
 
-    @property
-    def action_space(self):
+    def legal_actions(self):
         if self.state.goal is None:
             return [None]
+
         actions = list(self.state.goal.actions.values())
+        if hasattr(self.state, 'control_actions'):
+            actions.extend(self.state.control_actions())
         return actions
 
     def step(self, action):

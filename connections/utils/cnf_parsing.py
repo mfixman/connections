@@ -6,12 +6,15 @@ from connections.utils.primitives import *
 def file2cnf(path):
     with open(path, "r") as file:
         text = file.read()
-        text = re.sub(r'^\s*%.*$', '', text)
+        text = re.sub(r'^\s*%.*$', '', text, flags=re.MULTILINE)
         text = re.sub(r'\s+', '', text)
         return parse_fof(text)
 
 def parse_fof(fof):
-    clauses_str = re.findall(r"\[.*\]", fof)[0][2:-2].split(r"],[")
+    outer = re.findall(r"\[.*\]", fof)[0]
+    # Strip outer [[ and ]] (or trailing ],] variations) to get the clause list.
+    inner = outer.strip('[').rstrip('],').strip(']')
+    clauses_str = inner.split(r"],[")
     if clauses_str == ['']:
         return Matrix([])
     return Matrix([parse_clause(clause_str) for clause_str in clauses_str])

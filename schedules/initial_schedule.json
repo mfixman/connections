@@ -1,0 +1,21 @@
+{
+  "name": "InitialSchedule",
+  "source": "Derived from schedule_from_table.py on results/full_table.csv with budget 100000 and controls plus SubgoalReordering excluded.",
+  "total_step_budget": 100000,
+  "slots": [
+    {
+      "strategy": "HeuristicSelection",
+      "step_budget": 80000,
+      "share_of_remaining": 80
+    },
+    {
+      "strategy": "EntropyCut",
+      "step_budget": 3000,
+      "share_of_remaining": 15
+    },
+    {
+      "strategy": "SmartCut",
+      "step_budget": 17000
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+% Some comment
+cnf(
+    'PUZ001_minus_one_literal',
+    conjecture,
+    [
+        [ killed(butler,agatha), killed(charles,agatha) ],
+        [ lives(agatha) ],
+        [ lives(butler) ],
+        [ lives(charles) ],
+        [ -(killed(_1,_2)), -(richer(_1,_2)) ],
+        [ -(hates(agatha,_3)), -(hates(charles,_3)) ],
+        [ -(hates(_4,agatha)), -(hates(_4,butler)), -(hates(_4,charles)) ],
+        [ hates(agatha,agatha) ],
+        [ hates(agatha,charles) ],
+        [ -(killed(_5,_6)), hates(_5,_6) ],
+        [ -(hates(agatha,_7)), hates(butler,_7) ],
+        [ -(lives(_8)), richer(_8,agatha), hates(butler,_8) ]
+    ]
+).
+

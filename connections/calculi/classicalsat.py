@@ -7,8 +7,17 @@ import re
 
 import sys
 
-from pydical import Solver as Cadical, UNSATISFIABLE
-from pysat.solvers import Solver, Glucose4, Cadical153, Minisat22
+try:
+    from pydical import Solver as Cadical, UNSATISFIABLE
+    from pysat.solvers import Solver, Glucose4, Cadical153, Minisat22
+except ModuleNotFoundError:
+    class Solver:
+        def __init__(*args, **kwargs):
+            raise NotImplementedError('PySAT package not found')
+
+    Glucose4 = Solver
+    Cadical153 = Solver
+    Minisat22 = Solver
 
 import logging
 from dataclasses import dataclass, field

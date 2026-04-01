@@ -1,0 +1,28 @@
+cnf(
+    'tests/cnf_problems/PUZ001+1.p',
+    conjecture,
+    [
+		[-killed(agatha, agatha)],
+        [lives(f_skolem(1))],
+        [killed(f_skolem(1), agatha)],
+        [lives(agatha)],
+        [lives(butler)],
+        [lives(charles)],
+        [-lives(_21354), equal(_21354, agatha), equal(_21354, butler), equal(_21354, charles)],
+        [-killed(_22066, _22160), hates(_22066, _22160)],
+        [-killed(_22588, _22686), -richer(_22588, _22686)],
+        [-hates(agatha, _23150), -hates(charles, _23150)],
+        [equal(_23586, butler), hates(agatha, _23586)],
+        [richer(_24022, agatha), hates(butler, _24022)],
+        [hates(_24858, f_skolem(2, _24858))],
+        [-equal(agatha, butler)],
+        [-hates(agatha, _24458), hates(butler, _24458)],
+        [equal(_14534, _14534)],
+        [-equal(_14750, _14844), equal(_14844, _14750)],
+        [equal(_15252, _15486), -equal(_15252, _15368), -equal(_15368, _15486)],
+        [lives(_16316), -equal(_16214, _16316), -lives(_16214)],
+        [richer(_16954, _17236), -richer(_16816, _17094), -equal(_16816, _16954), -equal(_17094, _17236)],
+        [hates(_18226, _18508), -hates(_18088, _18366), -equal(_18088, _18226), -equal(_18366, _18508)],
+        [killed(_19478, _19760), -killed(_19340, _19618), -equal(_19340, _19478), -equal(_19618, _19760)]
+    ]
+).
