@@ -1,0 +1,118 @@
+\documentclass[11pt,twocolumn]{article}
+
+\usepackage{array}
+\usepackage[url=false, doi=false]{biblatex}
+\usepackage{booktabs}
+\usepackage[font=footnotesize, labelfont=bf]{caption}
+\usepackage{enumitem}
+\usepackage[symbol]{footmisc}
+\usepackage[scale=0.85]{geometry}
+\usepackage{microtype}
+\usepackage{multirow}
+\usepackage{parskip}
+\usepackage{siunitx}
+\usepackage{titlesec}
+\usepackage[dvipsnames]{xcolor}
+\usepackage{xurl}
+\usepackage[hidelinks]{hyperref}
+\usepackage[nameinlink,capitalise]{cleveref}
+
+\addbibresource{../A4/bibliography.bib}
+
+\titlelabel{}
+
+\newcommand{\atom}[1]{\colorbox{Gray!30}{\ttfamily #1}}
+\newcommand{\citen}[1]{~\parencite{#1}}
+\newcommand{\citeay}[1]{\textcite{#1}}
+
+\title{A Strategy Zoo for Dynamic LeanCoP Control}
+\date{}
+\author{}
+
+\begin{document}
+\twocolumn[
+	\centering
+	\vspace{1em}
+	{\LARGE A Strategy Zoo for Dynamic LeanCoP Control \par} \vspace{3pt}
+	{\large Preliminary notes for the strategy paper \par}
+	\vspace{2em}
+]
+
+\section{Introduction}
+
+In LeanCoP, small changes to proof-search control have large practical effects\citen{ottenLeanCoP20,Otten2023leanCoP20}. The current project studies such changes in a PyCoP-style environment where each proof step is an explicit action. This makes it possible to experiment with \atom{cut}, \atom{comp(J)}, and explicit \atom{Reset(n)} actions under direct program control rather than only through static prover options.
+
+Three lines of prior work motivate the current strategy set. First, \citeay{letzModelEliminationConnection2001} argue for choosing proof steps that should lead to fewer solutions, which suggests preferring reductions and shorter clauses. Second, \citeay{zomboriRoleEntropyGuiding2021} show that entropy is a useful proxy for search confidence; this suggests committing with cuts only when the local action distribution is sharp. Third, \citeay{farberCuriouslyEffectiveBacktracking2024} decomposes restricted backtracking into separate decisions about cuts on reductions and on extensions, and reports that reduction cut is often beneficial while extension-cut variants differ substantially in strength.
+
+The main question is whether a lightweight hand-written controller can outperform the standard LeanCoP-style \atom{cut + comp(7)} baseline on a meaningful fragment of TPTP. No single replacement strategy achieves this yet, but the experiments show substantial complementarity across strategies --- enough to be useful for schedules and learned controllers.
+
+\section{Implemented Strategies}
+
+The codebase currently contains the following explicit strategies. Later I return to five of them in more detail, because they were the ones used in the full-TPTP run in \texttt{results\_1m\_120.csv}.
+
+\begin{description}[style=nextline, itemsep=-3pt, leftmargin=18pt]
+	\item[FirstAction \emph{\mdseries (control)}] Run the first legal action. This is the PyCoP default depth-first baseline.
+	\item[LeanCopCut \emph{\mdseries (control)}] Mimic leanCoP's inclusive restricted backtracking: cut successful reductions and extensions, and use \atom{comp(7)} to recover completeness\citen{ottenLeanCoP20}.
+	\item[ReductionCut] Apply inclusive cut only on reductions. This isolates the ``R'' component in Färber's decomposition\citen{farberCuriouslyEffectiveBacktracking2024}.
+	\item[HeuristicSelection] Choose the highest-scored forward action, where reductions dominate and shorter clauses score better\citen{letzModelEliminationConnection2001}.
+	\item[HeuristicReductionCut] Combine heuristic forward selection with reduction cut only.
+	\item[HeuristicCut] Combine heuristic forward selection with leanCoP-style inclusive cuts and \atom{comp(7)}.
+	\item[SubgoalReordering] Use a stricter categorical order: reductions first, then shorter extensions, then shorter starts\citen{letzModelEliminationConnection2001}.
+	\item[OrderedCut] Combine subgoal reordering with leanCoP-style inclusive cuts and \atom{comp(7)}.
+	\item[EntropyCut] Follow the baseline order, but annotate a forward action with \atom{cut} only when the softmax entropy of heuristic action scores is low\citen{zomboriRoleEntropyGuiding2021}.
+	\item[AdaptiveReset] Replace some dead-end backtracks by explicit resets to a larger depth bound, based on consecutive failures and a simple search-state heuristic. This is inspired by restart control in SAT\citen{HoldenSATQSAT,liReinforcementLearningBased2024}.
+	\item[SmartCut] Combine entropy-based cut with adaptive reset.
+\item[InitialSchedule] Run a fixed externally specified multi-strategy schedule over absolute step budgets.
+\end{description}
+
+The important structural point is that these strategies vary along a small number of clear axes: forward-action ordering, how aggressively cut is used, and whether dead-end handling is allowed to reset the search. That makes the later portfolio experiments easier to interpret.
+
+\subsection*{What the full-TPTP variants actually do}
+
+The five strategies evaluated in the later full-TPTP run (\texttt{results\_1m\_120.csv}) are worth stating more concretely, because they differ along orthogonal and interpretable axes.
+
+\begin{description}[style=nextline, itemsep=-3pt, leftmargin=18pt]
+	\item[ReductionCut] Keep the default depth-first action order, but whenever the chosen forward action is a \atom{Reduction}, set \atom{cut=True}. Extensions are left untouched. This isolates Färber's ``R'' component from the full leanCoP cut policy\citen{farberCuriouslyEffectiveBacktracking2024}.
+	\item[HeuristicReductionCut] First reorder forward actions by a simple heuristic: \atom{Reduction} is always preferred, and among \atom{Extension}/\atom{Start} actions shorter clauses score better. After choosing that best forward action, cut only if it is a \atom{Reduction}. This tests whether most of the gain comes from better choice of action rather than from pruning extension alternatives.
+	\item[GoalDistanceCut] Use the same leanCoP-style inclusive cut policy as \texttt{LeanCopCut} with \atom{comp(7)}, but choose forward actions using a more informed proxy for proof distance. Reductions are best; an extension is preferred when its newly created subgoals are either immediately reducible on the current path or have many complements in the matrix. Concretely, path-reducible subgoals contribute cost 0, subgoals with $n$ complements contribute $1/n$, and subgoals with no complements receive a large penalty. The extension with the smallest total estimated distance is chosen.
+	\item[FewAlternativesCut] Keep the default depth-first order and leanCoP-style \atom{comp(7)}, but only apply \atom{cut} when the current choice point is already narrow: if there are at most two forward actions, then the chosen \atom{Reduction} or \atom{Extension} is cut; if there are three or more forward actions, no cut is added. The idea is to prune aggressively only when the branch already looks unambiguous.
+	\item[DepthPhasedCut] Keep the default order, cut every \atom{Reduction}, but cut an \atom{Extension} only near the top of the current iterative-deepening tree. More precisely, an extension is cut only when the current goal depth is at most half of the current depth limit. This uses \atom{comp(10)} rather than \atom{comp(7)} so that the phased cut policy has more room before switching to complete cut-free search.
+\end{description}
+
+\section{Schedule Synthesis}
+
+The strategy complementarity visible in the individual runs makes static serial portfolios a natural next step. I therefore post-process the canonical CSV files \texttt{results/results\_1m\_120.csv} and \texttt{results/results\_1m\_300.csv} into four time-budgeted schedules, written as \texttt{Portfolio60Total}, \texttt{Portfolio60Novel}, \texttt{Portfolio120Total}, and \texttt{Portfolio120Novel}.
+
+These four schedules correspond to two budgets and two objectives:
+
+\begin{description}[style=nextline, itemsep=-3pt, leftmargin=18pt]
+	\item[Portfolio60Total / Portfolio120Total] Maximise the total number of solved TPTP problems under a global budget of 60s or 120s.
+\item[Portfolio60Novel / Portfolio120Novel] Maximise the number of solved TPTP problems that \texttt{LeanCopCut} does \emph{not} solve in the canonical runs, under a global budget of 60s or 120s.
+\end{description}
+
+The optimisation problem is a multiple-choice budgeted maximum-coverage problem. For each strategy and each admissible time cap, the pair ``strategy + cap'' covers exactly the benchmark problems that the strategy solves within that cap. The search then chooses at most one cap per strategy, subject to a total time budget, so as to maximise the size of the covered union. This first phase is solved exactly as a mixed-integer linear program.
+
+This still leaves the order of the chosen schedule slots. For a fixed set of capped strategies, the second phase solves an exact serial-portfolio ordering problem: choose the permutation that minimises total benchmark runtime. I solve this by dynamic programming over subsets of the selected slots, using the recorded per-problem runtimes as stage costs and charging the full slot cap on timeout rows. In other words, the schedules are not greedy hand-tuned portfolios; they are exact optima for the chosen objective under the runtime model induced by the canonical experiments.
+
+\section{Discussion}
+
+Three observations stand out.
+
+\begin{enumerate}[itemsep=2pt]
+\item Reduction cut really does look like a meaningful design axis in its own right, not just a weakened version of \texttt{LeanCopCut}. That matches Färber's R/EI/EX decomposition\citen{farberCuriouslyEffectiveBacktracking2024}.
+	\item The present strategy family already supports sensible schedule and controller experiments, because the strategies differ along intelligible axes rather than being a bag of unrelated tweaks.
+	\item The largest remaining gap is still exclusive cut on extension steps (REX/EX). This cannot be implemented in \texttt{strategies.py} alone: the Boolean \texttt{cut} flag only supports inclusive cut, and the backtracking engine in \texttt{classicalcut.py} would need to be extended to preserve root alternatives.
+\end{enumerate}
+
+What remains to turn this into a paper:
+
+\begin{enumerate}[itemsep=2pt]
+	\item extend the full-TPTP study to \texttt{HeuristicCut} and \texttt{OrderedCut}, which are implemented but not yet part of the canonical schedule experiment;
+	\item evaluate portfolios and per-problem controllers that mix \texttt{LeanCopCut} with the most complementary strategies under fixed time budgets;
+	\item implement a genuine REX-style extension cut in the calculus and compare it directly with the inclusive variants\citen{farberCuriouslyEffectiveBacktracking2024}.
+\end{enumerate}
+
+\renewcommand*{\bibfont}{\small}
+\printbibliography{}
+
+\end{document}
