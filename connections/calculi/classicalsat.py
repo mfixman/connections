@@ -1,367 +1,307 @@
-from connections.utils.unification import Substitution
-from connections.utils.primitives import Matrix, Literal, Variable
-from connections.utils.tableau import Tableau
+from dataclasses import dataclass, field
+import random
 from typing import Optional
-from enum import StrEnum, auto
-import re
 
-import sys
+from connections.calculi.classicalcut import (
+    Backtrack,
+    ClassicalCut,
+    ConnectionAction,
+    Extension,
+    Reduction,
+    Reset,
+    Start,
+)
+from connections.utils.primitives import Expression, Literal, Variable
 
 try:
-    from pydical import Solver as Cadical, UNSATISFIABLE
-    from pysat.solvers import Solver, Glucose4, Cadical153, Minisat22
+    import pycosat
 except ModuleNotFoundError:
-    class Solver:
-        def __init__(*args, **kwargs):
-            raise NotImplementedError('PySAT package not found')
-
-    Glucose4 = Solver
-    Cadical153 = Solver
-    Minisat22 = Solver
-
-import logging
-from dataclasses import dataclass, field
-from typing import cast
+    pycosat = None
 
 @dataclass
-class ConnectionAction:
-    id: str
+class ShadowSAT:
+    atom_map: dict[str, int] = field(default_factory = dict)
+    ground_clauses: set[tuple[int, ...]] = field(default_factory = set)
+    new_ground_clauses: set[tuple[int, ...]] = field(default_factory = set)
+    model: dict[int, bool] = field(default_factory = dict)
+    satisfiable: Optional[bool] = None
 
-@dataclass
-class Start(ConnectionAction):
-    clause_copy: list[Literal] = field(default_factory = lambda: [])
-    sub_updates: list[Literal] = field(default_factory = lambda: [])
+    def atom_id(self, atom: str) -> int:
+        atom_id = self.atom_map.get(atom)
+        if atom_id is None:
+            atom_id = len(self.atom_map) + 1
+            self.atom_map[atom] = atom_id
+        return atom_id
 
-    def __repr__(self):
-        return f"{self.id}: {str(self.clause_copy)}"
+class SATConnectionState(ClassicalCut):
+    shadow: ShadowSAT
 
-@dataclass
-class Reduction(ConnectionAction):
-    principle_node: Tableau
-    sub_updates: int
-    path_lit: int
-
-    def __repr__(self):
-        return f"{self.id}: {str(self.principle_node.literal)} <- {str(self.path_lit)}"
-
-@dataclass
-class Extension(ConnectionAction):
-    principle_node: Tableau
-    sub_updates: int
-    lit_idx: int
-    clause_copy: list[Literal]
-
-    def __repr__(self):
-        return f"{self.id}: {str(self.principle_node.literal)} -> {str(self.clause_copy)}"
-
-@dataclass
-class Backtrack(ConnectionAction):
-    def __repr__(self):
-        return 'Backtrack'
-
-class SATConnectionState:
-    matrix: Matrix
-
-    tableau: Tableau
-    goal: Tableau
-    substitution: Substitution
-    max_depth: int
-
-    solver: Solver
-    atom_map: dict[str, int]
-    next_atom_id: int
-
-    info: dict[str, str]
-    is_terminal: bool
-    proof_sequence: list[ConnectionAction]
-
-    def __init__(self, matrix: Matrix, settings):
-        self.matrix = matrix
-        self.settings = settings
-
-        self.cadical = Cadical()
-        self.cadical.set('verbose', 0)
-        self.pysat = Minisat22()
-
-        self.solver = self.cadical
-
-        self.atom_map = {}
-        self.next_atom_id = 1
-        self.substitution = Substitution()
-
-        self.clauses = []
-
-        for action in self.starts():
-            if action.clause_copy:
-                sat_clause = self.ground_clause(action.clause_copy)
-                self.clauses.append((sat_clause, action.clause_copy))
-                logging.info((sat_clause, action.clause_copy))
-                self.solver.add_clause(sat_clause)
-
-        if not self.solver.solve():
-            self.info['status'] = 'Theorem (SAT)'
-            self.is_terminal = True
-
-            failed = [x for x in range(-self.next_atom_id + 1, self.next_atom_id) if self.solver.failed(x)]
-            self.info['core'] = str(failed)
-
-            return
-
-        self.reset()
-
-    def __str__(self) -> str:
-        substitution = "\n".join(
-            f"{k} → {v}" for k, v in self.substitution.to_dict().items()
-        )
-        actions = None
-        if self.goal is not None:
-            actions = "\n".join(
-                f"{i}. {str(action)}" for i, action in enumerate(self.goal.actions.values())
+    def __init__(self, matrix, settings) -> None:
+        if pycosat is None:
+            raise ModuleNotFoundError(
+                'ClassicalSAT requires pycosat (PicoSAT wrapper). '
+                'Install it in ~/venv and run with that environment.'
             )
-        return (
-            f" = == = == = == = == = == = == = == = == = \n"
-            f"Tableau:\n{self.tableau}\n\n"
-            f"Substitution:\n{substitution}\n\n"
-            f"Available Actions:\n{actions}"
-            f"\n\nMax Depth: {self.max_depth}"
-            f"\n = == = == = == = == = == = == = == = == = "
-        )
+        self.shadow = ShadowSAT()
+        self.random = random.Random(settings.random_seed)
+        super().__init__(matrix, settings)
 
-    def reset(self, depth: Optional[int] = None):
-        # Tableau fields
-        self.max_depth = depth if depth is not None else 10
+    @property
+    def sat_model(self) -> dict[int, bool]:
+        return self.shadow.model
 
+    @property
+    def sat_status(self) -> Optional[bool]:
+        return self.shadow.satisfiable
+
+    @property
+    def ground_clauses(self) -> set[tuple[int, ...]]:
+        return self.shadow.ground_clauses
+
+    @property
+    def new_ground_clauses(self) -> set[tuple[int, ...]]:
+        return self.shadow.new_ground_clauses
+
+    def reset(self, depth: Optional[int] = None) -> None:
         if depth is None:
-            self.max_depth = self.settings.iterative_deepening_initial_depth
+            self.shadow = ShadowSAT()
+            self._seed_ground_with_start_clauses()
+        super().reset(depth)
 
-        logging.info(f"Resetting Tableau (Depth {self.max_depth})")
+    def analyze_failure(self) -> None:
+        return
 
-        self.tableau = Tableau()
-        self.goal = self.tableau
-        self.goal.actions = self.legal_actions()
-
-        # Proof fields
-        self.info = {}
-        self.is_terminal = False
-        self.proof_sequence = []
-
-    # Converts a logical Literal to a SAT integer.
-    def ground_literal(self, literal: Literal) -> int:
-        # Apply substitution to get the most grounded version
-        if self.substitution:
-            ground_lit = self.substitution(literal)
-        else:
-            ground_lit = literal
-
-        # Canonicalize: Map all variables to a single constant '*'
-        # This implements the "simplest scheme" from the paper.
-        atom_str = self.canonicalize_atom(ground_lit)
-
-        if atom_str not in self.atom_map:
-            self.atom_map[atom_str] = self.next_atom_id
-            self.next_atom_id += 1
-
-        sat_id = self.atom_map[atom_str]
-        return -sat_id if literal.neg else sat_id
-
-    def canonicalize_atom(self, literal: Literal) -> str:
-        return self.stringify_term(literal)
-
-    def stringify_term(self, term) -> str:
-        if isinstance(term, Variable):
-            # This is the weird part of the paper. Check it later.
-            return "var"
-
-        # if hasattr(term, 'args') and term.args:
-            # args_str = ",".join(self.stringify_term(a) for a in term.args)
-            # return f"{term.symbol}({args_str})"
-
-        return str(term)
-
-    def ground_clause(self, clause: list[Literal]) -> list[int]:
-        return [self.ground_literal(lit) for lit in clause]
-
-    def legal_actions(self) -> dict[str, ConnectionAction]:
-        if self.goal.parent == None:
-            return {action.id: action for action in self.starts()}
-
-        current_clause = [node.literal for node in self.goal.parent.children[1:]]
-        reg = self.regularizable(current_clause)
-
-        actions: list[ConnectionAction]
-        if (self.goal is None) or reg:
-            actions = cast(list[ConnectionAction], self.backtracks())
-        elif self.settings.iterative_deepening and (self.goal.depth >= self.max_depth):
-            actions = cast(list[ConnectionAction], self.reductions() + self.backtracks())
-        else:
-            actions = cast(list[ConnectionAction], self.reductions() + self.extensions() + self.backtracks())
-
-        return {action.id: action for action in actions}
-
-    def starts(self) -> list[Start]:
-        starts: list[Start] = []
-        start_clause_candidates = self.matrix.positive_clauses
-
-        if not self.settings.positive_start_clauses:
-            start_clause_candidates += self.matrix.negative_clauses
-
-        for clause in start_clause_candidates:
-            clause_copy = self.matrix.copy(clause)
-            starts.append(
-                Start(
-                    id = "st" + str(len(starts)),
-                    clause_copy = clause_copy,
-                )
-            )
-        if not starts:
-            starts.append(Start(id = "st0"))
-
-        return starts
-
-    def regularizable(self, clause):
-        for path_lit in self.goal.path():
-            for clause_lit in clause:
-                if path_lit.neg == clause_lit.neg and path_lit.symbol == clause_lit.symbol:
-                    if self.substitution.equal(path_lit, clause_lit):
-                        return True
+    def violates_constraint(self, action: ConnectionAction) -> bool:
         return False
 
-    def reductions(self) -> list[Reduction]:
-        reductions: list[Reduction] = []
-        for lit in self.goal.path():
-            unifies = False
-            if self.goal.literal.neg != lit.neg and self.goal.literal.symbol == lit.symbol:
-                unifies, updates = self.substitution.can_unify(self.goal.literal, lit)
-            if unifies:
-                reductions.append(
-                    Reduction(
-                        principle_node = self.goal,
-                        sub_updates = updates,
-                        path_lit = lit,
-                        id = "re" + str(len(reductions)),
-                    )
-                )
-        return reductions
+    def starts(self) -> list[Start]:
+        starts = super().starts()
+        for action in starts:
+            action.clause_copy = self._shuffled_clause(action.clause_copy)
+        self.random.shuffle(starts)
+        return starts
 
     def extensions(self) -> list[Extension]:
-        extensions: list[Extension] = []
-
-        for clause_idx, lit_idx in self.matrix.complements(self.goal.literal):
-            clause_copy = self.matrix.copy(clause_idx)
-            unifies, updates = self.substitution.can_unify(self.goal.literal, clause_copy[lit_idx])
-
-            if not unifies:
-                continue
-
-            extensions.append(
-                Extension(
-                    principle_node = self.goal,
-                    sub_updates = updates,
-                    lit_idx = lit_idx,
-                    clause_copy = clause_copy,
-                    id = "ex" + str(len(extensions)),
-                )
-            )
-
+        extensions = super().extensions()
+        for action in extensions:
+            action.clause_copy, action.lit_idx = self._shuffled_extension_clause(action.clause_copy, action.lit_idx)
+        self.random.shuffle(extensions)
         return extensions
 
-    def backtracks(self) -> list[Backtrack]:
-        return [Backtrack(id = 'bt')]
-
     def backtrack(self) -> None:
-        # Backtrack to previous choice point (goal). If no choice points left, reset. 
-        actions: dict[str, ConnectionAction] = {}
+        if self.goal.parent is None:
+            return
 
-        limit = self.settings.backtrack_after if self.settings.restricted_backtracking else float('inf')
-        while all(isinstance(x, Backtrack) for x in actions.values()) or self.goal.num_attempted > limit:
+        while True:
             self.goal = self.goal.find_prev()
 
             if self.proof_sequence:
-                self.proof_sequence.pop()
+                popped = self.proof_sequence.pop()
+                fact = self.action_to_fact(popped)
+                if fact is not None:
+                    self._cached_facts.discard(fact)
 
-            actions = self.goal.actions
+            if self.goal.pending_cut:
+                self.goal.pending_cut = False
+
             self.substitution.backtrack()
             self.goal.proven = False
             self.goal.children = []
+            self.goal.actions = {
+                k: v for k, v in self.goal.actions.items()
+                if not self.violates_constraint(v)
+            }
 
-            # If no new actions available for previous goals increase depth
-            if self.goal is self.tableau and not self.goal.actions:
-                logging.info(f'Increasing depth to {self.max_depth + 1}')
-                self.reset(depth = self.max_depth + 1)
-                break
+            if self.goal.cut_committed or not self.goal.actions:
+                continue
 
-    steps = 0
-    def update_goal(self, action: ConnectionAction):
-        self.steps += 1
+            break
 
-        del self.goal.actions[action.id]
+        self._refresh_goal()
+
+    def update_goal(self, action: ConnectionAction) -> None:
+        if action.id in self.goal.actions:
+            del self.goal.actions[action.id]
         self.goal.num_attempted += 1
 
         if isinstance(action, Start | Reduction | Extension):
             self.substitution.update(action.sub_updates)
             self.proof_sequence.append(action)
+            fact = self.action_to_fact(action)
+            if fact is not None:
+                self._cached_facts.add(fact)
 
-        # print(self.tableau)
-        # logging.info(action)
         match action:
             case Backtrack():
                 self.backtrack()
                 return
 
+            case Reset(depth = depth):
+                self._finish_iteration()
+                if self.is_terminal:
+                    return
+                self.reset(depth = depth)
+                return
+
             case Start(clause_copy = clause_copy):
                 if clause_copy is None:
-                    self.info['status'] = 'Non-Theorem: no positive start clauses'
+                    self.info = 'Non-Theorem: no positive start clauses'
                     self.is_terminal = True
                     return
 
-                self.goal.children = [Tableau(lit, self.goal) for lit in clause_copy]
+                self.goal.children = [self._new_tableau_child(lit) for lit in clause_copy]
 
-            case Extension(clause_copy = clause_copy, lit_idx = lit_idx):
-                # Ground the clause used for extension
-                sat_clause = self.ground_clause(clause_copy)
-                self.clauses.append((sat_clause, clause_copy))
-
-                logging.info((sat_clause, clause_copy))
-                self.solver.add_clause(sat_clause)
-
-                if self.solver.solve() in (False, UNSATISFIABLE):
-                    self.info['status'] = 'Theorem (SAT)'
-                    self.is_terminal = True
-
-                    failed = [x for x in range(-self.next_atom_id + 1, self.next_atom_id) if x != 0 and self.solver.failed(x)]
-                    self.info['core'] = str(failed)
-                    return
-
-                self.goal.children = [Tableau(lit, self.goal) for lit in clause_copy]
+            case Extension(clause_copy = clause_copy, lit_idx = lit_idx, cut = cut):
+                self.goal.children = [self._new_tableau_child(lit) for lit in clause_copy]
                 self.goal.children[lit_idx].proven = True
                 self.goal.children.insert(0, self.goal.children.pop(lit_idx))
+                if cut:
+                    self.goal.pending_cut = True
+                self._record_tableau_clauses()
 
-            case Reduction():
+            case Reduction(cut = cut):
                 self.goal.proven = True
+                if cut:
+                    self.goal.cut_committed = True
+                self._record_tableau_clauses()
 
         self.theorem_or_next()
 
-    def theorem_or_next(self):
+    def theorem_or_next(self) -> None:
         self.goal = self.goal.find_next()
+        self._refresh_goal()
+
+    def sat_literal_value(self, literal: Literal) -> Optional[bool]:
+        grounded = self.substitution(literal)
+        if not self._is_ground(grounded):
+            return None
+        sat_lit = self._ground_literal(grounded)
+        value = self.shadow.model.get(abs(sat_lit))
+        if value is None:
+            return None
+        return value if sat_lit > 0 else (not value)
+
+    def ground_clause(self, clause: list[Literal]) -> tuple[int, ...]:
+        grounded = {self._ground_literal(self.substitution(lit)) for lit in clause}
+        return tuple(sorted(grounded, key = lambda lit: (abs(lit), lit < 0)))
+
+    def _refresh_goal(self) -> None:
+        self.finalize_pending_cuts()
+
+        while self.goal is not None and self._model_lemma_applies():
+            self.goal.proven = True
+            self.goal = self.goal.find_next()
+            self.finalize_pending_cuts()
+
         if self.goal is None:
-            # Standard success condition if no SAT pruning
-            self.info['status'] = 'Theorem'
+            self.info = 'Theorem'
             self.is_terminal = True
             return
 
-        self.goal.actions = self.legal_actions()
+        self.goal.actions = self.legal_forward_actions()
+        if not self.goal.actions:
+            self.analyze_failure()
 
-class SearchSATConnectionState(SATConnectionState):
-    def clause_score(self, lit: Literal) -> int:
-        sat_clause = self.ground_literal(lit)
-        return self.solver.score(sat_clause)
-
-    def theorem_or_next(self):
-        self.goal = self.goal.find_best(self.clause_score)
-        if self.goal is None:
-            # Standard success condition if no SAT pruning
-            self.info['status'] = 'Theorem'
+    def _finish_iteration(self) -> None:
+        if self.shadow.new_ground_clauses:
+            self.shadow.ground_clauses |= self.shadow.new_ground_clauses
+            self.shadow.new_ground_clauses = set()
+        self._solve_ground_clauses()
+        if self.shadow.satisfiable is False:
+            self.info = 'Theorem (SAT)'
             self.is_terminal = True
+
+    def _solve_ground_clauses(self) -> None:
+        if not self.shadow.ground_clauses:
+            self.shadow.model = {}
+            self.shadow.satisfiable = True
             return
 
-        self.goal.actions = self.legal_actions()
+        result = pycosat.solve([list(clause) for clause in self.shadow.ground_clauses])
+        if result == 'UNSAT':
+            self.shadow.model = {}
+            self.shadow.satisfiable = False
+        elif result == 'UNKNOWN':
+            self.shadow.model = {}
+            self.shadow.satisfiable = None
+        else:
+            self.shadow.model = {abs(lit): lit > 0 for lit in result if lit != 0}
+            self.shadow.satisfiable = True
+
+    def _model_lemma_applies(self) -> bool:
+        if self.goal is None or self.goal.parent is None:
+            return False
+
+        for literal in self.goal.path() + [self.goal.literal]:
+            value = self.sat_literal_value(literal)
+            if value is False:
+                return True
+        return False
+
+    def _record_tableau_clauses(self) -> None:
+        for clause in self._tableau_clauses():
+            if clause not in self.shadow.ground_clauses:
+                self.shadow.new_ground_clauses.add(clause)
+
+    def _tableau_clauses(self) -> set[tuple[int, ...]]:
+        clauses = set()
+        stack = [self.tableau]
+        while stack:
+            node = stack.pop()
+            if node.children:
+                clauses.add(self.ground_clause([child.literal for child in node.children]))
+            stack.extend(node.children)
+        return clauses
+
+    def _seed_ground_with_start_clauses(self) -> None:
+        for clause_idx in self._start_clause_indices():
+            clause = self.matrix.clauses[clause_idx]
+            self.shadow.ground_clauses.add(self._ground_clause_without_substitution(clause))
+
+    def _start_clause_indices(self) -> list[int]:
+        clause_indices = list(self.matrix.positive_clauses)
+        if not self.settings.positive_start_clauses:
+            clause_indices += self.matrix.negative_clauses
+        return clause_indices
+
+    def _ground_clause_without_substitution(self, clause: list[Literal]) -> tuple[int, ...]:
+        grounded = {self._ground_literal(lit) for lit in clause}
+        return tuple(sorted(grounded, key = lambda lit: (abs(lit), lit < 0)))
+
+    def _ground_literal(self, literal: Literal) -> int:
+        atom = self._atom_key(literal)
+        atom_id = self.shadow.atom_id(atom)
+        return -atom_id if literal.neg else atom_id
+
+    def _atom_key(self, literal: Literal) -> str:
+        args = ','.join(self._term_key(arg) for arg in literal.args)
+        return f'{literal.symbol}({args})' if args else literal.symbol
+
+    def _term_key(self, term: Expression) -> str:
+        if isinstance(term, Variable):
+            return f'c_{term.symbol}_{term.copy_num}'
+        if not isinstance(term, Expression) or not term.args:
+            return str(term)
+        args = ','.join(self._term_key(arg) for arg in term.args)
+        return f'{term.symbol}({args})'
+
+    def _is_ground(self, expression: Expression) -> bool:
+        if isinstance(expression, Variable):
+            return False
+        return all(self._is_ground(arg) for arg in expression.args)
+
+    def _new_tableau_child(self, literal: Literal):
+        from connections.utils.tableau import Tableau
+
+        return Tableau(literal, self.goal)
+
+    def _shuffled_clause(self, clause: list[Literal]) -> list[Literal]:
+        shuffled = list(clause)
+        self.random.shuffle(shuffled)
+        return shuffled
+
+    def _shuffled_extension_clause(self, clause: list[Literal], lit_idx: int) -> tuple[list[Literal], int]:
+        order = list(range(len(clause)))
+        self.random.shuffle(order)
+        shuffled = [clause[i] for i in order]
+        return shuffled, order.index(lit_idx)

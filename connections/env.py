@@ -5,7 +5,9 @@ from typing import Optional
 from enum import StrEnum, auto
 from connections.Utils import *
 
-from connections.calculi.classicalsat import SATConnectionState, SearchSATConnectionState
+from connections.calculi.classicalsat import SATConnectionState
+from connections.calculi.classicalsat_old import SATConnectionState as SATConnectionStateOld
+from connections.calculi.classicalsat_old import SearchSATConnectionState as SearchSATConnectionStateOld
 from connections.calculi.classical import ConnectionState
 from connections.calculi.classicalcut import ClassicalCut
 from connections.calculi.intuitionistic import IConnectionState
@@ -20,6 +22,8 @@ from connections.utils.icnf_parsing import file2cnf as ICNF
 class Logic(UncaseEnum):
     SearchSAT = auto()
     ClassicalSAT = auto()
+    SearchSATOld = auto()
+    ClassicalSATOld = auto()
     Classical = auto()
     ClassicalCut = auto()
     Intuitionistic = auto()
@@ -31,8 +35,10 @@ class Logic(UncaseEnum):
 
     def state_class(self):
         class_map = {
-            Logic.SearchSAT: SearchSATConnectionState,
+            Logic.SearchSAT: SearchSATConnectionStateOld,
             Logic.ClassicalSAT: SATConnectionState,
+            Logic.SearchSATOld: SearchSATConnectionStateOld,
+            Logic.ClassicalSATOld: SATConnectionStateOld,
             Logic.Classical: ConnectionState,
             Logic.ClassicalCut: ClassicalCut,
             Logic.Intuitionistic: IConnectionState,
@@ -46,7 +52,7 @@ class Logic(UncaseEnum):
 
     def parser(self):
         match self:
-            case Logic.Classical | Logic.ClassicalCut | Logic.ClassicalSAT | Logic.SearchSAT:
+            case Logic.Classical | Logic.ClassicalCut | Logic.ClassicalSAT | Logic.SearchSAT | Logic.ClassicalSATOld | Logic.SearchSATOld:
                 return CNF
 
             case Logic.Intuitionistic | Logic.D | Logic.T | Logic.S4 | Logic.S5:
@@ -56,7 +62,7 @@ class Logic(UncaseEnum):
 
     def overrides(self):
         match self:
-            case Logic.ClassicalSAT | Logic.SearchSAT | Logic.ClassicalCut:
+            case Logic.ClassicalSAT | Logic.SearchSAT | Logic.ClassicalSATOld | Logic.SearchSATOld | Logic.ClassicalCut:
                 return dict(
                     positive_start_clauses = False,
                     iterative_deepening = True,
@@ -79,6 +85,7 @@ class Settings:
     iterative_deepening_initial_depth: int = 1
     restricted_backtracking: bool = False
     backtrack_after: int = 2
+    random_seed: int = 0
     logic: str = 'Classical'
     domain: Domain = Domain.Constant
 
