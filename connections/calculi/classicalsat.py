@@ -198,6 +198,10 @@ class SATConnectionState(ClassicalCut):
             self.is_terminal = True
             return
 
+        if self.goal.parent is None:
+            self.goal.actions = self.legal_actions()
+            return
+
         self.goal.actions = self.legal_forward_actions()
         if not self.goal.actions:
             self.analyze_failure()
