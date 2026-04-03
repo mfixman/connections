@@ -14,10 +14,8 @@
 %% Copyright: (c) 2009-2022 by Jens Otten
 %% License:   GNU General Public License
 
-
 :- assert(prolog(swi)).  % Prolog dialect: eclipse, sicstus, swi
 :- dynamic(axiom_path/1).
-
 
 % execute predicates specific to Prolog dialect
 
@@ -41,12 +39,10 @@
    retractall(axiom_path(_)), assert(axiom_path(Path1)),
    [mleancop_defmm_f]. %[leancop21_swi].  % load leanCoP core prover
 
-
 % load additional leanCoP components
 
 % :- [leancop_proof].  % load program for proof presentation
 :- [nanocop_qmltp2].  % load program for QMLTP input syntax
-
 
 %%% call leanCoP core prover
 

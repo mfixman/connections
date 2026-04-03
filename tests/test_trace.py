@@ -3,12 +3,10 @@ from pathlib import Path
 
 import pytest
 
-
 TRACE_PATH = Path(__file__).resolve().parents[1] / 'trace.py'
 TRACE_SPEC = spec_from_file_location('mypycop_trace', TRACE_PATH)
 trace = module_from_spec(TRACE_SPEC)
 TRACE_SPEC.loader.exec_module(trace)
-
 
 class TestTraceProblemResolution:
     def test_resolve_problem_path_prefers_local_file(self, tmp_path: Path, monkeypatch):

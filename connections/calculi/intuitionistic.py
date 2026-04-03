@@ -2,7 +2,6 @@ from connections.calculi.classical import *
 from connections.utils.primitives import *
 from connections.utils.unification_intu import pre_unify, pre_unify_list
 
-
 class IConnectionState(ConnectionState):
 
     def __init__(self, matrix, settings):
@@ -19,7 +18,6 @@ class IConnectionState(ConnectionState):
     def append_fresh_var(self, string):
         self.var_gen_num += 1
         return Function(string.symbol, string.args + [Variable("W"+str(self.var_gen_num))])
-    
 
     # always append variable W to prefix of negated literal (polarity 1)
     def _pre_eq(self,lit_1,lit_2):
@@ -31,7 +29,6 @@ class IConnectionState(ConnectionState):
             lit_1.prefix = Function('string')
         pre_1, pre_2 = self.append_fresh_var(lit_1.prefix), lit_2.prefix
         return pre_1, pre_2
-
 
     def _extensions(self):
         ret = []
@@ -56,7 +53,6 @@ class IConnectionState(ConnectionState):
                 ret.append(re)
             self.substitution.backtrack()
         return ret
-
 
     # add check for syntactically equal prefixes
     def _regularizable(self, clause):

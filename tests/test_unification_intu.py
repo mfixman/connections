@@ -14,7 +14,6 @@ def prefixes():
             'aBFGH': Function('string',[Function('a'), Variable('B'), Variable('F'), Variable('G'), Variable('H')])}
     yield syms
 
-
 @pytest.fixture
 def substitutions(prefixes):
     unify = {}
@@ -29,7 +28,6 @@ def substitutions(prefixes):
     equations = [(prefixes['ABC'], prefixes['abc']), (prefixes['ABCD'], prefixes['abcd'])]
     unify['list'] = pre_unify_list(equations)
     yield unify
-
 
 class TestPreUnify:
     def test_flatten(self):

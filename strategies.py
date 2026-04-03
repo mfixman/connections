@@ -7,6 +7,7 @@ from typing import Optional, TypeVar
 
 from connections.env import ConnectionEnv
 from connections.calculi.classicalcut import ConnectionAction, Start, Reduction, Extension, Backtrack, Reset
+from strategy_base import Strategy
 
 TAction = TypeVar('TAction', bound = ConnectionAction)
 
@@ -39,30 +40,8 @@ def _action_score(action: ConnectionAction) -> float:
         return 1.0 / max(len(action.clause_copy), 1)
     return 0.0
 
-
 def _forward_actions(actions: list[ConnectionAction]) -> list[ConnectionAction]:
     return [a for a in actions if isinstance(a, (Start, Reduction, Extension))]
-
-
-class Strategy:
-    env: ConnectionEnv
-
-    def __init__(self, env):
-        self.env = env
-
-    def step(self):
-        raise NotImplemented('Abstract class')
-
-    @classmethod
-    def strategies(cls):
-        result = {}
-        queue = list(cls.__subclasses__())
-        while queue:
-            subcls = queue.pop(0)
-            result[subcls.__name__] = subcls
-            queue.extend(subcls.__subclasses__())
-        return result
-
 
 class _ConfiguredCutStrategy(Strategy):
     """Base class for strategies that choose a forward action and
@@ -186,7 +165,6 @@ class LeanCopCut(Strategy):
 
         return action
 
-
 class ReductionCut(_ConfiguredCutStrategy):
     """Baseline depth-first order with cut on reductions only.
 
@@ -204,7 +182,6 @@ class ReductionCut(_ConfiguredCutStrategy):
     """
 
     cut_reduction = True
-
 
 class HeuristicSelection(Strategy):
     """Select the highest-scored forward action.
@@ -236,7 +213,6 @@ class HeuristicSelection(Strategy):
         best_idx = max(range(len(forward)), key = lambda i: scores[i])
         return forward[best_idx]
 
-
 class HeuristicCut(_ConfiguredCutStrategy):
     """Heuristic forward selection with leanCoP-style inclusive cuts.
 
@@ -267,7 +243,6 @@ class HeuristicCut(_ConfiguredCutStrategy):
         scores = [_action_score(a) for a in forward]
         best_idx = max(range(len(forward)), key = lambda i: scores[i])
         return forward[best_idx]
-
 
 class SubgoalReordering(Strategy):
     """Strict categorical ordering: reductions first, then extensions
@@ -323,7 +298,6 @@ class SubgoalReordering(Strategy):
         forward.sort(key=self._action_key)
         return forward[0]
 
-
 class OrderedCut(_ConfiguredCutStrategy):
     """Subgoal-reordered forward selection with leanCoP-style cuts.
 
@@ -359,7 +333,6 @@ class OrderedCut(_ConfiguredCutStrategy):
             return forward[0]
         return sorted(forward, key = self._action_key)[0]
 
-
 class HeuristicReductionCut(_ConfiguredCutStrategy):
     """Heuristic forward selection with cut on reductions only.
 
@@ -385,7 +358,6 @@ class HeuristicReductionCut(_ConfiguredCutStrategy):
         scores = [_action_score(a) for a in forward]
         best_idx = max(range(len(forward)), key = lambda i: scores[i])
         return forward[best_idx]
-
 
 class EntropyCut(Strategy):
     """Selective restricted backtracking based on action-distribution
@@ -457,7 +429,6 @@ class EntropyCut(Strategy):
             return forward[0]
 
         return self._apply_entropy_cut(forward[0], forward)
-
 
 class AdaptiveReset(Strategy):
     """Adaptive restart policy: backtrack, reset(+1), or reset(+2).
@@ -564,7 +535,6 @@ class AdaptiveReset(Strategy):
 
         return forward[0]
 
-
 class SmartCut(AdaptiveReset, EntropyCut):
     """Entropy-based cut combined with adaptive reset.
 
@@ -594,7 +564,6 @@ class SmartCut(AdaptiveReset, EntropyCut):
             return forward[0]
 
         return self._apply_entropy_cut(forward[0], forward)
-
 
 class PathComplementCut(_ConfiguredCutStrategy):
     """Order extensions by how many new subgoals have complements on the
@@ -655,7 +624,6 @@ class PathComplementCut(_ConfiguredCutStrategy):
         if len(forward) == 1:
             return forward[0]
         return min(forward, key=self._action_key)
-
 
 class GoalDistanceCut(_ConfiguredCutStrategy):
     """Order extensions by estimated proof distance: prefer subgoals
@@ -720,7 +688,6 @@ class GoalDistanceCut(_ConfiguredCutStrategy):
 
         return min(forward, key=key)
 
-
 class FewAlternativesCut(Strategy):
     """Cut only when few forward alternatives exist, preserving
     exploration when the choice point is ambiguous.
@@ -776,7 +743,6 @@ class FewAlternativesCut(Strategy):
         ):
             chosen.cut = True
         return chosen
-
 
 class DepthPhasedCut(Strategy):
     """Depth-dependent cut policy: cut reductions at all depths, cut
@@ -840,7 +806,6 @@ class DepthPhasedCut(Strategy):
                     chosen.cut = True
         return chosen
 
-
 class ProgressiveComp(Strategy):
     """Multi-phase completeness recovery: try aggressive cuts at
     progressively higher depth limits before falling back to complete
@@ -901,7 +866,6 @@ class ProgressiveComp(Strategy):
         if self._cuts_active() and isinstance(chosen, (Reduction, Extension)):
             chosen.cut = True
         return chosen
-
 
 class GoalDistanceFewCut(Strategy):
     """Goal-distance ordering with selective cuts: only cut when few
@@ -989,7 +953,6 @@ class GoalDistanceFewCut(Strategy):
             chosen.cut = True
         return chosen
 
-
 class PathComplementFewCut(Strategy):
     """Path-complement ordering with selective cuts.
 
@@ -1061,7 +1024,6 @@ class PathComplementFewCut(Strategy):
             chosen.cut = True
         return chosen
 
-
 class ReductionCutOrdered(_ConfiguredCutStrategy):
     """Subgoal-reordered forward selection with cut on reductions only.
 
@@ -1096,12 +1058,10 @@ class ReductionCutOrdered(_ConfiguredCutStrategy):
             return forward[0]
         return sorted(forward, key=self._action_key)[0]
 
-
 @dataclass(frozen=True)
 class ScheduledStrategySlot:
     strategy_name: str
     step_budget: int
-
 
 class InitialSchedule(Strategy):
     """Run a fixed multi-strategy schedule loaded from JSON.
@@ -1176,3 +1136,5 @@ class InitialSchedule(Strategy):
         action = self._active_strategy.step()
         self._slot_steps += 1
         return action
+
+from sat_solve import SATSolve  # noqa: E402,F401

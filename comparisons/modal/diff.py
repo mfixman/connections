@@ -111,7 +111,6 @@ def run_theorem_prover(problempath):
         os.remove(problem)
     return info
 
-
 if __name__ == '__main__':
     num_processes = multiprocessing.cpu_count()
     results = []

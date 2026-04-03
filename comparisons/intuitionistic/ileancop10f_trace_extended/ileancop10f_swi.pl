@@ -18,7 +18,6 @@
 %% Copyright: (c) 2005 by Jens Otten
 %% License:   GNU General Public License
 
-
 :- [def_mm_intu].
 %:- dynamic(pathlim/0).
 
@@ -76,7 +75,6 @@ prove([Lit:Pre|Cla],Cla4,Mat,Path,PathLim,[PreSet,FreeV]) :-
         prove(Cla,Cla4,Mat,Path,PathLim,[PreSet2,FreeV2]),
         append([Pre=PreN|PreSet1],PreSet2,PreSet),
         append(FreeV2,FreeV3,FreeV).
-
 
 %%% prefix unification
 

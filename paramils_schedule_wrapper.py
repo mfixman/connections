@@ -78,12 +78,10 @@ from pathlib import Path
 from connections.env import ConnectionEnv, Settings
 from strategies import Strategy
 
-
 SUCCESS_STATUSES = {"Theorem", "Theorem (SAT)"}
 OFF_VALUES = {"off", "none", "-", ""}
 MAX_SLOTS = 3
 MP_CONTEXT = mp.get_context("fork")
-
 
 @dataclass(frozen=True)
 class Slot:
@@ -91,7 +89,6 @@ class Slot:
     strategy_name: str
     time_budget: float
     step_budget: int | None
-
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
@@ -112,7 +109,6 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     return parser
 
-
 def _safe_float(raw: str, label: str) -> float:
     try:
         value = float(raw)
@@ -121,7 +117,6 @@ def _safe_float(raw: str, label: str) -> float:
     if not math.isfinite(value) or value < 0:
         raise ValueError(f"invalid {label}: {raw!r}")
     return value
-
 
 def _safe_int(raw: str, label: str) -> int:
     try:
@@ -132,13 +127,11 @@ def _safe_int(raw: str, label: str) -> int:
         raise ValueError(f"invalid {label}: {raw!r}")
     return value
 
-
 def _parse_optional_length(raw: str) -> int | None:
     if raw in {"", "None", "none", "-1"}:
         return None
     value = _safe_int(raw, "cutoff_length")
     return None if value == 0 else value
-
 
 def _parse_param_tokens(tokens: list[str]) -> dict[str, str]:
     params: dict[str, str] = {}
@@ -160,12 +153,10 @@ def _parse_param_tokens(tokens: list[str]) -> dict[str, str]:
         i += 2
     return params
 
-
 def _is_off(raw: str | None) -> bool:
     if raw is None:
         return True
     return raw.strip().lower() in OFF_VALUES
-
 
 def _share(params: dict[str, str], slot_index: int, default: int) -> int:
     key = f"slot{slot_index}_share"
@@ -174,7 +165,6 @@ def _share(params: dict[str, str], slot_index: int, default: int) -> int:
     if not 0 <= value <= 100:
         raise ValueError(f"{key} must be between 0 and 100")
     return value
-
 
 def _active_strategy_names(params: dict[str, str]) -> list[tuple[int, str]]:
     available = Strategy.strategies()
@@ -191,7 +181,6 @@ def _active_strategy_names(params: dict[str, str]) -> list[tuple[int, str]]:
     if not active:
         raise ValueError("at least one schedule slot must be active")
     return active
-
 
 def build_schedule(params: dict[str, str], total_time: float, total_steps: int | None) -> list[Slot]:
     active = _active_strategy_names(params)
@@ -233,7 +222,6 @@ def build_schedule(params: dict[str, str], total_time: float, total_steps: int |
         raise ValueError("all schedule slots ended up with zero budget")
     return schedule
 
-
 def resolve_problem_path(path: str) -> str:
     problem_path = Path(path)
 
@@ -256,14 +244,12 @@ def resolve_problem_path(path: str) -> str:
         formatted += ", ..."
     raise FileNotFoundError(f"problem {path!r} is ambiguous under {tptp_root}: {formatted}")
 
-
 def _candidate_paths(path: Path) -> list[Path]:
     candidates = [path]
     if path.suffix:
         return candidates
     candidates.append(path.with_suffix(".p"))
     return candidates
-
 
 def _find_tptp_matches(path: Path, tptp_root: Path) -> list[Path]:
     matches: list[Path] = []
@@ -279,10 +265,8 @@ def _find_tptp_matches(path: Path, tptp_root: Path) -> list[Path]:
         matches.extend(found.resolve() for found in tptp_root.rglob(candidate.name))
     return _unique_paths(matches)
 
-
 def _unique_paths(paths: list[Path]) -> list[Path]:
     return sorted(set(paths))
-
 
 def _run_strategy_worker(
     conn: Connection,
@@ -347,7 +331,6 @@ def _run_strategy_worker(
     finally:
         conn.close()
 
-
 def _run_slot(problem_path: str, slot: Slot, logic: str) -> dict:
     parent_conn, child_conn = MP_CONTEXT.Pipe(duplex=False)
     process = MP_CONTEXT.Process(
@@ -373,7 +356,6 @@ def _run_slot(problem_path: str, slot: Slot, logic: str) -> dict:
         "info": "",
     }
 
-
 def run_schedule(problem_path: str, schedule: list[Slot], logic: str) -> tuple[bool, float, int]:
     total_runtime = 0.0
     total_steps = 0
@@ -387,11 +369,9 @@ def run_schedule(problem_path: str, schedule: list[Slot], logic: str) -> tuple[b
 
     return False, total_runtime, total_steps
 
-
 def _format_result(solved: bool, runtime: float, runlength: int, seed: str) -> str:
     solved_label = "SAT" if solved else "TIMEOUT"
     return f"Result for ParamILS: {solved_label}, {runtime:.6f}, {runlength}, -1, {seed}"
-
 
 def main(argv: list[str]) -> int:
     parser = _build_parser()
@@ -417,7 +397,6 @@ def main(argv: list[str]) -> int:
     solved, runtime, runlength = run_schedule(problem_path, schedule, logic=logic)
     print(_format_result(solved, runtime, runlength, seed))
     return 0
-
 
 if __name__ == "__main__":
     raise SystemExit(main(sys.argv))

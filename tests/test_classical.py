@@ -2,7 +2,6 @@ from connections.env import *
 from connections.calculi.classical import *
 from connections.utils.primitives import *
 
-
 class TestClassicalState:
     # ARRANGE
     env = ConnectionEnv('tests/cnf_problems/SYN081+1.cnf')
@@ -72,7 +71,6 @@ class TestConnectionEnv:
         assert str(observation.substitution) == '{}'
         assert str(observation.proof_sequence) == '[st0: [big_f(_131041), big_f(f(_131041))]]'
 
-    
     def test_time(self):
         # ARRANGE
         settings = Settings(iterative_deepening=False)

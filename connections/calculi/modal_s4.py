@@ -1,7 +1,6 @@
 from connections.calculi.intuitionistic import *
 from connections.utils.primitives import *
 
-
 class S4ConnectionState(IConnectionState):
 
     # No append W otherwise same as intu?

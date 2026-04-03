@@ -28,11 +28,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable, Sequence
 
-
 DEFAULT_SHARES = (5, 10, 15, 20, 25, 30, 35, 40, 50, 60, 70, 80, 90)
 DEFAULT_PENALTY_MULTIPLIER = 10
 DEFAULT_MAX_SLOTS = 3
-
 
 @dataclass(frozen=True)
 class SlotSpec:
@@ -40,13 +38,11 @@ class SlotSpec:
     share: int | None
     cap: int
 
-
 @dataclass(frozen=True)
 class ScheduleScore:
     solved: int
     penalized_steps: int
     solved_steps: int
-
 
 @dataclass(frozen=True)
 class SearchResult:
@@ -54,13 +50,11 @@ class SearchResult:
     score: ScheduleScore
     problems: int
 
-
 @dataclass(frozen=True)
 class TableData:
     strategies: tuple[str, ...]
     problems: tuple[str, ...]
     steps_by_strategy: dict[str, tuple[int | None, ...]]
-
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
@@ -113,10 +107,8 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     return parser
 
-
 def _parse_name_list(raw: str) -> tuple[str, ...]:
     return tuple(part.strip() for part in raw.split(",") if part.strip())
-
 
 def _parse_share_list(raw: str) -> tuple[int, ...]:
     shares = []
@@ -138,7 +130,6 @@ def _parse_share_list(raw: str) -> tuple[int, ...]:
         raise ValueError("at least one share value is required")
     return tuple(sorted(shares))
 
-
 def _parse_step_cell(raw: str) -> int | None:
     text = raw.strip()
     if not text:
@@ -147,7 +138,6 @@ def _parse_step_cell(raw: str) -> int | None:
     if normalized.isdigit():
         return int(normalized)
     return None
-
 
 def load_table(
     csv_path: str,
@@ -194,7 +184,6 @@ def load_table(
         steps_by_strategy={name: tuple(values) for name, values in steps.items()},
     )
 
-
 def build_schedule_caps(total_budget: int, shares: Sequence[int]) -> tuple[int, ...]:
     remaining = total_budget
     caps: list[int] = []
@@ -206,7 +195,6 @@ def build_schedule_caps(total_budget: int, shares: Sequence[int]) -> tuple[int, 
     caps.append(remaining)
     return tuple(cap for cap in caps if cap > 0)
 
-
 def _compare_scores(lhs: ScheduleScore, rhs: ScheduleScore) -> int:
     lhs_key = (lhs.solved, -lhs.penalized_steps, -lhs.solved_steps)
     rhs_key = (rhs.solved, -rhs.penalized_steps, -rhs.solved_steps)
@@ -215,7 +203,6 @@ def _compare_scores(lhs: ScheduleScore, rhs: ScheduleScore) -> int:
     if lhs_key > rhs_key:
         return 1
     return 0
-
 
 def evaluate_schedule(
     table: TableData,
@@ -249,10 +236,8 @@ def evaluate_schedule(
         solved_steps=solved_steps,
     )
 
-
 def _schedule_signature(schedule: Sequence[SlotSpec]) -> tuple[tuple[str, int | None, int], ...]:
     return tuple((slot.strategy, slot.share, slot.cap) for slot in schedule)
-
 
 def _compare_schedules(
     lhs_schedule: Sequence[SlotSpec],
@@ -270,7 +255,6 @@ def _compare_schedules(
     if lhs_sig > rhs_sig:
         return -1
     return 0
-
 
 def _possible_caps(total_budget: int, max_slots: int, shares: Sequence[int]) -> tuple[int, ...]:
     caps = {total_budget}
@@ -292,7 +276,6 @@ def _possible_caps(total_budget: int, max_slots: int, shares: Sequence[int]) -> 
             break
     return tuple(sorted(caps))
 
-
 def _build_solved_masks(table: TableData, caps: Sequence[int]) -> dict[str, dict[int, int]]:
     masks: dict[str, dict[int, int]] = {}
     for strategy in table.strategies:
@@ -306,7 +289,6 @@ def _build_solved_masks(table: TableData, caps: Sequence[int]) -> dict[str, dict
             by_cap[cap] = mask
         masks[strategy] = by_cap
     return masks
-
 
 def find_best_schedule(
     table: TableData,
@@ -409,7 +391,6 @@ def find_best_schedule(
         problems=len(table.problems),
     )
 
-
 def best_single_strategy(
     table: TableData,
     total_budget: int,
@@ -435,7 +416,6 @@ def best_single_strategy(
     assert best is not None
     return best
 
-
 def _format_schedule(schedule: Sequence[SlotSpec]) -> str:
     parts = []
     for index, slot in enumerate(schedule, start=1):
@@ -445,7 +425,6 @@ def _format_schedule(schedule: Sequence[SlotSpec]) -> str:
             parts.append(f"{index}:{slot.strategy}@{slot.cap} (share {slot.share}% of remaining)")
     return " -> ".join(parts)
 
-
 def _format_paramils(schedule: Sequence[SlotSpec]) -> str:
     tokens: list[str] = []
     for index, slot in enumerate(schedule, start=1):
@@ -453,7 +432,6 @@ def _format_paramils(schedule: Sequence[SlotSpec]) -> str:
         if slot.share is not None:
             tokens.append(f"slot{index}_share={slot.share}")
     return " ".join(tokens)
-
 
 def main(argv: Sequence[str] | None = None) -> int:
     parser = _build_parser()
@@ -505,7 +483,6 @@ def main(argv: Sequence[str] | None = None) -> int:
         print("  mean solved steps: n/a")
 
     return 0
-
 
 if __name__ == "__main__":
     raise SystemExit(main())

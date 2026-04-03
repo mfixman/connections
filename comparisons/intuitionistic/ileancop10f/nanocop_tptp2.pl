@@ -14,7 +14,6 @@
 %% Copyright: (c) 2009-2016 by Jens Otten
 %% License:   GNU General Public License
 
-
 % definitions of logical connectives and quantifiers
 
 % leanCoP syntax
@@ -60,7 +59,6 @@ op_tptp2($false,(false___ , ~ false___),[],[]).
 op_tptp2(A=B,~(A1=B),[],[]) :- \+var(A), A=(A1!).
 op_tptp2(P,P,[],[]).
 
-
 %%% translate into leanCoP syntax
 
 leancop_tptp2(File,F) :- leancop_tptp2(File,'',[_],F,_).
@@ -88,7 +86,6 @@ fof2cop(Stream,AxPath,AxNames,F,Con) :-
 fml2cop([],[]).
 fml2cop([F|Fml],[F1|Fml1]) :-
     op_tptp2(F,F1,FL,FL1) -> fml2cop(FL,FL1), fml2cop(Fml,Fml1).
-
 
 %%% add equality axioms
 

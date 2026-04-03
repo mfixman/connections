@@ -63,7 +63,6 @@ def parse_term(term_str):
             subterms.append(parse_term(subterm_str))
     return Function(term_name, subterms)
 
-
 def split_bracket(str):
     strs = []
     num_bracket = 0

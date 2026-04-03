@@ -1,6 +1,5 @@
 from connections.utils.primitives import *
 
-
 class TestVariable:
     # ARRANGE
     x = Variable("X")
@@ -12,7 +11,6 @@ class TestVariable:
         # ASSERT
         assert str(self.x) + '1' == str(y)
 
-
 class TestFunction:
     # ARRANGE
     x = Variable("X")
@@ -21,7 +19,6 @@ class TestFunction:
     def test_function_str(self):
         # ACT and ASSERT
         assert str(self.f) == 'f(X)'
-
 
 class TestLiteral:
     # ARRANGE
@@ -39,7 +36,6 @@ class TestLiteral:
 
         # ASSERT
         assert 'p(f(X1))' == str(y)
-
 
 class TestMatrix:
     x = Variable("X")

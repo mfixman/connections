@@ -8,7 +8,6 @@ from pathlib import Path
 from connections.utils.cnf_parsing import file2cnf as parse_connections_cnf
 from connections.utils.primitives import Constant, Function, Literal, Matrix, Variable
 
-
 def file2cnf(path: str):
     """Load a classical problem from internal CNF or raw TPTP syntax."""
     file_path = Path(path)
@@ -24,7 +23,6 @@ def file2cnf(path: str):
         case _:
             _fail_for_unsupported_problem(file_path)
 
-
 def _problem_kind(path: Path, text: str) -> str:
     """Classify the file so the caller can choose the right loader."""
     if _is_connections_cnf(text):
@@ -36,11 +34,9 @@ def _problem_kind(path: Path, text: str) -> str:
             return 'tptp-cnf'
     return 'unsupported'
 
-
 def _has_supported_tptp_suffix(path: Path) -> bool:
     """Accept only normal top-level TPTP files for raw problem parsing."""
     return ''.join(path.suffixes) in {'.p', '.ax'}
-
 
 def _fail_for_unsupported_problem(path: Path) -> None:
     """Warn and fail fast for inputs we do not intentionally support."""
@@ -51,13 +47,11 @@ def _fail_for_unsupported_problem(path: Path) -> None:
     warnings.warn(message, stacklevel=2)
     raise ValueError(message)
 
-
 def _is_connections_cnf(text: str) -> bool:
     """Detect the repo's already-translated connection CNF format."""
     normalized = re.sub(r'^\s*%.*$', '', text, flags=re.MULTILINE)
     normalized = re.sub(r'\s+', '', normalized)
     return re.match(r'^cnf[i]?\([^,]+,[^,]+,\[', normalized) is not None
-
 
 def _parse_tptp_cnf(
     path: Path,
@@ -81,7 +75,6 @@ def _parse_tptp_cnf(
 
     return Matrix(clauses)
 
-
 def _parse_statement(
     statement: str,
     current_path: Path,
@@ -97,7 +90,6 @@ def _parse_statement(
         case _:
             return []
 
-
 def _parse_include_statement(statement: str, current_path: Path, seen: set[Path]) -> list[list[Literal]]:
     """Load clauses from an included TPTP file."""
     inner = statement[len('include('):-1]
@@ -105,7 +97,6 @@ def _parse_include_statement(statement: str, current_path: Path, seen: set[Path]
     include_path = _resolve_include(parts[0], current_path)
     include_names = _parse_name_list(parts[1]) if len(parts) > 1 else None
     return _parse_tptp_cnf(include_path, include_names, seen).clauses
-
 
 def _parse_cnf_statement(statement: str, selected_names: set[str] | None) -> list[list[Literal]]:
     """Parse one `cnf(...)` declaration into zero or one clauses."""
@@ -122,7 +113,6 @@ def _parse_cnf_statement(statement: str, selected_names: set[str] | None) -> lis
     if clause is None:
         return []
     return [clause]
-
 
 def _translate_tptp_problem(path: Path) -> Matrix:
     """Translate raw TPTP FOF to connection CNF, then parse it."""
@@ -150,11 +140,9 @@ def _translate_tptp_problem(path: Path) -> Matrix:
     finally:
         output_path.unlink(missing_ok=True)
 
-
 def _repo_root() -> Path:
     """Return the repository root for translation and include resolution."""
     return Path(__file__).resolve().parents[2]
-
 
 def _tptp_root() -> Path:
     """Use the repo root as the TPTP root when `Axioms/` is present."""
@@ -163,7 +151,6 @@ def _tptp_root() -> Path:
     if axioms.is_dir():
         return repo_root
     raise FileNotFoundError(f'expected an Axioms directory at {axioms}')
-
 
 def _resolve_include(include_path: str, current_path: Path) -> Path:
     """Resolve an `include(...)` path relative to the file or repo root."""
@@ -175,7 +162,6 @@ def _resolve_include(include_path: str, current_path: Path) -> Path:
             return candidate
 
     raise FileNotFoundError(f'could not resolve include {include_path!r} from {current_path}')
-
 
 def _parse_name_list(text: str) -> set[str] | None:
     """Parse the optional include name filter list."""
@@ -189,7 +175,6 @@ def _parse_name_list(text: str) -> set[str] | None:
     if not inner:
         return set()
     return {part.strip() for part in _split_top_level(inner, ',')}
-
 
 def _parse_clause(formula_text: str) -> list[Literal] | None:
     """Parse a CNF clause body, dropping tautological `$true` clauses."""
@@ -210,7 +195,6 @@ def _parse_clause(formula_text: str) -> list[Literal] | None:
         literals.append(literal)
     return literals
 
-
 def _parse_literal(text: str) -> Literal | bool:
     """Parse one literal, preserving `$true` and `$false` as booleans."""
     text = _strip_outer_parens(text)
@@ -228,7 +212,6 @@ def _parse_literal(text: str) -> Literal | bool:
     if text == '$false':
         return False
     return _parse_atom(text)
-
 
 def _parse_atom(text: str) -> Literal:
     """Parse a positive atomic formula or equality."""
@@ -258,7 +241,6 @@ def _parse_atom(text: str) -> Literal:
         args = [_parse_term(part) for part in _split_top_level(args_text, ',')]
     return Literal(name, args)
 
-
 def _parse_term(text: str):
     """Parse a TPTP term into the repo's term representation."""
     text = _strip_outer_parens(text)
@@ -280,7 +262,6 @@ def _parse_term(text: str):
     if args_text:
         args = [_parse_term(part) for part in _split_top_level(args_text, ',')]
     return Function(name, args)
-
 
 def _split_tptp_statements(text: str) -> list[str]:
     """Split a TPTP file into top-level statements ending in `.`."""
@@ -317,7 +298,6 @@ def _split_tptp_statements(text: str) -> list[str]:
         statements.append(tail)
     return statements
 
-
 def _split_top_level(text: str, delimiter: str) -> list[str]:
     """Split text on a delimiter that is not nested in brackets or quotes."""
     parts = []
@@ -349,14 +329,12 @@ def _split_top_level(text: str, delimiter: str) -> list[str]:
     parts.append(text[start:].strip())
     return parts
 
-
 def _strip_outer_parens(text: str) -> str:
     """Drop redundant outer parentheses from an expression string."""
     text = text.strip()
     while _has_outer_parens(text):
         text = text[1:-1].strip()
     return text
-
 
 def _has_outer_parens(text: str) -> bool:
     """Check whether one pair of parentheses encloses the whole string."""
@@ -380,7 +358,6 @@ def _has_outer_parens(text: str) -> bool:
                 return False
 
     return True
-
 
 def _top_level_operator(text: str, operator: str) -> int:
     """Find an operator occurrence that is not nested in brackets or quotes."""

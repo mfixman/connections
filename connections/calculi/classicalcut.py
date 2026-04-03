@@ -5,7 +5,6 @@ from connections.utils.tableau import Tableau
 from dataclasses import dataclass, field
 from typing import Optional, cast
 
-
 @dataclass(frozen = True)
 class ConnectionFact:
     """A connection between two matrix positions.

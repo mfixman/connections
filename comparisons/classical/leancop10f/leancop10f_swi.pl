@@ -22,7 +22,6 @@
 %% Copyright: (c) 2001 by Jens Otten
 %% License:   GNU General Public License
 
-
 %%% prove matrix M / formula F
 
 prove([C|M]) :- retractall(count(_)), assert(count(0)),

@@ -2,7 +2,6 @@ from connections.calculi.intuitionistic import *
 from connections.utils.primitives import *
 import connections.utils.unification_d as d
 
-
 class DConnectionState(IConnectionState):
 
     def pre_unify(self,pre_1,pre_2,s):
@@ -19,7 +18,6 @@ class DConnectionState(IConnectionState):
             lit_1.prefix = Function('string')
         pre_1, pre_2 = lit_1.prefix, lit_2.prefix
         return pre_1, pre_2
-
 
     # single prefix subsitution for all pairs (var,eigenvar) in classical substitution and (lit,lit) in classical connections
     def _admissible_pairs(self):

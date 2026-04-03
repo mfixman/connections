@@ -17,13 +17,11 @@ def pre_unify(l_pre, m_pre, r_pre, s=Substitution(), counter=0):
             return None
     return new_s
 
-
 def pre_unify_all(l_pre, m_pre, r_pre, s=Substitution(), unifiers=[], counter=0):
     s = pre_unify(l_pre, m_pre, r_pre, s)
     if s is None:
         return [], counter
     return [s], counter
-
 
 def pre_unify_list(equations, s=Substitution(), counter=0):
     l1, l2 = equations[0]

@@ -11,7 +11,6 @@
 %% Copyright: (c) 2017 by Jens Otten
 %% License:   GNU General Public License
 
-
 % definitions of logical connectives and quantifiers
 
 % modal nanoCoP syntax
@@ -60,7 +59,6 @@ op_tptp2($true,(true___=>true___),      [],[]).
 op_tptp2($false,(false___ , ~ false___),[],[]).
 op_tptp2(A=B,~(A1=B),[],[]) :- \+var(A), A=(A1!).
 op_tptp2(P,P,[],[]).
-
 
 %%% translate into modal nanoCoP syntax
 

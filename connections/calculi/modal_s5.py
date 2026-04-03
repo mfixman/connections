@@ -1,7 +1,6 @@
 from connections.calculi.intuitionistic import *
 from connections.utils.primitives import *
 
-
 class S5ConnectionState(IConnectionState):
 
     # always append variable W to prefix of negated literal (polarity 1)
@@ -13,7 +12,6 @@ class S5ConnectionState(IConnectionState):
         pre_1 = Function('string',args=lit_1.prefix.args[-1:])
         pre_2 = Function('string',args=lit_2.prefix.args[-1:])
         return pre_1, pre_2
-
 
     # single prefix subsitution for all pairs (var,eigenvar) in classical substitution and (lit,lit) in classical connections
     def _admissible_pairs(self):

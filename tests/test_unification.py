@@ -23,7 +23,6 @@ def symbols():
     sym['fya'] = Function('f', args=[sym['Y'], sym['a']])
     yield sym
 
-
 class TestUnify:
     sub = Substitution()
 
@@ -64,5 +63,4 @@ class TestUnify:
         sub3 = Substitution()
         sub3.unify(symbols['X'], symbols['a'])
         assert sub3.unify(symbols['b'], symbols['X']) == (False, [])
-
 

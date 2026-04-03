@@ -2,7 +2,6 @@ from connections.calculi.intuitionistic import *
 from connections.utils.primitives import *
 import connections.utils.unification_t as t
 
-
 class TConnectionState(IConnectionState):
 
     def pre_unify(self,pre_1,pre_2,s):

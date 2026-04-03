@@ -96,7 +96,6 @@ def run_theorem_prover(problempath):
         os.remove(f'{out_path}/log/{problem}_leancop.log')
     return info
 
-
 if __name__ == '__main__':
     num_processes = multiprocessing.cpu_count()
     results = []

@@ -2,16 +2,13 @@ import re
 
 from connections.utils.primitives import *
 
-
 def file2cnf(path):
     with open(path, "r") as file:
         return parse_fof(file.read())
 
-
 def parse_fof(fof):
     clauses_str = re.findall(r"\[.*\]", fof)[0][2:-2].split(r"],[")
     return Matrix([parse_clause(clause_str) for clause_str in clauses_str])
-
 
 def parse_clause(clause_str):
     literals = []
@@ -19,7 +16,6 @@ def parse_clause(clause_str):
         lit = parse_literal(literal_str)
         literals.append(lit)
     return literals
-
 
 def parse_literal(literal_str):
     neg = False
@@ -34,7 +30,6 @@ def parse_literal(literal_str):
         for term_str in split_bracket(terms_str):
             terms.append(parse_term(term_str))
     return Literal(split[0], terms, parse_term(f'string{lit[1]}'), neg)
-
 
 def parse_term(term_str):
     if term_str.isnumeric() or term_str[0] == '\'':

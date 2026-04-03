@@ -20,7 +20,6 @@ from typing import Optional
 from connections.env import ConnectionEnv, Logic, Settings
 from strategies import Strategy
 
-
 def green(s: str) -> str: return f'\033[32m{s}\033[0m'
 def red(s: str) -> str:   return f'\033[31m{s}\033[0m'
 def bold(s: str) -> str:  return f'\033[1;33m{s}\033[0m'
@@ -49,14 +48,12 @@ def rpad(s: str, width: int) -> str:
     """Right-pad a string to visible width, ignoring ANSI escape codes."""
     return s + ' ' * max(0, width - vlen(s))
 
-
 def show_progress(s: str, width: int) -> None:
     """Show an in-place progress label without changing final table output."""
     if not sys.stdout.isatty():
         return
     sys.stdout.write('\033[2K\r' + rpad(s, width))
     sys.stdout.flush()
-
 
 def clear_progress() -> None:
     """Clear the in-place progress label before printing a completed row."""
@@ -70,7 +67,6 @@ def _status_label(result: Optional[dict]) -> str:
         return 'timeout'
     return result.get('status', 'error')
 
-
 def _recv_result(conn: Connection, proc: mp.Process) -> dict:
     try:
         return conn.recv()
@@ -80,7 +76,6 @@ def _recv_result(conn: Connection, proc: mp.Process) -> dict:
             'solved': False,
             'error': f'worker exited with code {proc.exitcode}',
         }
-
 
 def _cleanup_task_process(conn: Connection, proc: mp.Process) -> dict:
     if proc.is_alive():
@@ -94,7 +89,6 @@ def _cleanup_task_process(conn: Connection, proc: mp.Process) -> dict:
         'solved': False,
         'error': f'worker exited with code {proc.exitcode}',
     }
-
 
 def _run_problem(
     conn: Connection,
@@ -167,13 +161,11 @@ def _parse_slurm_cpus_per_task(raw: Optional[str]) -> Optional[int]:
         return None
     return value if value > 0 else None
 
-
 def _process_cpu_count() -> Optional[int]:
     process_cpu_count = getattr(os, 'process_cpu_count', None)
     if process_cpu_count is None:
         return None
     return process_cpu_count()
-
 
 def determine_worker_count(total_tasks: int) -> int:
     slurm_raw = os.getenv('SLURM_CPUS_PER_TASK')
@@ -194,7 +186,6 @@ def determine_worker_count(total_tasks: int) -> int:
     task_label = 'task' if total_tasks == 1 else 'tasks'
     logging.info(f'using {workers} {worker_label} for {total_tasks} {task_label}')
     return workers
-
 
 def resolve_problem_path(path: str) -> str:
     """Resolve a problem from the local path or from the `TPTP` tree."""
@@ -219,7 +210,6 @@ def resolve_problem_path(path: str) -> str:
         formatted += ', ...'
     raise FileNotFoundError(f'problem {path!r} is ambiguous under {tptp_root}: {formatted}')
 
-
 def _candidate_paths(path: Path) -> list[Path]:
     """Return the exact name and the optional `.p` variant to try."""
     candidates = [path]
@@ -228,7 +218,6 @@ def _candidate_paths(path: Path) -> list[Path]:
 
     candidates.append(path.with_suffix('.p'))
     return candidates
-
 
 def _find_tptp_matches(path: Path, tptp_root: Path) -> list[Path]:
     """Search the TPTP tree for an exact filename or bare codename."""
@@ -246,16 +235,13 @@ def _find_tptp_matches(path: Path, tptp_root: Path) -> list[Path]:
         matches.extend(found.resolve() for found in tptp_root.rglob(candidate.name))
     return _unique_paths(matches)
 
-
 def _unique_paths(paths: list[Path]) -> list[Path]:
     """Deduplicate and sort resolved paths for stable lookup errors."""
     return sorted(set(paths))
 
-
 def _unique_paths_in_order(paths: list[Path]) -> list[Path]:
     """Deduplicate while preserving first-seen order."""
     return list(dict.fromkeys(paths))
-
 
 def _problem_priority_key(problem: Path) -> tuple[int, str, str]:
     """Prefer SYN, then PUZ, then the rest for bulk TPTP runs."""
@@ -266,7 +252,6 @@ def _problem_priority_key(problem: Path) -> tuple[int, str, str]:
     else:
         priority = 2
     return (priority, problem.name, str(problem))
-
 
 def _all_tptp_problem_paths() -> list[Path]:
     """Return all TPTP `.p` problems, prioritising SYN and PUZ first."""
@@ -287,7 +272,6 @@ def _all_tptp_problem_paths() -> list[Path]:
 
     return problems
 
-
 def expand_problem_inputs(inputs: list[str]) -> list[Path]:
     """Expand directories and problem names into a deduplicated list of files."""
     if not inputs:
@@ -305,7 +289,6 @@ def expand_problem_inputs(inputs: list[str]) -> list[Path]:
             problems.append(Path(resolve_problem_path(raw)))
 
     return _unique_paths_in_order([problem.resolve() for problem in problems])
-
 
 def fmt_result(r: Optional[dict], show_steps: bool, show_time: bool, use_color: bool = True) -> str:
     if r is None:
@@ -330,7 +313,6 @@ def fmt_result(r: Optional[dict], show_steps: bool, show_time: bool, use_color: 
     if show_time:
         parts.append(f'{r["time"] * 1000:.0f}ms')
     return green(' / '.join(parts) if parts else 'solved', use_color)
-
 
 def fmt_delta(
     r1: Optional[dict], r2: Optional[dict],
@@ -373,14 +355,11 @@ def fmt_delta(
 
     return ', '.join(parts) if parts else dim('tie', use_color)
 
-
 def _problem_display_name(problem: Path) -> str:
     return problem.name
 
-
 def _problem_csv_name(problem: Path) -> str:
     return problem.name
-
 
 def report_layout(problems: list[Path], strategies: list[str]) -> tuple[int, int, str, str]:
     problem_width = max(max(len(_problem_display_name(problem)) for problem in problems), len('Problem'))
@@ -392,7 +371,6 @@ def report_layout(problems: list[Path], strategies: list[str]) -> tuple[int, int
     )
     sep = '-' * (problem_width + strategy_width + len('Result') + 4)
     return problem_width, strategy_width, header, sep
-
 
 def format_task_result(
     problem: Path,
@@ -409,7 +387,6 @@ def format_task_result(
         f'{fmt_result(result, show_steps, show_time)}'
     )
 
-
 def print_task_error(problem: Path, strategy_name: str, result: dict) -> None:
     error = result.get('error', 'unknown error')
     print(
@@ -417,7 +394,6 @@ def print_task_error(problem: Path, strategy_name: str, result: dict) -> None:
         file=sys.stderr,
         flush=True,
     )
-
 
 def parse_result_text(text: str) -> Optional[dict]:
     stripped = text.strip()
@@ -446,7 +422,6 @@ def parse_result_text(text: str) -> Optional[dict]:
         return None
     return result
 
-
 @dataclass
 class PartialReportState:
     results: dict[Path, dict[str, dict]]
@@ -454,7 +429,6 @@ class PartialReportState:
     has_summary: bool
     has_csv_line: bool
     last_line: Optional[str]
-
 
 def load_partial_report(
     partial_path: Optional[Path],
@@ -509,7 +483,6 @@ def load_partial_report(
 
     return PartialReportState(results, has_header, saw_summary, saw_csv_line, last_line)
 
-
 class ReportWriter:
     def __init__(
         self,
@@ -553,7 +526,6 @@ class ReportWriter:
         if self._partial_file is not None:
             self._partial_file.close()
             self._partial_file = None
-
 
 def run_tasks(
     problems: list[Path],
@@ -646,7 +618,6 @@ def run_tasks(
 
     return results, errors
 
-
 def write_results_csv(
     csv_path: str,
     problems: list[Path],
@@ -681,7 +652,6 @@ def write_results_csv(
                     'info': result.get('info'),
                     'error': result.get('error'),
                 })
-
 
 def parse_args() -> argparse.Namespace:
     available_strategies = list(Strategy.strategies().keys())
@@ -761,7 +731,6 @@ def parse_args() -> argparse.Namespace:
         args.strategies = default_strategies
 
     return args
-
 
 def main() -> None:
     logging.basicConfig(level = logging.INFO, format = '[%(relativeCreated)d] %(message)s')
@@ -853,7 +822,6 @@ def main() -> None:
             print(csv_line, flush=True)
     finally:
         reporter.close()
-
 
 if __name__ == '__main__':
     main()

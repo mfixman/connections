@@ -1,7 +1,6 @@
 from collections import defaultdict
 from abc import ABC
 
-
 class Expression(ABC):
     def __init__(self, symbol, args=[], prefix=None):
         self.symbol = symbol
@@ -20,13 +19,11 @@ class Expression(ABC):
     def __hash__(self):
         return hash((self.symbol, tuple(self.args)))
 
-
 class Term(Expression):
     def copy(self, num):
         return type(self)(self.symbol,
                           [arg.copy(num) for arg in self.args],
                           None if self.prefix is None else self.prefix.copy(num))
-
 
 class Variable(Term):
     show_copy_num = True
@@ -53,14 +50,11 @@ class Variable(Term):
         copy.copy_num = num
         return copy
 
-
 class Constant(Term):
     pass
 
-
 class Function(Term):
     pass
-
 
 class Literal(Expression):
     def __init__(self, symbol, args=[], prefix=None, neg=False, matrix_pos=None):
@@ -83,7 +77,6 @@ class Literal(Expression):
             self.neg,
             self.matrix_pos
         )
-
 
 class Matrix:
     def __init__(self, clauses):

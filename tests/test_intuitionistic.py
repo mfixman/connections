@@ -7,7 +7,6 @@ class TestIntuitionisticState:
     env = ConnectionEnv('tests/icnf_problems/SYN081+1.cnf', settings=settings)
     state = env.state
 
-
     def test_start_states(self):
         action = self.env.action_space[0]
 
@@ -32,7 +31,6 @@ class TestIntuitionisticState:
         assert str(self.state._extensions()) == '[ex0: big_f(_28061) -> [big_f(_34365), -big_f(f(_34365))],' \
                                                 ' ex1: big_f(_28061) -> [-big_f(f(_28066)), -big_f(_28066)],' \
                                                 ' ex2: big_f(_28061) -> [-big_f(f(_28067)), -big_f(_28067)]]'
-
 
 class TestIConnectionEnv:
     # ARRANGE

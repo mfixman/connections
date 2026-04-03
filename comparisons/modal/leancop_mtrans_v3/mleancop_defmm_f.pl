@@ -18,7 +18,6 @@
 %% Copyright: (c) 2011-2023 by Jens Otten
 %% License:   GNU General Public License
 
-
 % definitions of logical connectives and quantifiers
 
 :- op(1130, xfy, <=>). % equivalence
@@ -31,7 +30,6 @@
 :- op( 500, fy, all).  % universal quantifier
 :- op( 500, fy, ex).   % existential quantifier
 :- op( 500,xfy, :).
-
 
 % ------------------------------------------------------------------
 %  make_matrix_modal(+Fml,+Settings,-Matrix)

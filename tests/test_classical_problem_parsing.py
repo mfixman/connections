@@ -5,7 +5,6 @@ import pytest
 
 from connections.utils.classical_problem_parsing import file2cnf
 
-
 class TestClassicalProblemParsing:
     def test_connections_cnf_passthrough(self):
         matrix = file2cnf('tests/cnf_problems/SYN726+1.cnf')

@@ -31,7 +31,6 @@ def YELLOW(): return _c('\033[33m')
 def RED():    return _c('\033[31m')
 def RESET():  return _c('\033[0m')
 
-
 def resolve_problem_path(path: str) -> str:
     """Resolve a problem from the local path or from the `TPTP` tree."""
     problem_path = Path(path)
@@ -55,7 +54,6 @@ def resolve_problem_path(path: str) -> str:
         formatted += ', ...'
     raise FileNotFoundError(f'problem {path!r} is ambiguous under {tptp_root}: {formatted}')
 
-
 def _candidate_paths(path: Path) -> list[Path]:
     """Return the exact name and the optional `.p` variant to try."""
     candidates = [path]
@@ -64,7 +62,6 @@ def _candidate_paths(path: Path) -> list[Path]:
 
     candidates.append(path.with_suffix('.p'))
     return candidates
-
 
 def _find_tptp_matches(path: Path, tptp_root: Path) -> list[Path]:
     """Search the TPTP tree for an exact filename or bare codename."""
@@ -82,11 +79,9 @@ def _find_tptp_matches(path: Path, tptp_root: Path) -> list[Path]:
         matches.extend(found.resolve() for found in tptp_root.rglob(candidate.name))
     return _unique_paths(matches)
 
-
 def _unique_paths(paths: list[Path]) -> list[Path]:
     """Deduplicate and sort resolved paths for stable lookup errors."""
     return sorted(set(paths))
-
 
 def fmt_action(action, step: int, highlight_special: bool) -> str:
     """Format one action for display."""
@@ -140,7 +135,6 @@ def fmt_action(action, step: int, highlight_special: bool) -> str:
 
     return prefix + repr(action)
 
-
 def run_trace(path: str, strategy_name: str, max_steps: int = 10000):
     env = ConnectionEnv(path, Settings(logic='ClassicalCut'))
     strategy = Strategy.strategies()[strategy_name](env)
@@ -167,7 +161,6 @@ def run_trace(path: str, strategy_name: str, max_steps: int = 10000):
     else:
         print(f'  {RED()}Unknown (limit {max_steps}){RESET()}')
     print(f'{sep}\n')
-
 
 if __name__ == '__main__':
     args = [a for a in sys.argv[1:] if not a.startswith('--')]

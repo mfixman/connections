@@ -22,7 +22,6 @@
 %% Copyright: (c) 2001 by Jens Otten
 %% License:   GNU General Public License
 
-
 :- lib(iso).
 :- dynamic(count/1).
 
