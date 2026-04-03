@@ -90,6 +90,16 @@ def _cleanup_task_process(conn: Connection, proc: mp.Process) -> dict:
         'error': f'worker exited with code {proc.exitcode}',
     }
 
+def default_logic_for_strategy(strategy_name: str) -> str:
+    if strategy_name == 'SATSolve':
+        return str(Logic.ClassicalSAT)
+    return str(Logic.ClassicalCut)
+
+def resolve_logic_for_strategy(strategy_name: str, logic_override: Optional[str]) -> str:
+    if logic_override is not None:
+        return logic_override
+    return default_logic_for_strategy(strategy_name)
+
 def _run_problem(
     conn: Connection,
     path: str,
@@ -530,7 +540,7 @@ class ReportWriter:
 def run_tasks(
     problems: list[Path],
     strategies: list[str],
-    logic: str,
+    logic_override: Optional[str],
     max_steps: int,
     timeout: float,
     max_workers: int,
@@ -556,6 +566,7 @@ def run_tasks(
     active: dict[Connection, tuple[Path, str, mp.Process, float]] = {}
 
     def start_task(problem: Path, strategy_name: str) -> None:
+        logic = resolve_logic_for_strategy(strategy_name, logic_override)
         parent_conn, child_conn = mp.Pipe(duplex=False)
         proc = mp.Process(
             target=_run_problem,
@@ -692,8 +703,8 @@ def parse_args() -> argparse.Namespace:
         help='compare all available strategies',
     )
     parser.add_argument(
-        '--logic', default='ClassicalCut', choices=available_logics, metavar='LOGIC',
-        help='logic to use (default: ClassicalCut)',
+        '--logic', choices=available_logics, metavar='LOGIC',
+        help='logic to use for all strategies (default: strategy-dependent)',
     )
     parser.add_argument(
         '--max-steps', type=int, default=50000, metavar='N',
