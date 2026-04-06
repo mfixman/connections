@@ -246,11 +246,6 @@ class SATConnectionState(ClassicalCut):
     def _record_tableau_clauses(self) -> None:
         for clause in self._tableau_clauses():
             if clause not in self.shadow.ground_clauses:
-                if clause == (10, ) or clause == (-10, ):
-                    print(f'{clause[0]:3d}:\t{sign(clause[0])}{[k for k, v in self.shadow.atom_map.items() if v == abs(clause[0])]}')
-                    # import ipdb
-                    # ipdb.set_trace()
-
                 self.shadow.new_ground_clauses.add(clause)
 
     def _tableau_clauses(self) -> set[tuple[int, ...]]:
@@ -266,14 +261,7 @@ class SATConnectionState(ClassicalCut):
     def _seed_ground_with_start_clauses(self) -> None:
         for clause_idx in self._start_clause_indices():
             clause = self.matrix.clauses[clause_idx]
-            ground_clauses = self._ground_clause_without_substitution(clause)
-
-            if ground_clauses == (10, ) or ground_clauses == (-10, ):
-                print(f'{ground_clauses[0]:3d}:\t{sign(ground_clauses[0])}{[k for k, v in self.shadow.atom_map.items() if v == abs(ground_clauses[0])]}')
-                # import ipdb
-                # ipdb.set_trace()
-
-            self.shadow.ground_clauses.add(ground_clauses)
+            self.shadow.ground_clauses.add(self._ground_clause_without_substitution(clause))
 
     def _start_clause_indices(self) -> list[int]:
         clause_indices = list(self.matrix.positive_clauses)

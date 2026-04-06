@@ -108,6 +108,14 @@ class Substitution:
         term_root = self.find(term, add=False)
         if isinstance(term_root, Variable):
             return term_root
+        if isinstance(term_root, Literal):
+            return Literal(
+                term_root.symbol,
+                [self(arg) for arg in term_root.args],
+                term_root.prefix,
+                term_root.neg,
+                term_root.matrix_pos,
+            )
         return type(term_root)(term_root.symbol,
                           [self(arg) for arg in term_root.args],
                           term_root.prefix)
