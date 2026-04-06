@@ -18,6 +18,11 @@ try:
 except ModuleNotFoundError:
     pycosat = None
 
+def sign(x):
+    if x == 0:
+        return '0'
+    return '+' if x > 0 else '-'
+
 @dataclass
 class ShadowSAT:
     atom_map: dict[str, int] = field(default_factory = dict)
@@ -208,7 +213,7 @@ class SATConnectionState(ClassicalCut):
             self.shadow.new_ground_clauses = set()
         self._solve_ground_clauses()
         if self.shadow.satisfiable is False:
-            self.info = 'Theorem (SAT)'
+            self.info = '; '.join(['Theorem (SAT)'] + [str(x) for x in self.shadow.ground_clauses])
             self.is_terminal = True
 
     def _solve_ground_clauses(self) -> None:
@@ -241,6 +246,11 @@ class SATConnectionState(ClassicalCut):
     def _record_tableau_clauses(self) -> None:
         for clause in self._tableau_clauses():
             if clause not in self.shadow.ground_clauses:
+                if clause == (10, ) or clause == (-10, ):
+                    print(f'{clause[0]:3d}:\t{sign(clause[0])}{[k for k, v in self.shadow.atom_map.items() if v == abs(clause[0])]}')
+                    # import ipdb
+                    # ipdb.set_trace()
+
                 self.shadow.new_ground_clauses.add(clause)
 
     def _tableau_clauses(self) -> set[tuple[int, ...]]:
@@ -256,7 +266,14 @@ class SATConnectionState(ClassicalCut):
     def _seed_ground_with_start_clauses(self) -> None:
         for clause_idx in self._start_clause_indices():
             clause = self.matrix.clauses[clause_idx]
-            self.shadow.ground_clauses.add(self._ground_clause_without_substitution(clause))
+            ground_clauses = self._ground_clause_without_substitution(clause)
+
+            if ground_clauses == (10, ) or ground_clauses == (-10, ):
+                print(f'{ground_clauses[0]:3d}:\t{sign(ground_clauses[0])}{[k for k, v in self.shadow.atom_map.items() if v == abs(ground_clauses[0])]}')
+                # import ipdb
+                # ipdb.set_trace()
+
+            self.shadow.ground_clauses.add(ground_clauses)
 
     def _start_clause_indices(self) -> list[int]:
         clause_indices = list(self.matrix.positive_clauses)
