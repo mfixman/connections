@@ -91,7 +91,7 @@ def _cleanup_task_process(conn: Connection, proc: mp.Process) -> dict:
     }
 
 def default_logic_for_strategy(strategy_name: str) -> str:
-    if strategy_name == 'SATSolve':
+    if strategy_name in ('SATSolve', 'SATSolveLiteral'):
         return str(Logic.ClassicalSAT)
     return str(Logic.ClassicalCut)
 

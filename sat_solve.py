@@ -73,3 +73,51 @@ class SATSolve(Strategy):
 
     def _literal_truth(self, literal: Literal) -> Optional[bool]:
         return self.env.state.sat_literal_value(literal)
+
+class SATSolveLiteral(Strategy):
+    """Baseline SATCoP strategy from Rawson & Reger 2021 (Algorithm 2).
+
+    Implements the paper's key contributions without action scoring:
+    - Random action selection (order shuffled by the ClassicalSAT
+      calculus — Sect. 5 randomisation).
+    - Depth control: stays at the same iterative-deepening level
+      while new ground clauses are being discovered; only increases
+      depth when they stop (Sect. 5).
+
+    Grounding, UNSAT detection, model-based lemmata, and clause
+    randomisation are handled by the ClassicalSAT calculus.
+
+    Differences from the paper:
+    - Restricted backtracking (Sect. 3, ref [32]) is a calculus-level
+      property that cannot be faithfully reproduced at the strategy
+      level because SATConnectionState regenerates forward actions
+      on every goal visit.  Backtracking is therefore unrestricted.
+    - Resets may occur mid-search at any dead end (not only after
+      exhausting all start clauses), because start actions are
+      regenerated on every return to root.
+
+    Compared to SATSolve, the only change is that forward actions
+    are selected randomly (first shuffled action) rather than scored
+    by SAT truth values.
+    """
+
+    def __init__(self, env):
+        super().__init__(env)
+        if not hasattr(self.env.state, 'sat_literal_value'):
+            raise TypeError('SATSolveLiteral requires the ClassicalSAT calculus')
+
+    def step(self):
+        actions = self.env.legal_actions()
+        forward = _forward_actions(actions)
+
+        # Forward action available: take the first one (randomised
+        # by the calculus).  Reductions come before extensions.
+        if forward:
+            return forward[0]
+
+        # Dead end: stay at the same depth while new ground clauses
+        # are being discovered (Sect. 5 depth control).
+        state = self.env.state
+        if any(isinstance(a, Reset) for a in actions) and state.new_ground_clauses:
+            return Reset(id = 'rs', depth = state.max_depth)
+        return _backtrack_or_reset(actions)
