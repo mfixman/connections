@@ -170,6 +170,17 @@ class ConnectionState:
 
         return {action.id: action for action in actions}
 
+    def _refresh_remaining_actions(self, remaining_ids: set[str]) -> dict[str, ConnectionAction]:
+        """Recompute actions under the restored substitution.
+
+        Backtracking changes the substitution state, so any cached
+        action objects may carry stale ``sub_updates``. Rebuild the
+        current node's actions from scratch and keep only ids that have
+        not yet been tried at this node.
+        """
+        fresh_actions = self.legal_actions()
+        return {action_id: fresh_actions[action_id] for action_id in remaining_ids if action_id in fresh_actions}
+
     def backtrack(self) -> None:
         # Backtrack to previous choice point (goal). If no choice points left, reset.
         actions: dict[str, ConnectionAction] = {}
@@ -179,15 +190,17 @@ class ConnectionState:
             old_goal = self.goal
             self.goal = self.goal.find_prev()
             pop_frame = (self.goal is old_goal.parent)
+            remaining_ids = set(self.goal.actions)
 
             if pop_frame and self.proof_sequence:
                 self.proof_sequence.pop()
 
-            actions = self.goal.actions
             if pop_frame:
                 self.substitution.backtrack()
             self.goal.proven = False
             self.goal.children = []
+            self.goal.actions = self._refresh_remaining_actions(remaining_ids)
+            actions = self.goal.actions
 
             # If no new actions available for previous goals increase depth
             if self.goal is self.tableau and not self.goal.actions:

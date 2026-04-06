@@ -97,6 +97,7 @@ class SATConnectionState(ClassicalCut):
             old_goal = self.goal
             self.goal = self.goal.find_prev()
             pop_frame = (self.goal is old_goal.parent)
+            remaining_ids = set(self.goal.actions)
 
             if pop_frame and self.proof_sequence:
                 popped = self.proof_sequence.pop()
@@ -111,10 +112,7 @@ class SATConnectionState(ClassicalCut):
                 self.substitution.backtrack()
             self.goal.proven = False
             self.goal.children = []
-            self.goal.actions = {
-                k: v for k, v in self.goal.actions.items()
-                if not self.violates_constraint(v)
-            }
+            self.goal.actions = self._refresh_remaining_actions(remaining_ids)
 
             if self.goal.cut_committed or not self.goal.actions:
                 continue

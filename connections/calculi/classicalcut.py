@@ -289,6 +289,14 @@ class ClassicalCut:
         back = cast(list[ConnectionAction], self.backtracks() + self.resets())
         return {**self.legal_forward_actions(), **{a.id: a for a in back}}
 
+    def _refresh_remaining_actions(self, remaining_ids: set[str]) -> dict[str, ConnectionAction]:
+        """Recompute the current node's actions after substitution rewind."""
+        if self.goal.parent is None:
+            fresh_actions = self.legal_actions()
+        else:
+            fresh_actions = self.legal_forward_actions()
+        return {action_id: fresh_actions[action_id] for action_id in remaining_ids if action_id in fresh_actions}
+
     def backtrack(self) -> None:
         if self.goal.parent is None:
             return
@@ -297,6 +305,7 @@ class ClassicalCut:
             old_goal = self.goal
             self.goal = self.goal.find_prev()
             pop_frame = (self.goal is old_goal.parent)
+            remaining_ids = set(self.goal.actions)
 
             if pop_frame and self.proof_sequence:
                 popped = self.proof_sequence.pop()
@@ -311,13 +320,7 @@ class ClassicalCut:
                 self.substitution.backtrack()
             self.goal.proven = False
             self.goal.children = []
-
-            # Re-filter remaining actions against constraints learned
-            # since this node was last visited (Rawson et al. 2026).
-            self.goal.actions = {
-                k: v for k, v in self.goal.actions.items()
-                if not self.violates_constraint(v)
-            }
+            self.goal.actions = self._refresh_remaining_actions(remaining_ids)
 
             if self.goal.cut_committed or not self.goal.actions:
                 continue
