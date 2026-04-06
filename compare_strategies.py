@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Optional
 
 from connections.env import ConnectionEnv, Logic, Settings
+from problem_inputs import expand_problem_inputs, resolve_problem_path
 from strategies import Strategy
 
 def green(s: str) -> str: return f'\033[32m{s}\033[0m'
@@ -196,109 +197,6 @@ def determine_worker_count(total_tasks: int) -> int:
     task_label = 'task' if total_tasks == 1 else 'tasks'
     logging.info(f'using {workers} {worker_label} for {total_tasks} {task_label}')
     return workers
-
-def resolve_problem_path(path: str) -> str:
-    """Resolve a problem from the local path or from the `TPTP` tree."""
-    problem_path = Path(path)
-
-    for candidate in _candidate_paths(problem_path):
-        if candidate.exists():
-            return str(candidate)
-
-    tptp_root = os.getenv('TPTP')
-    if tptp_root is None:
-        raise FileNotFoundError(f'could not find problem {path!r} and TPTP is not set')
-
-    matches = _find_tptp_matches(problem_path, Path(tptp_root))
-    if len(matches) == 1:
-        return str(matches[0])
-    if not matches:
-        raise FileNotFoundError(f'could not find problem {path!r} under {tptp_root}')
-
-    formatted = ', '.join(str(match) for match in matches[:5])
-    if len(matches) > 5:
-        formatted += ', ...'
-    raise FileNotFoundError(f'problem {path!r} is ambiguous under {tptp_root}: {formatted}')
-
-def _candidate_paths(path: Path) -> list[Path]:
-    """Return the exact name and the optional `.p` variant to try."""
-    candidates = [path]
-    if path.suffix:
-        return candidates
-
-    candidates.append(path.with_suffix('.p'))
-    return candidates
-
-def _find_tptp_matches(path: Path, tptp_root: Path) -> list[Path]:
-    """Search the TPTP tree for an exact filename or bare codename."""
-    matches = []
-
-    for candidate in _candidate_paths(path):
-        rooted = (tptp_root / candidate).resolve()
-        if rooted.exists():
-            matches.append(rooted)
-
-    if matches:
-        return _unique_paths(matches)
-
-    for candidate in _candidate_paths(path):
-        matches.extend(found.resolve() for found in tptp_root.rglob(candidate.name))
-    return _unique_paths(matches)
-
-def _unique_paths(paths: list[Path]) -> list[Path]:
-    """Deduplicate and sort resolved paths for stable lookup errors."""
-    return sorted(set(paths))
-
-def _unique_paths_in_order(paths: list[Path]) -> list[Path]:
-    """Deduplicate while preserving first-seen order."""
-    return list(dict.fromkeys(paths))
-
-def _problem_priority_key(problem: Path) -> tuple[int, str, str]:
-    """Prefer SYN, then PUZ, then the rest for bulk TPTP runs."""
-    if problem.name.startswith('SYN'):
-        priority = 0
-    elif problem.name.startswith('PUZ'):
-        priority = 1
-    else:
-        priority = 2
-    return (priority, problem.name, str(problem))
-
-def _all_tptp_problem_paths() -> list[Path]:
-    """Return all TPTP `.p` problems, prioritising SYN and PUZ first."""
-    tptp_root_raw = os.getenv('TPTP')
-    if tptp_root_raw is None:
-        raise FileNotFoundError('no input problems provided and TPTP is not set')
-
-    problems_root = Path(tptp_root_raw) / 'Problems'
-    if not problems_root.is_dir():
-        raise FileNotFoundError(f'could not find TPTP problems directory at {problems_root}')
-
-    problems = sorted(
-        (path.resolve() for path in problems_root.glob('*/*.p')),
-        key=_problem_priority_key,
-    )
-    if not problems:
-        raise FileNotFoundError(f'no .p files found under {problems_root}')
-
-    return problems
-
-def expand_problem_inputs(inputs: list[str]) -> list[Path]:
-    """Expand directories and problem names into a deduplicated list of files."""
-    if not inputs:
-        return _all_tptp_problem_paths()
-
-    problems: list[Path] = []
-    for raw in inputs:
-        input_path = Path(raw)
-        if input_path.exists() and input_path.is_dir():
-            dir_problems = sorted(input_path.glob('*.p'))
-            if not dir_problems:
-                raise FileNotFoundError(f'no .p files found in {raw!r}')
-            problems.extend(dir_problems)
-        else:
-            problems.append(Path(resolve_problem_path(raw)))
-
-    return _unique_paths_in_order([problem.resolve() for problem in problems])
 
 def fmt_result(r: Optional[dict], show_steps: bool, show_time: bool, use_color: bool = True) -> str:
     if r is None:

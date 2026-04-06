@@ -10,6 +10,7 @@ import logging
 
 from connections.env import *
 from parse_args import parse_args
+from problem_inputs import resolved_problem_paths
 
 from pathlib import Path
 import ipdb
@@ -27,13 +28,8 @@ def translate_logic(file: str, logic: Logic) -> str:
             os.killpg(os.getpgid(process.pid), signal.SIGTERM)
 
     return str(output)
-
-# @ipdb.launch_ipdb_on_exception()
-def main():
-    args = parse_args()
-    logging.basicConfig(level = logging.INFO if args.verbose else logging.WARN, format = '[%(relativeCreated)d] %(message)s')
-
-    env = ConnectionEnv(args.file, Settings(logic = args.logic, domain = args.domain))
+def _run_problem(path: str, args) -> dict:
+    env = ConnectionEnv(path, Settings(logic = args.logic, domain = args.domain))
     strategy = Strategy.strategies()[args.strategy](env)
     observation = env.reset()
 
@@ -66,7 +62,24 @@ def main():
     elif type(info) is str:
         info = {'info': info}
 
-    print(info | {'steps': steps})
+    return info | {'steps': steps}
+
+# @ipdb.launch_ipdb_on_exception()
+def main():
+    args = parse_args()
+    logging.basicConfig(level = logging.INFO if args.verbose else logging.WARN, format = '[%(relativeCreated)d] %(message)s')
+
+    try:
+        with resolved_problem_paths(args.file) as problem_paths:
+            multiple = len(problem_paths) > 1
+            for path in problem_paths:
+                result = _run_problem(path, args)
+                if multiple:
+                    print({'problem': os.path.basename(path)} | result)
+                else:
+                    print(result)
+    except FileNotFoundError as exc:
+        sys.exit(f'error: {exc}')
 
 if __name__ == '__main__':
     main()
