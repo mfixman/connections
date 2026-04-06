@@ -26,7 +26,7 @@ PROVER_PATH=leancop_mtrans_v3
 
 PROLOG=swi
 PROLOG_PATH=swipl
-PROLOG_OPTIONS='--debug=false -O -q -g'
+PROLOG_OPTIONS='--stack_limit=2500m --debug=false -O -q -g'
 #PROLOG_OPTIONS='-nodebug -O -L120M -G120M -T100M -q -g'
 
 # set TPTP library path
@@ -70,4 +70,3 @@ set +m
 # invoke leanCoP core prover with different settings SET
 
 SET="[]"; leancop_mtr
-

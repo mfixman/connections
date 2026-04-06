@@ -26,7 +26,7 @@ PROVER_PATH=leancop10f
 
 PROLOG=swi
 PROLOG_PATH=swipl
-PROLOG_OPTIONS='--debug=false -O -q -g'
+PROLOG_OPTIONS='--stack_limit=2500m --debug=false -O -q -g'
 #PROLOG_OPTIONS='-nodebug -O -L120M -G120M -T100M -q -g'
 
 # set TPTP library path
@@ -61,4 +61,3 @@ $PROLOG_PATH $PROLOG_OPTIONS \
    halt."\
 
 exit 0
-
