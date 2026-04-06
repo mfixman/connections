@@ -255,3 +255,8 @@ TPTP_subset
 *.blg
 *.fdb_latexmk
 *.fls
+
+.jupyter/
+plots/*
+presentations/*
+results/*
