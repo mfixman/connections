@@ -40,7 +40,7 @@ class SATSolve(Strategy):
         return max(forward, key = self._score)
 
     def _dead_end_action(self, actions: list[ConnectionAction]) -> ConnectionAction:
-        if any(isinstance(action, Reset) for action in actions) and self.env.state.new_ground_clauses:
+        if any(isinstance(action, Reset) for action in actions) and self.env.state.new_ground_clauses():
             return Reset(id = 'rs', depth = self.env.state.max_depth, reason = 'ground shadow still growing')
         return _backtrack_or_reset(actions)
 
@@ -60,7 +60,7 @@ class SATSolve(Strategy):
             kind_rank = 1
 
         grounded_clause = self.env.state.ground_clause(clause)
-        novelty_rank = int(grounded_clause not in self.env.state.ground_clauses)
+        novelty_rank = int(grounded_clause not in self.env.state.ground_clauses())
         true_count = 0
         false_count = 0
         for lit in residual:
@@ -118,6 +118,6 @@ class SATSolveLiteral(Strategy):
         # Dead end: stay at the same depth while new ground clauses
         # are being discovered (Sect. 5 depth control).
         state = self.env.state
-        if any(isinstance(a, Reset) for a in actions) and state.new_ground_clauses:
+        if any(isinstance(a, Reset) for a in actions) and state.new_ground_clauses():
             return Reset(id = 'rs', depth = state.max_depth)
         return _backtrack_or_reset(actions)

@@ -46,19 +46,15 @@ class SATConnectionState(ClassicalCut):
         self.random = random.Random(settings.random_seed)
         super().__init__(matrix, settings)
 
-    @property
     def sat_model(self) -> dict[int, bool]:
         return self.shadow.model
 
-    @property
     def sat_status(self) -> Optional[bool]:
         return self.shadow.satisfiable
 
-    @property
     def ground_clauses(self) -> set[tuple[int, ...]]:
         return self.shadow.ground_clauses
 
-    @property
     def new_ground_clauses(self) -> set[tuple[int, ...]]:
         return self.shadow.new_ground_clauses
 
