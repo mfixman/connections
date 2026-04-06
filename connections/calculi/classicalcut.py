@@ -294,9 +294,11 @@ class ClassicalCut:
             return
 
         while True:
+            old_goal = self.goal
             self.goal = self.goal.find_prev()
+            pop_frame = (self.goal is old_goal.parent)
 
-            if self.proof_sequence:
+            if pop_frame and self.proof_sequence:
                 popped = self.proof_sequence.pop()
                 fact = self.action_to_fact(popped)
                 if fact is not None:
@@ -305,7 +307,8 @@ class ClassicalCut:
             if self.goal.pending_cut:
                 self.goal.pending_cut = False
 
-            self.substitution.backtrack()
+            if pop_frame:
+                self.substitution.backtrack()
             self.goal.proven = False
             self.goal.children = []
 

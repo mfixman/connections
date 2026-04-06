@@ -176,13 +176,16 @@ class ConnectionState:
 
         limit = self.settings.backtrack_after if self.settings.restricted_backtracking else float('inf')
         while all(isinstance(x, Backtrack) for x in actions.values()) or self.goal.num_attempted > limit:
+            old_goal = self.goal
             self.goal = self.goal.find_prev()
+            pop_frame = (self.goal is old_goal.parent)
 
-            if self.proof_sequence:
+            if pop_frame and self.proof_sequence:
                 self.proof_sequence.pop()
 
             actions = self.goal.actions
-            self.substitution.backtrack()
+            if pop_frame:
+                self.substitution.backtrack()
             self.goal.proven = False
             self.goal.children = []
 
