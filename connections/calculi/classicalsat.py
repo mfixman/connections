@@ -18,6 +18,11 @@ try:
 except ModuleNotFoundError:
     pycosat = None
 
+try:
+    from pysat.solvers import Minisat22 as PySATSolver
+except ModuleNotFoundError:
+    PySATSolver = None
+
 def sign(x):
     if x == 0:
         return '0'
@@ -42,11 +47,8 @@ class SATConnectionState(ClassicalCut):
     shadow: ShadowSAT
 
     def __init__(self, matrix, settings) -> None:
-        if pycosat is None:
-            raise ModuleNotFoundError(
-                'ClassicalSAT requires pycosat (PicoSAT wrapper). '
-                'Install it in ~/venv and run with that environment.'
-            )
+        self.sat_solver_backend = getattr(settings, 'sat_solver', 'pycosat').lower()
+        self._require_sat_backend(self.sat_solver_backend)
         self.shadow = ShadowSAT()
         self.random = random.Random(settings.random_seed)
         super().__init__(matrix, settings)
@@ -190,11 +192,6 @@ class SATConnectionState(ClassicalCut):
     def _refresh_goal(self) -> None:
         self.finalize_pending_cuts()
 
-        while self.goal is not None and self._model_lemma_applies():
-            self.goal.proven = True
-            self.goal = self.goal.find_next()
-            self.finalize_pending_cuts()
-
         if self.goal is None:
             self.info = 'Theorem'
             self.is_terminal = True
@@ -223,7 +220,7 @@ class SATConnectionState(ClassicalCut):
             self.shadow.satisfiable = True
             return
 
-        result = pycosat.solve([list(clause) for clause in self.shadow.ground_clauses])
+        result = self._solve_shadow_cnf([list(clause) for clause in self.shadow.ground_clauses])
         if result == 'UNSAT':
             self.shadow.model = {}
             self.shadow.satisfiable = False
@@ -234,15 +231,39 @@ class SATConnectionState(ClassicalCut):
             self.shadow.model = {abs(lit): lit > 0 for lit in result if lit != 0}
             self.shadow.satisfiable = True
 
-    def _model_lemma_applies(self) -> bool:
-        if self.goal is None or self.goal.parent is None:
-            return False
+    def _require_sat_backend(self, backend: str) -> None:
+        if backend == 'pycosat':
+            if pycosat is None:
+                raise ModuleNotFoundError(
+                    'ClassicalSAT requires pycosat for --sat-solver pycosat. '
+                    'Install it in ~/venv and run with that environment.'
+                )
+            return
 
-        for literal in self.goal.path() + [self.goal.literal]:
-            value = self.sat_literal_value(literal)
-            if value is False:
-                return True
-        return False
+        if backend == 'pysat':
+            if PySATSolver is None:
+                raise ModuleNotFoundError(
+                    'ClassicalSAT requires python-sat for --sat-solver pysat. '
+                    'Install it in ~/venv and run with that environment.'
+                )
+            return
+
+        raise LookupError(f'Unknown SAT solver backend: {backend}')
+
+    def _solve_shadow_cnf(self, clauses: list[list[int]]):
+        if self.sat_solver_backend == 'pycosat':
+            return pycosat.solve(clauses)
+
+        solver = PySATSolver(bootstrap_with = clauses)
+        try:
+            satisfiable = solver.solve()
+            if satisfiable is False:
+                return 'UNSAT'
+            if satisfiable is None:
+                return 'UNKNOWN'
+            return solver.get_model() or []
+        finally:
+            solver.delete()
 
     def _record_tableau_clauses(self) -> None:
         for clause in self._tableau_clauses():

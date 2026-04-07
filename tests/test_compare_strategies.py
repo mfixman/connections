@@ -1,5 +1,6 @@
 from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
+import sys
 
 COMPARE_PATH = Path(__file__).resolve().parents[1] / 'compare_strategies.py'
 COMPARE_SPEC = spec_from_file_location('mypycop_compare_strategies', COMPARE_PATH)
@@ -111,3 +112,9 @@ class TestCompareStrategiesLogicSelection:
     def test_explicit_logic_override_wins(self):
         assert compare_strategies.resolve_logic_for_strategy('SATSolve', 'ClassicalCut') == 'ClassicalCut'
         assert compare_strategies.resolve_logic_for_strategy('FirstAction', 'ClassicalSAT') == 'ClassicalSAT'
+
+    def test_parse_args_accepts_sat_solver(self, monkeypatch):
+        monkeypatch.setattr(sys, 'argv', ['compare_strategies.py', '--sat-solver', 'pysat'])
+        args = compare_strategies.parse_args()
+
+        assert args.sat_solver == 'pysat'

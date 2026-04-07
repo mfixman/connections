@@ -17,7 +17,7 @@ from multiprocessing.connection import Connection, wait
 from pathlib import Path
 from typing import Optional
 
-from connections.env import ConnectionEnv, Logic, Settings
+from connections.env import ConnectionEnv, Logic, SAT_SOLVER_CHOICES, Settings
 from problem_inputs import expand_problem_inputs, resolve_problem_path
 from strategies import Strategy
 
@@ -106,6 +106,7 @@ def _run_problem(
     path: str,
     strategy_name: str,
     logic: str,
+    sat_solver: str,
     max_steps: int,
 ) -> None:
     """Worker function: run one strategy on one problem and send back a result."""
@@ -114,7 +115,7 @@ def _run_problem(
             with contextlib.redirect_stdout(devnull), contextlib.redirect_stderr(devnull):
                 logging.disable(logging.CRITICAL)
                 try:
-                    env = ConnectionEnv(path, Settings(logic=logic))
+                    env = ConnectionEnv(path, Settings(logic=logic, sat_solver=sat_solver))
                     strategy = Strategy.strategies()[strategy_name](env)
                     env.reset()
 
@@ -439,6 +440,7 @@ def run_tasks(
     problems: list[Path],
     strategies: list[str],
     logic_override: Optional[str],
+    sat_solver: str,
     max_steps: int,
     timeout: float,
     max_workers: int,
@@ -468,7 +470,7 @@ def run_tasks(
         parent_conn, child_conn = mp.Pipe(duplex=False)
         proc = mp.Process(
             target=_run_problem,
-            args=(child_conn, str(problem), strategy_name, logic, max_steps),
+            args=(child_conn, str(problem), strategy_name, logic, sat_solver, max_steps),
             daemon=True,
         )
         proc.start()
@@ -605,6 +607,10 @@ def parse_args() -> argparse.Namespace:
         help='logic to use for all strategies (default: strategy-dependent)',
     )
     parser.add_argument(
+        '--sat-solver', choices=SAT_SOLVER_CHOICES, default='pycosat', metavar='BACKEND',
+        help='SAT backend for ClassicalSAT/SearchSAT variants (default: pycosat)',
+    )
+    parser.add_argument(
         '--max-steps', type=int, default=50000, metavar='N',
         help='max steps per run (default: 50000)',
     )
@@ -666,7 +672,7 @@ def main() -> None:
 
     try:
         results, errors = run_tasks(
-            problems, strategies, args.logic, args.max_steps, args.timeout, max_workers,
+            problems, strategies, args.logic, args.sat_solver, args.max_steps, args.timeout, max_workers,
             args.steps, args.time, reporter, partial_state.results,
         )
 

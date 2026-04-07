@@ -75,17 +75,18 @@ class SATSolve(Strategy):
         return self.env.state.sat_literal_value(literal)
 
 class SATSolveLiteral(Strategy):
-    """Baseline SATCoP strategy from Rawson & Reger 2021 (Algorithm 2).
+    """Randomised SAT-aware baseline for ``ClassicalSAT``.
 
-    Implements the paper's key contributions without action scoring:
+    Implements the SAT-guided search control shared by the reference
+    ``satcop`` code, without action scoring:
     - Random action selection (order shuffled by the ClassicalSAT
       calculus — Sect. 5 randomisation).
     - Depth control: stays at the same iterative-deepening level
       while new ground clauses are being discovered; only increases
       depth when they stop (Sect. 5).
 
-    Grounding, UNSAT detection, model-based lemmata, and clause
-    randomisation are handled by the ClassicalSAT calculus.
+    Grounding, UNSAT detection, and clause randomisation are handled
+    by the ClassicalSAT calculus.
 
     Differences from the paper:
     - Restricted backtracking (Sect. 3, ref [32]) is a calculus-level
@@ -95,6 +96,9 @@ class SATSolveLiteral(Strategy):
     - Resets may occur mid-search at any dead end (not only after
       exhausting all start clauses), because start actions are
       regenerated on every return to root.
+    - The Python port does not auto-close goals from the SAT model.
+      The previous model-lemma shortcut was unsound on satisfiable
+      inputs such as ``SYN344-1``.
 
     Compared to SATSolve, the only change is that forward actions
     are selected randomly (first shuffled action) rather than scored

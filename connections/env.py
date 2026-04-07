@@ -78,6 +78,8 @@ class Domain(UncaseEnum):
     Cumulative = auto()
     Varying = auto()
 
+SAT_SOLVER_CHOICES = ('pycosat', 'pysat')
+
 @dataclass
 class Settings:
     positive_start_clauses: bool = True
@@ -88,6 +90,7 @@ class Settings:
     random_seed: int = 0
     logic: str = 'Classical'
     domain: Domain = Domain.Constant
+    sat_solver: str = 'pycosat'
 
 class ConnectionEnv:
     def __init__(self, path: str, settings: Optional[Settings] = None):
