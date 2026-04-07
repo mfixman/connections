@@ -44,7 +44,7 @@ def _run_problem(path: str, args) -> dict:
 
         action = strategy.step()
 
-        if args.print_ratio > 0 and random.randint(0, args.print_ratio - 1) == 1:
+        if args.print_ratio > 0 and random.randint(0, args.print_ratio - 1) == 0:
             print(action)
             if info:
                 print(info)
