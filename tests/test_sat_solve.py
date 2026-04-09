@@ -1,8 +1,13 @@
 import pytest
 
 import connections.calculi.classicalsat as classicalsat
+from types import SimpleNamespace
+
 from connections.env import ConnectionEnv, Settings
 from connections.calculi.classicalsat import pycosat
+from connections.calculi.classicalcut import Backtrack, Extension, Reset
+from connections.utils.primitives import Literal, Variable
+from connections.utils.tableau import Tableau
 from strategies import Strategy
 
 SYN344_1 = """\
@@ -102,13 +107,136 @@ def test_sat_connection_state_can_use_pysat_backend(monkeypatch):
     assert state.shadow.model == {1: True, 2: False}
     assert state.shadow.satisfiable is True
 
+def test_grounding_collapses_all_remaining_variables_to_one_fresh_constant():
+    state = object.__new__(classicalsat.SATConnectionState)
+    state.shadow = classicalsat.ShadowSAT()
+    state._ground_variable_constant = '__ground__'
+
+    lit1 = Literal('p', [Variable('X')])
+    lit2 = Literal('p', [Variable('Y')])
+
+    assert state._ground_literal(lit1) == state._ground_literal(lit2)
+
+def test_sat_solve_enables_paper_mode():
+    env = SimpleNamespace(
+        legal_actions = lambda: [],
+        state = SimpleNamespace(
+            sat_literal_value = lambda literal: None,
+            enable_paper_mode = lambda enabled = True: setattr(env.state, 'paper_mode', enabled),
+        ),
+    )
+
+    Strategy.strategies()['SATSolve'](env)
+
+    assert env.state.paper_mode is True
+
+def test_paper_mode_closed_tableau_restarts_same_iteration():
+    state = object.__new__(classicalsat.SATConnectionState)
+    state.paper_mode = True
+    state.goal = None
+    state.tableau = Tableau()
+    state.tableau.actions = {'rs': Reset(id = 'rs', depth = 2)}
+    state.proof_sequence = [Extension(id = 'ex0')]
+    state._cached_facts = {'fact'}
+    state.is_terminal = False
+    state.info = None
+
+    state._refresh_goal()
+
+    assert state.goal is state.tableau
+    assert state.goal.parent is None
+    assert 'rs' in state.goal.actions
+    assert state.is_terminal is False
+    assert state.proof_sequence == []
+    assert state._cached_facts == set()
+
+def test_paper_mode_skips_goal_when_model_assigns_false():
+    state = object.__new__(classicalsat.SATConnectionState)
+    state.paper_mode = True
+    state.tableau = Tableau()
+    state.tableau.actions = {'rs': Reset(id = 'rs', depth = 2)}
+    state.goal = Tableau(Literal('p', []), state.tableau)
+    state.tableau.children = [state.goal]
+    state.proof_sequence = []
+    state._cached_facts = set()
+    state.is_terminal = False
+    state.info = None
+    state.sat_literal_value = lambda literal: False if literal.symbol == 'p' else None
+
+    state._refresh_goal()
+
+    assert state.goal is state.tableau
+    assert state.goal.parent is None
+    assert state.is_terminal is False
+
+@pytest.mark.parametrize('strategy_name', ['SATSolve', 'SATSolveLiteral'])
+def test_sat_strategies_use_restricted_backtracking_on_forward_steps(strategy_name):
+    env = SimpleNamespace(
+        legal_actions = lambda: [Extension(id = 'ex0')],
+        state = SimpleNamespace(
+            goal = SimpleNamespace(parent = object()),
+            new_ground_clauses = lambda: set(),
+            sat_literal_value = lambda literal: None,
+            enable_paper_mode = lambda enabled = True: setattr(env.state, 'paper_mode', enabled),
+        ),
+    )
+    strategy = Strategy.strategies()[strategy_name](env)
+    action = strategy.step()
+
+    assert action.cut is True
+
+def test_sat_solve_uses_first_randomised_forward_action():
+    first = Extension(id = 'ex0')
+    second = Extension(id = 'ex1')
+    env = SimpleNamespace(
+        legal_actions = lambda: [first, second],
+        state = SimpleNamespace(
+            goal = SimpleNamespace(parent = object()),
+            new_ground_clauses = lambda: set(),
+            sat_literal_value = lambda literal: None,
+            enable_paper_mode = lambda enabled = True: setattr(env.state, 'paper_mode', enabled),
+        ),
+    )
+
+    strategy = Strategy.strategies()['SATSolve'](env)
+
+    assert strategy.step() is first
+
+@pytest.mark.parametrize('strategy_name', ['SATSolve', 'SATSolveLiteral'])
+def test_sat_strategies_only_reset_at_root_when_shadow_is_still_growing(strategy_name):
+    env = SimpleNamespace(
+        legal_actions = lambda: [Backtrack(id = 'bt'), Reset(id = 'rs', depth = 3)],
+        state = SimpleNamespace(
+            goal = SimpleNamespace(parent = object()),
+            new_ground_clauses = lambda: {(1,)},
+            sat_literal_value = lambda literal: None,
+            enable_paper_mode = lambda enabled = True: setattr(env.state, 'paper_mode', enabled),
+        ),
+    )
+    strategy = Strategy.strategies()[strategy_name](env)
+
+    assert isinstance(strategy.step(), Backtrack)
+
+def test_starts_do_not_duplicate_clause_indices_across_calls():
+    env = ConnectionEnv(
+        'tests/cnf_problems/SYN081+1.cnf',
+        Settings(logic = 'ClassicalCut'),
+    )
+
+    before = list(env.matrix.positive_clauses)
+    env.state.starts()
+    env.state.starts()
+
+    assert env.matrix.positive_clauses == before
+
+@pytest.mark.parametrize('strategy_name', ['SATSolve', 'SATSolveLiteral'])
 @pytest.mark.skipif(pycosat is None, reason = 'pycosat is not installed')
-def test_sat_solve_literal_does_not_refute_satisfiable_problem(tmp_path):
+def test_sat_strategies_do_not_refute_satisfiable_problem(tmp_path, strategy_name):
     problem = tmp_path / 'SYN344-1.p'
     problem.write_text(SYN344_1, encoding = 'utf-8')
 
     env = ConnectionEnv(str(problem), Settings(logic = 'ClassicalSAT'))
-    strategy = Strategy.strategies()['SATSolveLiteral'](env)
+    strategy = Strategy.strategies()[strategy_name](env)
     env.reset()
 
     done = False

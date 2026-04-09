@@ -36,6 +36,9 @@ def test_sat_backtrack_keeps_parent_frame_when_stepping_to_sibling():
             lit_idx = 0,
         ),
     ]
+    state._refresh_remaining_actions = lambda remaining_ids: {
+        action_id: Extension(id = action_id) for action_id in remaining_ids
+    }
 
     state.backtrack()
 

@@ -90,7 +90,7 @@ class ConnectionState:
 
     def starts(self) -> list[Start]:
         starts: list[Start] = []
-        start_clause_candidates = self.matrix.positive_clauses
+        start_clause_candidates = list(self.matrix.positive_clauses)
 
         if not self.settings.positive_start_clauses:
             start_clause_candidates += self.matrix.negative_clauses

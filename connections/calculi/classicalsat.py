@@ -12,6 +12,7 @@ from connections.calculi.classicalcut import (
     Start,
 )
 from connections.utils.primitives import Expression, Literal, Variable
+from connections.utils.unification import Substitution
 
 try:
     import pycosat
@@ -51,7 +52,15 @@ class SATConnectionState(ClassicalCut):
         self._require_sat_backend(self.sat_solver_backend)
         self.shadow = ShadowSAT()
         self.random = random.Random(settings.random_seed)
+        # Sect. 4.2 grounds every remaining tableau variable to the
+        # same fresh constant.  Keeping variable identities distinct
+        # makes the shadow CNF much less propositional than intended.
+        self._ground_variable_constant = '__ground__'
+        self.paper_mode = False
         super().__init__(matrix, settings)
+
+    def enable_paper_mode(self, enabled: bool = True) -> None:
+        self.paper_mode = enabled
 
     def sat_model(self) -> dict[int, bool]:
         return self.shadow.model
@@ -192,18 +201,29 @@ class SATConnectionState(ClassicalCut):
     def _refresh_goal(self) -> None:
         self.finalize_pending_cuts()
 
-        if self.goal is None:
-            self.info = 'Theorem'
-            self.is_terminal = True
-            return
+        while True:
+            if self.goal is None:
+                if self.paper_mode:
+                    self._restart_same_iteration()
+                    return
+                self.info = 'Theorem'
+                self.is_terminal = True
+                return
 
-        if self.goal.parent is None:
-            self.goal.actions = self.legal_actions()
-            return
+            if self.goal.parent is None:
+                self.goal.actions = self.legal_actions()
+                return
 
-        self.goal.actions = self.legal_forward_actions()
-        if not self.goal.actions:
-            self.analyze_failure()
+            if self.paper_mode and self._solved_by_model():
+                self.goal.proven = True
+                self.goal = self.goal.find_next()
+                self.finalize_pending_cuts()
+                continue
+
+            self.goal.actions = self.legal_forward_actions()
+            if not self.goal.actions:
+                self.analyze_failure()
+            return
 
     def _finish_iteration(self) -> None:
         if self.shadow.new_ground_clauses:
@@ -285,6 +305,21 @@ class SATConnectionState(ClassicalCut):
             clause = self.matrix.clauses[clause_idx]
             self.shadow.ground_clauses.add(self._ground_clause_without_substitution(clause))
 
+    def _restart_same_iteration(self) -> None:
+        from connections.utils.tableau import Tableau
+
+        remaining_actions = dict(self.tableau.actions)
+        self.tableau = Tableau()
+        self.tableau.actions = remaining_actions
+        self.goal = self.tableau
+        self.substitution = Substitution()
+        self.proof_sequence = []
+        self._cached_facts.clear()
+
+    def _solved_by_model(self) -> bool:
+        literals = self.goal.path() + [self.goal.literal]
+        return any(self.sat_literal_value(literal) is False for literal in literals)
+
     def _start_clause_indices(self) -> list[int]:
         clause_indices = list(self.matrix.positive_clauses)
         if not self.settings.positive_start_clauses:
@@ -306,7 +341,7 @@ class SATConnectionState(ClassicalCut):
 
     def _term_key(self, term: Expression) -> str:
         if isinstance(term, Variable):
-            return f'c_{term.symbol}_{term.copy_num}'
+            return self._ground_variable_constant
         if not isinstance(term, Expression) or not term.args:
             return str(term)
         args = ','.join(self._term_key(arg) for arg in term.args)
