@@ -54,9 +54,12 @@ class TestClassicalProblemParsing:
             with pytest.raises(ValueError, match='unsupported problem file'):
                 file2cnf(str(problem))
 
-    def test_raw_minus_problem_rejects_typed_cnf(self, tmp_path: Path):
+    def test_raw_minus_problem_parses_typed_cnf(self, tmp_path: Path):
         problem = tmp_path / 'SYN000-3.p'
-        problem.write_text("tcf(a,axiom,$true).\n")
+        problem.write_text("tcf(a,axiom, ! [X: $i] : ( p(X) | ~ q(a) )).\n")
 
-        with pytest.raises(ValueError, match='unsupported tcf statement'):
-            file2cnf(str(problem))
+        matrix = file2cnf(str(problem))
+
+        assert len(matrix.clauses) == 1
+        assert str(matrix.clauses[0][0]) == 'p(X)'
+        assert str(matrix.clauses[0][1]) == '-q(a)'

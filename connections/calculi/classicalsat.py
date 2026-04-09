@@ -99,7 +99,8 @@ class SATConnectionState(ClassicalCut):
     def starts(self) -> list[Start]:
         starts = super().starts()
         for action in starts:
-            action.clause_copy = self._shuffled_clause(action.clause_copy)
+            if action.clause_copy is not None:
+                action.clause_copy = self._shuffled_clause(action.clause_copy)
         self.random.shuffle(starts)
         return starts
 
@@ -189,6 +190,15 @@ class SATConnectionState(ClassicalCut):
             case Start(clause_copy = clause_copy):
                 if clause_copy is None:
                     self.info = 'Non-Theorem: no positive start clauses'
+                    self.is_terminal = True
+                    return
+
+                if clause_copy == []:
+                    # Degenerate start with an empty clause: there is no
+                    # subtree to inspect, so the ordinary tableau proof is
+                    # already complete. This occurs on translated $true/$false
+                    # edge cases when an actual empty clause survives parsing.
+                    self.info = 'Theorem'
                     self.is_terminal = True
                     return
 

@@ -1,3 +1,4 @@
+import os
 import pytest
 
 import connections.calculi.classicalsat as classicalsat
@@ -8,6 +9,7 @@ from connections.calculi.classicalsat import pycosat
 from connections.calculi.classicalcut import Backtrack, Extension, Reset
 from connections.utils.primitives import Literal, Variable
 from connections.utils.tableau import Tableau
+from problem_inputs import resolve_problem_path
 from strategies import Strategy
 
 SYN344_1 = """\
@@ -102,6 +104,46 @@ def test_sat_solve_handles_empty_start_clause_via_sat(tmp_path):
     assert env.state.is_terminal is True
     assert isinstance(env.state.info, str)
     assert env.state.info.startswith('Theorem (SAT)')
+
+@pytest.mark.skipif(pycosat is None, reason = 'pycosat is not installed')
+@pytest.mark.skipif(os.getenv('TPTP') is None, reason = 'TPTP is not set')
+def test_sat_solve_solves_tptp_syn000_3():
+    path = resolve_problem_path('SYN000-3.p')
+    env = ConnectionEnv(path, Settings(logic = 'ClassicalSAT'))
+    strategy = Strategy.strategies()['SATSolve'](env)
+    env.reset()
+
+    done = False
+    info = None
+    for _ in range(100):
+        action = strategy.step()
+        _, _, done, info = env.step(action)
+        if done:
+            break
+
+    assert done is True
+    assert isinstance(info, str)
+    assert info.startswith('Theorem (SAT)')
+
+@pytest.mark.skipif(pycosat is None, reason = 'pycosat is not installed')
+@pytest.mark.skipif(os.getenv('TPTP') is None, reason = 'TPTP is not set')
+@pytest.mark.parametrize('problem_name', ['SYN916+1.p', 'SYN916-1.p'])
+def test_sat_solve_rejects_degenerate_empty_translation(problem_name):
+    path = resolve_problem_path(problem_name)
+    env = ConnectionEnv(path, Settings(logic = 'ClassicalSAT'))
+    strategy = Strategy.strategies()['SATSolve'](env)
+    env.reset()
+
+    done = False
+    info = None
+    for _ in range(3):
+        action = strategy.step()
+        _, _, done, info = env.step(action)
+        if done:
+            break
+
+    assert done is True
+    assert info == 'Non-Theorem: no positive start clauses'
 
 def test_old_sat_logic_is_still_available():
     pytest.importorskip('pydical')

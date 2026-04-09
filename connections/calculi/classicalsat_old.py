@@ -214,7 +214,7 @@ class SATConnectionState:
                 )
             )
         if not starts:
-            starts.append(Start(id = "st0"))
+            starts.append(Start(id = "st0", clause_copy = None))
 
         return starts
 

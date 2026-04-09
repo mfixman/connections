@@ -68,6 +68,13 @@ def _status_label(result: Optional[dict]) -> str:
         return 'timeout'
     return result.get('status', 'error')
 
+def _is_success_info(status_info: object) -> bool:
+    if status_info == 'Theorem':
+        return True
+    if isinstance(status_info, str) and status_info.startswith('Theorem (SAT)'):
+        return True
+    return False
+
 def _recv_result(conn: Connection, proc: mp.Process) -> dict:
     try:
         return conn.recv()
@@ -139,7 +146,7 @@ def _run_problem(
                     elapsed = time.perf_counter() - start
 
                     status_info = info.get('status') if isinstance(info, dict) else info
-                    solved = status_info in {'Theorem', 'Theorem (SAT)'}
+                    solved = _is_success_info(status_info)
                     status = 'solved'
                     if not solved:
                         status = 'max_steps' if hit_max_steps else 'unsolved'

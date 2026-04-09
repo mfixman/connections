@@ -140,7 +140,7 @@ class ClassicalCut:
             clause_copy = self.matrix.copy(clause)
             starts.append(Start(id = "st" + str(len(starts)), clause_copy = clause_copy))
         if not starts:
-            starts.append(Start(id = "st0"))
+            starts.append(Start(id = "st0", clause_copy = None))
 
         return starts
 

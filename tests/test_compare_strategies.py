@@ -118,3 +118,10 @@ class TestCompareStrategiesLogicSelection:
         args = compare_strategies.parse_args()
 
         assert args.sat_solver == 'pysat'
+
+class TestCompareStrategiesSatStatus:
+    def test_theorem_sat_with_core_suffix_counts_as_success(self):
+        assert compare_strategies._is_success_info('Theorem (SAT); (1, 2); (-1,)') is True
+
+    def test_non_theorem_does_not_count_as_success(self):
+        assert compare_strategies._is_success_info('Non-Theorem: no positive start clauses') is False

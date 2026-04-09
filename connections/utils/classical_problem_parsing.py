@@ -87,7 +87,9 @@ def _parse_statement(
             return _parse_include_statement(s, current_path, seen)
         case s if s.startswith('cnf('):
             return _parse_cnf_statement(s, selected_names)
-        case s if s.startswith(('fof(', 'tff(', 'tcf(', 'thf(')):
+        case s if s.startswith('tcf('):
+            return _parse_tcf_statement(s, selected_names)
+        case s if s.startswith(('fof(', 'tff(', 'thf(')):
             head = s.split('(', 1)[0]
             raise ValueError(
                 f'unsupported {head} statement in raw CNF parser for {current_path}; '
@@ -119,6 +121,37 @@ def _parse_cnf_statement(statement: str, selected_names: set[str] | None) -> lis
     if clause is None:
         return []
     return [clause]
+
+def _parse_tcf_statement(statement: str, selected_names: set[str] | None) -> list[list[Literal]]:
+    """Parse one `tcf(...)` declaration as a typed CNF clause."""
+    inner = statement[len('tcf('):-1]
+    parts = _split_top_level(inner, ',')
+    if len(parts) < 3:
+        raise ValueError(f'malformed tcf statement: {statement[:80]}')
+
+    name = parts[0].strip()
+    if selected_names is not None and name not in selected_names:
+        return []
+
+    clause = _parse_tcf_clause(','.join(parts[2:]))
+    if clause is None:
+        return []
+    return [clause]
+
+def _parse_tcf_clause(formula_text: str) -> list[Literal] | None:
+    """Parse a typed CNF formula, discarding universal type prefixes."""
+    formula_text = _strip_tcf_quantifiers(formula_text)
+    return _parse_clause(formula_text)
+
+def _strip_tcf_quantifiers(text: str) -> str:
+    """Drop leading universal quantifiers from a TCF clause."""
+    text = _strip_outer_parens(text)
+    while text.startswith('!'):
+        split_at = _top_level_operator(text, ':')
+        if split_at < 0:
+            raise ValueError(f'malformed typed quantifier: {text[:80]}')
+        text = _strip_outer_parens(text[split_at + 1:])
+    return text
 
 def _translate_tptp_problem(path: Path) -> Matrix:
     """Translate raw TPTP FOF to connection CNF, then parse it."""
