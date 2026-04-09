@@ -69,6 +69,40 @@ def test_sat_solve_can_backtrack_to_root_without_crashing():
 
     assert env.state.goal is None or hasattr(env.state.goal, 'actions')
 
+@pytest.mark.skipif(pycosat is None, reason = 'pycosat is not installed')
+def test_sat_solve_solves_easy_syn_problem():
+    env = ConnectionEnv(
+        'tests/cnf_problems/SYN081+1.cnf',
+        Settings(logic = 'ClassicalSAT'),
+    )
+    strategy = Strategy.strategies()['SATSolve'](env)
+    env.reset()
+
+    done = False
+    info = None
+    for _ in range(100):
+        action = strategy.step()
+        _, _, done, info = env.step(action)
+        if done:
+            break
+
+    assert done is True
+    assert isinstance(info, str)
+    assert info.startswith('Theorem (SAT)')
+
+@pytest.mark.skipif(pycosat is None, reason = 'pycosat is not installed')
+def test_sat_solve_handles_empty_start_clause_via_sat(tmp_path):
+    problem = tmp_path / 'empty_start-1.p'
+    problem.write_text('cnf(c1,axiom,$false).', encoding = 'utf-8')
+
+    env = ConnectionEnv(str(problem), Settings(logic = 'ClassicalSAT'))
+    Strategy.strategies()['SATSolve'](env)
+    env.reset()
+
+    assert env.state.is_terminal is True
+    assert isinstance(env.state.info, str)
+    assert env.state.info.startswith('Theorem (SAT)')
+
 def test_old_sat_logic_is_still_available():
     pytest.importorskip('pydical')
     pytest.importorskip('pysat')

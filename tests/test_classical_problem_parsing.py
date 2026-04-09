@@ -53,3 +53,10 @@ class TestClassicalProblemParsing:
         with pytest.warns(UserWarning, match='unsupported problem file'):
             with pytest.raises(ValueError, match='unsupported problem file'):
                 file2cnf(str(problem))
+
+    def test_raw_minus_problem_rejects_typed_cnf(self, tmp_path: Path):
+        problem = tmp_path / 'SYN000-3.p'
+        problem.write_text("tcf(a,axiom,$true).\n")
+
+        with pytest.raises(ValueError, match='unsupported tcf statement'):
+            file2cnf(str(problem))

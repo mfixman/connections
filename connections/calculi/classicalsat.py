@@ -79,6 +79,16 @@ class SATConnectionState(ClassicalCut):
             self.shadow = ShadowSAT()
             self._seed_ground_with_start_clauses()
         super().reset(depth)
+        if depth is None and self.paper_mode:
+            self._solve_ground_clauses()
+            if self.shadow.satisfiable is False:
+                self.info = '; '.join(['Theorem (SAT)'] + [str(x) for x in self.shadow.ground_clauses])
+                self.is_terminal = True
+            else:
+                # Algorithm 2 only uses the SAT model after the first
+                # completed iteration.
+                self.shadow.model = {}
+                self.shadow.satisfiable = None
 
     def analyze_failure(self) -> None:
         return
@@ -130,7 +140,27 @@ class SATConnectionState(ClassicalCut):
 
             break
 
-        self._refresh_goal()
+        self.finalize_pending_cuts()
+
+        while True:
+            if self.goal is None:
+                if self.paper_mode:
+                    self._restart_same_iteration()
+                    return
+                self.info = 'Theorem'
+                self.is_terminal = True
+                return
+
+            if self.goal.parent is None:
+                return
+
+            if self.paper_mode and self._solved_by_model():
+                self.goal.proven = True
+                self.goal = self.goal.find_next()
+                self.finalize_pending_cuts()
+                continue
+
+            return
 
     def update_goal(self, action: ConnectionAction) -> None:
         if action.id in self.goal.actions:

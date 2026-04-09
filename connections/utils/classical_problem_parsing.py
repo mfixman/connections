@@ -87,6 +87,12 @@ def _parse_statement(
             return _parse_include_statement(s, current_path, seen)
         case s if s.startswith('cnf('):
             return _parse_cnf_statement(s, selected_names)
+        case s if s.startswith(('fof(', 'tff(', 'tcf(', 'thf(')):
+            head = s.split('(', 1)[0]
+            raise ValueError(
+                f'unsupported {head} statement in raw CNF parser for {current_path}; '
+                'use a supported untyped CNF problem or add a translation path'
+            )
         case _:
             return []
 
