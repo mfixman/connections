@@ -36,8 +36,7 @@ def _run_problem(path: str, args) -> dict:
     strategy = Strategy.strategies()[args.strategy](env)
     observation = env.reset()
 
-    done = False
-    info = None
+    done, info = env.state.initial_status()
 
     steps = 0
     while not done:

@@ -146,7 +146,7 @@ def run_trace(path: str, strategy_name: str, max_steps: int = 10000):
     print(sep)
 
     highlight = (strategy_name != 'FirstAction')
-    done = False
+    done, info = env.state.initial_status()
     step = 0
 
     while not done and step < max_steps:
@@ -157,7 +157,8 @@ def run_trace(path: str, strategy_name: str, max_steps: int = 10000):
 
     print(sep)
     if done:
-        print(f'  {GREEN()}{BOLD()}Theorem{RESET()}   ({step} steps)')
+        label = info if isinstance(info, str) and info else 'Theorem'
+        print(f'  {GREEN()}{BOLD()}{label}{RESET()}   ({step} steps)')
     else:
         print(f'  {RED()}Unknown (limit {max_steps}){RESET()}')
     print(f'{sep}\n')

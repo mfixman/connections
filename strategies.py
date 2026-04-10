@@ -1082,7 +1082,7 @@ class InitialSchedule(Strategy):
         super().__init__(env)
         self._slots = self._load_slots()
         self._slot_index = 0
-        self._slot_steps
+        self._slot_steps = 0
         self._active_strategy = self._instantiate_strategy(self._slots[0].strategy_name)
 
     @classmethod

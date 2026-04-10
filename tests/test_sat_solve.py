@@ -183,6 +183,44 @@ def test_sat_connection_state_can_use_pysat_backend(monkeypatch):
     assert state.shadow.model == {1: True, 2: False}
     assert state.shadow.satisfiable is True
 
+def test_initial_status_reports_unsat_shadow_result():
+    state = object.__new__(classicalsat.SATConnectionState)
+    state.shadow = classicalsat.ShadowSAT(
+        ground_clauses = {(1,), (-1,)},
+        satisfiable = False,
+    )
+
+    done, info = state.initial_status()
+
+    assert done is True
+    assert isinstance(info, str)
+    assert info.startswith('Theorem (SAT)')
+    assert '(1,)' in info
+    assert '(-1,)' in info
+
+def test_initial_status_reports_unsolved_shadow_result():
+    state = object.__new__(classicalsat.SATConnectionState)
+    state.shadow = classicalsat.ShadowSAT(
+        ground_clauses = {(1, -2)},
+        satisfiable = True,
+    )
+
+    done, info = state.initial_status()
+
+    assert done is False
+    assert info is None
+
+def test_classical_cut_initial_status_defaults_to_not_done():
+    env = ConnectionEnv(
+        'tests/cnf_problems/SYN081+1.cnf',
+        Settings(logic = 'ClassicalCut'),
+    )
+
+    done, info = env.state.initial_status()
+
+    assert done is False
+    assert info is None
+
 def test_grounding_collapses_all_remaining_variables_to_one_fresh_constant():
     state = object.__new__(classicalsat.SATConnectionState)
     state.shadow = classicalsat.ShadowSAT()

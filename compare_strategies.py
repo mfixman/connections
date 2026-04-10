@@ -126,8 +126,7 @@ def _run_problem(
                     strategy = Strategy.strategies()[strategy_name](env)
                     env.reset()
 
-                    done = False
-                    info = None
+                    done, info = env.state.initial_status()
                     steps = 0
                     hit_max_steps = False
                     start = time.perf_counter()

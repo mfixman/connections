@@ -68,6 +68,15 @@ class SATConnectionState(ClassicalCut):
     def sat_status(self) -> Optional[bool]:
         return self.shadow.satisfiable
 
+    def initial_status(self) -> tuple[bool, Optional[str]]:
+        if self.shadow.satisfiable is not False:
+            return False, None
+        info = '; '.join(['Theorem (SAT)'] + [str(x) for x in self.shadow.ground_clauses])
+        return True, info
+
+    def sat_solved(self) -> tuple[bool, Optional[str]]:
+        return self.initial_status()
+
     def ground_clauses(self) -> set[tuple[int, ...]]:
         return self.shadow.ground_clauses
 
@@ -81,8 +90,9 @@ class SATConnectionState(ClassicalCut):
         super().reset(depth)
         if depth is None and self.paper_mode:
             self._solve_ground_clauses()
-            if self.shadow.satisfiable is False:
-                self.info = '; '.join(['Theorem (SAT)'] + [str(x) for x in self.shadow.ground_clauses])
+            done, info = self.initial_status()
+            if done:
+                self.info = info
                 self.is_terminal = True
             else:
                 # Algorithm 2 only uses the SAT model after the first
@@ -270,8 +280,9 @@ class SATConnectionState(ClassicalCut):
             self.shadow.ground_clauses |= self.shadow.new_ground_clauses
             self.shadow.new_ground_clauses = set()
         self._solve_ground_clauses()
-        if self.shadow.satisfiable is False:
-            self.info = '; '.join(['Theorem (SAT)'] + [str(x) for x in self.shadow.ground_clauses])
+        done, info = self.initial_status()
+        if done:
+            self.info = info
             self.is_terminal = True
 
     def _solve_ground_clauses(self) -> None:

@@ -145,6 +145,14 @@ class SATConnectionState:
         self.is_terminal = False
         self.proof_sequence = []
 
+    def initial_status(self):
+        if not self.is_terminal:
+            return False, None
+        if not self.info:
+            return True, None
+        status = self.info.get('status')
+        return True, status if status is not None else self.info
+
     # Converts a logical Literal to a SAT integer.
     def ground_literal(self, literal: Literal) -> int:
         # Apply substitution to get the most grounded version

@@ -129,6 +129,9 @@ class ClassicalCut:
         # current proof path, to avoid recomputing from proof_sequence.
         self._cached_facts: set[ConnectionFact] = set()
 
+    def initial_status(self) -> tuple[bool, Optional[str]]:
+        return False, None
+
     def starts(self) -> list[Start]:
         starts: list[Start] = []
         start_clause_candidates = list(self.matrix.positive_clauses)

@@ -88,6 +88,9 @@ class ConnectionState:
         self.is_terminal = False
         self.proof_sequence = []
 
+    def initial_status(self) -> tuple[bool, Optional[str]]:
+        return False, None
+
     def starts(self) -> list[Start]:
         starts: list[Start] = []
         start_clause_candidates = list(self.matrix.positive_clauses)

@@ -125,3 +125,59 @@ class TestCompareStrategiesSatStatus:
 
     def test_non_theorem_does_not_count_as_success(self):
         assert compare_strategies._is_success_info('Non-Theorem: no positive start clauses') is False
+
+class TestCompareStrategiesInitialStatus:
+    def test_run_problem_counts_initial_status_as_zero_steps(self, monkeypatch):
+        sent = {}
+
+        class FakeConn:
+            def send(self, result):
+                sent.update(result)
+
+            def close(self):
+                pass
+
+        class FakeEnv:
+            def __init__(self, path, settings):
+                self.state = type(
+                    'State',
+                    (),
+                    {
+                        'initial_status': lambda self: (True, 'Theorem (SAT)'),
+                    },
+                )()
+
+            def reset(self):
+                return None
+
+            def step(self, action):
+                raise AssertionError('env.step should not be called after initial_status succeeds')
+
+        class FakeStrategy:
+            def __init__(self, env):
+                self.env = env
+
+            def step(self):
+                raise AssertionError('strategy.step should not be called after initial_status succeeds')
+
+        class FakeStrategyRegistry:
+            @staticmethod
+            def strategies():
+                return {'SATSolve': FakeStrategy}
+
+        monkeypatch.setattr(compare_strategies, 'ConnectionEnv', FakeEnv)
+        monkeypatch.setattr(compare_strategies, 'Strategy', FakeStrategyRegistry)
+
+        compare_strategies._run_problem(
+            FakeConn(),
+            'dummy.p',
+            'SATSolve',
+            'ClassicalSAT',
+            'pycosat',
+            100,
+        )
+
+        assert sent['status'] == 'solved'
+        assert sent['solved'] is True
+        assert sent['steps'] == 0
+        assert sent['info'] == 'Theorem (SAT)'
