@@ -28,6 +28,30 @@ def translate_logic(file: str, logic: Logic) -> str:
             os.killpg(os.getpgid(process.pid), signal.SIGTERM)
 
     return str(output)
+
+def _final_closed_tableau(state) -> str | None:
+    tableau = getattr(state, 'tableau', None)
+    if tableau is None:
+        return None
+
+    if getattr(tableau, 'children', None):
+        return '\n'.join(str(child) for child in tableau.children)
+
+    if getattr(tableau, 'literal', None) is not None:
+        return str(tableau)
+
+    return None
+
+def _format_debug_info(state, info, debug: bool):
+    if not debug or info != 'Theorem':
+        return info
+
+    closed_tableau = _final_closed_tableau(state)
+    if not closed_tableau:
+        return info
+
+    return f'Theorem\n{closed_tableau}'
+
 def _run_problem(path: str, args) -> dict:
     env = ConnectionEnv(
         path,
@@ -63,6 +87,8 @@ def _run_problem(path: str, args) -> dict:
             steps = args.max_steps - 1
 
         steps += 1
+
+    info = _format_debug_info(env.state, info, args.debug)
 
     if info is None:
         info = {}

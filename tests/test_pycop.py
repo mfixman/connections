@@ -1,5 +1,6 @@
 from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
+from types import SimpleNamespace
 
 PYCOP_PATH = Path(__file__).resolve().parents[1] / 'pycop.py'
 PYCOP_SPEC = spec_from_file_location('mypycop_pycop', PYCOP_PATH)
@@ -58,3 +59,102 @@ class TestPycopProblemResolution:
             assert temp_path.read_text(encoding = 'utf-8') == raw_problem
 
         assert not temp_path.exists()
+
+class TestPycopDebugOutput:
+    def test_run_problem_shows_closed_tree_for_theorem_when_debug_enabled(self, monkeypatch):
+        class FakeNode:
+            def __str__(self):
+                return '└── p(a)'
+
+        class FakeEnv:
+            def __init__(self, path, settings):
+                self.state = SimpleNamespace(
+                    initial_status = lambda: (False, None),
+                    tableau = SimpleNamespace(children = [FakeNode()], literal = None),
+                )
+
+            def reset(self):
+                return None
+
+            def step(self, action):
+                return None, 1, True, 'Theorem'
+
+        class FakeStrategy:
+            def __init__(self, env):
+                self.env = env
+
+            def step(self):
+                return 'stub-action'
+
+        class FakeStrategyRegistry:
+            @staticmethod
+            def strategies():
+                return {'FirstAction': FakeStrategy}
+
+        monkeypatch.setattr(pycop, 'ConnectionEnv', FakeEnv)
+        monkeypatch.setattr(pycop, 'Strategy', FakeStrategyRegistry)
+
+        result = pycop._run_problem(
+            'dummy.p',
+            SimpleNamespace(
+                logic = 'Classical',
+                domain = 'Constant',
+                sat_solver = 'pycosat',
+                debug = True,
+                strategy = 'FirstAction',
+                max_steps = 10,
+                print_ratio = 0,
+            ),
+        )
+
+        assert result['info'] == 'Theorem\n└── p(a)'
+        assert result['steps'] == 1
+
+    def test_run_problem_keeps_plain_theorem_without_debug(self, monkeypatch):
+        class FakeNode:
+            def __str__(self):
+                return '└── p(a)'
+
+        class FakeEnv:
+            def __init__(self, path, settings):
+                self.state = SimpleNamespace(
+                    initial_status = lambda: (False, None),
+                    tableau = SimpleNamespace(children = [FakeNode()], literal = None),
+                )
+
+            def reset(self):
+                return None
+
+            def step(self, action):
+                return None, 1, True, 'Theorem'
+
+        class FakeStrategy:
+            def __init__(self, env):
+                self.env = env
+
+            def step(self):
+                return 'stub-action'
+
+        class FakeStrategyRegistry:
+            @staticmethod
+            def strategies():
+                return {'FirstAction': FakeStrategy}
+
+        monkeypatch.setattr(pycop, 'ConnectionEnv', FakeEnv)
+        monkeypatch.setattr(pycop, 'Strategy', FakeStrategyRegistry)
+
+        result = pycop._run_problem(
+            'dummy.p',
+            SimpleNamespace(
+                logic = 'Classical',
+                domain = 'Constant',
+                sat_solver = 'pycosat',
+                debug = False,
+                strategy = 'FirstAction',
+                max_steps = 10,
+                print_ratio = 0,
+            ),
+        )
+
+        assert result['info'] == 'Theorem'
+        assert result['steps'] == 1
