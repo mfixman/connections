@@ -292,7 +292,7 @@ class ClassicalCut:
         back = cast(list[ConnectionAction], self.backtracks() + self.resets())
         return {**self.legal_forward_actions(), **{a.id: a for a in back}}
 
-    def _refresh_remaining_actions(self, remaining_ids: set[str]) -> dict[str, ConnectionAction]:
+    def _refresh_remaining_actions(self, remaining_ids: list[str]) -> dict[str, ConnectionAction]:
         """Recompute the current node's actions after substitution rewind."""
         if self.goal.parent is None:
             fresh_actions = self.legal_actions()
@@ -308,7 +308,7 @@ class ClassicalCut:
             old_goal = self.goal
             self.goal = self.goal.find_prev()
             pop_frame = (self.goal is old_goal.parent)
-            remaining_ids = set(self.goal.actions)
+            remaining_ids = list(self.goal.actions)
 
             if pop_frame and self.proof_sequence:
                 popped = self.proof_sequence.pop()

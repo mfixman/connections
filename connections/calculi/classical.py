@@ -173,7 +173,7 @@ class ConnectionState:
 
         return {action.id: action for action in actions}
 
-    def _refresh_remaining_actions(self, remaining_ids: set[str]) -> dict[str, ConnectionAction]:
+    def _refresh_remaining_actions(self, remaining_ids: list[str]) -> dict[str, ConnectionAction]:
         """Recompute actions under the restored substitution.
 
         Backtracking changes the substitution state, so any cached
@@ -193,7 +193,7 @@ class ConnectionState:
             old_goal = self.goal
             self.goal = self.goal.find_prev()
             pop_frame = (self.goal is old_goal.parent)
-            remaining_ids = set(self.goal.actions)
+            remaining_ids = list(self.goal.actions)
 
             if pop_frame and self.proof_sequence:
                 self.proof_sequence.pop()

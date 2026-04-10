@@ -1,6 +1,11 @@
 from pathlib import Path
 
+import pytest
+
 from connections.env import ConnectionEnv, Settings
+from connections.calculi.classicalcut import Extension, Start
+from connections.utils.primitives import Literal
+from connections.utils.tableau import Tableau
 from strategies import FirstAction
 
 
@@ -153,3 +158,41 @@ class TestBacktrackRegression:
     def test_cat003_backtracking_recomputes_fresh_actions(self, tmp_path: Path):
         problem_path = _write_cat_problem(tmp_path, "CAT003-3.p", CAT003_PROBLEM)
         _run_steps(problem_path)
+
+    @pytest.mark.parametrize("logic", ["Classical", "ClassicalCut"])
+    def test_backtrack_preserves_remaining_action_order(self, logic: str):
+        env = ConnectionEnv('tests/cnf_problems/SYN081+1.cnf', Settings(logic = logic))
+        state = env.reset()
+
+        parent = Tableau(Literal('parent', []), state.tableau)
+        proven = Tableau(Literal('done', []), parent)
+        current = Tableau(Literal('current', []), parent)
+        proven.proven = True
+        current.actions = {}
+        parent.actions = {'ex1': Extension(id = 'ex1'), 'ex2': Extension(id = 'ex2')}
+        parent.children = [proven, current]
+        state.tableau.children = [parent]
+        state.goal = current
+
+        state.substitution.trail = [[], []]
+        state.proof_sequence = [
+            Start(id = 'st0'),
+            Extension(
+                id = 'ex0',
+                principle_node = parent,
+                clause_copy = [proven.literal, current.literal],
+                lit_idx = 0,
+            ),
+        ]
+
+        captured = {}
+
+        def fake_refresh(remaining_ids):
+            captured['remaining_ids'] = remaining_ids
+            return {action_id: Extension(id = action_id) for action_id in remaining_ids}
+
+        state._refresh_remaining_actions = fake_refresh
+
+        state.backtrack()
+
+        assert captured['remaining_ids'] == ['ex1', 'ex2']
