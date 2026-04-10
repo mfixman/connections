@@ -91,6 +91,7 @@ class Settings:
     logic: str = 'Classical'
     domain: Domain = Domain.Constant
     sat_solver: str = 'pycosat'
+    debug: bool = False
 
 class ConnectionEnv:
     def __init__(self, path: str, settings: Optional[Settings] = None):

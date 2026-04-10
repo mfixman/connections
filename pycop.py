@@ -31,7 +31,12 @@ def translate_logic(file: str, logic: Logic) -> str:
 def _run_problem(path: str, args) -> dict:
     env = ConnectionEnv(
         path,
-        Settings(logic = args.logic, domain = args.domain, sat_solver = args.sat_solver),
+        Settings(
+            logic = args.logic,
+            domain = args.domain,
+            sat_solver = args.sat_solver,
+            debug = args.debug,
+        ),
     )
     strategy = Strategy.strategies()[args.strategy](env)
     observation = env.reset()

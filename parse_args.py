@@ -16,6 +16,7 @@ def parse_args():
     parser.add_argument('--print-ratio', '-pr', type = int, default = 1, help = 'Ratio of messages to be printed')
     parser.add_argument('--max-steps', default = 100000, type = int, help = 'Maximum amount of steps before breaking.')
     parser.add_argument('--verbose', '-v', action = 'store_true', help = 'Verbose messages.')
+    parser.add_argument('--debug', action = 'store_true', help = 'Print extra debug information.')
     parser.add_argument('--strategy', default = 'FirstAction', choices = Strategy.strategies().keys(), help = 'Strategy to use')
     parser.add_argument(
         "file",

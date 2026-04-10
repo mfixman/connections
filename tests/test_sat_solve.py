@@ -183,10 +183,47 @@ def test_sat_connection_state_can_use_pysat_backend(monkeypatch):
     assert state.shadow.model == {1: True, 2: False}
     assert state.shadow.satisfiable is True
 
+def test_unsat_core_is_reduced_before_reporting():
+    state = object.__new__(classicalsat.SATConnectionState)
+    state.settings = SimpleNamespace(debug = True)
+    state.shadow = classicalsat.ShadowSAT(
+        ground_clauses = {(1,), (-1,), (2, 3)},
+        expanded_clauses = {
+            (1,): ('p(a)',),
+            (-1,): ('-p(a)',),
+            (2, 3): ('q(a)', 'r(a)'),
+        },
+    )
+
+    def fake_solve(clauses):
+        clause_set = {tuple(clause) for clause in clauses}
+        if (1,) in clause_set and (-1,) in clause_set:
+            return 'UNSAT'
+        return [1]
+
+    state._solve_shadow_cnf = fake_solve
+
+    state._solve_ground_clauses()
+
+    assert state.shadow.satisfiable is False
+    assert state.shadow.unsat_core == ((1,), (-1,)) or state.shadow.unsat_core == ((-1,), (1,))
+    done, info = state.initial_status()
+    assert done is True
+    assert 'q(a)' not in info
+    assert '(p(a))' in info
+    assert '(-p(a))' in info
+
 def test_initial_status_reports_unsat_shadow_result():
     state = object.__new__(classicalsat.SATConnectionState)
+    state.settings = SimpleNamespace(debug = True)
     state.shadow = classicalsat.ShadowSAT(
-        ground_clauses = {(1,), (-1,)},
+        ground_clauses = {(1,), (-1,), (2, 3)},
+        expanded_clauses = {
+            (1,): ('p(a)',),
+            (-1,): ('-p(a)',),
+            (2, 3): ('q(a)', 'r(a)'),
+        },
+        unsat_core = ((1,), (-1,)),
         satisfiable = False,
     )
 
@@ -195,8 +232,27 @@ def test_initial_status_reports_unsat_shadow_result():
     assert done is True
     assert isinstance(info, str)
     assert info.startswith('Theorem (SAT)')
-    assert '(1,)' in info
-    assert '(-1,)' in info
+    assert '(p(a))' in info
+    assert '(-p(a))' in info
+    assert 'q(a)' not in info
+
+def test_initial_status_is_terse_without_debug():
+    state = object.__new__(classicalsat.SATConnectionState)
+    state.settings = SimpleNamespace(debug = False)
+    state.shadow = classicalsat.ShadowSAT(
+        ground_clauses = {(1,), (-1,)},
+        expanded_clauses = {
+            (1,): ('p(a)',),
+            (-1,): ('-p(a)',),
+        },
+        unsat_core = ((1,), (-1,)),
+        satisfiable = False,
+    )
+
+    done, info = state.initial_status()
+
+    assert done is True
+    assert info == 'Theorem (SAT)'
 
 def test_initial_status_reports_unsolved_shadow_result():
     state = object.__new__(classicalsat.SATConnectionState)

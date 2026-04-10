@@ -34,6 +34,8 @@ class ShadowSAT:
     atom_map: dict[str, int] = field(default_factory = dict)
     ground_clauses: set[tuple[int, ...]] = field(default_factory = set)
     new_ground_clauses: set[tuple[int, ...]] = field(default_factory = set)
+    expanded_clauses: dict[tuple[int, ...], tuple[str, ...]] = field(default_factory = dict)
+    unsat_core: tuple[tuple[int, ...], ...] = field(default_factory = tuple)
     model: dict[int, bool] = field(default_factory = dict)
     satisfiable: Optional[bool] = None
 
@@ -71,7 +73,12 @@ class SATConnectionState(ClassicalCut):
     def initial_status(self) -> tuple[bool, Optional[str]]:
         if self.shadow.satisfiable is not False:
             return False, None
-        info = '; '.join(['Theorem (SAT)'] + [str(x) for x in self.shadow.ground_clauses])
+        if not self._debug_enabled():
+            return True, 'Theorem (SAT)'
+
+        clauses = self.shadow.unsat_core or self._sorted_shadow_clauses(self.shadow.ground_clauses)
+        expanded = [self._expanded_clause_for_debug(clause) for clause in clauses]
+        info = '; '.join(['Theorem (SAT)'] + [self._format_expanded_clause(clause) for clause in expanded])
         return True, info
 
     def sat_solved(self) -> tuple[bool, Optional[str]]:
@@ -245,8 +252,8 @@ class SATConnectionState(ClassicalCut):
         return value if sat_lit > 0 else (not value)
 
     def ground_clause(self, clause: list[Literal]) -> tuple[int, ...]:
-        grounded = {self._ground_literal(self.substitution(lit)) for lit in clause}
-        return tuple(sorted(grounded, key = lambda lit: (abs(lit), lit < 0)))
+        grounded_clause, _ = self._ground_clause_data(clause, apply_substitution = True)
+        return grounded_clause
 
     def _refresh_goal(self) -> None:
         self.finalize_pending_cuts()
@@ -287,18 +294,22 @@ class SATConnectionState(ClassicalCut):
 
     def _solve_ground_clauses(self) -> None:
         if not self.shadow.ground_clauses:
+            self.shadow.unsat_core = ()
             self.shadow.model = {}
             self.shadow.satisfiable = True
             return
 
         result = self._solve_shadow_cnf([list(clause) for clause in self.shadow.ground_clauses])
         if result == 'UNSAT':
+            self.shadow.unsat_core = self._shrink_unsat_core(self.shadow.ground_clauses)
             self.shadow.model = {}
             self.shadow.satisfiable = False
         elif result == 'UNKNOWN':
+            self.shadow.unsat_core = ()
             self.shadow.model = {}
             self.shadow.satisfiable = None
         else:
+            self.shadow.unsat_core = ()
             self.shadow.model = {abs(lit): lit > 0 for lit in result if lit != 0}
             self.shadow.satisfiable = True
 
@@ -337,24 +348,43 @@ class SATConnectionState(ClassicalCut):
             solver.delete()
 
     def _record_tableau_clauses(self) -> None:
-        for clause in self._tableau_clauses():
+        for clause, expanded in self._tableau_clauses():
+            self.shadow.expanded_clauses.setdefault(clause, expanded)
             if clause not in self.shadow.ground_clauses:
                 self.shadow.new_ground_clauses.add(clause)
 
-    def _tableau_clauses(self) -> set[tuple[int, ...]]:
+    def _shrink_unsat_core(self, clauses: set[tuple[int, ...]]) -> tuple[tuple[int, ...], ...]:
+        """Greedily delete redundant clauses to get a small UNSAT core."""
+        core = list(self._sorted_shadow_clauses(clauses))
+        idx = 0
+        while idx < len(core):
+            trial = core[:idx] + core[idx + 1:]
+            result = self._solve_shadow_cnf([list(clause) for clause in trial])
+            if result == 'UNSAT':
+                core = trial
+                continue
+            idx += 1
+        return tuple(core)
+
+    def _sorted_shadow_clauses(self, clauses: set[tuple[int, ...]]) -> tuple[tuple[int, ...], ...]:
+        return tuple(sorted(clauses, key = lambda clause: (-len(clause), clause)))
+
+    def _tableau_clauses(self) -> set[tuple[tuple[int, ...], tuple[str, ...]]]:
         clauses = set()
         stack = [self.tableau]
         while stack:
             node = stack.pop()
             if node.children:
-                clauses.add(self.ground_clause([child.literal for child in node.children]))
+                clauses.add(self._ground_clause_data([child.literal for child in node.children], apply_substitution = True))
             stack.extend(node.children)
         return clauses
 
     def _seed_ground_with_start_clauses(self) -> None:
         for clause_idx in self._start_clause_indices():
             clause = self.matrix.clauses[clause_idx]
-            self.shadow.ground_clauses.add(self._ground_clause_without_substitution(clause))
+            grounded_clause, expanded_clause = self._ground_clause_data(clause, apply_substitution = False)
+            self.shadow.ground_clauses.add(grounded_clause)
+            self.shadow.expanded_clauses[grounded_clause] = expanded_clause
 
     def _restart_same_iteration(self) -> None:
         from connections.utils.tableau import Tableau
@@ -378,13 +408,53 @@ class SATConnectionState(ClassicalCut):
         return clause_indices
 
     def _ground_clause_without_substitution(self, clause: list[Literal]) -> tuple[int, ...]:
-        grounded = {self._ground_literal(lit) for lit in clause}
-        return tuple(sorted(grounded, key = lambda lit: (abs(lit), lit < 0)))
+        grounded_clause, _ = self._ground_clause_data(clause, apply_substitution = False)
+        return grounded_clause
+
+    def _ground_clause_data(
+        self,
+        clause: list[Literal],
+        *,
+        apply_substitution: bool,
+    ) -> tuple[tuple[int, ...], tuple[str, ...]]:
+        grounded_pairs = {}
+        for literal in clause:
+            grounded_literal = self.substitution(literal) if apply_substitution else literal
+            sat_literal = self._ground_literal(grounded_literal)
+            grounded_pairs[sat_literal] = self._debug_literal(grounded_literal)
+
+        ordered_pairs = tuple(sorted(grounded_pairs.items(), key = lambda item: (abs(item[0]), item[0] < 0)))
+        return (
+            tuple(sat_literal for sat_literal, _ in ordered_pairs),
+            tuple(debug_literal for _, debug_literal in ordered_pairs),
+        )
 
     def _ground_literal(self, literal: Literal) -> int:
         atom = self._atom_key(literal)
         atom_id = self.shadow.atom_id(atom)
         return -atom_id if literal.neg else atom_id
+
+    def _debug_enabled(self) -> bool:
+        return bool(getattr(getattr(self, 'settings', None), 'debug', False))
+
+    def _expanded_clause_for_debug(self, clause: tuple[int, ...]) -> tuple[str, ...]:
+        return self.shadow.expanded_clauses.get(clause, tuple(str(lit) for lit in clause))
+
+    def _format_expanded_clause(self, clause: tuple[str, ...]) -> str:
+        return '(' + ', '.join(clause) + ')'
+
+    def _debug_literal(self, literal: Literal) -> str:
+        args = ', '.join(self._debug_term(arg) for arg in literal.args)
+        atom = f'{literal.symbol}({args})' if args else literal.symbol
+        return f'-{atom}' if literal.neg else atom
+
+    def _debug_term(self, term: Expression) -> str:
+        if isinstance(term, Variable):
+            return self._ground_variable_constant
+        if not isinstance(term, Expression) or not term.args:
+            return str(term)
+        args = ', '.join(self._debug_term(arg) for arg in term.args)
+        return f'{term.symbol}({args})'
 
     def _atom_key(self, literal: Literal) -> str:
         args = ','.join(self._term_key(arg) for arg in literal.args)
