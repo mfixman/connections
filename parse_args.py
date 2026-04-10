@@ -4,7 +4,7 @@ from connections.env import *
 
 def parse_args():
     parser = argparse.ArgumentParser(description = 'Python equivalent of version 1.0f of leanCoP, ileanCoP, and mleanCoP')
-    parser.add_argument('--logic', default = Logic.Classical, choices = list(Logic), type = Logic, help = "Which logic")
+    parser.add_argument('--logic', default = None, choices = list(Logic), type = Logic, help = "Which logic")
     parser.add_argument('--domain', default = Domain.Constant, choices = list(Domain), type = Domain, help = "Which domain")
     parser.add_argument(
         '--sat-solver',

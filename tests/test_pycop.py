@@ -158,3 +158,122 @@ class TestPycopDebugOutput:
 
         assert result['info'] == 'Theorem'
         assert result['steps'] == 1
+
+class TestPycopLogicSelection:
+    def test_default_logic_for_strategy_uses_classical_for_first_action(self):
+        assert pycop.default_logic_for_strategy('FirstAction') == 'Classical'
+
+    def test_default_logic_for_strategy_uses_classical_cut_for_leancopcut(self):
+        assert pycop.default_logic_for_strategy('LeanCopCut') == 'ClassicalCut'
+
+    def test_default_logic_for_strategy_uses_classical_sat_for_sat_solve(self):
+        assert pycop.default_logic_for_strategy('SATSolve') == 'ClassicalSAT'
+
+    def test_resolve_logic_for_strategy_honours_explicit_override(self):
+        assert pycop.resolve_logic_for_strategy('LeanCopCut', 'Classical') == 'Classical'
+
+    def test_run_problem_uses_strategy_default_logic(self, monkeypatch):
+        seen = {}
+
+        class FakeEnv:
+            def __init__(self, path, settings):
+                seen['logic'] = settings.logic
+                self.state = SimpleNamespace(
+                    initial_status = lambda: (True, 'Theorem'),
+                    tableau = SimpleNamespace(children = [], literal = None),
+                )
+
+            def reset(self):
+                return None
+
+        class FakeStrategy:
+            def __init__(self, env):
+                self.env = env
+
+        class FakeStrategyRegistry:
+            @staticmethod
+            def strategies():
+                return {'LeanCopCut': FakeStrategy}
+
+        monkeypatch.setattr(pycop, 'ConnectionEnv', FakeEnv)
+        monkeypatch.setattr(pycop, 'Strategy', FakeStrategyRegistry)
+
+        result = pycop._run_problem(
+            'dummy.p',
+            SimpleNamespace(
+                logic = None,
+                domain = 'Constant',
+                sat_solver = 'pycosat',
+                debug = False,
+                strategy = 'LeanCopCut',
+                max_steps = 10,
+                print_ratio = 0,
+            ),
+        )
+
+        assert seen['logic'] == 'ClassicalCut'
+        assert result['info'] == 'Theorem'
+
+    def test_run_problem_keeps_explicit_logic_override(self, monkeypatch):
+        seen = {}
+
+        class FakeEnv:
+            def __init__(self, path, settings):
+                seen['logic'] = settings.logic
+                self.state = SimpleNamespace(
+                    initial_status = lambda: (True, 'Theorem'),
+                    tableau = SimpleNamespace(children = [], literal = None),
+                )
+
+            def reset(self):
+                return None
+
+        class FakeStrategy:
+            def __init__(self, env):
+                self.env = env
+
+        class FakeStrategyRegistry:
+            @staticmethod
+            def strategies():
+                return {'LeanCopCut': FakeStrategy}
+
+        monkeypatch.setattr(pycop, 'ConnectionEnv', FakeEnv)
+        monkeypatch.setattr(pycop, 'Strategy', FakeStrategyRegistry)
+
+        result = pycop._run_problem(
+            'dummy.p',
+            SimpleNamespace(
+                logic = 'Classical',
+                domain = 'Constant',
+                sat_solver = 'pycosat',
+                debug = False,
+                strategy = 'LeanCopCut',
+                max_steps = 10,
+                print_ratio = 0,
+            ),
+        )
+
+        assert seen['logic'] == 'Classical'
+        assert result['info'] == 'Theorem'
+
+class TestPycopPrinting:
+    def test_print_result_keeps_single_line_info_inline(self, capsys):
+        pycop._print_result({'info': 'Theorem', 'steps': 1})
+
+        captured = capsys.readouterr()
+
+        assert captured.out == "{'info': 'Theorem', 'steps': 1}\n"
+
+    def test_print_result_renders_multiline_info_as_block(self, capsys):
+        pycop._print_result({'info': 'Theorem\n└── p(a)', 'steps': 1})
+
+        captured = capsys.readouterr()
+
+        assert captured.out == "{'steps': 1}\nTheorem\n└── p(a)\n"
+
+    def test_print_result_keeps_problem_label_for_multiline_info(self, capsys):
+        pycop._print_result({'info': 'Theorem\n└── p(a)', 'steps': 1}, 'SWV904-1.p')
+
+        captured = capsys.readouterr()
+
+        assert captured.out == "{'problem': 'SWV904-1.p', 'steps': 1}\nTheorem\n└── p(a)\n"

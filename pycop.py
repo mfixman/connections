@@ -17,6 +17,18 @@ import ipdb
 
 from strategies import *
 
+def default_logic_for_strategy(strategy_name: str) -> str:
+    if strategy_name in ('SATSolve', 'SATSolveLiteral'):
+        return str(Logic.ClassicalSAT)
+    if strategy_name == 'FirstAction':
+        return str(Logic.Classical)
+    return str(Logic.ClassicalCut)
+
+def resolve_logic_for_strategy(strategy_name: str, logic_override):
+    if logic_override is not None:
+        return logic_override
+    return default_logic_for_strategy(strategy_name)
+
 def translate_logic(file: str, logic: Logic) -> str:
     translator_path = Path('translation') / str(logic) / 'translate.sh'
 
@@ -52,11 +64,25 @@ def _format_debug_info(state, info, debug: bool):
 
     return f'Theorem\n{closed_tableau}'
 
+def _print_result(result: dict, problem: str | None = None) -> None:
+    payload = ({'problem': problem} | result) if problem is not None else result
+    info = payload.get('info')
+
+    if not isinstance(info, str) or '\n' not in info:
+        print(payload)
+        return
+
+    summary = dict(payload)
+    del summary['info']
+    print(summary)
+    print(info)
+
 def _run_problem(path: str, args) -> dict:
+    logic = resolve_logic_for_strategy(args.strategy, args.logic)
     env = ConnectionEnv(
         path,
         Settings(
-            logic = args.logic,
+            logic = logic,
             domain = args.domain,
             sat_solver = args.sat_solver,
             debug = args.debug,
@@ -107,10 +133,7 @@ def main():
             multiple = len(problem_paths) > 1
             for path in problem_paths:
                 result = _run_problem(path, args)
-                if multiple:
-                    print({'problem': os.path.basename(path)} | result)
-                else:
-                    print(result)
+                _print_result(result, os.path.basename(path) if multiple else None)
     except FileNotFoundError as exc:
         sys.exit(f'error: {exc}')
 
