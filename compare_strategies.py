@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import Optional
 
 from connections.env import ConnectionEnv, Logic, SAT_SOLVER_CHOICES, Settings
-from mypycop.problem_inputs import expand_problem_inputs, resolve_problem_path
+from problem_inputs import expand_problem_inputs, resolve_problem_path
 from strategies import Strategy
 
 def green(s: str) -> str: return f'\033[32m{s}\033[0m'

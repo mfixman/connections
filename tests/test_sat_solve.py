@@ -9,7 +9,7 @@ from connections.calculi.classicalsat import pycosat
 from connections.calculi.classicalcut import Backtrack, Extension, Reset
 from connections.utils.primitives import Literal, Variable
 from connections.utils.tableau import Tableau
-from mypycop.problem_inputs import resolve_problem_path
+from problem_inputs import resolve_problem_path
 from strategies import Strategy
 
 SYN344_1 = """\

@@ -260,3 +260,6 @@ TPTP_subset
 plots/*
 presentations/*
 results/*
+
+.codex
+nohup.out

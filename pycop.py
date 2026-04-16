@@ -9,8 +9,8 @@ import random
 import logging
 
 from connections.env import *
-from mypycop.parse_args import parse_args
-from mypycop.problem_inputs import resolved_problem_paths
+from parse_args import parse_args
+from problem_inputs import resolved_problem_paths
 
 from pathlib import Path
 import ipdb

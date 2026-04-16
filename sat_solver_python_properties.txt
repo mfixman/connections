@@ -1,0 +1,43 @@
+As of April 6, 2026, the main Python-facing SAT options I’d look at are these.
+
+Token count is not a standard SAT-solver statistic. The standard exposed counters are usually things like #vars, #clauses, conflicts, decisions, propagations, restarts, time, plus model / UNSAT core / proof when supported.
+
+Python package: python-sat / PySAT
+Backend solver(s): CaDiCaL (Cadical103/153/195), Glucose (3/4/4.2.1), Lingeling, MapleChrono, MapleCM, Maplesat, Mergesat3, Minicard, Minisat22, MinisatGH, CryptoMiniSat, and docs also include Kissat404.
+What the Python API exposes: Best instrumentation surface overall. Common API gives nof_vars(), nof_clauses(), accum_stats() with restarts/conflicts/decisions/propagations, time(), time_accum(), get_model(), get_core(), get_proof(), get_status(), solve(assumptions=...), solve_limited(), propagate(), conf_budget(), dec_budget(), prop_budget(), set_phases(), enum_models(). Cadical195 also has extra propagator-facing hooks like activate_atmost() and observe().
+
+Python package: pycryptosat
+Backend solver(s): CryptoMiniSat
+What the Python API exposes: Thin but useful binding. Solver exposes solve, add_clause, add_clauses, add_xor_clause, nb_vars, is_satisfiable, get_conflict. Constructor options include verbose, time_limit, confl_limit, threads. Good if XORs matter.
+
+Python package: pycosat
+Backend solver(s): PicoSAT
+What the Python API exposes: Very thin binding. Only solve and itersolve, with kwargs prop_limit, vars, verbose. No documented rich internal stats.
+
+Python package: pylgl
+Backend solver(s): Lingeling
+What the Python API exposes: Similar to pycosat: solve and itersolve, with knobs like vars, verbose, simplify, seed, randec, randecint. No documented low-level search counters.
+
+Python package: PyMiniSolvers
+Backend solver(s): MiniSat / MiniCard
+What the Python API exposes: More control than pycosat. Exposes nvars(), nclauses(), get_model(), get_model_trues(), model_value(), implies(), get_stats(), solve(assumptions=...). Subset variants also expose sat_subset() and unsat_core(). The docs say get_stats() returns a dict, but do not enumerate the keys.
+
+Python package: z3-solver
+Backend solver(s): Z3 SAT/SMT engine
+What the Python API exposes: Not pure SAT-only, but very good for instrumentation. Solver.statistics() returns a Statistics object with keys(), get_key_value(key), index access, and attribute-style access. The actual counters depend on the tactic/engine; the docs show examples like nlsat propagations, nlsat restarts, nlsat stages. Also exposes model(), unsat_core(), units(), trail(), trail_levels().
+
+For your use case, the most practical answer is:
+
+1. Use PySAT if you want comparable features across multiple SAT backends.
+2. Use pycryptosat if XOR clauses or CryptoMiniSat-specific behavior matters.
+3. Use pycosat or pylgl only if you want a very lightweight oracle and do not need rich stats.
+
+Sources:
+PySAT solver API: https://pysathq.github.io/docs/html/api/solvers.html
+PySAT features: https://pysathq.github.io/features/
+pycryptosat PyPI: https://pypi.org/project/pycryptosat/
+pycosat PyPI: https://pypi.org/project/pycosat/
+pylgl PyPI: https://pypi.org/project/pylgl/
+PyMiniSolvers docs: https://pyminisolvers.readthedocs.io/en/latest/
+Z3 Python API: https://z3prover.github.io/api/html/z3.z3.html
+Z3 Statistics API: https://z3prover.github.io/api/html/classz3py_1_1_statistics.html
