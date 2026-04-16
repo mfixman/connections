@@ -145,15 +145,6 @@ def test_sat_solve_rejects_degenerate_empty_translation(problem_name):
     assert done is True
     assert info == 'Non-Theorem: no positive start clauses'
 
-def test_old_sat_logic_is_still_available():
-    pytest.importorskip('pydical')
-    pytest.importorskip('pysat')
-    env = ConnectionEnv(
-        'tests/cnf_problems/SYN081+1.cnf',
-        Settings(logic = 'ClassicalSATOld'),
-    )
-    assert env.state.__class__.__name__ == 'SATConnectionState'
-
 def test_sat_connection_state_can_use_pysat_backend(monkeypatch):
     calls = {}
 

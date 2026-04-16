@@ -6,8 +6,6 @@ from enum import StrEnum, auto
 from connections.Utils import *
 
 from connections.calculi.classicalsat import SATConnectionState
-from connections.calculi.classicalsat_old import SATConnectionState as SATConnectionStateOld
-from connections.calculi.classicalsat_old import SearchSATConnectionState as SearchSATConnectionStateOld
 from connections.calculi.classical import ConnectionState
 from connections.calculi.classicalcut import ClassicalCut
 from connections.calculi.intuitionistic import IConnectionState
@@ -20,10 +18,7 @@ from connections.utils.classical_problem_parsing import file2cnf as CNF
 from connections.utils.icnf_parsing import file2cnf as ICNF
 
 class Logic(UncaseEnum):
-    SearchSAT = auto()
     ClassicalSAT = auto()
-    SearchSATOld = auto()
-    ClassicalSATOld = auto()
     Classical = auto()
     ClassicalCut = auto()
     Intuitionistic = auto()
@@ -35,10 +30,7 @@ class Logic(UncaseEnum):
 
     def state_class(self):
         class_map = {
-            Logic.SearchSAT: SearchSATConnectionStateOld,
             Logic.ClassicalSAT: SATConnectionState,
-            Logic.SearchSATOld: SearchSATConnectionStateOld,
-            Logic.ClassicalSATOld: SATConnectionStateOld,
             Logic.Classical: ConnectionState,
             Logic.ClassicalCut: ClassicalCut,
             Logic.Intuitionistic: IConnectionState,
@@ -52,7 +44,7 @@ class Logic(UncaseEnum):
 
     def parser(self):
         match self:
-            case Logic.Classical | Logic.ClassicalCut | Logic.ClassicalSAT | Logic.SearchSAT | Logic.ClassicalSATOld | Logic.SearchSATOld:
+            case Logic.Classical | Logic.ClassicalCut | Logic.ClassicalSAT:
                 return CNF
 
             case Logic.Intuitionistic | Logic.D | Logic.T | Logic.S4 | Logic.S5:
@@ -62,7 +54,7 @@ class Logic(UncaseEnum):
 
     def overrides(self):
         match self:
-            case Logic.ClassicalSAT | Logic.SearchSAT | Logic.ClassicalSATOld | Logic.SearchSATOld | Logic.ClassicalCut:
+            case Logic.ClassicalSAT | Logic.ClassicalCut:
                 return dict(
                     positive_start_clauses = False,
                     iterative_deepening = True,

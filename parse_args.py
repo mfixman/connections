@@ -12,7 +12,7 @@ def parse_args():
         '--sat-solver',
         default='pycosat',
         choices=SAT_SOLVER_CHOICES,
-        help='SAT backend for ClassicalSAT/SearchSAT variants',
+        help='SAT backend for ClassicalSAT',
     )
     parser.add_argument('--translate', action='store_true', help='Whether to translate the logic with Prolog.')
     parser.add_argument('--print-ratio', '-pr', type=int, default=1, help='Ratio of messages to be printed')

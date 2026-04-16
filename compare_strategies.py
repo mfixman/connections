@@ -613,7 +613,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         '--sat-solver', choices=SAT_SOLVER_CHOICES, default='pycosat', metavar='BACKEND',
-        help='SAT backend for ClassicalSAT/SearchSAT variants (default: pycosat)',
+        help='SAT backend for ClassicalSAT (default: pycosat)',
     )
     parser.add_argument(
         '--max-steps', type=int, default=50000, metavar='N',

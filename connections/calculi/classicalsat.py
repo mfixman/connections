@@ -24,11 +24,6 @@ try:
 except ModuleNotFoundError:
     PySATSolver = None
 
-def sign(x):
-    if x == 0:
-        return '0'
-    return '+' if x > 0 else '-'
-
 @dataclass
 class ShadowSAT:
     atom_map: dict[str, int] = field(default_factory = dict)
