@@ -163,7 +163,9 @@ def run_trace(path: str, strategy_name: str, max_steps: int = 10000):
         print(f'  {RED()}Unknown (limit {max_steps}){RESET()}')
     print(f'{sep}\n')
 
-if __name__ == '__main__':
+def main() -> None:
+    global _color
+
     args = [a for a in sys.argv[1:] if not a.startswith('--')]
     flags = {a for a in sys.argv[1:] if a.startswith('--')}
 
@@ -179,3 +181,6 @@ if __name__ == '__main__':
     max_steps = int(args[2]) if len(args) > 2 else 10000
 
     run_trace(path, strategy, max_steps)
+
+if __name__ == '__main__':
+    main()

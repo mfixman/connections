@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Infer a static strategy schedule from a wide CSV result table.
 
 The expected input format matches ``results/full_table.csv``:

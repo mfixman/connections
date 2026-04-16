@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Render Mangla-style violin plots for schedule scores."""
 
 from __future__ import annotations

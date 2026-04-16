@@ -7,7 +7,7 @@ from typing import Optional, TypeVar
 
 from connections.env import ConnectionEnv
 from connections.calculi.classicalcut import ConnectionAction, Start, Reduction, Extension, Backtrack, Reset
-from strategy_base import Strategy
+from .base import Strategy
 
 TAction = TypeVar('TAction', bound = ConnectionAction)
 
@@ -1076,7 +1076,7 @@ class InitialSchedule(Strategy):
     budgets here are expressed directly in proof steps.
     """
 
-    schedule_path = Path(__file__).resolve().parent / 'schedules' / 'initial_schedule.json'
+    schedule_path = Path(__file__).resolve().parent.parent / 'schedules' / 'initial_schedule.json'
 
     def __init__(self, env):
         super().__init__(env)
@@ -1137,4 +1137,4 @@ class InitialSchedule(Strategy):
         self._slot_steps += 1
         return action
 
-from sat_solve import SATSolve, SATSolveLiteral  # noqa: E402,F401
+from .sat_solve import SATSolve, SATSolveLiteral  # noqa: E402,F401

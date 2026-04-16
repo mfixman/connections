@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from connections.calculi.classicalcut import Backtrack, ConnectionAction, Extension, Reduction, Reset, Start
-from strategy_base import Strategy
+from .base import Strategy
 
 def _backtrack_or_reset(actions: list[ConnectionAction]) -> ConnectionAction:
     for action in actions:

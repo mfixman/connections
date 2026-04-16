@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Optimize a time-based static strategy allocation from long-form results CSV.
 
 The expected input format matches ``compare_strategies.py`` output:

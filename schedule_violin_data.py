@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Build Mangla-style violin-plot data for time-based schedules.
 
 The Mangla thesis Figure 2.6 compares strategies using the score from

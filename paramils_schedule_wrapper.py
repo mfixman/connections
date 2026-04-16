@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """ParamILS wrapper for static MyPyCop strategy schedules.
 
 This script exposes a static schedule of MyPyCop strategies as a single
