@@ -24,15 +24,17 @@ try:
 except ModuleNotFoundError:
     PySATSolver = None
 
+SATClause = tuple[int, ...]
+
 @dataclass
 class ShadowSAT:
     atom_map: dict[str, int] = field(default_factory = dict)
-    ground_clauses: set[tuple[int, ...]] = field(default_factory = set)
-    new_ground_clauses: set[tuple[int, ...]] = field(default_factory = set)
-    expanded_clauses: dict[tuple[int, ...], tuple[str, ...]] = field(default_factory = dict)
-    unsat_core: tuple[tuple[int, ...], ...] = field(default_factory = tuple)
+    ground_clauses: set[SATClause] = field(default_factory = set)
+    new_ground_clauses: set[SATClause] = field(default_factory = set)
+    expanded_clauses: dict[SATClause, list[str]] = field(default_factory = dict)
+    unsat_core: list[SATClause] = field(default_factory = list)
     model: dict[int, bool] = field(default_factory = dict)
-    satisfiable: Optional[bool] = None
+    satisfiable: bool = True
 
     def atom_id(self, atom: str) -> int:
         atom_id = self.atom_map.get(atom)
@@ -59,14 +61,8 @@ class SATConnectionState(ClassicalCut):
     def enable_paper_mode(self, enabled: bool = True) -> None:
         self.paper_mode = enabled
 
-    def sat_model(self) -> dict[int, bool]:
-        return self.shadow.model
-
-    def sat_status(self) -> Optional[bool]:
-        return self.shadow.satisfiable
-
     def initial_status(self) -> tuple[bool, Optional[str]]:
-        if self.shadow.satisfiable is not False:
+        if self.shadow.satisfiable:
             return False, None
         if not self._debug_enabled():
             return True, 'Theorem (SAT)'
@@ -75,15 +71,6 @@ class SATConnectionState(ClassicalCut):
         expanded = [self._expanded_clause_for_debug(clause) for clause in clauses]
         info = '; '.join(['Theorem (SAT)'] + [self._format_expanded_clause(clause) for clause in expanded])
         return True, info
-
-    def sat_solved(self) -> tuple[bool, Optional[str]]:
-        return self.initial_status()
-
-    def ground_clauses(self) -> set[tuple[int, ...]]:
-        return self.shadow.ground_clauses
-
-    def new_ground_clauses(self) -> set[tuple[int, ...]]:
-        return self.shadow.new_ground_clauses
 
     def reset(self, depth: Optional[int] = None) -> None:
         if depth is None:
@@ -100,7 +87,7 @@ class SATConnectionState(ClassicalCut):
                 # Algorithm 2 only uses the SAT model after the first
                 # completed iteration.
                 self.shadow.model = {}
-                self.shadow.satisfiable = None
+                self.shadow.satisfiable = True
 
     def analyze_failure(self) -> None:
         return
@@ -246,7 +233,7 @@ class SATConnectionState(ClassicalCut):
             return None
         return value if sat_lit > 0 else (not value)
 
-    def ground_clause(self, clause: list[Literal]) -> tuple[int, ...]:
+    def ground_clause(self, clause: list[Literal]) -> SATClause:
         grounded_clause, _ = self._ground_clause_data(clause, apply_substitution = True)
         return grounded_clause
 
@@ -289,7 +276,7 @@ class SATConnectionState(ClassicalCut):
 
     def _solve_ground_clauses(self) -> None:
         if not self.shadow.ground_clauses:
-            self.shadow.unsat_core = ()
+            self.shadow.unsat_core = []
             self.shadow.model = {}
             self.shadow.satisfiable = True
             return
@@ -300,11 +287,11 @@ class SATConnectionState(ClassicalCut):
             self.shadow.model = {}
             self.shadow.satisfiable = False
         elif result == 'UNKNOWN':
-            self.shadow.unsat_core = ()
+            self.shadow.unsat_core = []
             self.shadow.model = {}
-            self.shadow.satisfiable = None
+            self.shadow.satisfiable = True
         else:
-            self.shadow.unsat_core = ()
+            self.shadow.unsat_core = []
             self.shadow.model = {abs(lit): lit > 0 for lit in result if lit != 0}
             self.shadow.satisfiable = True
 
@@ -343,12 +330,12 @@ class SATConnectionState(ClassicalCut):
             solver.delete()
 
     def _record_tableau_clauses(self) -> None:
-        for clause, expanded in self._tableau_clauses():
+        for clause, expanded in self._tableau_clauses().items():
             self.shadow.expanded_clauses.setdefault(clause, expanded)
             if clause not in self.shadow.ground_clauses:
                 self.shadow.new_ground_clauses.add(clause)
 
-    def _shrink_unsat_core(self, clauses: set[tuple[int, ...]]) -> tuple[tuple[int, ...], ...]:
+    def _shrink_unsat_core(self, clauses: set[SATClause]) -> list[SATClause]:
         """Greedily delete redundant clauses to get a small UNSAT core."""
         core = list(self._sorted_shadow_clauses(clauses))
         idx = 0
@@ -359,18 +346,22 @@ class SATConnectionState(ClassicalCut):
                 core = trial
                 continue
             idx += 1
-        return tuple(core)
+        return core
 
-    def _sorted_shadow_clauses(self, clauses: set[tuple[int, ...]]) -> tuple[tuple[int, ...], ...]:
-        return tuple(sorted(clauses, key = lambda clause: (-len(clause), clause)))
+    def _sorted_shadow_clauses(self, clauses: set[SATClause]) -> list[SATClause]:
+        return sorted(clauses, key = lambda clause: (-len(clause), clause))
 
-    def _tableau_clauses(self) -> set[tuple[tuple[int, ...], tuple[str, ...]]]:
-        clauses = set()
+    def _tableau_clauses(self) -> dict[SATClause, list[str]]:
+        clauses = {}
         stack = [self.tableau]
         while stack:
             node = stack.pop()
             if node.children:
-                clauses.add(self._ground_clause_data([child.literal for child in node.children], apply_substitution = True))
+                clause, expanded = self._ground_clause_data(
+                    [child.literal for child in node.children],
+                    apply_substitution = True,
+                )
+                clauses.setdefault(clause, expanded)
             stack.extend(node.children)
         return clauses
 
@@ -402,7 +393,7 @@ class SATConnectionState(ClassicalCut):
             clause_indices += self.matrix.negative_clauses
         return clause_indices
 
-    def _ground_clause_without_substitution(self, clause: list[Literal]) -> tuple[int, ...]:
+    def _ground_clause_without_substitution(self, clause: list[Literal]) -> SATClause:
         grounded_clause, _ = self._ground_clause_data(clause, apply_substitution = False)
         return grounded_clause
 
@@ -411,7 +402,7 @@ class SATConnectionState(ClassicalCut):
         clause: list[Literal],
         *,
         apply_substitution: bool,
-    ) -> tuple[tuple[int, ...], tuple[str, ...]]:
+    ) -> tuple[SATClause, list[str]]:
         grounded_pairs = {}
         for literal in clause:
             grounded_literal = self.substitution(literal) if apply_substitution else literal
@@ -421,7 +412,7 @@ class SATConnectionState(ClassicalCut):
         ordered_pairs = tuple(sorted(grounded_pairs.items(), key = lambda item: (abs(item[0]), item[0] < 0)))
         return (
             tuple(sat_literal for sat_literal, _ in ordered_pairs),
-            tuple(debug_literal for _, debug_literal in ordered_pairs),
+            [debug_literal for _, debug_literal in ordered_pairs],
         )
 
     def _ground_literal(self, literal: Literal) -> int:
@@ -432,10 +423,10 @@ class SATConnectionState(ClassicalCut):
     def _debug_enabled(self) -> bool:
         return bool(getattr(getattr(self, 'settings', None), 'debug', False))
 
-    def _expanded_clause_for_debug(self, clause: tuple[int, ...]) -> tuple[str, ...]:
-        return self.shadow.expanded_clauses.get(clause, tuple(str(lit) for lit in clause))
+    def _expanded_clause_for_debug(self, clause: SATClause) -> list[str]:
+        return self.shadow.expanded_clauses.get(clause, [str(lit) for lit in clause])
 
-    def _format_expanded_clause(self, clause: tuple[str, ...]) -> str:
+    def _format_expanded_clause(self, clause: list[str]) -> str:
         return '(' + ', '.join(clause) + ')'
 
     def _debug_literal(self, literal: Literal) -> str:

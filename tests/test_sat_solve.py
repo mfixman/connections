@@ -52,7 +52,7 @@ def test_sat_solve_runs_in_classical_cut_env():
         if done:
             break
 
-    assert len(env.state.ground_clauses()) > 0
+    assert len(env.state.shadow.ground_clauses) > 0
 
 @pytest.mark.skipif(pycosat is None, reason = 'pycosat is not installed')
 def test_sat_solve_can_backtrack_to_root_without_crashing():
@@ -180,9 +180,9 @@ def test_unsat_core_is_reduced_before_reporting():
     state.shadow = classicalsat.ShadowSAT(
         ground_clauses = {(1,), (-1,), (2, 3)},
         expanded_clauses = {
-            (1,): ('p(a)',),
-            (-1,): ('-p(a)',),
-            (2, 3): ('q(a)', 'r(a)'),
+            (1,): ['p(a)'],
+            (-1,): ['-p(a)'],
+            (2, 3): ['q(a)', 'r(a)'],
         },
     )
 
@@ -197,7 +197,7 @@ def test_unsat_core_is_reduced_before_reporting():
     state._solve_ground_clauses()
 
     assert state.shadow.satisfiable is False
-    assert state.shadow.unsat_core == ((1,), (-1,)) or state.shadow.unsat_core == ((-1,), (1,))
+    assert set(state.shadow.unsat_core) == {(1,), (-1,)}
     done, info = state.initial_status()
     assert done is True
     assert 'q(a)' not in info
@@ -210,11 +210,11 @@ def test_initial_status_reports_unsat_shadow_result():
     state.shadow = classicalsat.ShadowSAT(
         ground_clauses = {(1,), (-1,), (2, 3)},
         expanded_clauses = {
-            (1,): ('p(a)',),
-            (-1,): ('-p(a)',),
-            (2, 3): ('q(a)', 'r(a)'),
+            (1,): ['p(a)'],
+            (-1,): ['-p(a)'],
+            (2, 3): ['q(a)', 'r(a)'],
         },
-        unsat_core = ((1,), (-1,)),
+        unsat_core = [(1,), (-1,)],
         satisfiable = False,
     )
 
@@ -233,10 +233,10 @@ def test_initial_status_is_terse_without_debug():
     state.shadow = classicalsat.ShadowSAT(
         ground_clauses = {(1,), (-1,)},
         expanded_clauses = {
-            (1,): ('p(a)',),
-            (-1,): ('-p(a)',),
+            (1,): ['p(a)'],
+            (-1,): ['-p(a)'],
         },
-        unsat_core = ((1,), (-1,)),
+        unsat_core = [(1,), (-1,)],
         satisfiable = False,
     )
 
@@ -336,7 +336,7 @@ def test_sat_strategies_use_restricted_backtracking_on_forward_steps(strategy_na
         legal_actions = lambda: [Extension(id = 'ex0')],
         state = SimpleNamespace(
             goal = SimpleNamespace(parent = object()),
-            new_ground_clauses = lambda: set(),
+            shadow = SimpleNamespace(new_ground_clauses = set()),
             sat_literal_value = lambda literal: None,
             enable_paper_mode = lambda enabled = True: setattr(env.state, 'paper_mode', enabled),
         ),
@@ -353,7 +353,7 @@ def test_sat_solve_uses_first_randomised_forward_action():
         legal_actions = lambda: [first, second],
         state = SimpleNamespace(
             goal = SimpleNamespace(parent = object()),
-            new_ground_clauses = lambda: set(),
+            shadow = SimpleNamespace(new_ground_clauses = set()),
             sat_literal_value = lambda literal: None,
             enable_paper_mode = lambda enabled = True: setattr(env.state, 'paper_mode', enabled),
         ),
@@ -369,7 +369,7 @@ def test_sat_strategies_only_reset_at_root_when_shadow_is_still_growing(strategy
         legal_actions = lambda: [Backtrack(id = 'bt'), Reset(id = 'rs', depth = 3)],
         state = SimpleNamespace(
             goal = SimpleNamespace(parent = object()),
-            new_ground_clauses = lambda: {(1,)},
+            shadow = SimpleNamespace(new_ground_clauses = {(1,)}),
             sat_literal_value = lambda literal: None,
             enable_paper_mode = lambda enabled = True: setattr(env.state, 'paper_mode', enabled),
         ),

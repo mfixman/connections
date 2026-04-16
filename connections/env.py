@@ -62,9 +62,6 @@ class Logic(UncaseEnum):
 
         return {}
 
-    def has_cuts(self):
-        return self is Logic.ClassicalCut
-
 class Domain(UncaseEnum):
     Constant = auto()
     Cumulative = auto()

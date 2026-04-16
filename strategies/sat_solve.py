@@ -21,7 +21,7 @@ def _paper_reset_allowed(actions: list[ConnectionAction], state) -> bool:
     return (
         state.goal.parent is None
         and any(isinstance(action, Reset) for action in actions)
-        and bool(state.new_ground_clauses())
+        and bool(state.shadow.new_ground_clauses)
     )
 
 def _paper_forward(action: ConnectionAction) -> ConnectionAction:
