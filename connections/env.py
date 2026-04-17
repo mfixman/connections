@@ -67,7 +67,7 @@ class Domain(UncaseEnum):
     Cumulative = auto()
     Varying = auto()
 
-SAT_SOLVER_CHOICES = ('pycosat', 'pysat')
+SAT_SOLVER_CHOICES = ('pycosat', 'pysat', 'cadical')
 
 @dataclass
 class Settings:

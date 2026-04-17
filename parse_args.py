@@ -15,7 +15,7 @@ def parse_args():
         help='SAT backend for ClassicalSAT',
     )
     parser.add_argument('--translate', action='store_true', help='Whether to translate the logic with Prolog.')
-    parser.add_argument('--print-ratio', '-pr', type=int, default=1, help='Ratio of messages to be printed')
+    parser.add_argument('--print-ratio', '-pr', type=int, default=0, help='Ratio of messages to be printed')
     parser.add_argument('--max-steps', default=100000, type=int, help='Maximum amount of steps before breaking.')
     parser.add_argument('--verbose', '-v', action='store_true', help='Verbose messages.')
     parser.add_argument('--debug', action='store_true', help='Print extra debug information.')

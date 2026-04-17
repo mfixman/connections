@@ -174,6 +174,43 @@ def test_sat_connection_state_can_use_pysat_backend(monkeypatch):
     assert state.shadow.model == {1: True, 2: False}
     assert state.shadow.satisfiable is True
 
+def test_sat_connection_state_can_use_cadical_backend(monkeypatch):
+    calls = {}
+
+    class FakeSolver:
+        def __init__(self, *, bootstrap_with):
+            calls['clauses'] = bootstrap_with
+
+        def solve(self):
+            return True
+
+        def get_model(self):
+            return [-1, 2]
+
+        def delete(self):
+            calls['deleted'] = True
+
+    monkeypatch.setattr(classicalsat, 'PySATCadicalSolver', FakeSolver)
+
+    state = object.__new__(classicalsat.SATConnectionState)
+    state.sat_solver_backend = 'cadical'
+    state.shadow = classicalsat.ShadowSAT(ground_clauses = {(-1, 2)})
+
+    state._solve_ground_clauses()
+
+    assert calls['clauses'] == [[-1, 2]]
+    assert calls['deleted'] is True
+    assert state.shadow.model == {1: False, 2: True}
+    assert state.shadow.satisfiable is True
+
+def test_missing_cadical_does_not_disable_other_sat_backends(monkeypatch):
+    monkeypatch.setattr(classicalsat, 'PySATCadicalSolver', None)
+    monkeypatch.setattr(classicalsat, 'pycosat', object())
+
+    state = object.__new__(classicalsat.SATConnectionState)
+
+    state._require_sat_backend('pycosat')
+
 def test_unsat_core_is_reduced_before_reporting():
     state = object.__new__(classicalsat.SATConnectionState)
     state.settings = SimpleNamespace(debug = True)

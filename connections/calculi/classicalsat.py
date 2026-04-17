@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 import random
-from typing import Optional
+from typing import Literal as TypeLiteral, Optional
 
 from connections.calculi.classicalcut import (
     Backtrack,
@@ -20,9 +20,17 @@ except ModuleNotFoundError:
     pycosat = None
 
 try:
-    from pysat.solvers import Minisat22 as PySATSolver
-except ModuleNotFoundError:
+    from pysat import solvers as pysat_solvers
+except ImportError:
     PySATSolver = None
+    PySATCadicalSolver = None
+else:
+    PySATSolver = getattr(pysat_solvers, 'Minisat22', None)
+    PySATCadicalSolver = (
+        getattr(pysat_solvers, 'Cadical195', None)
+        or getattr(pysat_solvers, 'Cadical153', None)
+        or getattr(pysat_solvers, 'Cadical103', None)
+    )
 
 SATClause = tuple[int, ...]
 
@@ -312,13 +320,23 @@ class SATConnectionState(ClassicalCut):
                 )
             return
 
+        if backend == 'cadical':
+            if PySATCadicalSolver is None:
+                raise ModuleNotFoundError(
+                    'ClassicalSAT requires python-sat with CaDiCaL support for --sat-solver cadical. '
+                    'Install it in ~/venv and run with that environment.'
+                )
+            return
+
         raise LookupError(f'Unknown SAT solver backend: {backend}')
 
-    def _solve_shadow_cnf(self, clauses: list[list[int]]):
+    def _solve_shadow_cnf(self, clauses: list[list[int]]) -> list[int] | TypeLiteral['UNSAT', 'UNKNOWN']:
         if self.sat_solver_backend == 'pycosat':
             return pycosat.solve(clauses)
 
-        solver = PySATSolver(bootstrap_with = clauses)
+        solver_class = PySATSolver if self.sat_solver_backend == 'pysat' else PySATCadicalSolver
+        solver = solver_class(bootstrap_with = clauses)
+
         try:
             satisfiable = solver.solve()
             if satisfiable is False:

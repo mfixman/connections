@@ -119,6 +119,12 @@ class TestCompareStrategiesLogicSelection:
 
         assert args.sat_solver == 'pysat'
 
+    def test_parse_args_accepts_cadical_sat_solver(self, monkeypatch):
+        monkeypatch.setattr(sys, 'argv', ['compare_strategies.py', '--sat-solver', 'cadical'])
+        args = compare_strategies.parse_args()
+
+        assert args.sat_solver == 'cadical'
+
 class TestCompareStrategiesSatStatus:
     def test_theorem_sat_with_core_suffix_counts_as_success(self):
         assert compare_strategies._is_success_info('Theorem (SAT); (1, 2); (-1,)') is True

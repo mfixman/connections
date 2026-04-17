@@ -13,6 +13,17 @@ def test_parse_args_accepts_sat_solver(monkeypatch):
 
     assert args.sat_solver == 'pysat'
 
+def test_parse_args_accepts_cadical_sat_solver(monkeypatch):
+    monkeypatch.setattr(
+        sys,
+        'argv',
+        ['pycop.py', '--sat-solver', 'cadical', 'tests/cnf_problems/SYN081+1.cnf'],
+    )
+
+    args = parse_args()
+
+    assert args.sat_solver == 'cadical'
+
 def test_parse_args_accepts_debug(monkeypatch):
     monkeypatch.setattr(
         sys,

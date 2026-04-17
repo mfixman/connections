@@ -51,7 +51,7 @@ class Extension(ConnectionAction):
 
     def __repr__(self) -> str:
         suffix = " [cut]" if self.cut else ""
-        return f"Excention {self.id}: {str(self.principle_node.literal)} -> {str(self.clause_copy)}{suffix}"
+        return f"Extension {self.id}: {str(self.principle_node.literal)} -> {str(self.clause_copy)}{suffix}"
 
 @dataclass
 class Backtrack(ConnectionAction):
