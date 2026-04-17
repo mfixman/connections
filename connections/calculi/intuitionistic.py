@@ -108,7 +108,6 @@ class IConnectionState(ConnectionState):
         # Classical proof, check intutitionistic proof
         addco_pairs = self._admissible_pairs()
         proof_pairs = self._proof_pairs()
-        print(f'prefix_unify({[(self.substitution(l),self.substitution(r)) for l,r in addco_pairs + proof_pairs]})')
         s = self.pre_unify_list(addco_pairs + proof_pairs, self.substitution)
         if s is not None:
             # Intuitonistic proof, return success
@@ -116,12 +115,6 @@ class IConnectionState(ConnectionState):
             self.prefix_unifier = s
             self.is_terminal = True
             return
-        """
-        uncomment to do comparisons
-        print('prefix_unify_success')
-        print(f'successful_connections:{len(self.proof_sequence)}')
-        print(f'prefix_unify({[(flatten(subst(s,l)),flatten(subst(s,r))) for l,r in addco_pairs + proof_pairs]})')
-        """
         # No intuitionistic proof, keep going from current goal
         self.proof_sequence.pop()
         self.substitution.backtrack()

@@ -144,7 +144,15 @@ class TestCompareStrategiesSatStatus:
         assert compare_strategies._is_success_info('Non-Theorem: no positive start clauses') is False
 
 class TestCompareStrategiesInitialStatus:
-    def test_run_problem_counts_initial_status_as_zero_steps(self, monkeypatch):
+    def _run_fake_problem(
+        self,
+        monkeypatch,
+        *,
+        initial_status = (False, None),
+        step_info = 'Theorem (SAT)',
+        strategy_info = None,
+        max_steps = 100,
+    ):
         sent = {}
 
         class FakeConn:
@@ -160,7 +168,7 @@ class TestCompareStrategiesInitialStatus:
                     'State',
                     (),
                     {
-                        'initial_status': lambda self: (True, 'Theorem (SAT)'),
+                        'initial_status': lambda self: initial_status,
                     },
                 )()
 
@@ -168,14 +176,17 @@ class TestCompareStrategiesInitialStatus:
                 return None
 
             def step(self, action):
-                raise AssertionError('env.step should not be called after initial_status succeeds')
+                return self.state, 1, True, step_info
 
         class FakeStrategy:
             def __init__(self, env):
                 self.env = env
 
             def step(self):
-                raise AssertionError('strategy.step should not be called after initial_status succeeds')
+                return object()
+
+            def final_info(self):
+                return strategy_info
 
         class FakeStrategyRegistry:
             @staticmethod
@@ -191,10 +202,36 @@ class TestCompareStrategiesInitialStatus:
             'SATSolve',
             Logic.ClassicalSAT,
             SATSolver.PycoSAT,
-            100,
+            max_steps,
+        )
+
+        return sent
+
+    def test_run_problem_counts_initial_status_as_zero_steps(self, monkeypatch):
+        sent = self._run_fake_problem(
+            monkeypatch,
+            initial_status = (True, 'Theorem (SAT)'),
         )
 
         assert sent['status'] == 'solved'
         assert sent['solved'] is True
         assert sent['steps'] == 0
         assert sent['info'] == 'Theorem (SAT)'
+
+    def test_run_problem_appends_strategy_final_info(self, monkeypatch):
+        sent = self._run_fake_problem(
+            monkeypatch,
+            strategy_info = 'sat_nonzero_atom_score=True',
+        )
+
+        assert sent['info'] == 'Theorem (SAT); sat_nonzero_atom_score=True'
+
+    def test_run_problem_keeps_strategy_final_info_on_max_steps(self, monkeypatch):
+        sent = self._run_fake_problem(
+            monkeypatch,
+            strategy_info = 'sat_nonzero_atom_score=True',
+            max_steps = 0,
+        )
+
+        assert sent['status'] == 'max_steps'
+        assert sent['info'] == 'sat_nonzero_atom_score=True'

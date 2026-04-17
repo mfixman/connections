@@ -13,7 +13,6 @@ from parse_args import parse_args
 from problem_inputs import resolved_problem_paths
 
 from pathlib import Path
-import ipdb
 
 from strategies import *
 
@@ -123,7 +122,6 @@ def _run_problem(path: str, args) -> dict:
 
     return info | {'steps': steps}
 
-# @ipdb.launch_ipdb_on_exception()
 def main():
     args = parse_args()
     logging.basicConfig(level = logging.INFO if args.verbose else logging.WARN, format = '[%(relativeCreated)d] %(message)s')

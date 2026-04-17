@@ -424,6 +424,32 @@ def test_sat_solve_uses_first_randomised_forward_action():
 
     assert strategy.step() is first
 
+def test_sat_solve_records_nonzero_atom_score():
+    class FakeSolver:
+        def score(self, atom_id):
+            return {1: 0, 2: 3.5}[atom_id]
+
+    action = Extension(id = 'ex0')
+    env = SimpleNamespace(
+        legal_actions = lambda: [action],
+        state = SimpleNamespace(
+            goal = SimpleNamespace(parent = object()),
+            shadow = SimpleNamespace(
+                atom_map = {'p': 1, 'q': 2},
+                new_ground_clauses = set(),
+                solver = FakeSolver(),
+            ),
+            sat_literal_value = lambda literal: None,
+            enable_paper_mode = lambda enabled = True: setattr(env.state, 'paper_mode', enabled),
+            _flush_new_ground_clauses = lambda: None,
+            _solve_ground_clauses = lambda: None,
+        ),
+    )
+    strategy = Strategy.strategies()['SATSolve'](env)
+
+    assert strategy.step() is action
+    assert strategy.final_info() == 'sat_nonzero_atom_score=True'
+
 @pytest.mark.parametrize('strategy_name', ['SATSolve', 'SATSolveLiteral'])
 def test_sat_strategies_only_reset_at_root_when_shadow_is_still_growing(strategy_name):
     env = SimpleNamespace(

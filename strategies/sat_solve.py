@@ -5,7 +5,49 @@ from __future__ import annotations
 from connections.calculi.classicalsat import Backtrack, ConnectionAction, Extension, Reduction, Reset, Start
 from .base import Strategy
 
-class SATSolve(Strategy):
+class _SATScoreTracker:
+    """Track whether any solver atom score ever becomes non-zero."""
+
+    def _init_sat_score_tracker(self) -> None:
+        self._sat_has_nonzero_atom_score = False
+
+    def _sync_shadow_solver(self) -> None:
+        state = self.env.state
+        if hasattr(state, '_flush_new_ground_clauses'):
+            state._flush_new_ground_clauses()
+        if hasattr(state, '_solve_ground_clauses'):
+            state._solve_ground_clauses()
+
+    def _record_nonzero_atom_scores(self) -> None:
+        if self._sat_has_nonzero_atom_score:
+            return
+
+        state = self.env.state
+        shadow = getattr(state, 'shadow', None)
+        solver = getattr(shadow, 'solver', None)
+        score = getattr(solver, 'score', None)
+        atom_ids = getattr(shadow, 'atom_map', {}).values() if shadow is not None else []
+        if not callable(score):
+            return
+
+        for atom_id in atom_ids:
+            try:
+                atom_score = score(atom_id)
+            except Exception:
+                continue
+            if atom_score not in (0, None):
+                self._sat_has_nonzero_atom_score = True
+                return
+
+    def final_info(self) -> str | None:
+        if not self._sat_has_nonzero_atom_score:
+            self._sync_shadow_solver()
+            self._record_nonzero_atom_scores()
+        if self._sat_has_nonzero_atom_score:
+            return 'sat_nonzero_atom_score=True'
+        return None
+
+class SATSolve(_SATScoreTracker, Strategy):
     """Paper-faithful SATCoP control for ``ClassicalSAT``.
 
     This mirrors Rawson and Reger (2021), Algorithm 2:
@@ -17,6 +59,7 @@ class SATSolve(Strategy):
 
     def __init__(self, env):
         super().__init__(env)
+        self._init_sat_score_tracker()
         if not hasattr(self.env.state, 'sat_literal_value'):
             raise TypeError('SATSolve requires the ClassicalSAT calculus')
         if hasattr(self.env.state, 'enable_paper_mode'):
@@ -25,14 +68,8 @@ class SATSolve(Strategy):
     def step(self):
         actions = self.env.legal_actions()
 
-        state = self.env.state
-        state._flush_new_ground_clauses()
-        state._solve_ground_clauses()
-        nonzero = [(state.shadow.solver.score(x), x) for x in state.shadow.atom_map.values() if state.shadow.solver.score(x) != 0]
-        if nonzero:
-            print(nonzero)
-            import ipdb
-            ipdb.set_trace()
+        self._sync_shadow_solver()
+        self._record_nonzero_atom_scores()
 
         for action in actions:
             if isinstance(action, (Reduction, Extension)):
@@ -56,7 +93,7 @@ class SATSolve(Strategy):
 
         raise LookupError('Expected at least one action to be Start, Reduction, Extension, Backtrack, or Reset.')
 
-class SATSolveLiteral(Strategy):
+class SATSolveLiteral(_SATScoreTracker, Strategy):
     """Strict SATCoP with §9.1 literal-selection refinement.
 
     Implements Rawson and Reger (2021), Algorithm 2 with the
@@ -96,6 +133,7 @@ class SATSolveLiteral(Strategy):
 
     def __init__(self, env):
         super().__init__(env)
+        self._init_sat_score_tracker()
         if not hasattr(self.env.state, 'sat_literal_value'):
             raise TypeError('SATSolveLiteral requires the ClassicalSAT calculus')
         if hasattr(self.env.state, 'enable_paper_mode'):
@@ -131,6 +169,7 @@ class SATSolveLiteral(Strategy):
     def step(self):
         state = self.env.state
         actions = self.env.legal_actions()
+        self._record_nonzero_atom_scores()
         action = min(actions, key = self.score, default = None)
 
         if isinstance(action, (Reduction, Extension)):

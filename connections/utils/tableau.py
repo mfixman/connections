@@ -45,11 +45,6 @@ class Tableau:
                     nonproven.append(child)
 
             if nonproven:
-                # if any(scorer(x.literal) != 0 for x in nonproven):
-                    # print('Literal with positive score!')
-                    # import ipdb
-                    # ipdb.set_trace()
-
                 return max(nonproven, key = lambda x: scorer(x.literal))
 
             parent.proven = True

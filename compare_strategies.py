@@ -74,6 +74,21 @@ def _is_success_info(status_info: object) -> bool:
         return True
     return False
 
+def _final_strategy_info(strategy: object) -> Optional[str]:
+    final_info = getattr(strategy, 'final_info', None)
+    if not callable(final_info):
+        return None
+    info = final_info()
+    if info is None:
+        return None
+    return str(info)
+
+def _combine_info(*parts: object) -> Optional[str]:
+    present = [str(part) for part in parts if part is not None and str(part)]
+    if not present:
+        return None
+    return '; '.join(present)
+
 def _recv_result(conn: Connection, proc: mp.Process) -> dict:
     try:
         return conn.recv()
@@ -155,8 +170,10 @@ def _run_problem(
                         'steps': steps,
                         'time': elapsed,
                     }
-                    if status_info is not None:
-                        result['info'] = str(status_info)
+                    final_strategy_info = _final_strategy_info(strategy)
+                    final_info = _combine_info(status_info, final_strategy_info)
+                    if final_info is not None:
+                        result['info'] = final_info
 
                     conn.send(result)
                 except Exception as exc:
