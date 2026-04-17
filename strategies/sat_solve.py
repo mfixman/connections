@@ -26,9 +26,10 @@ class SATSolve(Strategy):
         actions = self.env.legal_actions()
 
         for action in actions:
+            if isinstance(action, (Reduction, Extension)):
+                action.cut = True
+
             if isinstance(action, (Start, Reduction, Extension)):
-                if isinstance(action, (Reduction, Extension)):
-                    action.cut = True
                 return action
 
         if (
@@ -41,9 +42,11 @@ class SATSolve(Strategy):
         for action in actions:
             if isinstance(action, Backtrack):
                 return action
+
         for action in actions:
             if isinstance(action, Reset):
                 return action
+
         raise LookupError('expected Backtrack or Reset action')
 
 class SATSolveLiteral(Strategy):
@@ -121,13 +124,13 @@ class SATSolveLiteral(Strategy):
     def step(self):
         state = self.env.state
         actions = self.env.legal_actions()
-        best_action = min(actions, key = self.score)
+        action = min(actions, key = self.score, default = None)
 
-        if isinstance(best_action, (Reduction, Extension)):
-            best_action.cut = True
+        if isinstance(action, (Reduction, Extension)):
+            action.cut = True
 
-        if isinstance(best_action, (Start, Reduction, Extension)):
-            return best_action
+        if isinstance(action, (Start, Reduction, Extension)):
+            return action
 
         if (
             state.goal.parent is None
@@ -139,7 +142,9 @@ class SATSolveLiteral(Strategy):
         for action in actions:
             if isinstance(action, Backtrack):
                 return action
+
         for action in actions:
             if isinstance(action, Reset):
                 return action
+
         raise LookupError('expected Backtrack or Reset action')
