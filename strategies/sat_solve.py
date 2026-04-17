@@ -25,6 +25,15 @@ class SATSolve(Strategy):
     def step(self):
         actions = self.env.legal_actions()
 
+        state = self.env.state
+        state._flush_new_ground_clauses()
+        state._solve_ground_clauses()
+        nonzero = [(state.shadow.solver.score(x), x) for x in state.shadow.atom_map.values() if state.shadow.solver.score(x) != 0]
+        if nonzero:
+            print(nonzero)
+            import ipdb
+            ipdb.set_trace()
+
         for action in actions:
             if isinstance(action, (Reduction, Extension)):
                 action.cut = True

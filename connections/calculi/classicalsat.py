@@ -563,6 +563,10 @@ class SATConnectionState:
         if hasattr(solver, 'set'):
             solver.set('stabilizeonly', 1)
             solver.set('walk', 0)
+            solver.set('lucky', 0)
+            solver.set('luckyearly', 0)
+            solver.set('luckylate', 0)
+            solver.set('luckyassumptions', 0)
         return solver
 
     def _record_tableau_clauses(self) -> None:
