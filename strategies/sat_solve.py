@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from connections.calculi.classicalcut import Backtrack, Extension, Reduction, Reset, Start
+from connections.calculi.classicalsat import Backtrack, ConnectionAction, Extension, Reduction, Reset, Start
 from .base import Strategy
 
 class SATSolve(Strategy):

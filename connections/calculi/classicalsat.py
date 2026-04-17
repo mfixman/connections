@@ -1,20 +1,65 @@
 from dataclasses import dataclass, field
 from enum import auto
 import random
-from typing import Literal as TypeLiteral, Optional
+from typing import Literal as TypeLiteral, Optional, cast
 
 from connections.Utils import UncaseEnum
-from connections.calculi.classicalcut import (
-    Backtrack,
-    ClassicalCut,
-    ConnectionAction,
-    Extension,
-    Reduction,
-    Reset,
-    Start,
-)
-from connections.utils.primitives import Expression, Literal, Variable
+from connections.utils.primitives import Expression, Literal, Matrix, Variable
+from connections.utils.tableau import Tableau
 from connections.utils.unification import Substitution
+
+@dataclass(frozen = True)
+class ConnectionFact:
+    """A connection between two matrix positions."""
+    goal_pos: tuple[int, int]
+    target_pos: tuple[int, int]
+
+@dataclass
+class ConnectionAction:
+    id: str
+    cut: bool = False
+
+@dataclass
+class Start(ConnectionAction):
+    clause_copy: list[Literal] = field(default_factory = lambda: [])
+    sub_updates: list[Literal] = field(default_factory = lambda: [])
+
+    def __repr__(self) -> str:
+        return f"Start {self.id}: {str(self.clause_copy)}"
+
+@dataclass
+class Reduction(ConnectionAction):
+    principle_node: Tableau = field(default = None)
+    sub_updates: list[object] = field(default_factory = lambda: [])
+    path_lit: Literal = field(default = None)
+
+    def __repr__(self) -> str:
+        suffix = " [cut]" if self.cut else ""
+        return f"Reduction {self.id}: {str(self.principle_node.literal)} <- {str(self.path_lit)}{suffix}"
+
+@dataclass
+class Extension(ConnectionAction):
+    principle_node: Tableau = field(default = None)
+    sub_updates: list[object] = field(default_factory = lambda: [])
+    lit_idx: int = -1
+    clause_copy: list[Literal] = field(default_factory = lambda: [])
+
+    def __repr__(self) -> str:
+        suffix = " [cut]" if self.cut else ""
+        return f"Extension {self.id}: {str(self.principle_node.literal)} -> {str(self.clause_copy)}{suffix}"
+
+@dataclass
+class Backtrack(ConnectionAction):
+    def __repr__(self) -> str:
+        return 'Backtrack'
+
+@dataclass
+class Reset(ConnectionAction):
+    depth: int = 1
+    reason: str = ''
+
+    def __repr__(self) -> str:
+        return f'Reset {self.depth}'
 
 class SATSolver(UncaseEnum):
     PycoSAT = auto()
@@ -57,11 +102,19 @@ class ShadowSAT:
             self.atom_map[atom] = atom_id
         return atom_id
 
-class SATConnectionState(ClassicalCut):
+class SATConnectionState:
+    matrix: Matrix
+    tableau: Tableau
+    goal: Tableau
+    substitution: Substitution
+    max_depth: int
+    info: Optional[str]
+    is_terminal: bool
+    proof_sequence: list[ConnectionAction]
     shadow: ShadowSAT
     sat_solver_backend: SATSolver
 
-    def __init__(self, matrix, settings) -> None:
+    def __init__(self, matrix: Matrix, settings) -> None:
         self.sat_solver_backend = SATSolver(getattr(settings, 'sat_solver', SATSolver.PycoSAT))
         self._require_sat_backend(self.sat_solver_backend)
         self.shadow = ShadowSAT()
@@ -71,7 +124,113 @@ class SATConnectionState(ClassicalCut):
         # makes the shadow CNF much less propositional than intended.
         self._ground_variable_constant = '__ground__'
         self.paper_mode = False
-        super().__init__(matrix, settings)
+        self.matrix = matrix
+        self.settings = settings
+        self.reset()
+
+    def finalize_pending_cuts(self) -> None:
+        stack = [self.tableau]
+        while stack:
+            node = stack.pop()
+            if node.pending_cut and node.proven:
+                node.pending_cut = False
+                node.cut_committed = True
+            stack.extend(node.children)
+
+    def __str__(self) -> str:
+        substitution = "\n".join(f"{k} → {v}" for k, v in self.substitution.to_dict().items())
+        actions = None
+        if self.goal is not None:
+            actions = "\n".join(
+                f"{i}. {str(action)}" for i, action in enumerate(self.goal.actions.values())
+            )
+        return (
+            f"=========================\n"
+            f"Tableau:\n{self.tableau}\n\n"
+            f"Substitution:\n{substitution}\n\n"
+            f"Available Actions:\n{actions}"
+            f"\n\nMax Depth: {self.max_depth}"
+            f"\n========================="
+        )
+
+    def backtracks(self) -> list[Backtrack]:
+        if self.goal.parent is None:
+            return []
+        return [Backtrack(id = 'bt')]
+
+    def resets(self) -> list[Reset]:
+        return [Reset(id = 'rs', depth = self.max_depth + 1)]
+
+    def reductions(self) -> list[Reduction]:
+        reductions: list[Reduction] = []
+        for lit in self.goal.path():
+            unifies = False
+            if self.goal.literal.neg != lit.neg and self.goal.literal.symbol == lit.symbol:
+                unifies, updates = self.substitution.can_unify(self.goal.literal, lit)
+            if unifies:
+                reductions.append(
+                    Reduction(
+                        principle_node = self.goal,
+                        sub_updates = updates,
+                        path_lit = lit,
+                        id = "re" + str(len(reductions)),
+                    )
+                )
+        return reductions
+
+    def regularizable(self, clause: list[Literal]) -> bool:
+        for path_lit in self.goal.path():
+            for clause_lit in clause:
+                if path_lit.neg == clause_lit.neg and path_lit.symbol == clause_lit.symbol:
+                    if self.substitution.equal(path_lit, clause_lit):
+                        return True
+        return False
+
+    def action_to_fact(self, action: ConnectionAction) -> Optional[ConnectionFact]:
+        if isinstance(action, Extension):
+            goal_pos = action.principle_node.literal.matrix_pos
+            target_pos = action.clause_copy[action.lit_idx].matrix_pos
+            if goal_pos is not None and target_pos is not None:
+                return ConnectionFact(goal_pos, target_pos)
+        elif isinstance(action, Reduction):
+            goal_pos = action.principle_node.literal.matrix_pos
+            target_pos = action.path_lit.matrix_pos
+            if goal_pos is not None and target_pos is not None:
+                return ConnectionFact(goal_pos, target_pos)
+        return None
+
+    def control_actions(self) -> list[ConnectionAction]:
+        if self.goal.parent is None:
+            return []
+        return cast(list[ConnectionAction], self.backtracks() + self.resets())
+
+    def legal_forward_actions(self) -> dict[str, ConnectionAction]:
+        current_clause = [node.literal for node in self.goal.parent.children[1:]]
+        reg = self.regularizable(current_clause)
+
+        if (self.goal is None) or reg:
+            actions = []
+        elif self.settings.iterative_deepening and (self.goal.depth >= self.max_depth):
+            actions = cast(list[ConnectionAction], self.reductions())
+        else:
+            actions = cast(list[ConnectionAction], self.reductions() + self.extensions())
+
+        return {action.id: action for action in actions}
+
+    def legal_actions(self) -> dict[str, ConnectionAction]:
+        if self.goal.parent is None:
+            actions = cast(list[ConnectionAction], self.starts() + self.resets())
+            return {action.id: action for action in actions}
+
+        back = cast(list[ConnectionAction], self.backtracks() + self.resets())
+        return {**self.legal_forward_actions(), **{a.id: a for a in back}}
+
+    def _refresh_remaining_actions(self, remaining_ids: list[str]) -> dict[str, ConnectionAction]:
+        if self.goal.parent is None:
+            fresh_actions = self.legal_actions()
+        else:
+            fresh_actions = self.legal_forward_actions()
+        return {action_id: fresh_actions[action_id] for action_id in remaining_ids if action_id in fresh_actions}
 
     def enable_paper_mode(self, enabled: bool = True) -> None:
         self.paper_mode = enabled
@@ -91,7 +250,24 @@ class SATConnectionState(ClassicalCut):
         if depth is None:
             self.shadow = ShadowSAT()
             self._seed_ground_with_start_clauses()
-        super().reset(depth)
+
+        self.max_depth = depth if depth is not None else 10
+        if depth is None:
+            self.max_depth = self.settings.iterative_deepening_initial_depth
+
+        self.tableau = Tableau()
+        self.goal = self.tableau
+        self.substitution = Substitution()
+        self.goal.actions = self.legal_actions()
+
+        self.info = None
+        self.is_terminal = False
+        self.proof_sequence = []
+
+        self.constraints: list[frozenset[ConnectionFact]] = []
+        self.failure_count: int = 0
+        self._cached_facts: set[ConnectionFact] = set()
+
         if depth is None and self.paper_mode:
             self._solve_ground_clauses()
             done, info = self.initial_status()
@@ -111,7 +287,12 @@ class SATConnectionState(ClassicalCut):
         return False
 
     def starts(self) -> list[Start]:
-        starts = super().starts()
+        starts: list[Start] = []
+        for clause in self._start_clause_indices():
+            starts.append(Start(id = "st" + str(len(starts)), clause_copy = self.matrix.copy(clause)))
+        if not starts:
+            starts.append(Start(id = "st0", clause_copy = None))
+
         for action in starts:
             if action.clause_copy is not None:
                 action.clause_copy = self._shuffled_clause(action.clause_copy)
@@ -119,7 +300,25 @@ class SATConnectionState(ClassicalCut):
         return starts
 
     def extensions(self) -> list[Extension]:
-        extensions = super().extensions()
+        extensions: list[Extension] = []
+
+        for clause_idx, lit_idx in self.matrix.complements(self.goal.literal):
+            clause_copy = self.matrix.copy(clause_idx)
+            unifies, updates = self.substitution.can_unify(self.goal.literal, clause_copy[lit_idx])
+
+            if not unifies:
+                continue
+
+            extensions.append(
+                Extension(
+                    principle_node = self.goal,
+                    sub_updates = updates,
+                    lit_idx = lit_idx,
+                    clause_copy = clause_copy,
+                    id = "ex" + str(len(extensions)),
+                )
+            )
+
         for action in extensions:
             action.clause_copy, action.lit_idx = self._shuffled_extension_clause(action.clause_copy, action.lit_idx)
         self.random.shuffle(extensions)
@@ -133,7 +332,7 @@ class SATConnectionState(ClassicalCut):
             old_goal = self.goal
             self.goal = self.goal.find_prev()
             pop_frame = (self.goal is old_goal.parent)
-            remaining_ids = set(self.goal.actions)
+            remaining_ids = list(self.goal.actions)
 
             if pop_frame and self.proof_sequence:
                 popped = self.proof_sequence.pop()
@@ -412,8 +611,6 @@ class SATConnectionState(ClassicalCut):
             self.shadow.expanded_clauses[grounded_clause] = expanded_clause
 
     def _restart_same_iteration(self) -> None:
-        from connections.utils.tableau import Tableau
-
         remaining_actions = dict(self.tableau.actions)
         self.tableau = Tableau()
         self.tableau.actions = remaining_actions
@@ -499,8 +696,6 @@ class SATConnectionState(ClassicalCut):
         return all(self._is_ground(arg) for arg in expression.args)
 
     def _new_tableau_child(self, literal: Literal):
-        from connections.utils.tableau import Tableau
-
         return Tableau(literal, self.goal)
 
     def _shuffled_clause(self, clause: list[Literal]) -> list[Literal]:

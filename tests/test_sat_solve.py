@@ -5,8 +5,7 @@ import connections.calculi.classicalsat as classicalsat
 from types import SimpleNamespace
 
 from connections.env import ConnectionEnv, Settings
-from connections.calculi.classicalsat import SATConnectionState, SATSolver, ShadowSAT, pycosat
-from connections.calculi.classicalcut import Backtrack, Extension, Reset
+from connections.calculi.classicalsat import Backtrack, Extension, Reset, SATConnectionState, SATSolver, ShadowSAT, pycosat
 from connections.utils.primitives import Literal, Variable
 from connections.utils.tableau import Tableau
 from problem_inputs import resolve_problem_path

@@ -1,7 +1,6 @@
 import pytest
 
-from connections.calculi.classicalcut import Extension, Start
-from connections.calculi.classicalsat import SATConnectionState, pycosat
+from connections.calculi.classicalsat import Extension, SATConnectionState, Start, pycosat
 from connections.env import ConnectionEnv, Settings
 from connections.utils.primitives import Literal
 from connections.utils.tableau import Tableau
