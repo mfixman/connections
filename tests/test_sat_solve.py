@@ -174,19 +174,22 @@ def test_sat_connection_state_can_use_pysat_backend(monkeypatch):
     assert state.shadow.satisfiable is True
 
 def test_sat_connection_state_can_use_cadical_backend(monkeypatch):
-    calls = {}
+    calls = {'clauses': [], 'solvers': []}
 
     class FakeSolver:
-        vars = 2
+        vars = 3
 
-        def add_clauses(self, clauses):
-            calls['clauses'] = clauses
+        def __init__(self):
+            calls['solvers'].append(self)
+
+        def add_clause(self, clause):
+            calls['clauses'].append(clause)
 
         def solve(self):
             return 10
 
         def val(self, var):
-            return {1: -1, 2: 2}[var]
+            return {1: -1, 2: 2, 3: 3}[var]
 
     monkeypatch.setattr(
         classicalsat,
@@ -199,9 +202,13 @@ def test_sat_connection_state_can_use_cadical_backend(monkeypatch):
     state.shadow = ShadowSAT(ground_clauses = {(-1, 2)})
 
     state._solve_ground_clauses()
+    solver = state.shadow.solver
+    state.shadow.ground_clauses.add((3,))
+    state._solve_ground_clauses()
 
-    assert calls['clauses'] == [[-1, 2]]
-    assert state.shadow.model == {1: False, 2: True}
+    assert calls['solvers'] == [solver]
+    assert calls['clauses'] == [[-1, 2], [3]]
+    assert state.shadow.model == {1: False, 2: True, 3: True}
     assert state.shadow.satisfiable is True
 
 @pytest.mark.skipif(classicalsat.pydical is None, reason = 'pydical is not installed')

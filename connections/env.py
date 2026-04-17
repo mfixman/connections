@@ -122,5 +122,8 @@ class ConnectionEnv:
 
     def reset(self):
         self.matrix.reset()
-        self.state.reset()
+        if hasattr(self.state, 'init'):
+            self.state.init()
+        else:
+            self.state.reset()
         return self.state

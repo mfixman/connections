@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from enum import auto
 import random
-from typing import Literal as TypeLiteral, Optional, cast
+from typing import Any, Literal as TypeLiteral, Optional, cast
 
 from connections.Utils import UncaseEnum
 from connections.utils.primitives import Expression, Literal, Matrix, Variable
@@ -84,6 +84,8 @@ class ShadowSAT:
     atom_map: dict[str, int] = field(default_factory = dict)
     ground_clauses: set[SATClause] = field(default_factory = set)
     new_ground_clauses: set[SATClause] = field(default_factory = set)
+    solver: Any = None
+    solver_clauses: set[SATClause] = field(default_factory = set)
     expanded_clauses: dict[SATClause, list[str]] = field(default_factory = dict)
     unsat_core: list[SATClause] = field(default_factory = list)
     model: dict[int, bool] = field(default_factory = dict)
@@ -111,7 +113,6 @@ class SATConnectionState:
     def __init__(self, matrix: Matrix, settings) -> None:
         self.sat_solver_backend = SATSolver(getattr(settings, 'sat_solver', SATSolver.PycoSAT))
         self._require_sat_backend(self.sat_solver_backend)
-        self.shadow = ShadowSAT()
         self.random = random.Random(settings.random_seed)
         # Sect. 4.2 grounds every remaining tableau variable to the
         # same fresh constant.  Keeping variable identities distinct
@@ -120,7 +121,7 @@ class SATConnectionState:
         self.paper_mode = False
         self.matrix = matrix
         self.settings = settings
-        self.reset()
+        self.init()
 
     def finalize_pending_cuts(self) -> None:
         stack = [self.tableau]
@@ -227,25 +228,13 @@ class SATConnectionState:
         info = '; '.join(['Theorem (SAT)'] + ['(' + ', '.join(clause) + ')' for clause in expanded])
         return True, info
 
-    def reset(self, depth: Optional[int] = None) -> None:
-        if depth is None:
-            self.shadow = ShadowSAT()
-            self._seed_ground_with_start_clauses()
+    def init(self) -> None:
+        solver = pydical.Solver() if self.sat_solver_backend == SATSolver.CaDiCaL else None
+        self.shadow = ShadowSAT(solver = solver)
+        self._seed_ground_with_start_clauses()
+        self.reset(self.settings.iterative_deepening_initial_depth)
 
-        self.max_depth = depth if depth is not None else 10
-        if depth is None:
-            self.max_depth = self.settings.iterative_deepening_initial_depth
-
-        self.tableau = Tableau()
-        self.goal = self.tableau
-        self.substitution = Substitution()
-        self.goal.actions = self.legal_actions()
-
-        self.info = None
-        self.is_terminal = False
-        self.proof_sequence = []
-
-        if depth is None and self.paper_mode:
+        if self.paper_mode:
             self._solve_ground_clauses()
             done, info = self.initial_status()
             if done:
@@ -256,6 +245,17 @@ class SATConnectionState:
                 # completed iteration.
                 self.shadow.model = {}
                 self.shadow.satisfiable = True
+
+    def reset(self, depth: int) -> None:
+        self.max_depth = depth
+        self.tableau = Tableau()
+        self.goal = self.tableau
+        self.substitution = Substitution()
+        self.goal.actions = self.legal_actions()
+
+        self.info = None
+        self.is_terminal = False
+        self.proof_sequence = []
 
     def starts(self) -> list[Start]:
         starts: list[Start] = []
@@ -438,9 +438,7 @@ class SATConnectionState:
             return
 
     def _finish_iteration(self) -> None:
-        if self.shadow.new_ground_clauses:
-            self.shadow.ground_clauses |= self.shadow.new_ground_clauses
-            self.shadow.new_ground_clauses = set()
+        self._flush_new_ground_clauses()
         self._solve_ground_clauses()
         done, info = self.initial_status()
         if done:
@@ -454,7 +452,10 @@ class SATConnectionState:
             self.shadow.satisfiable = True
             return
 
-        result = self._solve_shadow_cnf([list(clause) for clause in self.shadow.ground_clauses])
+        if getattr(self, 'sat_solver_backend', None) == SATSolver.CaDiCaL:
+            result = self._solve_current_shadow_cnf_with_pydical()
+        else:
+            result = self._solve_shadow_cnf([list(clause) for clause in self.shadow.ground_clauses])
         if result == 'UNSAT':
             self.shadow.unsat_core = self._shrink_unsat_core(self.shadow.ground_clauses)
             self.shadow.model = {}
@@ -499,7 +500,7 @@ class SATConnectionState:
             return pycosat.solve(clauses)
 
         if self.sat_solver_backend == SATSolver.CaDiCaL:
-            return self._solve_shadow_cnf_with_pydical(clauses)
+            return self._solve_shadow_cnf_with_fresh_pydical(clauses)
 
         solver = PySATSolver(bootstrap_with = clauses)
         try:
@@ -512,10 +513,18 @@ class SATConnectionState:
         finally:
             solver.delete()
 
-    def _solve_shadow_cnf_with_pydical(self, clauses: list[list[int]]) -> list[int] | TypeLiteral['UNSAT', 'UNKNOWN']:
+    def _solve_shadow_cnf_with_fresh_pydical(self, clauses: list[list[int]]) -> list[int] | TypeLiteral['UNSAT', 'UNKNOWN']:
         solver = pydical.Solver()
         solver.add_clauses(clauses)
+        return self._read_pydical_result(solver)
 
+    def _solve_current_shadow_cnf_with_pydical(self) -> list[int] | TypeLiteral['UNSAT', 'UNKNOWN']:
+        solver = self._cadical_solver()
+        for clause in self._sorted_shadow_clauses(self.shadow.ground_clauses):
+            self._add_clause_to_cadical_solver(clause)
+        return self._read_pydical_result(solver)
+
+    def _read_pydical_result(self, solver) -> list[int] | TypeLiteral['UNSAT', 'UNKNOWN']:
         status = solver.solve()
         if status == pydical.UNSATISFIABLE:
             return 'UNSAT'
@@ -525,6 +534,31 @@ class SATConnectionState:
             return 'UNKNOWN'
 
         return [solver.val(var) for var in range(1, solver.vars + 1)]
+
+    def _flush_new_ground_clauses(self) -> None:
+        if not self.shadow.new_ground_clauses:
+            return
+
+        for clause in self._sorted_shadow_clauses(self.shadow.new_ground_clauses):
+            self._add_ground_clause(clause)
+        self.shadow.new_ground_clauses = set()
+
+    def _add_ground_clause(self, clause: SATClause) -> None:
+        self.shadow.ground_clauses.add(clause)
+        if self.sat_solver_backend == SATSolver.CaDiCaL:
+            self._add_clause_to_cadical_solver(clause)
+
+    def _add_clause_to_cadical_solver(self, clause: SATClause) -> None:
+        if clause in self.shadow.solver_clauses:
+            return
+
+        self._cadical_solver().add_clause(list(clause))
+        self.shadow.solver_clauses.add(clause)
+
+    def _cadical_solver(self):
+        if self.shadow.solver is None:
+            self.shadow.solver = pydical.Solver()
+        return self.shadow.solver
 
     def _record_tableau_clauses(self) -> None:
         for clause, expanded in self._tableau_clauses().items():
@@ -566,7 +600,7 @@ class SATConnectionState:
         for clause_idx in self._start_clause_indices():
             clause = self.matrix.clauses[clause_idx]
             grounded_clause, expanded_clause = self._ground_clause_data(clause, apply_substitution = False)
-            self.shadow.ground_clauses.add(grounded_clause)
+            self._add_ground_clause(grounded_clause)
             self.shadow.expanded_clauses[grounded_clause] = expanded_clause
 
     def _restart_same_iteration(self) -> None:
