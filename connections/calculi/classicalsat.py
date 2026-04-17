@@ -311,31 +311,30 @@ class SATConnectionState(ClassicalCut):
             self.shadow.satisfiable = True
 
     def _require_sat_backend(self, backend: SATSolver) -> None:
-        if backend == SATSolver.PycoSAT:
-            if pycosat is None:
-                raise ModuleNotFoundError(
-                    'ClassicalSAT requires pycosat for --sat-solver pycosat. '
-                    'Install it in ~/venv and run with that environment.'
-                )
-            return
+        match backend:
+            case SATSolver.PycoSAT:
+                if pycosat is None:
+                    raise ModuleNotFoundError(
+                        'ClassicalSAT requires pycosat for --sat-solver pycosat. '
+                        'Install it in ~/venv and run with that environment.'
+                    )
 
-        if backend == SATSolver.PySAT:
-            if PySATSolver is None:
-                raise ModuleNotFoundError(
-                    'ClassicalSAT requires python-sat for --sat-solver pysat. '
-                    'Install it in ~/venv and run with that environment.'
-                )
-            return
+            case SATSolver.PySAT:
+                if PySATSolver is None:
+                    raise ModuleNotFoundError(
+                        'ClassicalSAT requires python-sat for --sat-solver pysat. '
+                        'Install it in ~/venv and run with that environment.'
+                    )
 
-        if backend == SATSolver.CaDiCaL:
-            if pydical is None:
-                raise ModuleNotFoundError(
-                    'ClassicalSAT requires pydical for --sat-solver cadical. '
-                    'Install it in ~/venv and run with that environment.'
-                )
-            return
+            case SATSolver.CaDiCaL:
+                if pydical is None:
+                    raise ModuleNotFoundError(
+                        'ClassicalSAT requires pydical for --sat-solver cadical. '
+                        'Install it in ~/venv and run with that environment.'
+                    )
 
-        raise LookupError(f'Unknown SAT solver backend: {backend}')
+            case _:
+                raise LookupError(f'Unknown SAT solver backend: {backend}')
 
     def _solve_shadow_cnf(self, clauses: list[list[int]]) -> list[int] | TypeLiteral['UNSAT', 'UNKNOWN']:
         if self.sat_solver_backend == SATSolver.PycoSAT:
