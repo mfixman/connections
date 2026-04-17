@@ -2,46 +2,8 @@
 
 from __future__ import annotations
 
-from connections.calculi.classicalcut import Backtrack, ConnectionAction, Extension, Reduction, Reset, Start
+from connections.calculi.classicalcut import Backtrack, Extension, Reduction, Reset, Start
 from .base import Strategy
-
-def _backtrack_or_reset(actions: list[ConnectionAction]) -> ConnectionAction:
-    for action in actions:
-        if isinstance(action, Backtrack):
-            return action
-    for action in actions:
-        if isinstance(action, Reset):
-            return action
-    raise LookupError('expected Backtrack or Reset action')
-
-def _forward_actions(actions: list[ConnectionAction]) -> list[ConnectionAction]:
-    return [a for a in actions if isinstance(a, (Start, Reduction, Extension))]
-
-def _paper_reset_allowed(actions: list[ConnectionAction], state) -> bool:
-    return (
-        state.goal.parent is None
-        and any(isinstance(action, Reset) for action in actions)
-        and bool(state.shadow.new_ground_clauses)
-    )
-
-def _paper_forward(action: ConnectionAction) -> ConnectionAction:
-    if isinstance(action, (Reduction, Extension)):
-        action.cut = True
-    return action
-
-def _action_head_literal(action: ConnectionAction):
-    """Return the first-order literal a forward action is closing.
-
-    Reductions close the current goal against a path literal; extensions
-    unify the current goal with ``clause_copy[lit_idx]``; starts have no
-    single head literal.
-    """
-    if isinstance(action, Reduction):
-        return action.path_lit
-    if isinstance(action, Extension):
-        if 0 <= action.lit_idx < len(action.clause_copy):
-            return action.clause_copy[action.lit_idx]
-    return None
 
 class SATSolve(Strategy):
     """Paper-faithful SATCoP control for ``ClassicalSAT``.
@@ -62,13 +24,27 @@ class SATSolve(Strategy):
 
     def step(self):
         actions = self.env.legal_actions()
-        forward = _forward_actions(actions)
 
-        if not forward:
-            if _paper_reset_allowed(actions, self.env.state):
-                return Reset(id = 'rs', depth = self.env.state.max_depth, reason = 'ground shadow still growing')
-            return _backtrack_or_reset(actions)
-        return _paper_forward(forward[0])
+        for action in actions:
+            if isinstance(action, (Start, Reduction, Extension)):
+                if isinstance(action, (Reduction, Extension)):
+                    action.cut = True
+                return action
+
+        if (
+            self.env.state.goal.parent is None
+            and any(isinstance(action, Reset) for action in actions)
+            and self.env.state.shadow.new_ground_clauses
+        ):
+            return Reset(id = 'rs', depth = self.env.state.max_depth, reason = 'ground shadow still growing')
+
+        for action in actions:
+            if isinstance(action, Backtrack):
+                return action
+        for action in actions:
+            if isinstance(action, Reset):
+                return action
+        raise LookupError('expected Backtrack or Reset action')
 
 class SATSolveLiteral(Strategy):
     """Strict SATCoP with §9.1 literal-selection refinement.
@@ -115,34 +91,60 @@ class SATSolveLiteral(Strategy):
         if hasattr(self.env.state, 'enable_paper_mode'):
             self.env.state.enable_paper_mode(True)
 
-    def _score(self, action: ConnectionAction) -> int:
-        """Lower is better: pick the literal the SAT model says is True."""
-        literal = _action_head_literal(action)
-        if literal is None:
-            return 2  # start actions — no head literal
-        value = self.env.state.sat_literal_value(literal)
-        if value is True:
-            return 0  # literal selection wants this first
-        if value is None:
-            return 1  # unknown / non-ground: preserve calculus order
-        return 3      # already assigned false: leave for last
-
-    def _choose_forward(self, forward: list[ConnectionAction]) -> ConnectionAction:
-        if len(forward) == 1:
-            return forward[0]
-        # ``min`` with a key is stable w.r.t. the input order, so ties
-        # preserve the randomised order produced by the calculus.
-        best_idx = min(range(len(forward)), key = lambda i: (self._score(forward[i]), i))
-        return forward[best_idx]
-
     def step(self):
-        actions = self.env.legal_actions()
-        forward = _forward_actions(actions)
-
-        if forward:
-            return _paper_forward(self._choose_forward(forward))
-
         state = self.env.state
-        if _paper_reset_allowed(actions, state):
+        actions = self.env.legal_actions()
+
+        best_action = None
+        best_order = 4
+        for action in actions:
+            match action:
+                case Start():
+                    order = 2
+
+                case Reduction(path_lit = path_lit):
+                    value = state.sat_literal_value(path_lit)
+                    if value is True:
+                        order = 0
+                    elif value is None:
+                        order = 1
+                    else:
+                        order = 3
+
+                case Extension(clause_copy = clause_copy, lit_idx = lit_idx):
+                    value = None
+                    if 0 <= lit_idx < len(clause_copy):
+                        value = state.sat_literal_value(clause_copy[lit_idx])
+                    if value is True:
+                        order = 0
+                    elif value is None:
+                        order = 1
+                    else:
+                        order = 3
+
+                case _:
+                    continue
+
+            if order < best_order:
+                best_action = action
+                best_order = order
+
+        if best_action is not None:
+            if isinstance(best_action, (Reduction, Extension)):
+                best_action.cut = True
+            return best_action
+
+        if (
+            state.goal.parent is None
+            and any(isinstance(action, Reset) for action in actions)
+            and state.shadow.new_ground_clauses
+        ):
             return Reset(id = 'rs', depth = state.max_depth)
-        return _backtrack_or_reset(actions)
+
+        for action in actions:
+            if isinstance(action, Backtrack):
+                return action
+        for action in actions:
+            if isinstance(action, Reset):
+                return action
+        raise LookupError('expected Backtrack or Reset action')

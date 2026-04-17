@@ -359,9 +359,6 @@ class SATConnectionState(ClassicalCut):
         solver = pydical.Solver()
         solver.add_clauses(clauses)
 
-        import ipdb
-        ipdb.set_trace()
-
         status = solver.solve()
         if status == pydical.UNSATISFIABLE:
             return 'UNSAT'
