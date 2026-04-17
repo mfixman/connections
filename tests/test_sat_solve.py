@@ -178,19 +178,22 @@ def test_sat_connection_state_can_use_cadical_backend(monkeypatch):
     calls = {}
 
     class FakeSolver:
-        def __init__(self, *, bootstrap_with):
-            calls['clauses'] = bootstrap_with
+        vars = 2
+
+        def add_clauses(self, clauses):
+            calls['clauses'] = clauses
 
         def solve(self):
-            return True
+            return 10
 
-        def get_model(self):
-            return [-1, 2]
+        def val(self, var):
+            return {1: -1, 2: 2}[var]
 
-        def delete(self):
-            calls['deleted'] = True
-
-    monkeypatch.setattr(classicalsat, 'PySATCadicalSolver', FakeSolver)
+    monkeypatch.setattr(
+        classicalsat,
+        'pydical',
+        SimpleNamespace(Solver = FakeSolver, SATISFIABLE = 10, UNSATISFIABLE = 20, UNSOLVED = 0),
+    )
 
     state = object.__new__(SATConnectionState)
     state.sat_solver_backend = SATSolver.CaDiCaL
@@ -199,12 +202,22 @@ def test_sat_connection_state_can_use_cadical_backend(monkeypatch):
     state._solve_ground_clauses()
 
     assert calls['clauses'] == [[-1, 2]]
-    assert calls['deleted'] is True
     assert state.shadow.model == {1: False, 2: True}
     assert state.shadow.satisfiable is True
 
+@pytest.mark.skipif(classicalsat.pydical is None, reason = 'pydical is not installed')
+def test_sat_connection_state_can_use_real_pydical_backend():
+    state = object.__new__(SATConnectionState)
+    state.sat_solver_backend = SATSolver.CaDiCaL
+
+    result = state._solve_shadow_cnf([[1], [-1, 2]])
+
+    assert result not in ('UNSAT', 'UNKNOWN')
+    assert {abs(lit): lit > 0 for lit in result if lit != 0} == {1: True, 2: True}
+    assert state._solve_shadow_cnf([[1], [-1]]) == 'UNSAT'
+
 def test_missing_cadical_does_not_disable_other_sat_backends(monkeypatch):
-    monkeypatch.setattr(classicalsat, 'PySATCadicalSolver', None)
+    monkeypatch.setattr(classicalsat, 'pydical', None)
     monkeypatch.setattr(classicalsat, 'pycosat', object())
 
     state = object.__new__(SATConnectionState)

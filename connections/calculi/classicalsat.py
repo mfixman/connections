@@ -16,8 +16,6 @@ from connections.calculi.classicalcut import (
 from connections.utils.primitives import Expression, Literal, Variable
 from connections.utils.unification import Substitution
 
-import random
-
 class SATSolver(UncaseEnum):
     PycoSAT = auto()
     PySAT = auto()
@@ -32,14 +30,13 @@ try:
     from pysat import solvers as pysat_solvers
 except ImportError:
     PySATSolver = None
-    PySATCadicalSolver = None
 else:
     PySATSolver = getattr(pysat_solvers, 'Minisat22', None)
-    PySATCadicalSolver = (
-        getattr(pysat_solvers, 'Cadical195', None)
-        or getattr(pysat_solvers, 'Cadical153', None)
-        or getattr(pysat_solvers, 'Cadical103', None)
-    )
+
+try:
+    import pydical
+except ModuleNotFoundError:
+    pydical = None
 
 SATClause = tuple[int, ...]
 
@@ -331,9 +328,9 @@ class SATConnectionState(ClassicalCut):
             return
 
         if backend == SATSolver.CaDiCaL:
-            if PySATCadicalSolver is None:
+            if pydical is None:
                 raise ModuleNotFoundError(
-                    'ClassicalSAT requires python-sat with CaDiCaL support for --sat-solver cadical. '
+                    'ClassicalSAT requires pydical for --sat-solver cadical. '
                     'Install it in ~/venv and run with that environment.'
                 )
             return
@@ -344,12 +341,10 @@ class SATConnectionState(ClassicalCut):
         if self.sat_solver_backend == SATSolver.PycoSAT:
             return pycosat.solve(clauses)
 
-        solver_class = PySATSolver if self.sat_solver_backend == SATSolver.PySAT else PySATCadicalSolver
-        solver = solver_class(bootstrap_with = clauses)
+        if self.sat_solver_backend == SATSolver.CaDiCaL:
+            return self._solve_shadow_cnf_with_pydical(clauses)
 
-        import ipdb
-        ipdb.set_trace()
-
+        solver = PySATSolver(bootstrap_with = clauses)
         try:
             satisfiable = solver.solve()
             if satisfiable is False:
@@ -359,6 +354,23 @@ class SATConnectionState(ClassicalCut):
             return solver.get_model() or []
         finally:
             solver.delete()
+
+    def _solve_shadow_cnf_with_pydical(self, clauses: list[list[int]]) -> list[int] | TypeLiteral['UNSAT', 'UNKNOWN']:
+        solver = pydical.Solver()
+        solver.add_clauses(clauses)
+
+        import ipdb
+        ipdb.set_trace()
+
+        status = solver.solve()
+        if status == pydical.UNSATISFIABLE:
+            return 'UNSAT'
+        if status == pydical.UNSOLVED:
+            return 'UNKNOWN'
+        if status != pydical.SATISFIABLE:
+            return 'UNKNOWN'
+
+        return [solver.val(var) for var in range(1, solver.vars + 1)]
 
     def _record_tableau_clauses(self) -> None:
         for clause, expanded in self._tableau_clauses().items():
