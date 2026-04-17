@@ -45,7 +45,7 @@ class SATSolve(Strategy):
         if action := next((a for a in actions if isinstance(a, Reset)), None):
             return action
 
-        return action
+        raise LookupError('Expected at least one action to be Start, Reduction, Extension, Backtrack, or Reset.')
 
 class SATSolveLiteral(Strategy):
     """Strict SATCoP with §9.1 literal-selection refinement.
