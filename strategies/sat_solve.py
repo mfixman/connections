@@ -25,10 +25,6 @@ class SATSolve(Strategy):
     def step(self):
         actions = self.env.legal_actions()
 
-        # if sum(isinstance(a, Extension) for a in actions) >= 3:
-        #     import ipdb
-        #     ipdb.set_trace()
-
         for action in actions:
             if isinstance(action, (Reduction, Extension)):
                 action.cut = True

@@ -229,7 +229,10 @@ class SATConnectionState:
         return True, info
 
     def init(self) -> None:
-        solver = pydical.Solver() if self.sat_solver_backend == SATSolver.CaDiCaL else None
+        solver = None
+        if self.sat_solver_backend == SATSolver.CaDiCaL:
+            solver = self._new_cadical_solver()
+
         self.shadow = ShadowSAT(solver = solver)
         self._seed_ground_with_start_clauses()
         self.reset(self.settings.iterative_deepening_initial_depth)
@@ -457,7 +460,7 @@ class SATConnectionState:
         else:
             result = self._solve_shadow_cnf([list(clause) for clause in self.shadow.ground_clauses])
         if result == 'UNSAT':
-            self.shadow.unsat_core = self._shrink_unsat_core(self.shadow.ground_clauses)
+            self.shadow.unsat_core = self._sorted_shadow_clauses(self.shadow.ground_clauses)
             self.shadow.model = {}
             self.shadow.satisfiable = False
         elif result == 'UNKNOWN':
@@ -500,7 +503,7 @@ class SATConnectionState:
             return pycosat.solve(clauses)
 
         if self.sat_solver_backend == SATSolver.CaDiCaL:
-            return self._solve_shadow_cnf_with_fresh_pydical(clauses)
+            raise RuntimeError('CaDiCaL solves the monotone shadow CNF through shadow.solver.')
 
         solver = PySATSolver(bootstrap_with = clauses)
         try:
@@ -512,11 +515,6 @@ class SATConnectionState:
             return solver.get_model() or []
         finally:
             solver.delete()
-
-    def _solve_shadow_cnf_with_fresh_pydical(self, clauses: list[list[int]]) -> list[int] | TypeLiteral['UNSAT', 'UNKNOWN']:
-        solver = pydical.Solver()
-        solver.add_clauses(clauses)
-        return self._read_pydical_result(solver)
 
     def _solve_current_shadow_cnf_with_pydical(self) -> list[int] | TypeLiteral['UNSAT', 'UNKNOWN']:
         solver = self._cadical_solver()
@@ -557,27 +555,21 @@ class SATConnectionState:
 
     def _cadical_solver(self):
         if self.shadow.solver is None:
-            self.shadow.solver = pydical.Solver()
+            self.shadow.solver = self._new_cadical_solver()
         return self.shadow.solver
+
+    def _new_cadical_solver(self):
+        solver = pydical.Solver()
+        if hasattr(solver, 'set'):
+            solver.set('stabilizeonly', 1)
+            solver.set('walk', 0)
+        return solver
 
     def _record_tableau_clauses(self) -> None:
         for clause, expanded in self._tableau_clauses().items():
             self.shadow.expanded_clauses.setdefault(clause, expanded)
             if clause not in self.shadow.ground_clauses:
                 self.shadow.new_ground_clauses.add(clause)
-
-    def _shrink_unsat_core(self, clauses: set[SATClause]) -> list[SATClause]:
-        """Greedily delete redundant clauses to get a small UNSAT core."""
-        core = list(self._sorted_shadow_clauses(clauses))
-        idx = 0
-        while idx < len(core):
-            trial = core[:idx] + core[idx + 1:]
-            result = self._solve_shadow_cnf([list(clause) for clause in trial])
-            if result == 'UNSAT':
-                core = trial
-                continue
-            idx += 1
-        return core
 
     def _sorted_shadow_clauses(self, clauses: set[SATClause]) -> list[SATClause]:
         return sorted(clauses, key = lambda clause: (-len(clause), clause))

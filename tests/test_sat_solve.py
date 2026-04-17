@@ -215,12 +215,20 @@ def test_sat_connection_state_can_use_cadical_backend(monkeypatch):
 def test_sat_connection_state_can_use_real_pydical_backend():
     state = object.__new__(SATConnectionState)
     state.sat_solver_backend = SATSolver.CaDiCaL
+    state.shadow = ShadowSAT(ground_clauses = {(1,), (-1, 2)})
 
-    result = state._solve_shadow_cnf([[1], [-1, 2]])
+    state._solve_ground_clauses()
 
-    assert result not in ('UNSAT', 'UNKNOWN')
-    assert {abs(lit): lit > 0 for lit in result if lit != 0} == {1: True, 2: True}
-    assert state._solve_shadow_cnf([[1], [-1]]) == 'UNSAT'
+    assert state.shadow.satisfiable is True
+    assert state.shadow.model == {1: True, 2: True}
+
+    state = object.__new__(SATConnectionState)
+    state.sat_solver_backend = SATSolver.CaDiCaL
+    state.shadow = ShadowSAT(ground_clauses = {(1,), (-1,)})
+
+    state._solve_ground_clauses()
+
+    assert state.shadow.satisfiable is False
 
 def test_missing_cadical_does_not_disable_other_sat_backends(monkeypatch):
     monkeypatch.setattr(classicalsat, 'pydical', None)
@@ -230,7 +238,7 @@ def test_missing_cadical_does_not_disable_other_sat_backends(monkeypatch):
 
     state._require_sat_backend(SATSolver.PycoSAT)
 
-def test_unsat_core_is_reduced_before_reporting():
+def test_unsat_shadow_records_current_ground_clauses_for_reporting():
     state = object.__new__(SATConnectionState)
     state.settings = SimpleNamespace(debug = True)
     state.shadow = ShadowSAT(
@@ -253,10 +261,10 @@ def test_unsat_core_is_reduced_before_reporting():
     state._solve_ground_clauses()
 
     assert state.shadow.satisfiable is False
-    assert set(state.shadow.unsat_core) == {(1,), (-1,)}
+    assert set(state.shadow.unsat_core) == {(1,), (-1,), (2, 3)}
     done, info = state.initial_status()
     assert done is True
-    assert 'q(a)' not in info
+    assert 'q(a)' in info
     assert '(p(a))' in info
     assert '(-p(a))' in info
 
