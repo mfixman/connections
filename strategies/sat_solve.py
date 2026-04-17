@@ -91,47 +91,42 @@ class SATSolveLiteral(Strategy):
         if hasattr(self.env.state, 'enable_paper_mode'):
             self.env.state.enable_paper_mode(True)
 
+    def score(self, action: ConnectionAction):
+        match action:
+            case Start():
+                return 2
+
+            case Reduction(path_lit = path_lit):
+                value = self.env.state.sat_literal_value(path_lit)
+                if value is True:
+                    return 0
+                elif value is None:
+                    return 1
+                else:
+                    return 3
+
+            case Extension(clause_copy = clause_copy, lit_idx = lit_idx):
+                value = None
+                if 0 <= lit_idx < len(clause_copy):
+                    value = self.env.state.sat_literal_value(clause_copy[lit_idx])
+                if value is True:
+                    return 0
+                elif value is None:
+                    return 1
+                else:
+                    return 3
+
+        return 4
+
     def step(self):
         state = self.env.state
         actions = self.env.legal_actions()
+        best_action = min(actions, key = self.score)
 
-        best_action = None
-        best_order = 4
-        for action in actions:
-            match action:
-                case Start():
-                    order = 2
+        if isinstance(best_action, (Reduction, Extension)):
+            best_action.cut = True
 
-                case Reduction(path_lit = path_lit):
-                    value = state.sat_literal_value(path_lit)
-                    if value is True:
-                        order = 0
-                    elif value is None:
-                        order = 1
-                    else:
-                        order = 3
-
-                case Extension(clause_copy = clause_copy, lit_idx = lit_idx):
-                    value = None
-                    if 0 <= lit_idx < len(clause_copy):
-                        value = state.sat_literal_value(clause_copy[lit_idx])
-                    if value is True:
-                        order = 0
-                    elif value is None:
-                        order = 1
-                    else:
-                        order = 3
-
-                case _:
-                    continue
-
-            if order < best_order:
-                best_action = action
-                best_order = order
-
-        if best_action is not None:
-            if isinstance(best_action, (Reduction, Extension)):
-                best_action.cut = True
+        if isinstance(best_action, (Start, Reduction, Extension)):
             return best_action
 
         if (
