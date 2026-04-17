@@ -39,13 +39,13 @@ class SATSolve(Strategy):
         ):
             return Reset(id = 'rs', depth = self.env.state.max_depth, reason = 'ground shadow still growing')
 
-        if action := next(a for a in actions if isinstance(a, Backtrack), None):
+        if action := next((a for a in actions if isinstance(a, Backtrack)), None):
             return action
 
-        if action := next(a for a in actions if isinstance(a, Reset), None):
+        if action := next((a for a in actions if isinstance(a, Reset)), None):
             return action
 
-        raise LookupError('expected Backtrack or Reset action')
+        return action
 
 class SATSolveLiteral(Strategy):
     """Strict SATCoP with §9.1 literal-selection refinement.
