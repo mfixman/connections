@@ -39,13 +39,11 @@ class SATSolve(Strategy):
         ):
             return Reset(id = 'rs', depth = self.env.state.max_depth, reason = 'ground shadow still growing')
 
-        for action in actions:
-            if isinstance(action, Backtrack):
-                return action
+        if action := next(a for a in actions if isinstance(a, Backtrack), None):
+            return action
 
-        for action in actions:
-            if isinstance(action, Reset):
-                return action
+        if action := next(a for a in actions if isinstance(a, Reset), None):
+            return action
 
         raise LookupError('expected Backtrack or Reset action')
 
