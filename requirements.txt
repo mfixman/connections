@@ -1,0 +1,3 @@
+pycosat
+python-sat
+pydical
