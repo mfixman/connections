@@ -347,7 +347,6 @@ def test_paper_mode_closed_tableau_restarts_same_iteration():
     state.tableau = Tableau()
     state.tableau.actions = {'rs': Reset(id = 'rs', depth = 2)}
     state.proof_sequence = [Extension(id = 'ex0')]
-    state._cached_facts = {'fact'}
     state.is_terminal = False
     state.info = None
 
@@ -358,7 +357,6 @@ def test_paper_mode_closed_tableau_restarts_same_iteration():
     assert 'rs' in state.goal.actions
     assert state.is_terminal is False
     assert state.proof_sequence == []
-    assert state._cached_facts == set()
 
 def test_paper_mode_skips_goal_when_model_assigns_false():
     state = object.__new__(SATConnectionState)
@@ -368,7 +366,6 @@ def test_paper_mode_skips_goal_when_model_assigns_false():
     state.goal = Tableau(Literal('p', []), state.tableau)
     state.tableau.children = [state.goal]
     state.proof_sequence = []
-    state._cached_facts = set()
     state.is_terminal = False
     state.info = None
     state.sat_literal_value = lambda literal: False if literal.symbol == 'p' else None

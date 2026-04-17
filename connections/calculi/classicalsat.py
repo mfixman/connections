@@ -8,12 +8,6 @@ from connections.utils.primitives import Expression, Literal, Matrix, Variable
 from connections.utils.tableau import Tableau
 from connections.utils.unification import Substitution
 
-@dataclass(frozen = True)
-class ConnectionFact:
-    """A connection between two matrix positions."""
-    goal_pos: tuple[int, int]
-    target_pos: tuple[int, int]
-
 @dataclass
 class ConnectionAction:
     id: str
@@ -186,19 +180,6 @@ class SATConnectionState:
                         return True
         return False
 
-    def action_to_fact(self, action: ConnectionAction) -> Optional[ConnectionFact]:
-        if isinstance(action, Extension):
-            goal_pos = action.principle_node.literal.matrix_pos
-            target_pos = action.clause_copy[action.lit_idx].matrix_pos
-            if goal_pos is not None and target_pos is not None:
-                return ConnectionFact(goal_pos, target_pos)
-        elif isinstance(action, Reduction):
-            goal_pos = action.principle_node.literal.matrix_pos
-            target_pos = action.path_lit.matrix_pos
-            if goal_pos is not None and target_pos is not None:
-                return ConnectionFact(goal_pos, target_pos)
-        return None
-
     def control_actions(self) -> list[ConnectionAction]:
         if self.goal.parent is None:
             return []
@@ -238,12 +219,12 @@ class SATConnectionState:
     def initial_status(self) -> tuple[bool, Optional[str]]:
         if self.shadow.satisfiable:
             return False, None
-        if not self._debug_enabled():
+        if not bool(getattr(getattr(self, 'settings', None), 'debug', False)):
             return True, 'Theorem (SAT)'
 
         clauses = self.shadow.unsat_core or self._sorted_shadow_clauses(self.shadow.ground_clauses)
-        expanded = [self._expanded_clause_for_debug(clause) for clause in clauses]
-        info = '; '.join(['Theorem (SAT)'] + [self._format_expanded_clause(clause) for clause in expanded])
+        expanded = [self.shadow.expanded_clauses.get(clause, [str(lit) for lit in clause]) for clause in clauses]
+        info = '; '.join(['Theorem (SAT)'] + ['(' + ', '.join(clause) + ')' for clause in expanded])
         return True, info
 
     def reset(self, depth: Optional[int] = None) -> None:
@@ -264,10 +245,6 @@ class SATConnectionState:
         self.is_terminal = False
         self.proof_sequence = []
 
-        self.constraints: list[frozenset[ConnectionFact]] = []
-        self.failure_count: int = 0
-        self._cached_facts: set[ConnectionFact] = set()
-
         if depth is None and self.paper_mode:
             self._solve_ground_clauses()
             done, info = self.initial_status()
@@ -280,12 +257,6 @@ class SATConnectionState:
                 self.shadow.model = {}
                 self.shadow.satisfiable = True
 
-    def analyze_failure(self) -> None:
-        return
-
-    def violates_constraint(self, action: ConnectionAction) -> bool:
-        return False
-
     def starts(self) -> list[Start]:
         starts: list[Start] = []
         for clause in self._start_clause_indices():
@@ -295,7 +266,7 @@ class SATConnectionState:
 
         for action in starts:
             if action.clause_copy is not None:
-                action.clause_copy = self._shuffled_clause(action.clause_copy)
+                self.random.shuffle(action.clause_copy)
         self.random.shuffle(starts)
         return starts
 
@@ -335,10 +306,7 @@ class SATConnectionState:
             remaining_ids = list(self.goal.actions)
 
             if pop_frame and self.proof_sequence:
-                popped = self.proof_sequence.pop()
-                fact = self.action_to_fact(popped)
-                if fact is not None:
-                    self._cached_facts.discard(fact)
+                self.proof_sequence.pop()
 
             if self.goal.pending_cut:
                 self.goal.pending_cut = False
@@ -384,9 +352,6 @@ class SATConnectionState:
         if isinstance(action, Start | Reduction | Extension):
             self.substitution.update(action.sub_updates)
             self.proof_sequence.append(action)
-            fact = self.action_to_fact(action)
-            if fact is not None:
-                self._cached_facts.add(fact)
 
         match action:
             case Backtrack():
@@ -415,10 +380,10 @@ class SATConnectionState:
                     self.is_terminal = True
                     return
 
-                self.goal.children = [self._new_tableau_child(lit) for lit in clause_copy]
+                self.goal.children = [Tableau(lit, self.goal) for lit in clause_copy]
 
             case Extension(clause_copy = clause_copy, lit_idx = lit_idx, cut = cut):
-                self.goal.children = [self._new_tableau_child(lit) for lit in clause_copy]
+                self.goal.children = [Tableau(lit, self.goal) for lit in clause_copy]
                 self.goal.children[lit_idx].proven = True
                 self.goal.children.insert(0, self.goal.children.pop(lit_idx))
                 if cut:
@@ -447,10 +412,6 @@ class SATConnectionState:
             return None
         return value if sat_lit > 0 else (not value)
 
-    def ground_clause(self, clause: list[Literal]) -> SATClause:
-        grounded_clause, _ = self._ground_clause_data(clause, apply_substitution = True)
-        return grounded_clause
-
     def _refresh_goal(self) -> None:
         self.finalize_pending_cuts()
 
@@ -474,8 +435,6 @@ class SATConnectionState:
                 continue
 
             self.goal.actions = self.legal_forward_actions()
-            if not self.goal.actions:
-                self.analyze_failure()
             return
 
     def _finish_iteration(self) -> None:
@@ -617,7 +576,6 @@ class SATConnectionState:
         self.goal = self.tableau
         self.substitution = Substitution()
         self.proof_sequence = []
-        self._cached_facts.clear()
 
     def _solved_by_model(self) -> bool:
         literals = self.goal.path() + [self.goal.literal]
@@ -628,10 +586,6 @@ class SATConnectionState:
         if not self.settings.positive_start_clauses:
             clause_indices += self.matrix.negative_clauses
         return clause_indices
-
-    def _ground_clause_without_substitution(self, clause: list[Literal]) -> SATClause:
-        grounded_clause, _ = self._ground_clause_data(clause, apply_substitution = False)
-        return grounded_clause
 
     def _ground_clause_data(
         self,
@@ -655,15 +609,6 @@ class SATConnectionState:
         atom = self._atom_key(literal)
         atom_id = self.shadow.atom_id(atom)
         return -atom_id if literal.neg else atom_id
-
-    def _debug_enabled(self) -> bool:
-        return bool(getattr(getattr(self, 'settings', None), 'debug', False))
-
-    def _expanded_clause_for_debug(self, clause: SATClause) -> list[str]:
-        return self.shadow.expanded_clauses.get(clause, [str(lit) for lit in clause])
-
-    def _format_expanded_clause(self, clause: list[str]) -> str:
-        return '(' + ', '.join(clause) + ')'
 
     def _debug_literal(self, literal: Literal) -> str:
         args = ', '.join(self._debug_term(arg) for arg in literal.args)
@@ -694,14 +639,6 @@ class SATConnectionState:
         if isinstance(expression, Variable):
             return False
         return all(self._is_ground(arg) for arg in expression.args)
-
-    def _new_tableau_child(self, literal: Literal):
-        return Tableau(literal, self.goal)
-
-    def _shuffled_clause(self, clause: list[Literal]) -> list[Literal]:
-        shuffled = list(clause)
-        self.random.shuffle(shuffled)
-        return shuffled
 
     def _shuffled_extension_clause(self, clause: list[Literal], lit_idx: int) -> tuple[list[Literal], int]:
         order = list(range(len(clause)))
