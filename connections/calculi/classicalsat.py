@@ -16,6 +16,8 @@ from connections.calculi.classicalcut import (
 from connections.utils.primitives import Expression, Literal, Variable
 from connections.utils.unification import Substitution
 
+import random
+
 class SATSolver(UncaseEnum):
     PycoSAT = auto()
     PySAT = auto()
@@ -344,6 +346,9 @@ class SATConnectionState(ClassicalCut):
 
         solver_class = PySATSolver if self.sat_solver_backend == SATSolver.PySAT else PySATCadicalSolver
         solver = solver_class(bootstrap_with = clauses)
+
+        import ipdb
+        ipdb.set_trace()
 
         try:
             satisfiable = solver.solve()
