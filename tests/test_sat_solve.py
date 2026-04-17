@@ -5,7 +5,7 @@ import connections.calculi.classicalsat as classicalsat
 from types import SimpleNamespace
 
 from connections.env import ConnectionEnv, Settings
-from connections.calculi.classicalsat import pycosat
+from connections.calculi.classicalsat import SATConnectionState, SATSolver, ShadowSAT, pycosat
 from connections.calculi.classicalcut import Backtrack, Extension, Reset
 from connections.utils.primitives import Literal, Variable
 from connections.utils.tableau import Tableau
@@ -163,9 +163,9 @@ def test_sat_connection_state_can_use_pysat_backend(monkeypatch):
 
     monkeypatch.setattr(classicalsat, 'PySATSolver', FakeSolver)
 
-    state = object.__new__(classicalsat.SATConnectionState)
-    state.sat_solver_backend = 'pysat'
-    state.shadow = classicalsat.ShadowSAT(ground_clauses = {(1, -2)})
+    state = object.__new__(SATConnectionState)
+    state.sat_solver_backend = SATSolver.PySAT
+    state.shadow = ShadowSAT(ground_clauses = {(1, -2)})
 
     state._solve_ground_clauses()
 
@@ -192,9 +192,9 @@ def test_sat_connection_state_can_use_cadical_backend(monkeypatch):
 
     monkeypatch.setattr(classicalsat, 'PySATCadicalSolver', FakeSolver)
 
-    state = object.__new__(classicalsat.SATConnectionState)
-    state.sat_solver_backend = 'cadical'
-    state.shadow = classicalsat.ShadowSAT(ground_clauses = {(-1, 2)})
+    state = object.__new__(SATConnectionState)
+    state.sat_solver_backend = SATSolver.CaDiCaL
+    state.shadow = ShadowSAT(ground_clauses = {(-1, 2)})
 
     state._solve_ground_clauses()
 
@@ -207,14 +207,14 @@ def test_missing_cadical_does_not_disable_other_sat_backends(monkeypatch):
     monkeypatch.setattr(classicalsat, 'PySATCadicalSolver', None)
     monkeypatch.setattr(classicalsat, 'pycosat', object())
 
-    state = object.__new__(classicalsat.SATConnectionState)
+    state = object.__new__(SATConnectionState)
 
-    state._require_sat_backend('pycosat')
+    state._require_sat_backend(SATSolver.PycoSAT)
 
 def test_unsat_core_is_reduced_before_reporting():
-    state = object.__new__(classicalsat.SATConnectionState)
+    state = object.__new__(SATConnectionState)
     state.settings = SimpleNamespace(debug = True)
-    state.shadow = classicalsat.ShadowSAT(
+    state.shadow = ShadowSAT(
         ground_clauses = {(1,), (-1,), (2, 3)},
         expanded_clauses = {
             (1,): ['p(a)'],
@@ -242,9 +242,9 @@ def test_unsat_core_is_reduced_before_reporting():
     assert '(-p(a))' in info
 
 def test_initial_status_reports_unsat_shadow_result():
-    state = object.__new__(classicalsat.SATConnectionState)
+    state = object.__new__(SATConnectionState)
     state.settings = SimpleNamespace(debug = True)
-    state.shadow = classicalsat.ShadowSAT(
+    state.shadow = ShadowSAT(
         ground_clauses = {(1,), (-1,), (2, 3)},
         expanded_clauses = {
             (1,): ['p(a)'],
@@ -265,9 +265,9 @@ def test_initial_status_reports_unsat_shadow_result():
     assert 'q(a)' not in info
 
 def test_initial_status_is_terse_without_debug():
-    state = object.__new__(classicalsat.SATConnectionState)
+    state = object.__new__(SATConnectionState)
     state.settings = SimpleNamespace(debug = False)
-    state.shadow = classicalsat.ShadowSAT(
+    state.shadow = ShadowSAT(
         ground_clauses = {(1,), (-1,)},
         expanded_clauses = {
             (1,): ['p(a)'],
@@ -283,8 +283,8 @@ def test_initial_status_is_terse_without_debug():
     assert info == 'Theorem (SAT)'
 
 def test_initial_status_reports_unsolved_shadow_result():
-    state = object.__new__(classicalsat.SATConnectionState)
-    state.shadow = classicalsat.ShadowSAT(
+    state = object.__new__(SATConnectionState)
+    state.shadow = ShadowSAT(
         ground_clauses = {(1, -2)},
         satisfiable = True,
     )
@@ -306,8 +306,8 @@ def test_classical_cut_initial_status_defaults_to_not_done():
     assert info is None
 
 def test_grounding_collapses_all_remaining_variables_to_one_fresh_constant():
-    state = object.__new__(classicalsat.SATConnectionState)
-    state.shadow = classicalsat.ShadowSAT()
+    state = object.__new__(SATConnectionState)
+    state.shadow = ShadowSAT()
     state._ground_variable_constant = '__ground__'
 
     lit1 = Literal('p', [Variable('X')])
@@ -329,7 +329,7 @@ def test_sat_solve_enables_paper_mode():
     assert env.state.paper_mode is True
 
 def test_paper_mode_closed_tableau_restarts_same_iteration():
-    state = object.__new__(classicalsat.SATConnectionState)
+    state = object.__new__(SATConnectionState)
     state.paper_mode = True
     state.goal = None
     state.tableau = Tableau()
@@ -349,7 +349,7 @@ def test_paper_mode_closed_tableau_restarts_same_iteration():
     assert state._cached_facts == set()
 
 def test_paper_mode_skips_goal_when_model_assigns_false():
-    state = object.__new__(classicalsat.SATConnectionState)
+    state = object.__new__(SATConnectionState)
     state.paper_mode = True
     state.tableau = Tableau()
     state.tableau.actions = {'rs': Reset(id = 'rs', depth = 2)}

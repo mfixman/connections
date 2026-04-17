@@ -16,7 +16,7 @@ from multiprocessing.connection import Connection, wait
 from pathlib import Path
 from typing import Optional
 
-from connections.env import ConnectionEnv, Logic, SAT_SOLVER_CHOICES, Settings
+from connections.env import ConnectionEnv, Logic, SATSolver, Settings
 from problem_inputs import expand_problem_inputs, resolve_problem_path
 from strategies import Strategy
 
@@ -97,12 +97,12 @@ def _cleanup_task_process(conn: Connection, proc: mp.Process) -> dict:
         'error': f'worker exited with code {proc.exitcode}',
     }
 
-def default_logic_for_strategy(strategy_name: str) -> str:
+def default_logic_for_strategy(strategy_name: str) -> Logic:
     if strategy_name in ('SATSolve', 'SATSolveLiteral'):
-        return str(Logic.ClassicalSAT)
-    return str(Logic.ClassicalCut)
+        return Logic.ClassicalSAT
+    return Logic.ClassicalCut
 
-def resolve_logic_for_strategy(strategy_name: str, logic_override: Optional[str]) -> str:
+def resolve_logic_for_strategy(strategy_name: str, logic_override: Optional[Logic]) -> Logic:
     if logic_override is not None:
         return logic_override
     return default_logic_for_strategy(strategy_name)
@@ -111,8 +111,8 @@ def _run_problem(
     conn: Connection,
     path: str,
     strategy_name: str,
-    logic: str,
-    sat_solver: str,
+    logic: Logic,
+    sat_solver: SATSolver,
     max_steps: int,
 ) -> None:
     """Worker function: run one strategy on one problem and send back a result."""
@@ -444,8 +444,8 @@ class ReportWriter:
 def run_tasks(
     problems: list[Path],
     strategies: list[str],
-    logic_override: Optional[str],
-    sat_solver: str,
+    logic_override: Optional[Logic],
+    sat_solver: SATSolver,
     max_steps: int,
     timeout: float,
     max_workers: int,
@@ -572,7 +572,6 @@ def write_results_csv(
 def parse_args() -> argparse.Namespace:
     available_strategies = list(Strategy.strategies().keys())
     default_strategies = [available_strategies[0], available_strategies[-1]]
-    available_logics = [str(l) for l in Logic]
 
     parser = argparse.ArgumentParser(
         prog='compare_strategies.py',
@@ -580,7 +579,7 @@ def parse_args() -> argparse.Namespace:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=(
             f'available strategies: {", ".join(available_strategies)}\n'
-            f'available logics:     {", ".join(available_logics)}\n'
+            f'available logics:     {", ".join(str(logic) for logic in Logic)}\n'
             '\n'
             'examples:\n'
             '  %(prog)s\n'
@@ -608,11 +607,15 @@ def parse_args() -> argparse.Namespace:
         help='compare all available strategies',
     )
     parser.add_argument(
-        '--logic', choices=available_logics, metavar='LOGIC',
+        '--logic', choices=list(Logic), type=Logic, metavar='LOGIC',
         help='logic to use for all strategies (default: strategy-dependent)',
     )
     parser.add_argument(
-        '--sat-solver', choices=SAT_SOLVER_CHOICES, default='pycosat', metavar='BACKEND',
+        '--sat-solver',
+        choices=list(SATSolver),
+        default=SATSolver.PycoSAT,
+        type=SATSolver,
+        metavar='BACKEND',
         help='SAT backend for ClassicalSAT (default: pycosat)',
     )
     parser.add_argument(

@@ -1,11 +1,8 @@
-from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
 from types import SimpleNamespace
 
-PYCOP_PATH = Path(__file__).resolve().parents[1] / 'pycop.py'
-PYCOP_SPEC = spec_from_file_location('mypycop_pycop', PYCOP_PATH)
-pycop = module_from_spec(PYCOP_SPEC)
-PYCOP_SPEC.loader.exec_module(pycop)
+import pycop
+from pycop import Domain, Logic, SATSolver
 
 class TestPycopProblemResolution:
     def test_resolved_problem_paths_prefers_local_file(self, tmp_path: Path, monkeypatch):
@@ -97,9 +94,9 @@ class TestPycopDebugOutput:
         result = pycop._run_problem(
             'dummy.p',
             SimpleNamespace(
-                logic = 'Classical',
-                domain = 'Constant',
-                sat_solver = 'pycosat',
+                logic = Logic.Classical,
+                domain = Domain.Constant,
+                sat_solver = SATSolver.PycoSAT,
                 debug = True,
                 strategy = 'FirstAction',
                 max_steps = 10,
@@ -146,9 +143,9 @@ class TestPycopDebugOutput:
         result = pycop._run_problem(
             'dummy.p',
             SimpleNamespace(
-                logic = 'Classical',
-                domain = 'Constant',
-                sat_solver = 'pycosat',
+                logic = Logic.Classical,
+                domain = Domain.Constant,
+                sat_solver = SATSolver.PycoSAT,
                 debug = False,
                 strategy = 'FirstAction',
                 max_steps = 10,
@@ -161,16 +158,16 @@ class TestPycopDebugOutput:
 
 class TestPycopLogicSelection:
     def test_default_logic_for_strategy_uses_classical_for_first_action(self):
-        assert pycop.default_logic_for_strategy('FirstAction') == 'Classical'
+        assert pycop.default_logic_for_strategy('FirstAction') is Logic.Classical
 
     def test_default_logic_for_strategy_uses_classical_cut_for_leancopcut(self):
-        assert pycop.default_logic_for_strategy('LeanCopCut') == 'ClassicalCut'
+        assert pycop.default_logic_for_strategy('LeanCopCut') is Logic.ClassicalCut
 
     def test_default_logic_for_strategy_uses_classical_sat_for_sat_solve(self):
-        assert pycop.default_logic_for_strategy('SATSolve') == 'ClassicalSAT'
+        assert pycop.default_logic_for_strategy('SATSolve') is Logic.ClassicalSAT
 
     def test_resolve_logic_for_strategy_honours_explicit_override(self):
-        assert pycop.resolve_logic_for_strategy('LeanCopCut', 'Classical') == 'Classical'
+        assert pycop.resolve_logic_for_strategy('LeanCopCut', Logic.Classical) is Logic.Classical
 
     def test_run_problem_uses_strategy_default_logic(self, monkeypatch):
         seen = {}
@@ -202,8 +199,8 @@ class TestPycopLogicSelection:
             'dummy.p',
             SimpleNamespace(
                 logic = None,
-                domain = 'Constant',
-                sat_solver = 'pycosat',
+                domain = Domain.Constant,
+                sat_solver = SATSolver.PycoSAT,
                 debug = False,
                 strategy = 'LeanCopCut',
                 max_steps = 10,
@@ -211,7 +208,7 @@ class TestPycopLogicSelection:
             ),
         )
 
-        assert seen['logic'] == 'ClassicalCut'
+        assert seen['logic'] is Logic.ClassicalCut
         assert result['info'] == 'Theorem'
 
     def test_run_problem_keeps_explicit_logic_override(self, monkeypatch):
@@ -243,9 +240,9 @@ class TestPycopLogicSelection:
         result = pycop._run_problem(
             'dummy.p',
             SimpleNamespace(
-                logic = 'Classical',
-                domain = 'Constant',
-                sat_solver = 'pycosat',
+                logic = Logic.Classical,
+                domain = Domain.Constant,
+                sat_solver = SATSolver.PycoSAT,
                 debug = False,
                 strategy = 'LeanCopCut',
                 max_steps = 10,
@@ -253,7 +250,7 @@ class TestPycopLogicSelection:
             ),
         )
 
-        assert seen['logic'] == 'Classical'
+        assert seen['logic'] is Logic.Classical
         assert result['info'] == 'Theorem'
 
 class TestPycopPrinting:

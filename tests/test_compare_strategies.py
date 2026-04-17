@@ -1,11 +1,8 @@
-from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
 import sys
 
-COMPARE_PATH = Path(__file__).resolve().parents[1] / 'compare_strategies.py'
-COMPARE_SPEC = spec_from_file_location('mypycop_compare_strategies', COMPARE_PATH)
-compare_strategies = module_from_spec(COMPARE_SPEC)
-COMPARE_SPEC.loader.exec_module(compare_strategies)
+import compare_strategies
+from compare_strategies import Logic, ReportWriter, SATSolver
 
 class TestCompareStrategiesPartialReport:
     def test_load_partial_report_recovers_colored_rows(self, tmp_path: Path):
@@ -41,7 +38,7 @@ class TestCompareStrategiesPartialReport:
 
     def test_report_writer_strips_color_from_partial_by_default(self, tmp_path: Path, capsys):
         partial = tmp_path / 'partial.txt'
-        writer = compare_strategies.ReportWriter(partial, partial_color=False)
+        writer = ReportWriter(partial, partial_color=False)
 
         writer.emit(compare_strategies.green('solved'))
         writer.close()
@@ -58,7 +55,7 @@ class TestCompareStrategiesPartialReport:
         problem_width, strategy_width, header, sep = compare_strategies.report_layout([problem], strategies)
 
         full_partial = tmp_path / 'full.txt'
-        full_writer = compare_strategies.ReportWriter(full_partial, partial_color=False)
+        full_writer = ReportWriter(full_partial, partial_color=False)
         full_writer.emit(header)
         full_writer.emit(sep)
         full_writer.emit(compare_strategies.format_task_result(problem, 'FirstAction', result1, True, True, problem_width, strategy_width))
@@ -86,7 +83,7 @@ class TestCompareStrategiesPartialReport:
         )
 
         state = compare_strategies.load_partial_report(resumed_partial, [problem], strategies)
-        resumed_writer = compare_strategies.ReportWriter(
+        resumed_writer = ReportWriter(
             resumed_partial,
             partial_color=False,
             last_line=state.last_line,
@@ -103,27 +100,41 @@ class TestCompareStrategiesPartialReport:
 
 class TestCompareStrategiesLogicSelection:
     def test_default_logic_is_classical_cut_for_non_sat_strategies(self):
-        assert compare_strategies.default_logic_for_strategy('FirstAction') == 'ClassicalCut'
-        assert compare_strategies.default_logic_for_strategy('SmartCut') == 'ClassicalCut'
+        assert compare_strategies.default_logic_for_strategy('FirstAction') is Logic.ClassicalCut
+        assert compare_strategies.default_logic_for_strategy('SmartCut') is Logic.ClassicalCut
 
     def test_default_logic_is_classical_sat_for_sat_solve(self):
-        assert compare_strategies.default_logic_for_strategy('SATSolve') == 'ClassicalSAT'
+        assert compare_strategies.default_logic_for_strategy('SATSolve') is Logic.ClassicalSAT
 
     def test_explicit_logic_override_wins(self):
-        assert compare_strategies.resolve_logic_for_strategy('SATSolve', 'ClassicalCut') == 'ClassicalCut'
-        assert compare_strategies.resolve_logic_for_strategy('FirstAction', 'ClassicalSAT') == 'ClassicalSAT'
+        assert (
+            compare_strategies.resolve_logic_for_strategy('SATSolve', Logic.ClassicalCut)
+            is Logic.ClassicalCut
+        )
+        assert (
+            compare_strategies.resolve_logic_for_strategy('FirstAction', Logic.ClassicalSAT)
+            is Logic.ClassicalSAT
+        )
 
     def test_parse_args_accepts_sat_solver(self, monkeypatch):
         monkeypatch.setattr(sys, 'argv', ['compare_strategies.py', '--sat-solver', 'pysat'])
         args = compare_strategies.parse_args()
 
         assert args.sat_solver == 'pysat'
+        assert args.sat_solver is SATSolver.PySAT
 
     def test_parse_args_accepts_cadical_sat_solver(self, monkeypatch):
         monkeypatch.setattr(sys, 'argv', ['compare_strategies.py', '--sat-solver', 'cadical'])
         args = compare_strategies.parse_args()
 
         assert args.sat_solver == 'cadical'
+        assert args.sat_solver is SATSolver.CaDiCaL
+
+    def test_parse_args_accepts_logic_enum(self, monkeypatch):
+        monkeypatch.setattr(sys, 'argv', ['compare_strategies.py', '--logic', 'ClassicalSAT'])
+        args = compare_strategies.parse_args()
+
+        assert args.logic is Logic.ClassicalSAT
 
 class TestCompareStrategiesSatStatus:
     def test_theorem_sat_with_core_suffix_counts_as_success(self):
@@ -178,8 +189,8 @@ class TestCompareStrategiesInitialStatus:
             FakeConn(),
             'dummy.p',
             'SATSolve',
-            'ClassicalSAT',
-            'pycosat',
+            Logic.ClassicalSAT,
+            SATSolver.PycoSAT,
             100,
         )
 

@@ -10,8 +10,9 @@ def parse_args():
     parser.add_argument('--domain', default=Domain.Constant, choices=list(Domain), type=Domain, help='Which domain')
     parser.add_argument(
         '--sat-solver',
-        default='pycosat',
-        choices=SAT_SOLVER_CHOICES,
+        default=SATSolver.PycoSAT,
+        choices=list(SATSolver),
+        type=SATSolver,
         help='SAT backend for ClassicalSAT',
     )
     parser.add_argument('--translate', action='store_true', help='Whether to translate the logic with Prolog.')

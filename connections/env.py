@@ -2,10 +2,10 @@ import dataclasses
 from dataclasses import dataclass
 from typing import Optional
 
-from enum import StrEnum, auto
+from enum import auto
 from connections.Utils import *
 
-from connections.calculi.classicalsat import SATConnectionState
+from connections.calculi.classicalsat import SATConnectionState, SATSolver
 from connections.calculi.classical import ConnectionState
 from connections.calculi.classicalcut import ClassicalCut
 from connections.calculi.intuitionistic import IConnectionState
@@ -67,8 +67,6 @@ class Domain(UncaseEnum):
     Cumulative = auto()
     Varying = auto()
 
-SAT_SOLVER_CHOICES = ('pycosat', 'pysat', 'cadical')
-
 @dataclass
 class Settings:
     positive_start_clauses: bool = True
@@ -77,17 +75,22 @@ class Settings:
     restricted_backtracking: bool = False
     backtrack_after: int = 2
     random_seed: int = 0
-    logic: str = 'Classical'
+    logic: Logic = Logic.Classical
     domain: Domain = Domain.Constant
-    sat_solver: str = 'pycosat'
+    sat_solver: SATSolver = SATSolver.PycoSAT
     debug: bool = False
+
+    def __post_init__(self):
+        self.logic = Logic(self.logic)
+        self.domain = Domain(self.domain)
+        self.sat_solver = SATSolver(self.sat_solver)
 
 class ConnectionEnv:
     def __init__(self, path: str, settings: Optional[Settings] = None):
         if settings is None:
             settings = Settings()
 
-        self.logic = Logic(settings.logic)
+        self.logic = settings.logic
         settings = dataclasses.replace(settings, **self.logic.overrides())
 
         self.path = path

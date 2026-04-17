@@ -17,14 +17,14 @@ import ipdb
 
 from strategies import *
 
-def default_logic_for_strategy(strategy_name: str) -> str:
+def default_logic_for_strategy(strategy_name: str) -> Logic:
     if strategy_name in ('SATSolve', 'SATSolveLiteral'):
-        return str(Logic.ClassicalSAT)
+        return Logic.ClassicalSAT
     if strategy_name == 'FirstAction':
-        return str(Logic.Classical)
-    return str(Logic.ClassicalCut)
+        return Logic.Classical
+    return Logic.ClassicalCut
 
-def resolve_logic_for_strategy(strategy_name: str, logic_override):
+def resolve_logic_for_strategy(strategy_name: str, logic_override: Logic | None) -> Logic:
     if logic_override is not None:
         return logic_override
     return default_logic_for_strategy(strategy_name)
