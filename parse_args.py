@@ -10,7 +10,7 @@ def parse_args():
     parser.add_argument('--domain', default=Domain.Constant, choices=list(Domain), type=Domain, help='Which domain')
     parser.add_argument(
         '--sat-solver',
-        default=SATSolver.PycoSAT,
+        default=SATSolver.CaDiCaL,
         choices=list(SATSolver),
         type=SATSolver,
         help='SAT backend for ClassicalSAT',

@@ -77,7 +77,7 @@ class Settings:
     random_seed: int = 0
     logic: Logic = Logic.Classical
     domain: Domain = Domain.Constant
-    sat_solver: SATSolver = SATSolver.PycoSAT
+    sat_solver: SATSolver = SATSolver.CaDiCaL
     debug: bool = False
 
     def __post_init__(self):

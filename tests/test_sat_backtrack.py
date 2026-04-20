@@ -1,11 +1,11 @@
 import pytest
 
-from connections.calculi.classicalsat import Extension, SATConnectionState, Start, pycosat
+from connections.calculi.classicalsat import Extension, SATConnectionState, Start, pydical
 from connections.env import ConnectionEnv, Settings
 from connections.utils.primitives import Literal
 from connections.utils.tableau import Tableau
 
-@pytest.mark.skipif(pycosat is None, reason = 'pycosat is not installed')
+@pytest.mark.skipif(pydical is None, reason = 'pydical is not installed')
 def test_sat_backtrack_keeps_parent_frame_when_stepping_to_sibling():
     env = ConnectionEnv(
         'tests/cnf_problems/SYN081+1.cnf',

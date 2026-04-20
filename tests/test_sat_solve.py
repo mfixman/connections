@@ -5,9 +5,10 @@ import connections.calculi.classicalsat as classicalsat
 from types import SimpleNamespace
 
 from connections.env import ConnectionEnv, Settings
-from connections.calculi.classicalsat import Backtrack, Extension, Reset, SATConnectionState, SATSolver, ShadowSAT, pycosat
+from connections.calculi.classicalsat import Backtrack, Extension, Reset, SATConnectionState, SATSolver, ShadowSAT, pydical
 from connections.utils.primitives import Literal, Variable
 from connections.utils.tableau import Tableau
+from connections.utils.unification import Substitution
 from problem_inputs import resolve_problem_path
 from strategies import Strategy
 
@@ -35,8 +36,9 @@ cnf(clause5,negated_conjecture,
 
 def test_sat_solve_is_registered():
     assert 'SATSolve' in Strategy.strategies()
+    assert 'SATSolveGuided' in Strategy.strategies()
 
-@pytest.mark.skipif(pycosat is None, reason = 'pycosat is not installed')
+@pytest.mark.skipif(pydical is None, reason = 'pydical is not installed')
 def test_sat_solve_runs_in_classical_cut_env():
     env = ConnectionEnv(
         'tests/cnf_problems/SYN081+1.cnf',
@@ -53,7 +55,7 @@ def test_sat_solve_runs_in_classical_cut_env():
 
     assert len(env.state.shadow.ground_clauses) > 0
 
-@pytest.mark.skipif(pycosat is None, reason = 'pycosat is not installed')
+@pytest.mark.skipif(pydical is None, reason = 'pydical is not installed')
 def test_sat_solve_can_backtrack_to_root_without_crashing():
     env = ConnectionEnv(
         'tests/cnf_problems/SYN081+1.cnf',
@@ -70,7 +72,7 @@ def test_sat_solve_can_backtrack_to_root_without_crashing():
 
     assert env.state.goal is None or hasattr(env.state.goal, 'actions')
 
-@pytest.mark.skipif(pycosat is None, reason = 'pycosat is not installed')
+@pytest.mark.skipif(pydical is None, reason = 'pydical is not installed')
 def test_sat_solve_solves_easy_syn_problem():
     env = ConnectionEnv(
         'tests/cnf_problems/SYN081+1.cnf',
@@ -91,7 +93,7 @@ def test_sat_solve_solves_easy_syn_problem():
     assert isinstance(info, str)
     assert info.startswith('Theorem (SAT)')
 
-@pytest.mark.skipif(pycosat is None, reason = 'pycosat is not installed')
+@pytest.mark.skipif(pydical is None, reason = 'pydical is not installed')
 def test_sat_solve_handles_empty_start_clause_via_sat(tmp_path):
     problem = tmp_path / 'empty_start-1.p'
     problem.write_text('cnf(c1,axiom,$false).', encoding = 'utf-8')
@@ -104,7 +106,7 @@ def test_sat_solve_handles_empty_start_clause_via_sat(tmp_path):
     assert isinstance(env.state.info, str)
     assert env.state.info.startswith('Theorem (SAT)')
 
-@pytest.mark.skipif(pycosat is None, reason = 'pycosat is not installed')
+@pytest.mark.skipif(pydical is None, reason = 'pydical is not installed')
 @pytest.mark.skipif(os.getenv('TPTP') is None, reason = 'TPTP is not set')
 def test_sat_solve_solves_tptp_syn000_3():
     path = resolve_problem_path('SYN000-3.p')
@@ -124,7 +126,7 @@ def test_sat_solve_solves_tptp_syn000_3():
     assert isinstance(info, str)
     assert info.startswith('Theorem (SAT)')
 
-@pytest.mark.skipif(pycosat is None, reason = 'pycosat is not installed')
+@pytest.mark.skipif(pydical is None, reason = 'pydical is not installed')
 @pytest.mark.skipif(os.getenv('TPTP') is None, reason = 'TPTP is not set')
 @pytest.mark.parametrize('problem_name', ['SYN916+1.p', 'SYN916-1.p'])
 def test_sat_solve_rejects_degenerate_empty_translation(problem_name):
@@ -143,35 +145,6 @@ def test_sat_solve_rejects_degenerate_empty_translation(problem_name):
 
     assert done is True
     assert info == 'Non-Theorem: no positive start clauses'
-
-def test_sat_connection_state_can_use_pysat_backend(monkeypatch):
-    calls = {}
-
-    class FakeSolver:
-        def __init__(self, *, bootstrap_with):
-            calls['clauses'] = bootstrap_with
-
-        def solve(self):
-            return True
-
-        def get_model(self):
-            return [1, -2]
-
-        def delete(self):
-            calls['deleted'] = True
-
-    monkeypatch.setattr(classicalsat, 'PySATSolver', FakeSolver)
-
-    state = object.__new__(SATConnectionState)
-    state.sat_solver_backend = SATSolver.PySAT
-    state.shadow = ShadowSAT(ground_clauses = {(1, -2)})
-
-    state._solve_ground_clauses()
-
-    assert calls['clauses'] == [[1, -2]]
-    assert calls['deleted'] is True
-    assert state.shadow.model == {1: True, 2: False}
-    assert state.shadow.satisfiable is True
 
 def test_sat_connection_state_can_use_cadical_backend(monkeypatch):
     calls = {'clauses': [], 'solvers': []}
@@ -230,13 +203,13 @@ def test_sat_connection_state_can_use_real_pydical_backend():
 
     assert state.shadow.satisfiable is False
 
-def test_missing_cadical_does_not_disable_other_sat_backends(monkeypatch):
+def test_missing_cadical_disables_sat_backend(monkeypatch):
     monkeypatch.setattr(classicalsat, 'pydical', None)
-    monkeypatch.setattr(classicalsat, 'pycosat', object())
 
     state = object.__new__(SATConnectionState)
 
-    state._require_sat_backend(SATSolver.PycoSAT)
+    with pytest.raises(ModuleNotFoundError):
+        state._require_sat_backend()
 
 def test_unsat_shadow_records_current_ground_clauses_for_reporting():
     state = object.__new__(SATConnectionState)
@@ -250,13 +223,7 @@ def test_unsat_shadow_records_current_ground_clauses_for_reporting():
         },
     )
 
-    def fake_solve(clauses):
-        clause_set = {tuple(clause) for clause in clauses}
-        if (1,) in clause_set and (-1,) in clause_set:
-            return 'UNSAT'
-        return [1]
-
-    state._solve_shadow_cnf = fake_solve
+    state._solve_current_shadow_cnf_with_pydical = lambda: 'UNSAT'
 
     state._solve_ground_clauses()
 
@@ -391,15 +358,21 @@ def test_paper_mode_skips_goal_when_model_assigns_false():
     assert state.goal.parent is None
     assert state.is_terminal is False
 
-@pytest.mark.parametrize('strategy_name', ['SATSolve', 'SATSolveLiteral'])
+@pytest.mark.parametrize('strategy_name', ['SATSolve', 'SATSolveGuided', 'SATSolveLiteral'])
 def test_sat_strategies_use_restricted_backtracking_on_forward_steps(strategy_name):
+    class FakeSolver:
+        def score(self, atom_id):
+            return 0
+
     env = SimpleNamespace(
         legal_actions = lambda: [Extension(id = 'ex0')],
         state = SimpleNamespace(
             goal = SimpleNamespace(parent = object()),
-            shadow = SimpleNamespace(new_ground_clauses = set()),
+            shadow = SimpleNamespace(new_ground_clauses = set(), atom_map = {}, solver = FakeSolver()),
             sat_literal_value = lambda literal: None,
             enable_paper_mode = lambda enabled = True: setattr(env.state, 'paper_mode', enabled),
+            _flush_new_ground_clauses = lambda: None,
+            _solve_ground_clauses = lambda: None,
         ),
     )
     strategy = Strategy.strategies()[strategy_name](env)
@@ -408,21 +381,71 @@ def test_sat_strategies_use_restricted_backtracking_on_forward_steps(strategy_na
     assert action.cut is True
 
 def test_sat_solve_uses_first_randomised_forward_action():
+    class FakeSolver:
+        def score(self, atom_id):
+            return 0
+
     first = Extension(id = 'ex0')
     second = Extension(id = 'ex1')
     env = SimpleNamespace(
         legal_actions = lambda: [first, second],
         state = SimpleNamespace(
             goal = SimpleNamespace(parent = object()),
-            shadow = SimpleNamespace(new_ground_clauses = set()),
+            shadow = SimpleNamespace(new_ground_clauses = set(), atom_map = {}, solver = FakeSolver()),
             sat_literal_value = lambda literal: None,
             enable_paper_mode = lambda enabled = True: setattr(env.state, 'paper_mode', enabled),
+            _flush_new_ground_clauses = lambda: None,
+            _solve_ground_clauses = lambda: None,
         ),
     )
 
     strategy = Strategy.strategies()['SATSolve'](env)
 
     assert strategy.step() is first
+
+@pytest.mark.skipif(pydical is None, reason = 'pydical is not installed')
+def test_sat_solve_guided_chooses_best_scored_extension():
+    head = Literal('p', [])
+    forced = Literal('forced', [])
+    unforced = Literal('unforced', [])
+
+    weak = Extension(id = 'ex0', lit_idx = 0, clause_copy = [head, unforced])
+    strong = Extension(id = 'ex1', lit_idx = 0, clause_copy = [head, forced])
+
+    solver = pydical.Solver()
+    solver.add_clause([2])
+    solver.solve()
+
+    shadow = ShadowSAT(
+        atom_map = {
+            'p': 1,
+            'forced': 2,
+            'unforced': 3,
+        },
+        ground_clauses = {
+            (1, 2),
+            (1, 3),
+        },
+        solver = solver,
+        model = {},
+    )
+
+    state = SimpleNamespace(
+        goal = SimpleNamespace(parent = object()),
+        max_depth = 1,
+        shadow = shadow,
+        substitution = Substitution(),
+        sat_literal_value = lambda literal: None,
+        _atom_key = lambda literal: literal.symbol,
+        _flush_new_ground_clauses = lambda: None,
+        _solve_ground_clauses = lambda: None,
+        enable_paper_mode = lambda enabled = True: setattr(state, 'paper_mode', enabled),
+    )
+    env = SimpleNamespace(legal_actions = lambda: [weak, strong], state = state)
+    strategy = Strategy.strategies()['SATSolveGuided'](env)
+
+    assert strategy.step() is strong
+    assert strong.cut is True
 
 def test_sat_solve_records_nonzero_atom_score():
     class FakeSolver:
@@ -450,15 +473,21 @@ def test_sat_solve_records_nonzero_atom_score():
     assert strategy.step() is action
     assert strategy.final_info() == 'score=3.5'
 
-@pytest.mark.parametrize('strategy_name', ['SATSolve', 'SATSolveLiteral'])
+@pytest.mark.parametrize('strategy_name', ['SATSolve', 'SATSolveGuided', 'SATSolveLiteral'])
 def test_sat_strategies_only_reset_at_root_when_shadow_is_still_growing(strategy_name):
+    class FakeSolver:
+        def score(self, atom_id):
+            return 0
+
     env = SimpleNamespace(
         legal_actions = lambda: [Backtrack(id = 'bt'), Reset(id = 'rs', depth = 3)],
         state = SimpleNamespace(
             goal = SimpleNamespace(parent = object()),
-            shadow = SimpleNamespace(new_ground_clauses = {(1,)}),
+            shadow = SimpleNamespace(new_ground_clauses = {(1,)}, atom_map = {}, solver = FakeSolver()),
             sat_literal_value = lambda literal: None,
             enable_paper_mode = lambda enabled = True: setattr(env.state, 'paper_mode', enabled),
+            _flush_new_ground_clauses = lambda: None,
+            _solve_ground_clauses = lambda: None,
         ),
     )
     strategy = Strategy.strategies()[strategy_name](env)
@@ -477,8 +506,8 @@ def test_starts_do_not_duplicate_clause_indices_across_calls():
 
     assert env.matrix.positive_clauses == before
 
-@pytest.mark.parametrize('strategy_name', ['SATSolve', 'SATSolveLiteral'])
-@pytest.mark.skipif(pycosat is None, reason = 'pycosat is not installed')
+@pytest.mark.parametrize('strategy_name', ['SATSolve', 'SATSolveGuided', 'SATSolveLiteral'])
+@pytest.mark.skipif(pydical is None, reason = 'pydical is not installed')
 def test_sat_strategies_do_not_refute_satisfiable_problem(tmp_path, strategy_name):
     problem = tmp_path / 'SYN344-1.p'
     problem.write_text(SYN344_1, encoding = 'utf-8')

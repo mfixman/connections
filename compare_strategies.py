@@ -113,7 +113,7 @@ def _cleanup_task_process(conn: Connection, proc: mp.Process) -> dict:
     }
 
 def default_logic_for_strategy(strategy_name: str) -> Logic:
-    if strategy_name in ('SATSolve', 'SATSolveLiteral'):
+    if strategy_name in ('SATSolve', 'SATSolveGuided', 'SATSolveLiteral'):
         return Logic.ClassicalSAT
     return Logic.ClassicalCut
 
@@ -630,10 +630,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         '--sat-solver',
         choices=list(SATSolver),
-        default=SATSolver.PycoSAT,
+        default=SATSolver.CaDiCaL,
         type=SATSolver,
         metavar='BACKEND',
-        help='SAT backend for ClassicalSAT (default: pycosat)',
+        help='SAT backend for ClassicalSAT (default: cadical)',
     )
     parser.add_argument(
         '--max-steps', type=int, default=50000, metavar='N',

@@ -17,7 +17,7 @@ from pathlib import Path
 from strategies import *
 
 def default_logic_for_strategy(strategy_name: str) -> Logic:
-    if strategy_name in ('SATSolve', 'SATSolveLiteral'):
+    if strategy_name in ('SATSolve', 'SATSolveGuided', 'SATSolveLiteral'):
         return Logic.ClassicalSAT
     if strategy_name == 'FirstAction':
         return Logic.Classical

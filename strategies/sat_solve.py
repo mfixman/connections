@@ -2,7 +2,16 @@
 
 from __future__ import annotations
 
-from connections.calculi.classicalsat import Backtrack, ConnectionAction, Extension, Reduction, Reset, Start
+from connections.calculi.classicalsat import (
+    Backtrack,
+    ConnectionAction,
+    Extension,
+    Reduction,
+    Reset,
+    Start,
+    pydical,
+)
+from connections.utils.primitives import Literal
 from .base import Strategy
 
 class _SATScoreTracker:
@@ -13,26 +22,21 @@ class _SATScoreTracker:
 
     def _sync_shadow_solver(self) -> None:
         state = self.env.state
-        if hasattr(state, '_flush_new_ground_clauses'):
-            state._flush_new_ground_clauses()
-        if hasattr(state, '_solve_ground_clauses'):
-            state._solve_ground_clauses()
+        state._flush_new_ground_clauses()
+        state._solve_ground_clauses()
 
     def _record_nonzero_atom_scores(self) -> None:
         if self._sat_nonzero_atom_score is not None:
             return
 
         state = self.env.state
-        shadow = getattr(state, 'shadow', None)
-        solver = getattr(shadow, 'solver', None)
-        score = getattr(solver, 'score', None)
-        atom_ids = getattr(shadow, 'atom_map', {}).values() if shadow is not None else []
-        if not callable(score):
+        solver = state.shadow.solver
+        if solver is None:
             return
 
-        for atom_id in atom_ids:
+        for atom_id in state.shadow.atom_map.values():
             try:
-                atom_score = score(atom_id)
+                atom_score = solver.score(atom_id)
             except Exception:
                 continue
             if atom_score not in (0, None):
@@ -62,8 +66,7 @@ class SATSolve(_SATScoreTracker, Strategy):
         self._init_sat_score_tracker()
         if not hasattr(self.env.state, 'sat_literal_value'):
             raise TypeError('SATSolve requires the ClassicalSAT calculus')
-        if hasattr(self.env.state, 'enable_paper_mode'):
-            self.env.state.enable_paper_mode(True)
+        self.env.state.enable_paper_mode(True)
 
     def step(self):
         actions = self.env.legal_actions()
@@ -92,6 +95,132 @@ class SATSolve(_SATScoreTracker, Strategy):
             return action
 
         raise LookupError('Expected at least one action to be Start, Reduction, Extension, Backtrack, or Reset.')
+
+class SATSolveGuided(SATSolve):
+    """SATCoP control with SAT-shadow scoring for extension choice.
+
+    This keeps ``SATSolve``'s control policy, including paper mode,
+    restricted backtracking, root resets, and backtracking order.  The
+    only difference is at extension choice points: when ``SATSolve``
+    would pick an extension and more than one extension is available,
+    choose the extension with the best score from the current SAT
+    shadow.
+
+    Sources and scope:
+        This is not the Rawson/Reger literal-selection rule; that is
+        already represented by ``SATSolveLiteral``.  This strategy is an
+        experiment in using SAT-solver-internal properties to guide the
+        first-order connection prover.
+
+        The SAT-side ingredients are standard CDCL signals rather than
+        new prover machinery:
+        - EVSIDS-style variable activity, introduced by the Chaff SAT
+          solver (Moskewicz et al., 2001), exposed here by CaDiCaL as
+          ``score(var)``.
+        - Forced assignments / failed assumptions, a standard
+          assumption-based incremental SAT interface; PySAT documents
+          the same assumption-call style for its solver wrappers.
+        - Variable involvement in propagation and conflict analysis as
+          a useful importance signal for SAT search, e.g. Liu et al.
+          (2024), "NeuroSelect: Learning to Select Clauses in SAT
+          Solvers", §3.1-3.2.
+
+        I did not find an existing paper in ``papers/`` that applies
+        these SAT-internal signals to guide extension choice in a
+        connection prover.  The originality here is intentionally small:
+        map candidate extension subgoals to existing SAT atoms and ask
+        CaDiCaL which atoms currently look important.  The score is a
+        lexicographic tuple, not a weighted sum: first prefer assumption
+        probes that refute the current shadow CNF, then forced literals,
+        then larger EVSIDS activity, then fewer remaining subgoals.
+    """
+
+    def step(self):
+        actions = self.env.legal_actions()
+
+        self._sync_shadow_solver()
+        self._record_nonzero_atom_scores()
+
+        for action in actions:
+            if isinstance(action, (Reduction, Extension)):
+                action.cut = True
+
+        for action in actions:
+            if isinstance(action, Start):
+                return action
+            if isinstance(action, Reduction):
+                return action
+            if isinstance(action, Extension):
+                extensions = [a for a in actions if isinstance(a, Extension)]
+                if len(extensions) <= 1:
+                    return action
+                return max(extensions, key = self._extension_score)
+
+        if (
+            self.env.state.goal.parent is None
+            and any(isinstance(action, Reset) for action in actions)
+            and self.env.state.shadow.new_ground_clauses
+        ):
+            return Reset(id = 'rs', depth = self.env.state.max_depth, reason = 'ground shadow still growing')
+
+        if action := next((a for a in actions if isinstance(a, Backtrack)), None):
+            return action
+
+        if action := next((a for a in actions if isinstance(a, Reset)), None):
+            return action
+
+        raise LookupError('Expected at least one action to be Start, Reduction, Extension, Backtrack, or Reset.')
+
+    def _extension_score(self, action: Extension) -> tuple[int, int, float, int]:
+        state = self.env.state
+        subgoals = self._remaining_subgoals(action)
+
+        state.substitution.update(action.sub_updates)
+        try:
+            sat_literals = self._sat_literals(subgoals)
+        finally:
+            state.substitution.backtrack()
+
+        solver = state.shadow.solver
+        probe_conflicts = 0
+        forced_true = 0
+        evsids = 0.0
+
+        for sat_lit in sat_literals:
+            if solver.fixed(sat_lit) > 0:
+                forced_true += 1
+
+            probe = solver.copy()
+            probe.assume(-sat_lit)
+            try:
+                if probe.solve() == pydical.UNSATISFIABLE:
+                    probe_conflicts += 1
+            finally:
+                probe.reset_assumptions()
+
+            evsids += solver.score(abs(sat_lit))
+
+        return (probe_conflicts, forced_true, evsids, -len(subgoals))
+
+    def _remaining_subgoals(self, action: Extension) -> list[Literal]:
+        return [
+            literal
+            for idx, literal in enumerate(action.clause_copy)
+            if idx != action.lit_idx
+        ]
+
+    def _sat_literals(self, literals: list[Literal]) -> list[int]:
+        state = self.env.state
+        result = []
+
+        for literal in literals:
+            grounded_literal = state.substitution(literal)
+            atom_id = state.shadow.atom_map.get(state._atom_key(grounded_literal))
+            if atom_id is None:
+                continue
+            result.append(-atom_id if grounded_literal.neg else atom_id)
+
+        return result
 
 class SATSolveLiteral(_SATScoreTracker, Strategy):
     """Strict SATCoP with §9.1 literal-selection refinement.
@@ -125,7 +254,7 @@ class SATSolveLiteral(_SATScoreTracker, Strategy):
       behaviour degenerates to ``SATSolve``'s "first shuffled action".
 
     Known differences from the paper that are shared with SATSolve:
-    - The SAT backend is pycosat/pysat rather than the custom CDCL
+    - The SAT backend is CaDiCaL rather than the custom CDCL
       from §4.3.
     - Start clauses are taken from the positive+negative pool rather
       than strictly "clauses derived from the conjecture".
@@ -136,8 +265,7 @@ class SATSolveLiteral(_SATScoreTracker, Strategy):
         self._init_sat_score_tracker()
         if not hasattr(self.env.state, 'sat_literal_value'):
             raise TypeError('SATSolveLiteral requires the ClassicalSAT calculus')
-        if hasattr(self.env.state, 'enable_paper_mode'):
-            self.env.state.enable_paper_mode(True)
+        self.env.state.enable_paper_mode(True)
 
     def score(self, action: ConnectionAction):
         match action:

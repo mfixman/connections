@@ -96,7 +96,7 @@ class TestPycopDebugOutput:
             SimpleNamespace(
                 logic = Logic.Classical,
                 domain = Domain.Constant,
-                sat_solver = SATSolver.PycoSAT,
+                sat_solver = SATSolver.CaDiCaL,
                 debug = True,
                 strategy = 'FirstAction',
                 max_steps = 10,
@@ -145,7 +145,7 @@ class TestPycopDebugOutput:
             SimpleNamespace(
                 logic = Logic.Classical,
                 domain = Domain.Constant,
-                sat_solver = SATSolver.PycoSAT,
+                sat_solver = SATSolver.CaDiCaL,
                 debug = False,
                 strategy = 'FirstAction',
                 max_steps = 10,
@@ -165,6 +165,7 @@ class TestPycopLogicSelection:
 
     def test_default_logic_for_strategy_uses_classical_sat_for_sat_solve(self):
         assert pycop.default_logic_for_strategy('SATSolve') is Logic.ClassicalSAT
+        assert pycop.default_logic_for_strategy('SATSolveGuided') is Logic.ClassicalSAT
 
     def test_resolve_logic_for_strategy_honours_explicit_override(self):
         assert pycop.resolve_logic_for_strategy('LeanCopCut', Logic.Classical) is Logic.Classical
@@ -200,7 +201,7 @@ class TestPycopLogicSelection:
             SimpleNamespace(
                 logic = None,
                 domain = Domain.Constant,
-                sat_solver = SATSolver.PycoSAT,
+                sat_solver = SATSolver.CaDiCaL,
                 debug = False,
                 strategy = 'LeanCopCut',
                 max_steps = 10,
@@ -242,7 +243,7 @@ class TestPycopLogicSelection:
             SimpleNamespace(
                 logic = Logic.Classical,
                 domain = Domain.Constant,
-                sat_solver = SATSolver.PycoSAT,
+                sat_solver = SATSolver.CaDiCaL,
                 debug = False,
                 strategy = 'LeanCopCut',
                 max_steps = 10,

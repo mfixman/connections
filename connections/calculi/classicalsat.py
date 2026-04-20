@@ -56,21 +56,7 @@ class Reset(ConnectionAction):
         return f'Reset {self.depth}'
 
 class SATSolver(UncaseEnum):
-    PycoSAT = auto()
-    PySAT = auto()
     CaDiCaL = auto()
-
-try:
-    import pycosat
-except ModuleNotFoundError:
-    pycosat = None
-
-try:
-    from pysat import solvers as pysat_solvers
-except ImportError:
-    PySATSolver = None
-else:
-    PySATSolver = getattr(pysat_solvers, 'Minisat22', None)
 
 try:
     import pydical
@@ -111,8 +97,8 @@ class SATConnectionState:
     sat_solver_backend: SATSolver
 
     def __init__(self, matrix: Matrix, settings) -> None:
-        self.sat_solver_backend = SATSolver(getattr(settings, 'sat_solver', SATSolver.PycoSAT))
-        self._require_sat_backend(self.sat_solver_backend)
+        self.sat_solver_backend = settings.sat_solver
+        self._require_sat_backend()
         self.random = random.Random(settings.random_seed)
         # Sect. 4.2 grounds every remaining tableau variable to the
         # same fresh constant.  Keeping variable identities distinct
@@ -220,7 +206,7 @@ class SATConnectionState:
     def initial_status(self) -> tuple[bool, Optional[str]]:
         if self.shadow.satisfiable:
             return False, None
-        if not bool(getattr(getattr(self, 'settings', None), 'debug', False)):
+        if not self.settings.debug:
             return True, 'Theorem (SAT)'
 
         clauses = self.shadow.unsat_core or self._sorted_shadow_clauses(self.shadow.ground_clauses)
@@ -455,10 +441,7 @@ class SATConnectionState:
             self.shadow.satisfiable = True
             return
 
-        if getattr(self, 'sat_solver_backend', None) == SATSolver.CaDiCaL:
-            result = self._solve_current_shadow_cnf_with_pydical()
-        else:
-            result = self._solve_shadow_cnf([list(clause) for clause in self.shadow.ground_clauses])
+        result = self._solve_current_shadow_cnf_with_pydical()
         if result == 'UNSAT':
             self.shadow.unsat_core = self._sorted_shadow_clauses(self.shadow.ground_clauses)
             self.shadow.model = {}
@@ -472,49 +455,12 @@ class SATConnectionState:
             self.shadow.model = {abs(lit): lit > 0 for lit in result if lit != 0}
             self.shadow.satisfiable = True
 
-    def _require_sat_backend(self, backend: SATSolver) -> None:
-        match backend:
-            case SATSolver.PycoSAT:
-                if pycosat is None:
-                    raise ModuleNotFoundError(
-                        'ClassicalSAT requires pycosat for --sat-solver pycosat. '
-                        'Install it in ~/venv and run with that environment.'
-                    )
-
-            case SATSolver.PySAT:
-                if PySATSolver is None:
-                    raise ModuleNotFoundError(
-                        'ClassicalSAT requires python-sat for --sat-solver pysat. '
-                        'Install it in ~/venv and run with that environment.'
-                    )
-
-            case SATSolver.CaDiCaL:
-                if pydical is None:
-                    raise ModuleNotFoundError(
-                        'ClassicalSAT requires pydical for --sat-solver cadical. '
-                        'Install it in ~/venv and run with that environment.'
-                    )
-
-            case _:
-                raise LookupError(f'Unknown SAT solver backend: {backend}')
-
-    def _solve_shadow_cnf(self, clauses: list[list[int]]) -> list[int] | TypeLiteral['UNSAT', 'UNKNOWN']:
-        if self.sat_solver_backend == SATSolver.PycoSAT:
-            return pycosat.solve(clauses)
-
-        if self.sat_solver_backend == SATSolver.CaDiCaL:
-            raise RuntimeError('CaDiCaL solves the monotone shadow CNF through shadow.solver.')
-
-        solver = PySATSolver(bootstrap_with = clauses)
-        try:
-            satisfiable = solver.solve()
-            if satisfiable is False:
-                return 'UNSAT'
-            if satisfiable is None:
-                return 'UNKNOWN'
-            return solver.get_model() or []
-        finally:
-            solver.delete()
+    def _require_sat_backend(self) -> None:
+        if pydical is None:
+            raise ModuleNotFoundError(
+                'ClassicalSAT requires pydical. '
+                'Install it in ~/venv and run with that environment.'
+            )
 
     def _solve_current_shadow_cnf_with_pydical(self) -> list[int] | TypeLiteral['UNSAT', 'UNKNOWN']:
         solver = self._cadical_solver()
@@ -543,8 +489,7 @@ class SATConnectionState:
 
     def _add_ground_clause(self, clause: SATClause) -> None:
         self.shadow.ground_clauses.add(clause)
-        if self.sat_solver_backend == SATSolver.CaDiCaL:
-            self._add_clause_to_cadical_solver(clause)
+        self._add_clause_to_cadical_solver(clause)
 
     def _add_clause_to_cadical_solver(self, clause: SATClause) -> None:
         if clause in self.shadow.solver_clauses:

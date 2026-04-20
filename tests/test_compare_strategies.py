@@ -105,6 +105,7 @@ class TestCompareStrategiesLogicSelection:
 
     def test_default_logic_is_classical_sat_for_sat_solve(self):
         assert compare_strategies.default_logic_for_strategy('SATSolve') is Logic.ClassicalSAT
+        assert compare_strategies.default_logic_for_strategy('SATSolveGuided') is Logic.ClassicalSAT
 
     def test_explicit_logic_override_wins(self):
         assert (
@@ -116,18 +117,17 @@ class TestCompareStrategiesLogicSelection:
             is Logic.ClassicalSAT
         )
 
-    def test_parse_args_accepts_sat_solver(self, monkeypatch):
-        monkeypatch.setattr(sys, 'argv', ['compare_strategies.py', '--sat-solver', 'pysat'])
-        args = compare_strategies.parse_args()
-
-        assert args.sat_solver == 'pysat'
-        assert args.sat_solver is SATSolver.PySAT
-
     def test_parse_args_accepts_cadical_sat_solver(self, monkeypatch):
         monkeypatch.setattr(sys, 'argv', ['compare_strategies.py', '--sat-solver', 'cadical'])
         args = compare_strategies.parse_args()
 
         assert args.sat_solver == 'cadical'
+        assert args.sat_solver is SATSolver.CaDiCaL
+
+    def test_parse_args_defaults_sat_solver_to_cadical(self, monkeypatch):
+        monkeypatch.setattr(sys, 'argv', ['compare_strategies.py'])
+        args = compare_strategies.parse_args()
+
         assert args.sat_solver is SATSolver.CaDiCaL
 
     def test_parse_args_accepts_logic_enum(self, monkeypatch):
@@ -201,7 +201,7 @@ class TestCompareStrategiesInitialStatus:
             'dummy.p',
             'SATSolve',
             Logic.ClassicalSAT,
-            SATSolver.PycoSAT,
+            SATSolver.CaDiCaL,
             max_steps,
         )
 
