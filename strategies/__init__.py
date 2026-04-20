@@ -142,7 +142,6 @@ class LeanCopCut(Strategy):
 
     max_cut_height: int = 7
     should_comp: bool
-    cut_has: bool
 
     def __init__(self, env):
         super().__init__(env)

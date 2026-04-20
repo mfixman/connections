@@ -25,11 +25,6 @@ from problem_inputs import (
 )
 from strategies import Strategy
 
-def green(s: str) -> str: return f'\033[32m{s}\033[0m'
-def red(s: str) -> str:   return f'\033[31m{s}\033[0m'
-def bold(s: str) -> str:  return f'\033[1;33m{s}\033[0m'
-def dim(s: str) -> str:   return f'\033[2m{s}\033[0m'
-
 _ANSI = re.compile(r'\033\[[0-9;]*m')
 
 def _colour(code: str, s: str, enabled: bool = True) -> str:

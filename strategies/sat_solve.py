@@ -190,15 +190,14 @@ class SATSolveGuided(SATSolve):
             if solver.fixed(sat_lit) > 0:
                 forced_true += 1
 
-            probe = solver.copy()
-            probe.assume(-sat_lit)
+            evsids += solver.score(abs(sat_lit))
+
+            solver.assume(-sat_lit)
             try:
-                if probe.solve() == pydical.UNSATISFIABLE:
+                if solver.solve() == pydical.UNSATISFIABLE:
                     probe_conflicts += 1
             finally:
-                probe.reset_assumptions()
-
-            evsids += solver.score(abs(sat_lit))
+                solver.reset_assumptions()
 
         return (probe_conflicts, forced_true, evsids, -len(subgoals))
 

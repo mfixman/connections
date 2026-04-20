@@ -2,6 +2,7 @@ import os
 import pytest
 
 import connections.calculi.classicalsat as classicalsat
+import strategies.sat_solve as sat_solve_module
 from types import SimpleNamespace
 
 from connections.env import ConnectionEnv, Settings
@@ -451,6 +452,70 @@ def test_sat_solve_guided_chooses_best_scored_extension():
 
     assert strategy.step() is strong
     assert strong.cut is True
+
+def test_sat_solve_guided_uses_live_assumptions_instead_of_solver_copies(monkeypatch):
+    monkeypatch.setattr(sat_solve_module, 'pydical', SimpleNamespace(UNSATISFIABLE = 20))
+
+    head = Literal('p', [])
+    weak_lit = Literal('weak', [])
+    strong_lit = Literal('strong', [])
+
+    weak = Extension(id = 'ex0', lit_idx = 0, clause_copy = [head, weak_lit])
+    strong = Extension(id = 'ex1', lit_idx = 0, clause_copy = [head, strong_lit])
+
+    class FakeSolver:
+        def __init__(self):
+            self.assumptions = []
+            self.calls = []
+
+        def fixed(self, sat_lit):
+            self.calls.append(('fixed', sat_lit))
+            return 0
+
+        def score(self, atom_id):
+            self.calls.append(('score', atom_id))
+            return 0
+
+        def assume(self, sat_lit):
+            self.calls.append(('assume', sat_lit))
+            self.assumptions.append(sat_lit)
+
+        def solve(self):
+            self.calls.append(('solve', tuple(self.assumptions)))
+            return 20 if self.assumptions == [-3] else 10
+
+        def reset_assumptions(self):
+            self.calls.append(('reset_assumptions', tuple(self.assumptions)))
+            self.assumptions = []
+
+        def copy(self):
+            raise AssertionError('SATSolveGuided should probe with live assumptions')
+
+    solver = FakeSolver()
+    shadow = SimpleNamespace(
+        new_ground_clauses = set(),
+        atom_map = {'p': 1, 'weak': 2, 'strong': 3},
+        solver = solver,
+    )
+    state = SimpleNamespace(
+        goal = SimpleNamespace(parent = object()),
+        max_depth = 1,
+        shadow = shadow,
+        substitution = Substitution(),
+        sat_literal_value = lambda literal: None,
+        _atom_key = lambda literal: literal.symbol,
+        _flush_new_ground_clauses = lambda: None,
+        _solve_ground_clauses = lambda: None,
+        enable_paper_mode = lambda enabled = True: setattr(state, 'paper_mode', enabled),
+    )
+    env = SimpleNamespace(legal_actions = lambda: [weak, strong], state = state)
+    strategy = Strategy.strategies()['SATSolveGuided'](env)
+
+    assert strategy.step() is strong
+    assert ('assume', -2) in solver.calls
+    assert ('assume', -3) in solver.calls
+    assert ('reset_assumptions', (-2,)) in solver.calls
+    assert ('reset_assumptions', (-3,)) in solver.calls
 
 def test_sat_solve_records_nonzero_atom_score():
     class FakeSolver:

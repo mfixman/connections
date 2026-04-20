@@ -7,7 +7,7 @@ class Strategy:
         self.env = env
 
     def step(self):
-        raise NotImplemented('Abstract class')
+        raise NotImplementedError('Abstract class')
 
     @classmethod
     def strategies(cls):
