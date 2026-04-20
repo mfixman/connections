@@ -139,6 +139,37 @@ class TestCompareStrategiesLogicSelection:
 
         assert args.logic is Logic.ClassicalSAT
 
+    def test_parse_args_expands_sat_control_group(self, monkeypatch):
+        monkeypatch.setattr(sys, 'argv', ['compare_strategies.py', '--strategies', 'SATControl'])
+        args = compare_strategies.parse_args()
+
+        assert args.strategies == ['FirstAction', 'LeanCopCut']
+
+    def test_parse_args_expands_sat_test_group(self, monkeypatch):
+        monkeypatch.setattr(sys, 'argv', ['compare_strategies.py', '--strategies', 'SATTest'])
+        args = compare_strategies.parse_args()
+
+        assert args.strategies == [
+            'SATSolve',
+            'SATSolveGuided',
+            'SATSolveGuidedProbeConflicts',
+            'SATSolveGuidedForcedTrue',
+            'SATSolveGuidedEVSIDS',
+            'SATSolveGuidedShort',
+            'SATSolveGuidedFast',
+            'SATSolveLiteral',
+        ]
+
+    def test_parse_args_deduplicates_expanded_groups(self, monkeypatch):
+        monkeypatch.setattr(
+            sys,
+            'argv',
+            ['compare_strategies.py', '--strategies', 'SATSolve', 'SATTest'],
+        )
+        args = compare_strategies.parse_args()
+
+        assert args.strategies.count('SATSolve') == 1
+
     def test_parse_args_accepts_split_and_part(self, monkeypatch):
         monkeypatch.setattr(
             sys,

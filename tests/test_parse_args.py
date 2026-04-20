@@ -82,3 +82,15 @@ def test_parse_args_rejects_part_not_less_than_split(monkeypatch):
         parse_args()
 
     assert excinfo.value.code == 2
+
+def test_parse_args_rejects_strategy_groups(monkeypatch):
+    monkeypatch.setattr(
+        sys,
+        'argv',
+        ['pycop.py', '--strategy', 'SATControl', 'tests/cnf_problems/SYN081+1.cnf'],
+    )
+
+    with pytest.raises(SystemExit) as excinfo:
+        parse_args()
+
+    assert excinfo.value.code == 2

@@ -24,6 +24,7 @@ from problem_inputs import (
     validate_problem_split_arguments,
 )
 from strategies import Strategy
+from strategies.groups import expand_strategy_groups, strategy_choices, strategy_group_names
 
 _ANSI = re.compile(r'\033\[[0-9;]*m')
 
@@ -596,6 +597,7 @@ def write_results_csv(
 def parse_args() -> argparse.Namespace:
     available_strategies = list(Strategy.strategies().keys())
     default_strategies = [available_strategies[0], available_strategies[-1]]
+    available_choices = strategy_choices(available_strategies)
 
     parser = argparse.ArgumentParser(
         prog='compare_strategies.py',
@@ -603,6 +605,7 @@ def parse_args() -> argparse.Namespace:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=(
             f'available strategies: {", ".join(available_strategies)}\n'
+            f'available strategy groups: {", ".join(strategy_group_names())}\n'
             f'available logics:     {", ".join(str(logic) for logic in Logic)}\n'
             '\n'
             'examples:\n'
@@ -624,8 +627,8 @@ def parse_args() -> argparse.Namespace:
     strategy_group = parser.add_mutually_exclusive_group()
     strategy_group.add_argument(
         '--strategies', nargs='+',
-        choices=available_strategies, metavar='STRATEGY',
-        help=f'strategies to compare (default: {" ".join(default_strategies)})',
+        choices=available_choices, metavar='STRATEGY_OR_GROUP',
+        help=f'strategies or groups to compare (default: {" ".join(default_strategies)})',
     )
     strategy_group.add_argument(
         '--all-strategies', action='store_true',
@@ -679,6 +682,8 @@ def parse_args() -> argparse.Namespace:
         args.strategies = available_strategies
     elif args.strategies is None:
         args.strategies = default_strategies
+    else:
+        args.strategies = expand_strategy_groups(args.strategies)
 
     return args
 
