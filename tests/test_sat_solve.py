@@ -147,7 +147,7 @@ def test_sat_solve_rejects_degenerate_empty_translation(problem_name):
     assert info == 'Non-Theorem: no positive start clauses'
 
 def test_sat_connection_state_can_use_cadical_backend(monkeypatch):
-    calls = {'clauses': [], 'solvers': []}
+    calls = {'clauses': [], 'options': [], 'solvers': []}
 
     class FakeSolver:
         vars = 3
@@ -157,6 +157,10 @@ def test_sat_connection_state_can_use_cadical_backend(monkeypatch):
 
         def add_clause(self, clause):
             calls['clauses'].append(clause)
+
+        def set(self, name, value):
+            calls['options'].append((name, value))
+            return True
 
         def solve(self):
             return 10
@@ -181,6 +185,7 @@ def test_sat_connection_state_can_use_cadical_backend(monkeypatch):
 
     assert calls['solvers'] == [solver]
     assert calls['clauses'] == [[-1, 2], [3]]
+    assert ('quiet', 1) in calls['options']
     assert state.shadow.model == {1: False, 2: True, 3: True}
     assert state.shadow.satisfiable is True
 

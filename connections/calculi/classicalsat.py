@@ -506,6 +506,7 @@ class SATConnectionState:
     def _new_cadical_solver(self):
         solver = pydical.Solver()
         if hasattr(solver, 'set'):
+            solver.set('quiet', 1)
             solver.set('stabilizeonly', 1)
             solver.set('walk', 0)
             solver.set('lucky', 0)
