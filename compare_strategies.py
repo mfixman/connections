@@ -17,7 +17,12 @@ from pathlib import Path
 from typing import Optional
 
 from connections.env import ConnectionEnv, Logic, SATSolver, Settings
-from problem_inputs import expand_problem_inputs, resolve_problem_path
+from problem_inputs import (
+    add_problem_split_arguments,
+    expand_problem_inputs,
+    split_problem_paths,
+    validate_problem_split_arguments,
+)
 from strategies import Strategy
 
 def green(s: str) -> str: return f'\033[32m{s}\033[0m'
@@ -202,6 +207,10 @@ def _process_cpu_count() -> Optional[int]:
     return process_cpu_count()
 
 def determine_worker_count(total_tasks: int) -> int:
+    if total_tasks <= 0:
+        logging.info(f'using 0 worker processes for {total_tasks} tasks')
+        return 0
+
     slurm_raw = os.getenv('SLURM_CPUS_PER_TASK')
     slurm_cpus = _parse_slurm_cpus_per_task(slurm_raw)
     process_cpus = _process_cpu_count()
@@ -293,7 +302,10 @@ def _problem_csv_name(problem: Path) -> str:
     return problem.name
 
 def report_layout(problems: list[Path], strategies: list[str]) -> tuple[int, int, str, str]:
-    problem_width = max(max(len(_problem_display_name(problem)) for problem in problems), len('Problem'))
+    problem_width = max(
+        max((len(_problem_display_name(problem)) for problem in problems), default=0),
+        len('Problem'),
+    )
     strategy_width = max(max(len(strategy) for strategy in strategies), len('Strategy'))
     header = (
         f'{rpad("Problem", problem_width)}  '
@@ -606,6 +618,7 @@ def parse_args() -> argparse.Namespace:
             '  %(prog)s tests --all-strategies\n'
             '  %(prog)s tests --no-time\n'
             '  %(prog)s tests --no-steps\n'
+            '  %(prog)s tests --split 4 --part 0\n'
         ),
     )
     parser.add_argument(
@@ -663,7 +676,9 @@ def parse_args() -> argparse.Namespace:
         '--color', '--colour', dest='color', action='store_true',
         help='preserve ANSI colour codes in --partial-file output (default: off)',
     )
+    add_problem_split_arguments(parser)
     args = parser.parse_args()
+    validate_problem_split_arguments(args, parser)
 
     if args.all_strategies:
         args.strategies = available_strategies
@@ -677,7 +692,11 @@ def main() -> None:
     args = parse_args()
 
     try:
-        problems = expand_problem_inputs(args.inputs)
+        problems = split_problem_paths(
+            expand_problem_inputs(args.inputs),
+            args.split,
+            args.part,
+        )
     except FileNotFoundError as exc:
         sys.exit(f'error: {exc}')
 

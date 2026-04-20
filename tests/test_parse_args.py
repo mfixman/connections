@@ -1,5 +1,7 @@
 import sys
 
+import pytest
+
 from parse_args import parse_args
 from connections.env import Logic, SATSolver, Settings
 
@@ -56,3 +58,27 @@ def test_parse_args_defaults_logic_to_none(monkeypatch):
     args = parse_args()
 
     assert args.logic is None
+
+def test_parse_args_accepts_split_and_part(monkeypatch):
+    monkeypatch.setattr(
+        sys,
+        'argv',
+        ['pycop.py', '--split', '4', '--part', '2', 'tests/cnf_problems/SYN081+1.cnf'],
+    )
+
+    args = parse_args()
+
+    assert args.split == 4
+    assert args.part == 2
+
+def test_parse_args_rejects_part_not_less_than_split(monkeypatch):
+    monkeypatch.setattr(
+        sys,
+        'argv',
+        ['pycop.py', '--split', '4', '--part', '4', 'tests/cnf_problems/SYN081+1.cnf'],
+    )
+
+    with pytest.raises(SystemExit) as excinfo:
+        parse_args()
+
+    assert excinfo.value.code == 2

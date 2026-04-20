@@ -10,7 +10,7 @@ import logging
 
 from connections.env import *
 from parse_args import parse_args
-from problem_inputs import resolved_problem_paths
+from problem_inputs import resolved_problem_paths, split_problem_paths
 
 from pathlib import Path
 
@@ -128,6 +128,7 @@ def main():
 
     try:
         with resolved_problem_paths(args.file) as problem_paths:
+            problem_paths = split_problem_paths(problem_paths, args.split, args.part)
             multiple = len(problem_paths) > 1
             for path in problem_paths:
                 result = _run_problem(path, args)

@@ -2,10 +2,60 @@
 
 from __future__ import annotations
 
+import argparse
 import os
 import tempfile
 from contextlib import contextmanager
 from pathlib import Path
+from typing import Sequence, TypeVar
+
+
+T = TypeVar('T')
+
+
+def add_problem_split_arguments(parser: argparse.ArgumentParser) -> None:
+    """Add shared problem-list partitioning arguments to a CLI parser."""
+    parser.add_argument(
+        '--split',
+        default=1,
+        type=int,
+        metavar='N',
+        help='split the ordered problem list into N parts (default: 1)',
+    )
+    parser.add_argument(
+        '--part',
+        default=0,
+        type=int,
+        metavar='M',
+        help='run only problems whose ordered index modulo --split is M (default: 0)',
+    )
+
+
+def validate_problem_split(split: int, part: int) -> None:
+    """Validate problem-list partitioning arguments."""
+    if split <= 0:
+        raise ValueError('--split must be greater than 0')
+    if part < 0:
+        raise ValueError('--part must be greater than or equal to 0')
+    if part >= split:
+        raise ValueError('--part must be less than --split')
+
+
+def validate_problem_split_arguments(
+    args: argparse.Namespace,
+    parser: argparse.ArgumentParser,
+) -> None:
+    """Validate shared split arguments from argparse, reporting CLI errors."""
+    try:
+        validate_problem_split(args.split, args.part)
+    except ValueError as exc:
+        parser.error(str(exc))
+
+
+def split_problem_paths(paths: Sequence[T], split: int, part: int) -> list[T]:
+    """Return the selected partition of an ordered problem list."""
+    validate_problem_split(split, part)
+    return [path for index, path in enumerate(paths) if index % split == part]
 
 
 def resolve_problem_path(path: str) -> str:

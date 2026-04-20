@@ -1,6 +1,8 @@
 from pathlib import Path
 import sys
 
+import pytest
+
 import compare_strategies
 from compare_strategies import Logic, ReportWriter, SATSolver
 
@@ -135,6 +137,25 @@ class TestCompareStrategiesLogicSelection:
         args = compare_strategies.parse_args()
 
         assert args.logic is Logic.ClassicalSAT
+
+    def test_parse_args_accepts_split_and_part(self, monkeypatch):
+        monkeypatch.setattr(
+            sys,
+            'argv',
+            ['compare_strategies.py', '--split', '3', '--part', '1'],
+        )
+        args = compare_strategies.parse_args()
+
+        assert args.split == 3
+        assert args.part == 1
+
+    def test_parse_args_rejects_zero_split(self, monkeypatch):
+        monkeypatch.setattr(sys, 'argv', ['compare_strategies.py', '--split', '0'])
+
+        with pytest.raises(SystemExit) as excinfo:
+            compare_strategies.parse_args()
+
+        assert excinfo.value.code == 2
 
 class TestCompareStrategiesSatStatus:
     def test_theorem_sat_with_core_suffix_counts_as_success(self):

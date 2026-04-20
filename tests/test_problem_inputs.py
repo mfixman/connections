@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import pytest
+
 import problem_inputs
 
 class TestProblemInputsDirectoryFiltering:
@@ -16,6 +18,27 @@ class TestProblemInputsDirectoryFiltering:
         result = problem_inputs.expand_problem_inputs([str(problems)])
 
         assert result == [supported.resolve()]
+
+class TestProblemInputSplitting:
+    def test_split_problem_paths_keeps_matching_zero_based_indices(self):
+        paths = ['a.p', 'b.p', 'c.p', 'd.p', 'e.p']
+
+        assert problem_inputs.split_problem_paths(paths, 2, 0) == ['a.p', 'c.p', 'e.p']
+        assert problem_inputs.split_problem_paths(paths, 2, 1) == ['b.p', 'd.p']
+        assert problem_inputs.split_problem_paths(paths, 3, 2) == ['c.p']
+
+    @pytest.mark.parametrize(
+        ('split', 'part'),
+        [
+            (0, 0),
+            (-1, 0),
+            (2, -1),
+            (2, 2),
+        ],
+    )
+    def test_validate_problem_split_rejects_invalid_values(self, split: int, part: int):
+        with pytest.raises(ValueError):
+            problem_inputs.validate_problem_split(split, part)
 
     def test_expand_problem_inputs_filters_default_tptp_listing(self, tmp_path: Path, monkeypatch):
         tptp_root = tmp_path / 'tptp'

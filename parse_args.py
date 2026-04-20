@@ -1,6 +1,7 @@
 import argparse
 
 from connections.env import *
+from problem_inputs import add_problem_split_arguments, validate_problem_split_arguments
 from strategies import *
 
 
@@ -21,8 +22,11 @@ def parse_args():
     parser.add_argument('--verbose', '-v', action='store_true', help='Verbose messages.')
     parser.add_argument('--debug', action='store_true', help='Print extra debug information.')
     parser.add_argument('--strategy', default='FirstAction', choices=Strategy.strategies().keys(), help='Strategy to use')
+    add_problem_split_arguments(parser)
     parser.add_argument(
         'file',
         help='Problem input: local file, directory of .p files, TPTP codename/path, or raw quoted TPTP text',
     )
-    return parser.parse_args()
+    args = parser.parse_args()
+    validate_problem_split_arguments(args, parser)
+    return args
