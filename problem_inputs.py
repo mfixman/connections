@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import sys
 import tempfile
 from contextlib import contextmanager
 from pathlib import Path
@@ -17,14 +18,14 @@ def add_problem_split_arguments(parser: argparse.ArgumentParser) -> None:
     """Add shared problem-list partitioning arguments to a CLI parser."""
     parser.add_argument(
         '--split',
-        default=1,
+        default=None,
         type=int,
         metavar='N',
         help='split the ordered problem list into N parts (default: 1)',
     )
     parser.add_argument(
         '--part',
-        default=0,
+        default=None,
         type=int,
         metavar='M',
         help='run only problems whose ordered index modulo --split is M (default: 0)',
@@ -45,7 +46,33 @@ def validate_problem_split_arguments(
     args: argparse.Namespace,
     parser: argparse.ArgumentParser,
 ) -> None:
-    """Validate shared split arguments from argparse, reporting CLI errors."""
+    """Resolve and validate shared split arguments from argparse."""
+    if args.split is None and args.part is None:
+        slurm_split = os.getenv('SLURM_ARRAY_TASK_COUNT')
+        slurm_part = os.getenv('SLURM_ARRAY_TASK_ID')
+        if slurm_split is not None and slurm_part is not None:
+            try:
+                args.split = int(slurm_split)
+                args.part = int(slurm_part)
+            except ValueError:
+                parser.error(
+                    'SLURM_ARRAY_TASK_COUNT and SLURM_ARRAY_TASK_ID must be integers '
+                    'when used as --split/--part defaults'
+                )
+            print(
+                'warning: using '
+                f'SLURM_ARRAY_TASK_COUNT={args.split} as --split and '
+                f'SLURM_ARRAY_TASK_ID={args.part} as --part',
+                file=sys.stderr,
+            )
+        else:
+            args.split = 1
+            args.part = 0
+    elif args.split is None:
+        args.split = 1
+    elif args.part is None:
+        args.part = 0
+
     try:
         validate_problem_split(args.split, args.part)
     except ValueError as exc:

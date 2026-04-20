@@ -27,6 +27,21 @@ class TestProblemInputSplitting:
         assert problem_inputs.split_problem_paths(paths, 2, 1) == ['b.p', 'd.p']
         assert problem_inputs.split_problem_paths(paths, 3, 2) == ['c.p']
 
+    def test_split_problem_paths_parts_partition_expanded_directory_inputs(self, tmp_path: Path):
+        problems_dir = tmp_path / 'Problems'
+        problems_dir.mkdir()
+        for name in ['AAA003-1.p', 'AAA001-1.p', 'AAA004-1.p', 'AAA002-1.p', 'AAA005-1.p']:
+            (problems_dir / name).write_text(name)
+
+        problems = problem_inputs.expand_problem_inputs([str(problems_dir)])
+        part0 = problem_inputs.split_problem_paths(problems, 2, 0)
+        part1 = problem_inputs.split_problem_paths(problems, 2, 1)
+
+        assert set(part0).isdisjoint(part1)
+        assert set(part0) | set(part1) == set(problems)
+        assert part0 == problems[0::2]
+        assert part1 == problems[1::2]
+
     @pytest.mark.parametrize(
         ('split', 'part'),
         [

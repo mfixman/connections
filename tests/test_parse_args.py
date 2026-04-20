@@ -71,6 +71,39 @@ def test_parse_args_accepts_split_and_part(monkeypatch):
     assert args.split == 4
     assert args.part == 2
 
+def test_parse_args_uses_slurm_array_when_split_and_part_are_absent(monkeypatch, capsys):
+    monkeypatch.setenv('SLURM_ARRAY_TASK_COUNT', '4')
+    monkeypatch.setenv('SLURM_ARRAY_TASK_ID', '2')
+    monkeypatch.setattr(
+        sys,
+        'argv',
+        ['pycop.py', 'tests/cnf_problems/SYN081+1.cnf'],
+    )
+
+    args = parse_args()
+
+    captured = capsys.readouterr()
+    assert args.split == 4
+    assert args.part == 2
+    assert 'SLURM_ARRAY_TASK_COUNT=4' in captured.err
+    assert 'SLURM_ARRAY_TASK_ID=2' in captured.err
+
+def test_parse_args_prefers_explicit_split_and_part_over_slurm_array(monkeypatch, capsys):
+    monkeypatch.setenv('SLURM_ARRAY_TASK_COUNT', '4')
+    monkeypatch.setenv('SLURM_ARRAY_TASK_ID', '2')
+    monkeypatch.setattr(
+        sys,
+        'argv',
+        ['pycop.py', '--split', '3', '--part', '1', 'tests/cnf_problems/SYN081+1.cnf'],
+    )
+
+    args = parse_args()
+
+    captured = capsys.readouterr()
+    assert args.split == 3
+    assert args.part == 1
+    assert 'SLURM_ARRAY_TASK_COUNT' not in captured.err
+
 def test_parse_args_rejects_part_not_less_than_split(monkeypatch):
     monkeypatch.setattr(
         sys,

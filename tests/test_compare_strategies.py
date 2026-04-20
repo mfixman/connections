@@ -181,6 +181,78 @@ class TestCompareStrategiesLogicSelection:
         assert args.split == 3
         assert args.part == 1
 
+    def test_parse_args_defaults_csv_to_results_csv_without_name(self, monkeypatch):
+        monkeypatch.setattr(sys, 'argv', ['compare_strategies.py'])
+        args = compare_strategies.parse_args()
+
+        assert args.csv == 'results.csv'
+
+    def test_parse_args_name_sets_partial_file_and_csv_for_nonzero_part(self, monkeypatch):
+        monkeypatch.setattr(
+            sys,
+            'argv',
+            ['compare_strategies.py', 'tests/cnf_problems', '--name', 'run', '--split', '4', '--part', '2'],
+        )
+        args = compare_strategies.parse_args()
+
+        assert args.partial_file == str(Path('results') / 'partial' / 'run_cnf_problems_2')
+        assert args.csv == str(Path('results') / 'run' / 'cnf_problems_2')
+
+    def test_parse_args_name_sets_partial_file_and_csv_with_part_zero_suffix_when_split(self, monkeypatch):
+        monkeypatch.setattr(
+            sys,
+            'argv',
+            ['compare_strategies.py', 'tests/cnf_problems', '--name', 'run', '--split', '4', '--part', '0'],
+        )
+        args = compare_strategies.parse_args()
+
+        assert args.partial_file == str(Path('results') / 'partial' / 'run_cnf_problems_0')
+        assert args.csv == str(Path('results') / 'run' / 'cnf_problems_0')
+
+    def test_parse_args_name_omits_part_suffix_when_unsplit(self, monkeypatch):
+        monkeypatch.setattr(
+            sys,
+            'argv',
+            ['compare_strategies.py', 'tests/cnf_problems', '--name', 'run'],
+        )
+        args = compare_strategies.parse_args()
+
+        assert args.partial_file == str(Path('results') / 'partial' / 'run_cnf_problems')
+        assert args.csv == str(Path('results') / 'run' / 'cnf_problems')
+
+    def test_parse_args_name_does_not_override_explicit_partial_file_or_csv(self, monkeypatch):
+        monkeypatch.setattr(
+            sys,
+            'argv',
+            [
+                'compare_strategies.py',
+                'tests/cnf_problems',
+                '--name',
+                'run',
+                '--partial-file',
+                '/tmp/partial.txt',
+                '--csv',
+                '/tmp/results.csv',
+            ],
+        )
+        args = compare_strategies.parse_args()
+
+        assert args.partial_file == '/tmp/partial.txt'
+        assert args.csv == '/tmp/results.csv'
+
+    def test_parse_args_uses_slurm_array_when_split_and_part_are_absent(self, monkeypatch, capsys):
+        monkeypatch.setenv('SLURM_ARRAY_TASK_COUNT', '3')
+        monkeypatch.setenv('SLURM_ARRAY_TASK_ID', '1')
+        monkeypatch.setattr(sys, 'argv', ['compare_strategies.py'])
+
+        args = compare_strategies.parse_args()
+
+        captured = capsys.readouterr()
+        assert args.split == 3
+        assert args.part == 1
+        assert 'SLURM_ARRAY_TASK_COUNT=3' in captured.err
+        assert 'SLURM_ARRAY_TASK_ID=1' in captured.err
+
     def test_parse_args_rejects_zero_split(self, monkeypatch):
         monkeypatch.setattr(sys, 'argv', ['compare_strategies.py', '--split', '0'])
 

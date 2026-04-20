@@ -444,6 +444,7 @@ class ReportWriter:
         if self.partial_path is None:
             return None
         if self._partial_file is None:
+            self.partial_path.parent.mkdir(parents=True, exist_ok=True)
             self._partial_file = open(self.partial_path, 'a', encoding='utf-8')
         return self._partial_file
 
@@ -575,6 +576,7 @@ def write_results_csv(
         'info',
         'error',
     ]
+    Path(csv_path).parent.mkdir(parents=True, exist_ok=True)
     with open(csv_path, 'w', newline='') as csv_file:
         writer = csv.DictWriter(csv_file, fieldnames=fieldnames, lineterminator='\n')
         writer.writeheader()
@@ -593,6 +595,22 @@ def write_results_csv(
                     'info': result.get('info'),
                     'error': result.get('error'),
                 })
+
+def _input_basename(inputs: list[str]) -> str:
+    if not inputs:
+        return 'all'
+    return Path(inputs[0]).name
+
+def _named_result_stem(inputs: list[str], split: int, part: int) -> str:
+    suffix = '' if split == 1 else f'_{part}'
+    return f'{_input_basename(inputs)}{suffix}'
+
+def _named_partial_file(name: str, inputs: list[str], split: int, part: int) -> str:
+    stem = _named_result_stem(inputs, split, part)
+    return str(Path('results') / 'partial' / f'{name}_{stem}')
+
+def _named_csv_file(name: str, inputs: list[str], split: int, part: int) -> str:
+    return str(Path('results') / name / _named_result_stem(inputs, split, part))
 
 def parse_args() -> argparse.Namespace:
     available_strategies = list(Strategy.strategies().keys())
@@ -617,6 +635,7 @@ def parse_args() -> argparse.Namespace:
             '  %(prog)s tests --no-time\n'
             '  %(prog)s tests --no-steps\n'
             '  %(prog)s tests --split 4 --part 0\n'
+            '  %(prog)s tests --name run1 --split 4 --part 2\n'
         ),
     )
     parser.add_argument(
@@ -663,12 +682,16 @@ def parse_args() -> argparse.Namespace:
         help='show wall-clock time in results (default: on)',
     )
     parser.add_argument(
-        '--csv', default='results.csv', metavar='PATH',
-        help='write final results as CSV to PATH (default: results.csv)',
+        '--csv', default=None, metavar='PATH',
+        help='write final results as CSV to PATH (default: results.csv, or results/NAME/INPUT_PART with --name)',
     )
     parser.add_argument(
         '--partial-file', metavar='PATH',
         help='append report output to PATH and resume from any completed rows already present',
+    )
+    parser.add_argument(
+        '--name', metavar='NAME',
+        help='derive default --partial-file and --csv paths from NAME and the input basename',
     )
     parser.add_argument(
         '--color', '--colour', dest='color', action='store_true',
@@ -684,6 +707,14 @@ def parse_args() -> argparse.Namespace:
         args.strategies = default_strategies
     else:
         args.strategies = expand_strategy_groups(args.strategies)
+
+    if args.name is not None:
+        if args.partial_file is None:
+            args.partial_file = _named_partial_file(args.name, args.inputs, args.split, args.part)
+        if args.csv is None:
+            args.csv = _named_csv_file(args.name, args.inputs, args.split, args.part)
+    elif args.csv is None:
+        args.csv = 'results.csv'
 
     return args
 
