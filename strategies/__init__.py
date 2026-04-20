@@ -1136,4 +1136,13 @@ class InitialSchedule(Strategy):
         self._slot_steps += 1
         return action
 
-from .sat_solve import SATSolve, SATSolveGuided, SATSolveLiteral  # noqa: E402,F401
+from .sat_solve import (  # noqa: E402,F401
+    SATSolve,
+    SATSolveGuided,
+    SATSolveGuidedEVSIDS,
+    SATSolveGuidedFast,
+    SATSolveGuidedForcedTrue,
+    SATSolveGuidedProbeConflicts,
+    SATSolveGuidedShort,
+    SATSolveLiteral,
+)

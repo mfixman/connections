@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import NamedTuple
+
 from connections.calculi.classicalsat import (
     Backtrack,
     ConnectionAction,
@@ -13,6 +15,12 @@ from connections.calculi.classicalsat import (
 )
 from connections.utils.primitives import Literal
 from .base import Strategy
+
+class _ExtensionSignals(NamedTuple):
+    probe_conflicts: int
+    forced_true: int
+    evsids: float
+    subgoal_count: int
 
 class _SATScoreTracker:
     """Track the first solver atom score that becomes non-zero."""
@@ -96,44 +104,12 @@ class SATSolve(_SATScoreTracker, Strategy):
 
         raise LookupError('Expected at least one action to be Start, Reduction, Extension, Backtrack, or Reset.')
 
-class SATSolveGuided(SATSolve):
-    """SATCoP control with SAT-shadow scoring for extension choice.
+class _GuidedExtensionChoice:
+    """Shared SAT-shadow extension-choice policy for guided variants."""
 
-    This keeps ``SATSolve``'s control policy, including paper mode,
-    restricted backtracking, root resets, and backtracking order.  The
-    only difference is at extension choice points: when ``SATSolve``
-    would pick an extension and more than one extension is available,
-    choose the extension with the best score from the current SAT
-    shadow.
-
-    Sources and scope:
-        This is not the Rawson/Reger literal-selection rule; that is
-        already represented by ``SATSolveLiteral``.  This strategy is an
-        experiment in using SAT-solver-internal properties to guide the
-        first-order connection prover.
-
-        The SAT-side ingredients are standard CDCL signals rather than
-        new prover machinery:
-        - EVSIDS-style variable activity, introduced by the Chaff SAT
-          solver (Moskewicz et al., 2001), exposed here by CaDiCaL as
-          ``score(var)``.
-        - Forced assignments / failed assumptions, a standard
-          assumption-based incremental SAT interface; PySAT documents
-          the same assumption-call style for its solver wrappers.
-        - Variable involvement in propagation and conflict analysis as
-          a useful importance signal for SAT search, e.g. Liu et al.
-          (2024), "NeuroSelect: Learning to Select Clauses in SAT
-          Solvers", §3.1-3.2.
-
-        I did not find an existing paper in ``papers/`` that applies
-        these SAT-internal signals to guide extension choice in a
-        connection prover.  The originality here is intentionally small:
-        map candidate extension subgoals to existing SAT atoms and ask
-        CaDiCaL which atoms currently look important.  The score is a
-        lexicographic tuple, not a weighted sum: first prefer assumption
-        probes that refute the current shadow CNF, then forced literals,
-        then larger EVSIDS activity, then fewer remaining subgoals.
-    """
+    _use_probe_conflicts = True
+    _use_forced_true = True
+    _use_evsids = True
 
     def step(self):
         actions = self.env.legal_actions()
@@ -172,8 +148,23 @@ class SATSolveGuided(SATSolve):
         raise LookupError('Expected at least one action to be Start, Reduction, Extension, Backtrack, or Reset.')
 
     def _extension_score(self, action: Extension) -> tuple[int, int, float, int]:
+        signals = self._extension_signals(action)
+        return self._extension_signal_score(signals)
+
+    def _extension_signal_score(self, signals: _ExtensionSignals) -> tuple[int, int, float, int]:
+        return (
+            signals.probe_conflicts,
+            signals.forced_true,
+            signals.evsids,
+            -signals.subgoal_count,
+        )
+
+    def _extension_signals(self, action: Extension) -> _ExtensionSignals:
         state = self.env.state
         subgoals = self._remaining_subgoals(action)
+
+        if not (self._use_probe_conflicts or self._use_forced_true or self._use_evsids):
+            return _ExtensionSignals(0, 0, 0.0, len(subgoals))
 
         state.substitution.update(action.sub_updates)
         try:
@@ -187,10 +178,14 @@ class SATSolveGuided(SATSolve):
         evsids = 0.0
 
         for sat_lit in sat_literals:
-            if solver.fixed(sat_lit) > 0:
+            if self._use_forced_true and solver.fixed(sat_lit) > 0:
                 forced_true += 1
 
-            evsids += solver.score(abs(sat_lit))
+            if self._use_evsids:
+                evsids += solver.score(abs(sat_lit))
+
+            if not self._use_probe_conflicts:
+                continue
 
             solver.assume(-sat_lit)
             try:
@@ -199,7 +194,7 @@ class SATSolveGuided(SATSolve):
             finally:
                 solver.reset_assumptions()
 
-        return (probe_conflicts, forced_true, evsids, -len(subgoals))
+        return _ExtensionSignals(probe_conflicts, forced_true, evsids, len(subgoals))
 
     def _remaining_subgoals(self, action: Extension) -> list[Literal]:
         return [
@@ -220,6 +215,90 @@ class SATSolveGuided(SATSolve):
             result.append(-atom_id if grounded_literal.neg else atom_id)
 
         return result
+
+class SATSolveGuided(_GuidedExtensionChoice, SATSolve):
+    """SATCoP control with SAT-shadow scoring for extension choice.
+
+    This keeps ``SATSolve``'s control policy, including paper mode,
+    restricted backtracking, root resets, and backtracking order.  The
+    only difference is at extension choice points: when ``SATSolve``
+    would pick an extension and more than one extension is available,
+    choose the extension with the best score from the current SAT
+    shadow.
+
+    Sources and scope:
+        This is not the Rawson/Reger literal-selection rule; that is
+        already represented by ``SATSolveLiteral``.  This strategy is an
+        experiment in using SAT-solver-internal properties to guide the
+        first-order connection prover.
+
+        The SAT-side ingredients are standard CDCL signals rather than
+        new prover machinery:
+        - EVSIDS-style variable activity, introduced by the Chaff SAT
+          solver (Moskewicz et al., 2001), exposed here by CaDiCaL as
+          ``score(var)``.
+        - Forced assignments / failed assumptions, a standard
+          assumption-based incremental SAT interface; PySAT documents
+          the same assumption-call style for its solver wrappers.
+        - Variable involvement in propagation and conflict analysis as
+          a useful importance signal for SAT search, e.g. Liu et al.
+          (2024), "NeuroSelect: Learning to Select Clauses in SAT
+          Solvers", §3.1-3.2.
+
+        I did not find an existing paper in ``papers/`` that applies
+        these SAT-internal signals to guide extension choice in a
+        connection prover.  The originality here is intentionally small:
+        map candidate extension subgoals to existing SAT atoms and ask
+        CaDiCaL which atoms currently look important.  The score is a
+        lexicographic tuple, not a weighted sum: first prefer assumption
+        probes that refute the current shadow CNF, then forced literals,
+        then larger EVSIDS activity, then fewer remaining subgoals.
+    """
+
+class SATSolveGuidedProbeConflicts(SATSolveGuided):
+    """Guided extension choice using only failed-assumption conflicts."""
+
+    _use_forced_true = False
+    _use_evsids = False
+
+    def _extension_signal_score(self, signals: _ExtensionSignals) -> tuple[int]:
+        return (signals.probe_conflicts,)
+
+class SATSolveGuidedForcedTrue(SATSolveGuided):
+    """Guided extension choice using only forced-true SAT literals."""
+
+    _use_probe_conflicts = False
+    _use_evsids = False
+
+    def _extension_signal_score(self, signals: _ExtensionSignals) -> tuple[int]:
+        return (signals.forced_true,)
+
+class SATSolveGuidedEVSIDS(SATSolveGuided):
+    """Guided extension choice using only summed CaDiCaL EVSIDS scores."""
+
+    _use_probe_conflicts = False
+    _use_forced_true = False
+
+    def _extension_signal_score(self, signals: _ExtensionSignals) -> tuple[float]:
+        return (signals.evsids,)
+
+class SATSolveGuidedShort(SATSolveGuided):
+    """Guided extension choice using only fewer remaining subgoals."""
+
+    _use_probe_conflicts = False
+    _use_forced_true = False
+    _use_evsids = False
+
+    def _extension_signal_score(self, signals: _ExtensionSignals) -> tuple[int]:
+        return (-signals.subgoal_count,)
+
+class SATSolveGuidedFast(SATSolveGuided):
+    """Guided extension choice using only cheap non-probing signals."""
+
+    _use_probe_conflicts = False
+
+    def _extension_signal_score(self, signals: _ExtensionSignals) -> tuple[int, float, int]:
+        return (signals.forced_true, signals.evsids, -signals.subgoal_count)
 
 class SATSolveLiteral(_SATScoreTracker, Strategy):
     """Strict SATCoP with §9.1 literal-selection refinement.

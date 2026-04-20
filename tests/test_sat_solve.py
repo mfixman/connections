@@ -38,6 +38,12 @@ cnf(clause5,negated_conjecture,
 def test_sat_solve_is_registered():
     assert 'SATSolve' in Strategy.strategies()
     assert 'SATSolveGuided' in Strategy.strategies()
+    assert 'SATSolveGuidedProbeConflicts' in Strategy.strategies()
+    assert 'SATSolveGuidedForcedTrue' in Strategy.strategies()
+    assert 'SATSolveGuidedEVSIDS' in Strategy.strategies()
+    assert 'SATSolveGuidedShort' in Strategy.strategies()
+    assert 'SATSolveGuidedFast' in Strategy.strategies()
+    assert 'SATSolveLiteral' in Strategy.strategies()
 
 @pytest.mark.skipif(pydical is None, reason = 'pydical is not installed')
 def test_sat_solve_runs_in_classical_cut_env():
@@ -516,6 +522,138 @@ def test_sat_solve_guided_uses_live_assumptions_instead_of_solver_copies(monkeyp
     assert ('assume', -3) in solver.calls
     assert ('reset_assumptions', (-2,)) in solver.calls
     assert ('reset_assumptions', (-3,)) in solver.calls
+
+@pytest.mark.parametrize(
+    ('strategy_name', 'expected'),
+    [
+        ('SATSolveGuidedProbeConflicts', 'probe'),
+        ('SATSolveGuidedForcedTrue', 'forced'),
+        ('SATSolveGuidedEVSIDS', 'evsids'),
+        ('SATSolveGuidedFast', 'forced'),
+    ],
+)
+def test_sat_solve_guided_signal_variants_choose_by_requested_signal(monkeypatch, strategy_name, expected):
+    monkeypatch.setattr(sat_solve_module, 'pydical', SimpleNamespace(UNSATISFIABLE = 20))
+
+    head = Literal('p', [])
+    probe_lit = Literal('probe', [])
+    forced_lit = Literal('forced', [])
+    evsids_lit = Literal('evsids', [])
+
+    probe = Extension(id = 'ex0', lit_idx = 0, clause_copy = [head, probe_lit])
+    forced = Extension(id = 'ex1', lit_idx = 0, clause_copy = [head, forced_lit])
+    evsids = Extension(id = 'ex2', lit_idx = 0, clause_copy = [head, evsids_lit])
+
+    class FakeSolver:
+        def __init__(self):
+            self.assumptions = []
+
+        def fixed(self, sat_lit):
+            return 1 if sat_lit == 3 else 0
+
+        def score(self, atom_id):
+            return {2: 0.0, 3: 1.0, 4: 5.0}[atom_id]
+
+        def assume(self, sat_lit):
+            self.assumptions.append(sat_lit)
+
+        def solve(self):
+            return 20 if self.assumptions == [-2] else 10
+
+        def reset_assumptions(self):
+            self.assumptions = []
+
+    state = SimpleNamespace(
+        goal = SimpleNamespace(parent = object()),
+        max_depth = 1,
+        shadow = SimpleNamespace(
+            new_ground_clauses = set(),
+            atom_map = {'p': 1, 'probe': 2, 'forced': 3, 'evsids': 4},
+            solver = FakeSolver(),
+        ),
+        substitution = Substitution(),
+        sat_literal_value = lambda literal: None,
+        _atom_key = lambda literal: literal.symbol,
+        _flush_new_ground_clauses = lambda: None,
+        _solve_ground_clauses = lambda: None,
+        enable_paper_mode = lambda enabled = True: setattr(state, 'paper_mode', enabled),
+    )
+    env = SimpleNamespace(legal_actions = lambda: [probe, forced, evsids], state = state)
+    strategy = Strategy.strategies()[strategy_name](env)
+
+    assert strategy.step() is {'probe': probe, 'forced': forced, 'evsids': evsids}[expected]
+
+def test_sat_solve_guided_short_chooses_fewer_remaining_subgoals_without_sat_calls():
+    head = Literal('p', [])
+    short = Extension(id = 'ex0', lit_idx = 0, clause_copy = [head, Literal('q', [])])
+    long = Extension(
+        id = 'ex1',
+        lit_idx = 0,
+        clause_copy = [head, Literal('r', []), Literal('s', [])],
+    )
+
+    class FakeSolver:
+        def fixed(self, sat_lit):
+            raise AssertionError('short scoring should not inspect SAT literals')
+
+        def score(self, atom_id):
+            raise AssertionError('short scoring should not inspect SAT literals')
+
+        def assume(self, sat_lit):
+            raise AssertionError('short scoring should not probe assumptions')
+
+    state = SimpleNamespace(
+        goal = SimpleNamespace(parent = object()),
+        max_depth = 1,
+        shadow = SimpleNamespace(new_ground_clauses = set(), atom_map = {}, solver = FakeSolver()),
+        substitution = Substitution(),
+        sat_literal_value = lambda literal: None,
+        _atom_key = lambda literal: literal.symbol,
+        _flush_new_ground_clauses = lambda: None,
+        _solve_ground_clauses = lambda: None,
+        enable_paper_mode = lambda enabled = True: setattr(state, 'paper_mode', enabled),
+    )
+    env = SimpleNamespace(legal_actions = lambda: [long, short], state = state)
+    strategy = Strategy.strategies()['SATSolveGuidedShort'](env)
+
+    assert strategy.step() is short
+
+def test_sat_solve_guided_fast_skips_assumption_probes(monkeypatch):
+    monkeypatch.setattr(sat_solve_module, 'pydical', SimpleNamespace(UNSATISFIABLE = 20))
+
+    head = Literal('p', [])
+    weak = Extension(id = 'ex0', lit_idx = 0, clause_copy = [head, Literal('weak', [])])
+    strong = Extension(id = 'ex1', lit_idx = 0, clause_copy = [head, Literal('strong', [])])
+
+    class FakeSolver:
+        def fixed(self, sat_lit):
+            return 1 if sat_lit == 3 else 0
+
+        def score(self, atom_id):
+            return {2: 0.0, 3: 1.0}[atom_id]
+
+        def assume(self, sat_lit):
+            raise AssertionError('fast scoring should not probe assumptions')
+
+    state = SimpleNamespace(
+        goal = SimpleNamespace(parent = object()),
+        max_depth = 1,
+        shadow = SimpleNamespace(
+            new_ground_clauses = set(),
+            atom_map = {'p': 1, 'weak': 2, 'strong': 3},
+            solver = FakeSolver(),
+        ),
+        substitution = Substitution(),
+        sat_literal_value = lambda literal: None,
+        _atom_key = lambda literal: literal.symbol,
+        _flush_new_ground_clauses = lambda: None,
+        _solve_ground_clauses = lambda: None,
+        enable_paper_mode = lambda enabled = True: setattr(state, 'paper_mode', enabled),
+    )
+    env = SimpleNamespace(legal_actions = lambda: [weak, strong], state = state)
+    strategy = Strategy.strategies()['SATSolveGuidedFast'](env)
+
+    assert strategy.step() is strong
 
 def test_sat_solve_records_nonzero_atom_score():
     class FakeSolver:

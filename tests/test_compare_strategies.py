@@ -108,6 +108,7 @@ class TestCompareStrategiesLogicSelection:
     def test_default_logic_is_classical_sat_for_sat_solve(self):
         assert compare_strategies.default_logic_for_strategy('SATSolve') is Logic.ClassicalSAT
         assert compare_strategies.default_logic_for_strategy('SATSolveGuided') is Logic.ClassicalSAT
+        assert compare_strategies.default_logic_for_strategy('SATSolveGuidedFast') is Logic.ClassicalSAT
 
     def test_explicit_logic_override_wins(self):
         assert (
