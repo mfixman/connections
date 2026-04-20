@@ -6,10 +6,10 @@ from connections.calculi.classicalsat import Backtrack, ConnectionAction, Extens
 from .base import Strategy
 
 class _SATScoreTracker:
-    """Track whether any solver atom score ever becomes non-zero."""
+    """Track the first solver atom score that becomes non-zero."""
 
     def _init_sat_score_tracker(self) -> None:
-        self._sat_has_nonzero_atom_score = False
+        self._sat_nonzero_atom_score = None
 
     def _sync_shadow_solver(self) -> None:
         state = self.env.state
@@ -19,7 +19,7 @@ class _SATScoreTracker:
             state._solve_ground_clauses()
 
     def _record_nonzero_atom_scores(self) -> None:
-        if self._sat_has_nonzero_atom_score:
+        if self._sat_nonzero_atom_score is not None:
             return
 
         state = self.env.state
@@ -36,15 +36,15 @@ class _SATScoreTracker:
             except Exception:
                 continue
             if atom_score not in (0, None):
-                self._sat_has_nonzero_atom_score = True
+                self._sat_nonzero_atom_score = atom_score
                 return
 
     def final_info(self) -> str | None:
-        if not self._sat_has_nonzero_atom_score:
+        if self._sat_nonzero_atom_score is None:
             self._sync_shadow_solver()
             self._record_nonzero_atom_scores()
-        if self._sat_has_nonzero_atom_score:
-            return 'sat_nonzero_atom_score=True'
+        if self._sat_nonzero_atom_score is not None:
+            return f'score={self._sat_nonzero_atom_score}'
         return None
 
 class SATSolve(_SATScoreTracker, Strategy):

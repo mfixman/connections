@@ -221,17 +221,17 @@ class TestCompareStrategiesInitialStatus:
     def test_run_problem_appends_strategy_final_info(self, monkeypatch):
         sent = self._run_fake_problem(
             monkeypatch,
-            strategy_info = 'sat_nonzero_atom_score=True',
+            strategy_info = 'score=3.5',
         )
 
-        assert sent['info'] == 'Theorem (SAT); sat_nonzero_atom_score=True'
+        assert sent['info'] == 'Theorem (SAT); score=3.5'
 
     def test_run_problem_keeps_strategy_final_info_on_max_steps(self, monkeypatch):
         sent = self._run_fake_problem(
             monkeypatch,
-            strategy_info = 'sat_nonzero_atom_score=True',
+            strategy_info = 'score=3.5',
             max_steps = 0,
         )
 
         assert sent['status'] == 'max_steps'
-        assert sent['info'] == 'sat_nonzero_atom_score=True'
+        assert sent['info'] == 'score=3.5'

@@ -448,7 +448,7 @@ def test_sat_solve_records_nonzero_atom_score():
     strategy = Strategy.strategies()['SATSolve'](env)
 
     assert strategy.step() is action
-    assert strategy.final_info() == 'sat_nonzero_atom_score=True'
+    assert strategy.final_info() == 'score=3.5'
 
 @pytest.mark.parametrize('strategy_name', ['SATSolve', 'SATSolveLiteral'])
 def test_sat_strategies_only_reset_at_root_when_shadow_is_still_growing(strategy_name):
