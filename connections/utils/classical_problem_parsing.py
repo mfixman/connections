@@ -153,6 +153,25 @@ def _strip_tcf_quantifiers(text: str) -> str:
         text = _strip_outer_parens(text[split_at + 1:])
     return text
 
+def _preprocess_tptp_for_prolog(path: Path) -> Path:
+    """Quote ~| for SWI-Prolog 7+ which treats | as a meta-character.
+
+    SWI-Prolog 7+ tokenizes ~| as two tokens (~ and |) instead of
+    the single operator atom.  Quoting it as '~|' makes the reader
+    produce the correct atom that matches the operator declaration.
+    Returns *path* unchanged when no quoting is needed.
+    """
+    text = path.read_text()
+    modified = re.sub(r"(?<!')~\|(?!')", "'~|'", text)
+    if modified == text:
+        return path
+    tmp = tempfile.NamedTemporaryFile(
+        suffix=path.suffix, delete=False, mode='w', encoding='utf-8',
+    )
+    tmp.write(modified)
+    tmp.close()
+    return Path(tmp.name)
+
 def _translate_tptp_problem(path: Path) -> Matrix:
     """Translate raw TPTP FOF to connection CNF, then parse it."""
     repo_root = _repo_root()
@@ -160,12 +179,14 @@ def _translate_tptp_problem(path: Path) -> Matrix:
     env = os.environ.copy()
     env.setdefault('TPTP', str(_tptp_root()))
 
+    input_path = _preprocess_tptp_for_prolog(path)
+
     with tempfile.NamedTemporaryFile(suffix='.cnf', delete=False) as tmp:
         output_path = Path(tmp.name)
 
     try:
         result = subprocess.run(
-            [str(translator), str(path), str(output_path)],
+            [str(translator), str(input_path), str(output_path)],
             cwd=repo_root,
             env=env,
             text=True,
@@ -178,6 +199,8 @@ def _translate_tptp_problem(path: Path) -> Matrix:
         return parse_connections_cnf(str(output_path))
     finally:
         output_path.unlink(missing_ok=True)
+        if input_path != path:
+            input_path.unlink(missing_ok=True)
 
 def _repo_root() -> Path:
     """Return the repository root for translation and include resolution."""
