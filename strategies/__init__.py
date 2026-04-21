@@ -1148,9 +1148,11 @@ from .sat_solve import (  # noqa: E402,F401
     SATSolveLiteralFrequencyTie,
     SATSolveLiteralLookaheadTie,
     SATSolveLiteralLowFrequencyTie,
+    SATSolveLiteralModelStart,
     SATSolveLiteralOppositeSignedFrequencyTie,
     SATSolveLiteralPropagation,
     SATSolveLiteralRandomTie,
+    SATSolveLiteralRareStart,
     SATSolveLiteralShortTie,
     SATSolvePropagation,
 )

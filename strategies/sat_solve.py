@@ -34,6 +34,16 @@ class _PropagationSignals(NamedTuple):
     mapped: int
     backend: str
 
+class _StartClauseSignals(NamedTuple):
+    mapped: int
+    unmapped: int
+    min_frequency: int
+    total_frequency: int
+    length: int
+    model_false: int
+    model_true: int
+    model_unknown: int
+
 class _SATScoreTracker:
     """Track the first solver atom score that becomes non-zero."""
 
@@ -961,6 +971,209 @@ class SATSolveLiteralOppositeSignedFrequencyTie(SATSolveLiteralFrequencyTie):
 
     _frequency_signed = True
     _frequency_opposite_signed = True
+
+class _SATSolveLiteralStartMixin:
+    """Choose root start clauses using cheap statistics from the shadow CNF."""
+
+    _start_mode = 'rare'
+
+    def _init_start_guidance(self) -> None:
+        self._start_frequency_clauses = set()
+        self._start_atom_counts = {}
+        self._start_signed_counts = {}
+        self._start_decisions = 0
+        self._start_candidates = 0
+        self._start_mapped = 0
+        self._start_unmapped = 0
+        self._start_changed_default = 0
+        self._start_agreed_default = 0
+        self._start_unique_best = 0
+        self._start_ties = 0
+        self._start_total_min_frequency = 0
+        self._start_model_false = 0
+        self._start_model_true = 0
+        self._start_model_unknown = 0
+
+    def _sync_start_frequency_counts(self) -> None:
+        current_clauses = set(self.env.state.shadow.ground_clauses)
+        if not self._start_frequency_clauses.issubset(current_clauses):
+            self._start_frequency_clauses = set()
+            self._start_atom_counts = {}
+            self._start_signed_counts = {}
+
+        for clause in current_clauses - self._start_frequency_clauses:
+            for sat_lit in clause:
+                atom_id = abs(sat_lit)
+                self._start_atom_counts[atom_id] = self._start_atom_counts.get(atom_id, 0) + 1
+                self._start_signed_counts[sat_lit] = self._start_signed_counts.get(sat_lit, 0) + 1
+            self._start_frequency_clauses.add(clause)
+
+    def _start_sat_literals(self, action: Start) -> list[int]:
+        if action.clause_copy is None:
+            return []
+
+        state = self.env.state
+        if not hasattr(state, '_atom_key'):
+            return []
+
+        substitution = getattr(state, 'substitution', None)
+        sat_literals = []
+        seen = set()
+        for literal in action.clause_copy:
+            grounded_literal = substitution(literal) if callable(substitution) else literal
+            atom_id = state.shadow.atom_map.get(state._atom_key(grounded_literal))
+            if atom_id is None:
+                continue
+            sat_lit = -atom_id if grounded_literal.neg else atom_id
+            if sat_lit not in seen:
+                sat_literals.append(sat_lit)
+                seen.add(sat_lit)
+        return sat_literals
+
+    def _start_clause_signals(self, action: Start) -> _StartClauseSignals:
+        sat_literals = self._start_sat_literals(action)
+        frequencies = [self._start_atom_counts.get(abs(sat_lit), 0) for sat_lit in sat_literals]
+        model = getattr(self.env.state.shadow, 'model', {})
+
+        model_false = 0
+        model_true = 0
+        model_unknown = 0
+        for sat_lit in sat_literals:
+            value = model.get(abs(sat_lit))
+            if value is None:
+                model_unknown += 1
+                continue
+            lit_value = value if sat_lit > 0 else (not value)
+            if lit_value:
+                model_true += 1
+            else:
+                model_false += 1
+
+        length = len(action.clause_copy or [])
+        return _StartClauseSignals(
+            mapped = len(sat_literals),
+            unmapped = max(0, length - len(sat_literals)),
+            min_frequency = min(frequencies) if frequencies else 0,
+            total_frequency = sum(frequencies),
+            length = length,
+            model_false = model_false,
+            model_true = model_true,
+            model_unknown = model_unknown,
+        )
+
+    def _start_clause_score(self, signals: _StartClauseSignals) -> tuple[int, ...]:
+        mapped = int(signals.mapped > 0)
+        rare = (-signals.min_frequency, -signals.total_frequency, -signals.length)
+        if self._start_mode == 'model':
+            return (
+                mapped,
+                signals.model_false,
+                -signals.model_true,
+                -signals.model_unknown,
+                *rare,
+            )
+        return (mapped, *rare)
+
+    def _choose_start_clause(self, starts: list[Start]) -> Start | None:
+        if not starts:
+            return None
+
+        self._sync_start_frequency_counts()
+        default_choice = starts[0]
+        scored = [
+            (action, self._start_clause_signals(action))
+            for action in starts
+        ]
+
+        self._start_decisions += 1
+        self._start_candidates += len(starts)
+        self._start_mapped += sum(1 for _, signals in scored if signals.mapped > 0)
+        self._start_unmapped += sum(1 for _, signals in scored if signals.mapped == 0)
+        self._start_total_min_frequency += sum(signals.min_frequency for _, signals in scored)
+        self._start_model_false += sum(signals.model_false for _, signals in scored)
+        self._start_model_true += sum(signals.model_true for _, signals in scored)
+        self._start_model_unknown += sum(signals.model_unknown for _, signals in scored)
+
+        best_score = max(self._start_clause_score(signals) for _, signals in scored)
+        best = [
+            action
+            for action, signals in scored
+            if self._start_clause_score(signals) == best_score
+        ]
+        if len(best) == 1:
+            self._start_unique_best += 1
+        else:
+            self._start_ties += 1
+
+        chosen = best[0]
+        if chosen is default_choice:
+            self._start_agreed_default += 1
+        else:
+            self._start_changed_default += 1
+        return chosen
+
+    def _choose_action(self, actions: list[ConnectionAction]) -> ConnectionAction | None:
+        starts = [action for action in actions if isinstance(action, Start)]
+        if len(starts) > 1 and min(self.score(action) for action in actions) == self.score(starts[0]):
+            return self._choose_start_clause(starts)
+        return super()._choose_action(actions)
+
+    def final_info(self) -> str | None:
+        parts = []
+        base_info = super().final_info()
+        if base_info is not None:
+            parts.append(base_info)
+        if self._start_decisions:
+            avg_min_frequency = self._start_total_min_frequency / self._start_candidates
+            parts.append(
+                'start='
+                f'mode:{self._start_mode},'
+                f'decisions:{self._start_decisions},'
+                f'candidates:{self._start_candidates},'
+                f'mapped:{self._start_mapped},'
+                f'unmapped:{self._start_unmapped},'
+                f'unique:{self._start_unique_best},'
+                f'ties:{self._start_ties},'
+                f'avg_min_freq:{avg_min_frequency:.2f},'
+                f'model_false:{self._start_model_false},'
+                f'model_true:{self._start_model_true},'
+                f'model_unknown:{self._start_model_unknown},'
+                f'agreed_default:{self._start_agreed_default},'
+                f'changed_default:{self._start_changed_default}'
+            )
+        return '; '.join(parts) if parts else None
+
+class SATSolveLiteralRareStart(_SATSolveLiteralStartMixin, SATSolveLiteral):
+    """SATSolveLiteral with rare-SAT-atom ordering for root start clauses.
+
+    The strategy leaves Rawson-Reger literal selection unchanged after a
+    start clause has been selected.  At the root, where SATSolveLiteral
+    otherwise follows the randomised start order, it prefers start
+    clauses containing rarer atoms in the current shadow CNF and falls
+    back to shorter clauses.
+    """
+
+    _start_mode = 'rare'
+
+    def __init__(self, env):
+        super().__init__(env)
+        self._init_start_guidance()
+
+class SATSolveLiteralModelStart(_SATSolveLiteralStartMixin, SATSolveLiteral):
+    """SATSolveLiteral with SAT-model-aware root start ordering.
+
+    After the first SAT iteration this prefers start clauses with more
+    literals currently false in the SAT model, because model-false goals
+    are immediately closed by SATCoP's model lemmata.  Before a model is
+    available, or inside equal model buckets, it uses the same rare-atom
+    fallback as ``SATSolveLiteralRareStart``.
+    """
+
+    _start_mode = 'model'
+
+    def __init__(self, env):
+        super().__init__(env)
+        self._init_start_guidance()
 
 class SATSolvePropagation(_SATSolvePropagationMixin, SATSolveLiteral):
     """Rank forward SATCoP actions by SAT propagation data.

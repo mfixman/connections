@@ -6,7 +6,7 @@ import strategies.sat_solve as sat_solve_module
 from types import SimpleNamespace
 
 from connections.env import ConnectionEnv, Settings
-from connections.calculi.classicalsat import Backtrack, Extension, Reduction, Reset, SATConnectionState, SATSolver, ShadowSAT, pydical
+from connections.calculi.classicalsat import Backtrack, Extension, Reduction, Reset, SATConnectionState, SATSolver, ShadowSAT, Start, pydical
 from connections.utils.primitives import Literal, Variable
 from connections.utils.tableau import Tableau
 from connections.utils.unification import Substitution
@@ -50,6 +50,8 @@ def test_sat_solve_is_registered():
     assert 'SATSolveLiteralFrequencyTie' in Strategy.strategies()
     assert 'SATSolveLiteralLowFrequencyTie' in Strategy.strategies()
     assert 'SATSolveLiteralOppositeSignedFrequencyTie' in Strategy.strategies()
+    assert 'SATSolveLiteralRareStart' in Strategy.strategies()
+    assert 'SATSolveLiteralModelStart' in Strategy.strategies()
     assert 'SATSolvePropagation' in Strategy.strategies()
     assert 'SATSolveLiteralPropagation' in Strategy.strategies()
 
@@ -390,6 +392,8 @@ def test_paper_mode_skips_goal_when_model_assigns_false():
         'SATSolveLiteralFrequencyTie',
         'SATSolveLiteralLowFrequencyTie',
         'SATSolveLiteralOppositeSignedFrequencyTie',
+        'SATSolveLiteralRareStart',
+        'SATSolveLiteralModelStart',
         'SATSolvePropagation',
         'SATSolveLiteralPropagation',
     ],
@@ -856,6 +860,112 @@ def test_sat_solve_literal_opposite_signed_frequency_tie_uses_opposite_polarity(
     assert opposite_strategy.step() is negative
     assert 'kind:opposite_signed' in opposite_strategy.final_info()
 
+def test_sat_solve_literal_rare_start_prefers_clause_with_rare_atom():
+    common_start = Start(id = 'st0', clause_copy = [Literal('common', []), Literal('common2', [])])
+    rare_start = Start(id = 'st1', clause_copy = [Literal('rare', [])])
+
+    state = SimpleNamespace(
+        goal = SimpleNamespace(parent = None),
+        max_depth = 1,
+        shadow = SimpleNamespace(
+            new_ground_clauses = set(),
+            ground_clauses = {
+                (1, 2),
+                (1, 3),
+                (1, 4),
+                (5,),
+            },
+            atom_map = {'common': 1, 'common2': 2, 'rare': 5},
+            model = {},
+            solver = None,
+        ),
+        substitution = Substitution(),
+        sat_literal_value = lambda literal: None,
+        _atom_key = lambda literal: literal.symbol,
+        _flush_new_ground_clauses = lambda: None,
+        _solve_ground_clauses = lambda: None,
+        enable_paper_mode = lambda enabled = True: setattr(state, 'paper_mode', enabled),
+    )
+    env = SimpleNamespace(
+        legal_actions = lambda: [common_start, rare_start, Reset(id = 'rs', depth = 2)],
+        state = state,
+    )
+    strategy = Strategy.strategies()['SATSolveLiteralRareStart'](env)
+
+    assert strategy.step() is rare_start
+    info = strategy.final_info()
+    assert 'start=mode:rare' in info
+    assert 'decisions:1' in info
+    assert 'candidates:2' in info
+    assert 'mapped:2' in info
+    assert 'changed_default:1' in info
+
+def test_sat_solve_literal_model_start_prefers_model_false_goals():
+    rare_start = Start(id = 'st0', clause_copy = [Literal('rare', [])])
+    model_false_start = Start(id = 'st1', clause_copy = [Literal('model_false', [])])
+
+    state = SimpleNamespace(
+        goal = SimpleNamespace(parent = None),
+        max_depth = 1,
+        shadow = SimpleNamespace(
+            new_ground_clauses = set(),
+            ground_clauses = {
+                (1,),
+                (2,),
+                (2, 3),
+            },
+            atom_map = {'rare': 1, 'model_false': 2},
+            model = {1: True, 2: False},
+            solver = None,
+        ),
+        substitution = Substitution(),
+        sat_literal_value = lambda literal: None,
+        _atom_key = lambda literal: literal.symbol,
+        _flush_new_ground_clauses = lambda: None,
+        _solve_ground_clauses = lambda: None,
+        enable_paper_mode = lambda enabled = True: setattr(state, 'paper_mode', enabled),
+    )
+    env = SimpleNamespace(legal_actions = lambda: [rare_start, model_false_start], state = state)
+    strategy = Strategy.strategies()['SATSolveLiteralModelStart'](env)
+
+    assert strategy.step() is model_false_start
+    info = strategy.final_info()
+    assert 'start=mode:model' in info
+    assert 'model_false:1' in info
+    assert 'model_true:1' in info
+    assert 'changed_default:1' in info
+
+def test_sat_solve_literal_rare_start_does_not_change_extension_choice():
+    common = Extension(id = 'ex0', lit_idx = 0, clause_copy = [Literal('common', [])])
+    rare = Extension(id = 'ex1', lit_idx = 0, clause_copy = [Literal('rare', [])])
+
+    state = SimpleNamespace(
+        goal = SimpleNamespace(parent = object()),
+        max_depth = 1,
+        shadow = SimpleNamespace(
+            new_ground_clauses = set(),
+            ground_clauses = {
+                (1,),
+                (1, 2),
+                (3,),
+            },
+            atom_map = {'common': 1, 'rare': 3},
+            model = {},
+            solver = None,
+        ),
+        substitution = Substitution(),
+        sat_literal_value = lambda literal: None,
+        _atom_key = lambda literal: literal.symbol,
+        _flush_new_ground_clauses = lambda: None,
+        _solve_ground_clauses = lambda: None,
+        enable_paper_mode = lambda enabled = True: setattr(state, 'paper_mode', enabled),
+    )
+    env = SimpleNamespace(legal_actions = lambda: [common, rare], state = state)
+    strategy = Strategy.strategies()['SATSolveLiteralRareStart'](env)
+
+    assert strategy.step() is common
+    assert 'start=' not in strategy.final_info()
+
 def test_sat_solve_propagation_prefers_failed_assumption(monkeypatch):
     monkeypatch.setattr(sat_solve_module, 'pydical', SimpleNamespace(UNSATISFIABLE = 20))
 
@@ -1025,6 +1135,8 @@ def test_sat_solve_records_nonzero_atom_score():
         'SATSolveLiteralFrequencyTie',
         'SATSolveLiteralLowFrequencyTie',
         'SATSolveLiteralOppositeSignedFrequencyTie',
+        'SATSolveLiteralRareStart',
+        'SATSolveLiteralModelStart',
         'SATSolvePropagation',
         'SATSolveLiteralPropagation',
     ],
