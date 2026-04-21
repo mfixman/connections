@@ -200,6 +200,13 @@ class TestCompareStrategiesLogicSelection:
 
         assert args.sat_solver is None
 
+    def test_parse_args_uses_large_compare_defaults(self, monkeypatch):
+        monkeypatch.setattr(sys, 'argv', ['compare_strategies.py', '--csv', '/tmp/results.csv'])
+        args = compare_strategies.parse_args()
+
+        assert args.max_steps == 1000000
+        assert args.timeout == 90.0
+
     def test_parse_args_accepts_logic_enum(self, monkeypatch):
         monkeypatch.setattr(
             sys,

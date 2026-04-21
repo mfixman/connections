@@ -78,10 +78,10 @@ def _add_compare_arguments(parser: argparse.ArgumentParser) -> None:
         '--all-strategies', action='store_true',
         help='compare all available strategies',
     )
-    _add_common_prover_arguments(parser, max_steps_default=50000)
+    _add_common_prover_arguments(parser, max_steps_default=1000000)
     parser.add_argument(
-        '--timeout', type=float, default=30.0, metavar='SEC',
-        help='timeout per problem in seconds (default: 30)',
+        '--timeout', type=float, default=90.0, metavar='SEC',
+        help='timeout per problem in seconds (default: 90)',
     )
     parser.add_argument(
         '--steps', default=True, action=argparse.BooleanOptionalAction,
