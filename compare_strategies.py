@@ -141,6 +141,7 @@ def _run_problem(
     logic: Logic,
     sat_solver: Optional[SATSolver],
     max_steps: int,
+    timeout: Optional[float] = None,
 ) -> None:
     """Worker function: run one strategy on one problem and send back a result."""
     try:
@@ -156,11 +157,15 @@ def _run_problem(
                     done, info = env.state.initial_status()
                     steps = 0
                     hit_max_steps = False
+                    hit_timeout = False
                     start = time.perf_counter()
 
                     while not done:
                         if steps >= max_steps:
                             hit_max_steps = True
+                            break
+                        if timeout is not None and time.perf_counter() - start >= timeout:
+                            hit_timeout = True
                             break
                         action = strategy.step()
                         try:
@@ -175,7 +180,12 @@ def _run_problem(
                     solved = _is_success_info(status_info)
                     status = 'solved'
                     if not solved:
-                        status = 'max_steps' if hit_max_steps else 'unsolved'
+                        if hit_timeout:
+                            status = 'timeout'
+                        elif hit_max_steps:
+                            status = 'max_steps'
+                        else:
+                            status = 'unsolved'
 
                     result = {
                         'status': status,
@@ -513,12 +523,12 @@ def run_tasks(
         parent_conn, child_conn = mp.Pipe(duplex=False)
         proc = mp.Process(
             target=_run_problem,
-            args=(child_conn, str(problem), strategy_name, logic, sat_solver, max_steps),
+            args=(child_conn, str(problem), strategy_name, logic, sat_solver, max_steps, timeout),
             daemon=True,
         )
         proc.start()
         child_conn.close()
-        active[parent_conn] = (problem, strategy_name, proc, time.monotonic() + timeout)
+        active[parent_conn] = (problem, strategy_name, proc, time.monotonic() + timeout + 5.0)
 
     while task_queue and len(active) < max_workers:
         start_task(*task_queue.popleft())

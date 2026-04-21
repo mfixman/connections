@@ -381,6 +381,7 @@ class TestCompareStrategiesInitialStatus:
         step_info = 'Theorem (SAT)',
         strategy_info = None,
         max_steps = 100,
+        timeout = None,
     ):
         sent = {}
 
@@ -432,6 +433,7 @@ class TestCompareStrategiesInitialStatus:
             Logic.ClassicalSAT,
             SATSolver.CaDiCaL,
             max_steps,
+            timeout,
         )
 
         return sent
@@ -464,6 +466,26 @@ class TestCompareStrategiesInitialStatus:
 
         assert sent['status'] == 'max_steps'
         assert sent['info'] == 'score=3.5'
+
+    def test_run_problem_keeps_strategy_final_info_on_soft_timeout(self, monkeypatch):
+        class Clock:
+            def __init__(self):
+                self.values = iter([0.0, 2.0, 2.0])
+
+            def __call__(self):
+                return next(self.values)
+
+        monkeypatch.setattr(compare_strategies.time, 'perf_counter', Clock())
+        sent = self._run_fake_problem(
+            monkeypatch,
+            strategy_info = 'literal=choices:1',
+            step_info = None,
+            timeout = 1.0,
+        )
+
+        assert sent['status'] == 'timeout'
+        assert sent['steps'] == 0
+        assert sent['info'] == 'literal=choices:1'
 
     def test_run_problem_infers_sat_solver_when_none_is_selected(self, monkeypatch):
         captured = {}
@@ -510,6 +532,7 @@ class TestCompareStrategiesInitialStatus:
             Logic.ClassicalSAT,
             None,
             100,
+            None,
         )
 
         assert captured['sat_solver'] is SATSolver.CaDiCaL
