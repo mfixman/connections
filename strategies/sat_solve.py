@@ -823,10 +823,13 @@ class _SATSolveLiteralFrequencyTieMixin(_SATSolveLiteralTieMixin):
     """Tie-break unknown SAT literals by shadow-CNF atom occurrence count."""
 
     _prefer_high_frequency = True
+    _frequency_signed = False
+    _frequency_opposite_signed = False
 
     def _init_frequency_tie_breaker(self) -> None:
         self._frequency_clauses = set()
         self._frequency_atom_counts = {}
+        self._frequency_signed_counts = {}
         self._frequency_decisions = 0
         self._frequency_candidates = 0
         self._frequency_mapped = 0
@@ -834,23 +837,29 @@ class _SATSolveLiteralFrequencyTieMixin(_SATSolveLiteralTieMixin):
         self._frequency_changed_default = 0
         self._frequency_agreed_default = 0
         self._frequency_zero_scores = 0
+        self._frequency_total_score = 0
 
     def _sync_frequency_counts(self) -> None:
         current_clauses = set(self.env.state.shadow.ground_clauses)
         if not self._frequency_clauses.issubset(current_clauses):
             self._frequency_clauses = set()
             self._frequency_atom_counts = {}
+            self._frequency_signed_counts = {}
 
         for clause in current_clauses - self._frequency_clauses:
             for sat_lit in clause:
                 atom_id = abs(sat_lit)
                 self._frequency_atom_counts[atom_id] = self._frequency_atom_counts.get(atom_id, 0) + 1
+                self._frequency_signed_counts[sat_lit] = self._frequency_signed_counts.get(sat_lit, 0) + 1
             self._frequency_clauses.add(clause)
 
     def _atom_frequency(self, action: ConnectionAction) -> int | None:
         sat_lit = self._selected_sat_literal(action)
         if sat_lit is None:
             return None
+        if self._frequency_signed:
+            key = -sat_lit if self._frequency_opposite_signed else sat_lit
+            return self._frequency_signed_counts.get(key, 0)
         return self._frequency_atom_counts.get(abs(sat_lit), 0)
 
     def _frequency_score(self, action: ConnectionAction) -> tuple[int, int, int]:
@@ -880,6 +889,11 @@ class _SATSolveLiteralFrequencyTieMixin(_SATSolveLiteralTieMixin):
             for action, score in scored
             if self._selected_sat_literal(action) is not None and score[0] == 0
         )
+        self._frequency_total_score += sum(
+            abs(score[0])
+            for action, score in scored
+            if self._selected_sat_literal(action) is not None
+        )
         chosen = max(scored, key = lambda item: item[1])[0]
         if chosen is default_choice:
             self._frequency_agreed_default += 1
@@ -896,15 +910,24 @@ class _SATSolveLiteralFrequencyTieMixin(_SATSolveLiteralTieMixin):
             parts.append(
                 'freq='
                 f'mode:{"high" if self._prefer_high_frequency else "low"},'
+                f'kind:{self._frequency_kind()},'
                 f'decisions:{self._frequency_decisions},'
                 f'candidates:{self._frequency_candidates},'
                 f'mapped:{self._frequency_mapped},'
                 f'unmapped:{self._frequency_unmapped},'
                 f'zero_scores:{self._frequency_zero_scores},'
+                f'total_score:{self._frequency_total_score},'
                 f'agreed_default:{self._frequency_agreed_default},'
                 f'changed_default:{self._frequency_changed_default}'
             )
         return '; '.join(parts) if parts else None
+
+    def _frequency_kind(self) -> str:
+        if not self._frequency_signed:
+            return 'atom'
+        if self._frequency_opposite_signed:
+            return 'opposite_signed'
+        return 'signed'
 
 class SATSolveLiteralFrequencyTie(_SATSolveLiteralFrequencyTieMixin, SATSolveLiteral):
     """SATSolveLiteral with SAT atom-frequency tie-breaking.
@@ -927,6 +950,17 @@ class SATSolveLiteralFrequencyTie(_SATSolveLiteralFrequencyTieMixin, SATSolveLit
         if self.score(tied[0]) != 1 or len(tied) == 1:
             return tied[0]
         return self._choose_frequency_tie(tied)
+
+class SATSolveLiteralLowFrequencyTie(SATSolveLiteralFrequencyTie):
+    """SATSolveLiteral tie-breaker that prefers rarer SAT atoms."""
+
+    _prefer_high_frequency = False
+
+class SATSolveLiteralOppositeSignedFrequencyTie(SATSolveLiteralFrequencyTie):
+    """SATSolveLiteral tie-breaker using frequency of the opposite SAT literal."""
+
+    _frequency_signed = True
+    _frequency_opposite_signed = True
 
 class SATSolvePropagation(_SATSolvePropagationMixin, SATSolveLiteral):
     """Rank forward SATCoP actions by SAT propagation data.

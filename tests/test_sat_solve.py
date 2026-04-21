@@ -48,6 +48,8 @@ def test_sat_solve_is_registered():
     assert 'SATSolveLiteralShortTie' in Strategy.strategies()
     assert 'SATSolveLiteralLookaheadTie' in Strategy.strategies()
     assert 'SATSolveLiteralFrequencyTie' in Strategy.strategies()
+    assert 'SATSolveLiteralLowFrequencyTie' in Strategy.strategies()
+    assert 'SATSolveLiteralOppositeSignedFrequencyTie' in Strategy.strategies()
     assert 'SATSolvePropagation' in Strategy.strategies()
     assert 'SATSolveLiteralPropagation' in Strategy.strategies()
 
@@ -386,6 +388,8 @@ def test_paper_mode_skips_goal_when_model_assigns_false():
         'SATSolveLiteralShortTie',
         'SATSolveLiteralLookaheadTie',
         'SATSolveLiteralFrequencyTie',
+        'SATSolveLiteralLowFrequencyTie',
+        'SATSolveLiteralOppositeSignedFrequencyTie',
         'SATSolvePropagation',
         'SATSolveLiteralPropagation',
     ],
@@ -789,6 +793,69 @@ def test_sat_solve_literal_frequency_tie_keeps_model_truth_primary():
     assert strategy.step() is true_action
     assert 'freq=' not in strategy.final_info()
 
+def test_sat_solve_literal_low_frequency_tie_prefers_rare_unknown_atom():
+    rare = Extension(id = 'ex0', lit_idx = 0, clause_copy = [Literal('rare', [])])
+    common = Extension(id = 'ex1', lit_idx = 0, clause_copy = [Literal('common', [])])
+
+    state = SimpleNamespace(
+        goal = SimpleNamespace(parent = object()),
+        max_depth = 1,
+        shadow = SimpleNamespace(
+            new_ground_clauses = set(),
+            ground_clauses = {
+                (1, 2),
+                (2, 3),
+                (-2, 4),
+            },
+            atom_map = {'rare': 1, 'common': 2},
+            solver = None,
+        ),
+        substitution = Substitution(),
+        sat_literal_value = lambda literal: None,
+        _atom_key = lambda literal: literal.symbol,
+        _flush_new_ground_clauses = lambda: None,
+        _solve_ground_clauses = lambda: None,
+        enable_paper_mode = lambda enabled = True: setattr(state, 'paper_mode', enabled),
+    )
+    env = SimpleNamespace(legal_actions = lambda: [common, rare], state = state)
+    strategy = Strategy.strategies()['SATSolveLiteralLowFrequencyTie'](env)
+
+    assert strategy.step() is rare
+    info = strategy.final_info()
+    assert 'mode:low' in info
+    assert 'kind:atom' in info
+    assert 'changed_default:1' in info
+
+def test_sat_solve_literal_opposite_signed_frequency_tie_uses_opposite_polarity():
+    positive = Extension(id = 'ex0', lit_idx = 0, clause_copy = [Literal('p', [])])
+    negative = Extension(id = 'ex1', lit_idx = 0, clause_copy = [Literal('p', [], neg = True)])
+
+    state = SimpleNamespace(
+        goal = SimpleNamespace(parent = object()),
+        max_depth = 1,
+        shadow = SimpleNamespace(
+            new_ground_clauses = set(),
+            ground_clauses = {
+                (1, 2),
+                (1, 3),
+                (-1, 4),
+            },
+            atom_map = {'p': 1},
+            solver = None,
+        ),
+        substitution = Substitution(),
+        sat_literal_value = lambda literal: None,
+        _atom_key = lambda literal: literal.symbol,
+        _flush_new_ground_clauses = lambda: None,
+        _solve_ground_clauses = lambda: None,
+        enable_paper_mode = lambda enabled = True: setattr(state, 'paper_mode', enabled),
+    )
+
+    opposite_env = SimpleNamespace(legal_actions = lambda: [positive, negative], state = state)
+    opposite_strategy = Strategy.strategies()['SATSolveLiteralOppositeSignedFrequencyTie'](opposite_env)
+    assert opposite_strategy.step() is negative
+    assert 'kind:opposite_signed' in opposite_strategy.final_info()
+
 def test_sat_solve_propagation_prefers_failed_assumption(monkeypatch):
     monkeypatch.setattr(sat_solve_module, 'pydical', SimpleNamespace(UNSATISFIABLE = 20))
 
@@ -956,6 +1023,8 @@ def test_sat_solve_records_nonzero_atom_score():
         'SATSolveLiteralShortTie',
         'SATSolveLiteralLookaheadTie',
         'SATSolveLiteralFrequencyTie',
+        'SATSolveLiteralLowFrequencyTie',
+        'SATSolveLiteralOppositeSignedFrequencyTie',
         'SATSolvePropagation',
         'SATSolveLiteralPropagation',
     ],

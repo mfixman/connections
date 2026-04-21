@@ -248,6 +248,8 @@ class TestCompareStrategiesLogicSelection:
             'SATSolveLiteralShortTie',
             'SATSolveLiteralLookaheadTie',
             'SATSolveLiteralFrequencyTie',
+            'SATSolveLiteralLowFrequencyTie',
+            'SATSolveLiteralOppositeSignedFrequencyTie',
             'SATSolvePropagation',
             'SATSolveLiteralPropagation',
         ]
