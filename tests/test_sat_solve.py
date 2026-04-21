@@ -47,6 +47,7 @@ def test_sat_solve_is_registered():
     assert 'SATSolveLiteralRandomTie' in Strategy.strategies()
     assert 'SATSolveLiteralShortTie' in Strategy.strategies()
     assert 'SATSolveLiteralLookaheadTie' in Strategy.strategies()
+    assert 'SATSolveLiteralFrequencyTie' in Strategy.strategies()
     assert 'SATSolvePropagation' in Strategy.strategies()
     assert 'SATSolveLiteralPropagation' in Strategy.strategies()
 
@@ -384,6 +385,7 @@ def test_paper_mode_skips_goal_when_model_assigns_false():
         'SATSolveLiteralRandomTie',
         'SATSolveLiteralShortTie',
         'SATSolveLiteralLookaheadTie',
+        'SATSolveLiteralFrequencyTie',
         'SATSolvePropagation',
         'SATSolveLiteralPropagation',
     ],
@@ -721,6 +723,72 @@ def test_sat_solve_literal_lookahead_tie_prefers_lookahead_literal():
 
     assert strategy.step() is strong
 
+def test_sat_solve_literal_frequency_tie_prefers_frequent_unknown_atom():
+    weak = Extension(id = 'ex0', lit_idx = 0, clause_copy = [Literal('weak', [])])
+    strong = Extension(id = 'ex1', lit_idx = 0, clause_copy = [Literal('strong', [])])
+
+    state = SimpleNamespace(
+        goal = SimpleNamespace(parent = object()),
+        max_depth = 1,
+        shadow = SimpleNamespace(
+            new_ground_clauses = set(),
+            ground_clauses = {
+                (1, 2),
+                (-1, 2),
+                (2, 3),
+            },
+            atom_map = {'weak': 1, 'strong': 2},
+            solver = None,
+        ),
+        substitution = Substitution(),
+        sat_literal_value = lambda literal: None,
+        _atom_key = lambda literal: literal.symbol,
+        _flush_new_ground_clauses = lambda: None,
+        _solve_ground_clauses = lambda: None,
+        enable_paper_mode = lambda enabled = True: setattr(state, 'paper_mode', enabled),
+    )
+    env = SimpleNamespace(legal_actions = lambda: [weak, strong], state = state)
+    strategy = Strategy.strategies()['SATSolveLiteralFrequencyTie'](env)
+
+    assert strategy.step() is strong
+
+    info = strategy.final_info()
+    assert 'freq=mode:high' in info
+    assert 'decisions:1' in info
+    assert 'candidates:2' in info
+    assert 'mapped:2' in info
+    assert 'changed_default:1' in info
+
+def test_sat_solve_literal_frequency_tie_keeps_model_truth_primary():
+    true_action = Extension(id = 'ex0', lit_idx = 0, clause_copy = [Literal('model_true', [])])
+    frequent_unknown = Extension(id = 'ex1', lit_idx = 0, clause_copy = [Literal('frequent', [])])
+
+    state = SimpleNamespace(
+        goal = SimpleNamespace(parent = object()),
+        max_depth = 1,
+        shadow = SimpleNamespace(
+            new_ground_clauses = set(),
+            ground_clauses = {
+                (2,),
+                (-2, 3),
+                (2, 4),
+            },
+            atom_map = {'model_true': 1, 'frequent': 2},
+            solver = None,
+        ),
+        substitution = Substitution(),
+        sat_literal_value = lambda literal: True if literal.symbol == 'model_true' else None,
+        _atom_key = lambda literal: literal.symbol,
+        _flush_new_ground_clauses = lambda: None,
+        _solve_ground_clauses = lambda: None,
+        enable_paper_mode = lambda enabled = True: setattr(state, 'paper_mode', enabled),
+    )
+    env = SimpleNamespace(legal_actions = lambda: [true_action, frequent_unknown], state = state)
+    strategy = Strategy.strategies()['SATSolveLiteralFrequencyTie'](env)
+
+    assert strategy.step() is true_action
+    assert 'freq=' not in strategy.final_info()
+
 def test_sat_solve_propagation_prefers_failed_assumption(monkeypatch):
     monkeypatch.setattr(sat_solve_module, 'pydical', SimpleNamespace(UNSATISFIABLE = 20))
 
@@ -887,6 +955,7 @@ def test_sat_solve_records_nonzero_atom_score():
         'SATSolveLiteralRandomTie',
         'SATSolveLiteralShortTie',
         'SATSolveLiteralLookaheadTie',
+        'SATSolveLiteralFrequencyTie',
         'SATSolvePropagation',
         'SATSolveLiteralPropagation',
     ],
