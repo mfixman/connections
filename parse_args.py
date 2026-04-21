@@ -55,7 +55,7 @@ def _named_partial_file(name: str, inputs: list[str], split: int, part: int) -> 
 
 
 def _named_csv_file(name: str, inputs: list[str], split: int, part: int) -> str:
-    return str(Path('results') / name / _named_result_stem(inputs, split, part))
+    return str(Path('results') / name / f'{_named_result_stem(inputs, split, part)}.csv')
 
 
 def _add_compare_arguments(parser: argparse.ArgumentParser) -> None:

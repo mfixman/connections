@@ -100,6 +100,59 @@ class TestCompareStrategiesPartialReport:
 
         assert resumed_partial.read_text(encoding='utf-8') == full_partial.read_text(encoding='utf-8')
 
+    def test_cleanup_task_process_kills_worker_if_terminate_does_not_finish(self):
+        class FakeConn:
+            def poll(self):
+                return False
+
+        class FakeProcess:
+            exitcode = None
+
+            def __init__(self):
+                self.terminate_calls = 0
+                self.kill_calls = 0
+                self.join_timeouts = []
+
+            def is_alive(self):
+                return self.kill_calls == 0
+
+            def terminate(self):
+                self.terminate_calls += 1
+
+            def kill(self):
+                self.kill_calls += 1
+
+            def join(self, timeout=None):
+                self.join_timeouts.append(timeout)
+
+        proc = FakeProcess()
+        result = compare_strategies._cleanup_task_process(FakeConn(), proc)
+
+        assert result == {'status': 'timeout', 'solved': False}
+        assert proc.terminate_calls == 1
+        assert proc.kill_calls == 1
+        assert proc.join_timeouts == [1.0, 1.0]
+
+    def test_print_run_status_includes_paths_and_progress(self, capsys):
+        compare_strategies.print_run_status(
+            Path('partial/SYN_SYN_1'),
+            'results/SYN/SYN_1',
+            total_tasks=2990,
+            completed_tasks=241,
+            max_workers=4,
+            timeout=120,
+        )
+
+        captured = capsys.readouterr()
+        assert captured.out == ''
+        assert 'partial=partial/SYN_SYN_1' in captured.err
+        assert 'csv=results/SYN/SYN_1' in captured.err
+        assert 'tasks=2990' in captured.err
+        assert 'completed=241' in captured.err
+        assert 'remaining=2749' in captured.err
+        assert 'workers=4' in captured.err
+        assert 'timeout=120s' in captured.err
+
 class TestCompareStrategiesLogicSelection:
     def test_default_logic_is_classical_cut_for_non_sat_strategies(self):
         assert compare_strategies.default_logic_for_strategy('FirstAction') is Logic.ClassicalCut
@@ -225,7 +278,7 @@ class TestCompareStrategiesLogicSelection:
         args = compare_strategies.parse_args()
 
         assert args.partial_file == str(Path('partial') / 'run_cnf_problems_2')
-        assert args.csv == str(Path('results') / 'run' / 'cnf_problems_2')
+        assert args.csv == str(Path('results') / 'run' / 'cnf_problems_2.csv')
 
     def test_parse_args_name_sets_partial_file_and_csv_with_part_zero_suffix_when_split(self, monkeypatch):
         monkeypatch.setattr(
@@ -236,7 +289,7 @@ class TestCompareStrategiesLogicSelection:
         args = compare_strategies.parse_args()
 
         assert args.partial_file == str(Path('partial') / 'run_cnf_problems_0')
-        assert args.csv == str(Path('results') / 'run' / 'cnf_problems_0')
+        assert args.csv == str(Path('results') / 'run' / 'cnf_problems_0.csv')
 
     def test_parse_args_name_omits_part_suffix_when_unsplit(self, monkeypatch):
         monkeypatch.setattr(
@@ -247,7 +300,7 @@ class TestCompareStrategiesLogicSelection:
         args = compare_strategies.parse_args()
 
         assert args.partial_file == str(Path('partial') / 'run_cnf_problems')
-        assert args.csv == str(Path('results') / 'run' / 'cnf_problems')
+        assert args.csv == str(Path('results') / 'run' / 'cnf_problems.csv')
 
     def test_parse_args_name_does_not_override_explicit_partial_file_or_csv(self, monkeypatch):
         monkeypatch.setattr(

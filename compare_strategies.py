@@ -100,7 +100,10 @@ def _recv_result(conn: Connection, proc: mp.Process) -> dict:
 def _cleanup_task_process(conn: Connection, proc: mp.Process) -> dict:
     if proc.is_alive():
         proc.terminate()
-        proc.join()
+        proc.join(timeout=1.0)
+        if proc.is_alive():
+            proc.kill()
+            proc.join(timeout=1.0)
         return {'status': 'timeout', 'solved': False}
     if conn.poll():
         return _recv_result(conn, proc)
@@ -596,6 +599,31 @@ def write_results_csv(
 def parse_args(argv: list[str] | None = None):
     return parse_compare_args(argv)
 
+def _completed_task_count(results: dict[Path, dict[str, dict]]) -> int:
+    return sum(len(result_map) for result_map in results.values())
+
+def print_run_status(
+    partial_path: Optional[Path],
+    csv_path: str,
+    total_tasks: int,
+    completed_tasks: int,
+    max_workers: int,
+    timeout: float,
+) -> None:
+    remaining_tasks = total_tasks - completed_tasks
+    print(
+        'Run: '
+        f'partial={partial_path if partial_path is not None else "-"}  '
+        f'csv={csv_path}  '
+        f'tasks={total_tasks}  '
+        f'completed={completed_tasks}  '
+        f'remaining={remaining_tasks}  '
+        f'workers={max_workers}  '
+        f'timeout={timeout:g}s',
+        file=sys.stderr,
+        flush=True,
+    )
+
 def main() -> None:
     logging.basicConfig(level = logging.INFO, format = '[%(relativeCreated)d] %(message)s')
     args = parse_args()
@@ -617,6 +645,14 @@ def main() -> None:
     partial_path = None if args.partial_file is None else Path(args.partial_file)
     partial_state = load_partial_report(partial_path, problems, strategies)
     reporter = ReportWriter(partial_path, partial_color=args.color, last_line=partial_state.last_line)
+    print_run_status(
+        partial_path,
+        args.csv,
+        total_tasks,
+        _completed_task_count(partial_state.results),
+        max_workers,
+        args.timeout,
+    )
 
     _, _, header, sep = report_layout(problems, strategies)
     if not partial_state.has_header:
