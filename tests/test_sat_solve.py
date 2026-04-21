@@ -818,6 +818,40 @@ def test_sat_solve_literal_propagation_keeps_literal_value_primary(monkeypatch):
 
     assert strategy.step() is true_action
 
+def test_sat_solve_literal_reports_choice_diagnostics():
+    mapped = Extension(id = 'ex0', lit_idx = 0, clause_copy = [Literal('mapped', [])])
+    unmapped = Extension(id = 'ex1', lit_idx = 0, clause_copy = [Literal('unmapped', [])])
+
+    state = SimpleNamespace(
+        goal = SimpleNamespace(parent = object()),
+        max_depth = 1,
+        shadow = SimpleNamespace(
+            new_ground_clauses = set(),
+            atom_map = {'mapped': 1},
+            solver = None,
+        ),
+        substitution = Substitution(),
+        sat_literal_value = lambda literal: None,
+        _atom_key = lambda literal: literal.symbol,
+        _flush_new_ground_clauses = lambda: None,
+        _solve_ground_clauses = lambda: None,
+        enable_paper_mode = lambda enabled = True: setattr(state, 'paper_mode', enabled),
+    )
+    env = SimpleNamespace(legal_actions = lambda: [mapped, unmapped], state = state)
+    strategy = Strategy.strategies()['SATSolveLiteral'](env)
+
+    assert strategy.step() is mapped
+
+    info = strategy.final_info()
+    assert 'literal=choices:1' in info
+    assert 'forward:2' in info
+    assert 'ties:1' in info
+    assert 'avg_tie:2.00' in info
+    assert 'best_unknown:1' in info
+    assert 'tied_mappable:2' in info
+    assert 'tied_mapped:1' in info
+    assert 'chosen_extension:1' in info
+
 def test_sat_solve_records_nonzero_atom_score():
     class FakeSolver:
         def score(self, atom_id):

@@ -353,6 +353,7 @@ class SATSolveLiteral(_SATScoreTracker, Strategy):
     def __init__(self, env):
         super().__init__(env)
         self._init_sat_score_tracker()
+        self._init_literal_choice_diagnostics()
         if not hasattr(self.env.state, 'sat_literal_value'):
             raise TypeError('SATSolveLiteral requires the ClassicalSAT calculus')
         self.env.state.enable_paper_mode(True)
@@ -384,46 +385,22 @@ class SATSolveLiteral(_SATScoreTracker, Strategy):
 
         return 4
 
-    def _choose_action(self, actions: list[ConnectionAction]) -> ConnectionAction | None:
-        return min(actions, key = self.score, default = None)
-
-    def step(self):
-        state = self.env.state
-        actions = self.env.legal_actions()
-        self._record_nonzero_atom_scores()
-        action = self._choose_action(actions)
-
-        if isinstance(action, (Reduction, Extension)):
-            action.cut = True
-
-        if isinstance(action, (Start, Reduction, Extension)):
-            return action
-
-        if (
-            state.goal.parent is None
-            and any(isinstance(action, Reset) for action in actions)
-            and state.shadow.new_ground_clauses
-        ):
-            return Reset(id = 'rs', depth = state.max_depth)
-
-        for action in actions:
-            if isinstance(action, Backtrack):
-                return action
-
-        for action in actions:
-            if isinstance(action, Reset):
-                return action
-
-        raise LookupError('expected Backtrack or Reset action')
-
-class _SATSolveLiteralTieMixin:
-    """Common helpers for variants that keep SATSolveLiteral's primary score."""
-
-    def _best_score_tied_actions(self, actions: list[ConnectionAction]) -> list[ConnectionAction]:
-        if not actions:
-            return []
-        best_score = min(self.score(action) for action in actions)
-        return [action for action in actions if self.score(action) == best_score]
+    def _init_literal_choice_diagnostics(self) -> None:
+        self._literal_choice_points = 0
+        self._literal_forward_actions = 0
+        self._literal_unique_best = 0
+        self._literal_ties = 0
+        self._literal_tied_actions = 0
+        self._literal_best_true = 0
+        self._literal_best_unknown = 0
+        self._literal_best_start = 0
+        self._literal_best_false = 0
+        self._literal_best_other = 0
+        self._literal_tied_mappable = 0
+        self._literal_tied_mapped = 0
+        self._literal_chosen_start = 0
+        self._literal_chosen_reduction = 0
+        self._literal_chosen_extension = 0
 
     def _selected_literal(self, action: ConnectionAction) -> Literal | None:
         match action:
@@ -450,6 +427,135 @@ class _SATSolveLiteralTieMixin:
             return None
         return -atom_id if grounded_literal.neg else atom_id
 
+    def _record_literal_choice_diagnostics(
+        self,
+        actions: list[ConnectionAction],
+        chosen: ConnectionAction | None,
+    ) -> None:
+        forward = [
+            action
+            for action in actions
+            if isinstance(action, (Start, Reduction, Extension))
+        ]
+        if not forward:
+            return
+
+        scored = [(action, self.score(action)) for action in forward]
+        best_score = min(score for _, score in scored)
+        tied = [action for action, score in scored if score == best_score]
+
+        self._literal_choice_points += 1
+        self._literal_forward_actions += len(forward)
+        if len(tied) == 1:
+            self._literal_unique_best += 1
+        else:
+            self._literal_ties += 1
+            self._literal_tied_actions += len(tied)
+
+        match best_score:
+            case 0:
+                self._literal_best_true += 1
+            case 1:
+                self._literal_best_unknown += 1
+            case 2:
+                self._literal_best_start += 1
+            case 3:
+                self._literal_best_false += 1
+            case _:
+                self._literal_best_other += 1
+
+        tied_with_selected_literals = [
+            action
+            for action in tied
+            if self._selected_literal(action) is not None
+        ]
+        self._literal_tied_mappable += len(tied_with_selected_literals)
+        self._literal_tied_mapped += sum(
+            1
+            for action in tied_with_selected_literals
+            if self._selected_sat_literal(action) is not None
+        )
+
+        if isinstance(chosen, Start):
+            self._literal_chosen_start += 1
+        elif isinstance(chosen, Reduction):
+            self._literal_chosen_reduction += 1
+        elif isinstance(chosen, Extension):
+            self._literal_chosen_extension += 1
+
+    def _choose_action(self, actions: list[ConnectionAction]) -> ConnectionAction | None:
+        return min(actions, key = self.score, default = None)
+
+    def step(self):
+        state = self.env.state
+        actions = self.env.legal_actions()
+        self._record_nonzero_atom_scores()
+        action = self._choose_action(actions)
+        self._record_literal_choice_diagnostics(actions, action)
+
+        if isinstance(action, (Reduction, Extension)):
+            action.cut = True
+
+        if isinstance(action, (Start, Reduction, Extension)):
+            return action
+
+        if (
+            state.goal.parent is None
+            and any(isinstance(action, Reset) for action in actions)
+            and state.shadow.new_ground_clauses
+        ):
+            return Reset(id = 'rs', depth = state.max_depth)
+
+        for action in actions:
+            if isinstance(action, Backtrack):
+                return action
+
+        for action in actions:
+            if isinstance(action, Reset):
+                return action
+
+        raise LookupError('expected Backtrack or Reset action')
+
+    def final_info(self) -> str | None:
+        parts = []
+        base_info = super().final_info()
+        if base_info is not None:
+            parts.append(base_info)
+        if self._literal_choice_points:
+            avg_tie = (
+                self._literal_tied_actions / self._literal_ties
+                if self._literal_ties
+                else 0.0
+            )
+            parts.append(
+                'literal='
+                f'choices:{self._literal_choice_points},'
+                f'forward:{self._literal_forward_actions},'
+                f'unique:{self._literal_unique_best},'
+                f'ties:{self._literal_ties},'
+                f'avg_tie:{avg_tie:.2f},'
+                f'best_true:{self._literal_best_true},'
+                f'best_unknown:{self._literal_best_unknown},'
+                f'best_start:{self._literal_best_start},'
+                f'best_false:{self._literal_best_false},'
+                f'best_other:{self._literal_best_other},'
+                f'tied_mappable:{self._literal_tied_mappable},'
+                f'tied_mapped:{self._literal_tied_mapped},'
+                f'chosen_start:{self._literal_chosen_start},'
+                f'chosen_reduction:{self._literal_chosen_reduction},'
+                f'chosen_extension:{self._literal_chosen_extension}'
+            )
+        return '; '.join(parts) if parts else None
+
+class _SATSolveLiteralTieMixin:
+    """Common helpers for variants that keep SATSolveLiteral's primary score."""
+
+    def _best_score_tied_actions(self, actions: list[ConnectionAction]) -> list[ConnectionAction]:
+        if not actions:
+            return []
+        best_score = min(self.score(action) for action in actions)
+        return [action for action in actions if self.score(action) == best_score]
+
     def _connection_tie_key(self, action: ConnectionAction) -> tuple[int, int]:
         match action:
             case Reduction():
@@ -473,6 +579,8 @@ class _SATSolvePropagationMixin(_SATSolveLiteralTieMixin):
         self._propagation_mapped = 0
         self._propagation_conflicts = 0
         self._propagation_implied_nonzero = 0
+        self._propagation_agreed_literal = 0
+        self._propagation_changed_literal = 0
 
     def _choose_by_propagation(self, actions: list[ConnectionAction]) -> ConnectionAction | None:
         if not actions:
@@ -484,7 +592,13 @@ class _SATSolvePropagationMixin(_SATSolveLiteralTieMixin):
             for action in actions
         ]
         self._record_propagation_signals(signal for _, signal in scored_actions)
-        return max(scored_actions, key = lambda item: self._propagation_score(item[1]))[0]
+        chosen = max(scored_actions, key = lambda item: self._propagation_score(item[1]))[0]
+        literal_chosen = min(actions, key = self.score, default = None)
+        if chosen is literal_chosen:
+            self._propagation_agreed_literal += 1
+        else:
+            self._propagation_changed_literal += 1
+        return chosen
 
     def _propagation_score(self, signals: _PropagationSignals) -> tuple[int, int, int, float, int, int]:
         return (
@@ -635,7 +749,9 @@ class _SATSolvePropagationMixin(_SATSolveLiteralTieMixin):
                 f'candidates:{self._propagation_candidates},'
                 f'mapped:{self._propagation_mapped},'
                 f'conflicts:{self._propagation_conflicts},'
-                f'implied_nonzero:{self._propagation_implied_nonzero}'
+                f'implied_nonzero:{self._propagation_implied_nonzero},'
+                f'agreed_literal:{self._propagation_agreed_literal},'
+                f'changed_literal:{self._propagation_changed_literal}'
             )
         return '; '.join(parts) if parts else None
 
