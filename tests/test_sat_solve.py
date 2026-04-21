@@ -50,6 +50,7 @@ def test_sat_solve_is_registered():
     assert 'SATSolveLiteralFrequencyTie' in Strategy.strategies()
     assert 'SATSolveLiteralLowFrequencyTie' in Strategy.strategies()
     assert 'SATSolveLiteralOppositeSignedFrequencyTie' in Strategy.strategies()
+    assert 'SATSolveLiteralFirstStart' in Strategy.strategies()
     assert 'SATSolveLiteralRareStart' in Strategy.strategies()
     assert 'SATSolveLiteralModelStart' in Strategy.strategies()
     assert 'SATSolvePropagation' in Strategy.strategies()
@@ -392,6 +393,7 @@ def test_paper_mode_skips_goal_when_model_assigns_false():
         'SATSolveLiteralFrequencyTie',
         'SATSolveLiteralLowFrequencyTie',
         'SATSolveLiteralOppositeSignedFrequencyTie',
+        'SATSolveLiteralFirstStart',
         'SATSolveLiteralRareStart',
         'SATSolveLiteralModelStart',
         'SATSolvePropagation',
@@ -966,6 +968,82 @@ def test_sat_solve_literal_rare_start_does_not_change_extension_choice():
     assert strategy.step() is common
     assert 'start=' not in strategy.final_info()
 
+def test_sat_solve_literal_first_start_guides_only_fresh_root_list():
+    rare_first = Start(id = 'st0', clause_copy = [Literal('rare', [])])
+    common_second = Start(id = 'st1', clause_copy = [Literal('common', [])])
+    rare_remaining = Start(id = 'st0', clause_copy = [Literal('rare', [])])
+
+    state = SimpleNamespace(
+        goal = SimpleNamespace(parent = None),
+        max_depth = 1,
+        shadow = SimpleNamespace(
+            new_ground_clauses = set(),
+            ground_clauses = {
+                (1,),
+                (2,),
+                (2, 3),
+            },
+            atom_map = {'rare': 1, 'common': 2},
+            model = {},
+            solver = None,
+        ),
+        substitution = Substitution(),
+        sat_literal_value = lambda literal: None,
+        _atom_key = lambda literal: literal.symbol,
+        _start_clause_indices = lambda: [0, 1],
+        _flush_new_ground_clauses = lambda: None,
+        _solve_ground_clauses = lambda: None,
+        enable_paper_mode = lambda enabled = True: setattr(state, 'paper_mode', enabled),
+    )
+
+    calls = {'count': 0}
+    def legal_actions():
+        calls['count'] += 1
+        if calls['count'] == 1:
+            return [common_second, rare_first, Reset(id = 'rs', depth = 2)]
+        return [rare_remaining, Reset(id = 'rs', depth = 2)]
+
+    env = SimpleNamespace(legal_actions = legal_actions, state = state)
+    strategy = Strategy.strategies()['SATSolveLiteralFirstStart'](env)
+
+    assert strategy.step() is rare_first
+    assert strategy.step() is rare_remaining
+
+    info = strategy.final_info()
+    assert 'start=mode:model' in info
+    assert 'decisions:1' in info
+    assert 'candidates:2' in info
+
+def test_sat_solve_literal_first_start_scores_only_bounded_prefix():
+    starts = [
+        Start(id = f'st{i}', clause_copy = [Literal(f'p{i}', [])])
+        for i in range(40)
+    ]
+
+    state = SimpleNamespace(
+        goal = SimpleNamespace(parent = None),
+        max_depth = 1,
+        shadow = SimpleNamespace(
+            new_ground_clauses = set(),
+            ground_clauses = {(i + 1,) for i in range(40)},
+            atom_map = {f'p{i}': i + 1 for i in range(40)},
+            model = {},
+            solver = None,
+        ),
+        substitution = Substitution(),
+        sat_literal_value = lambda literal: None,
+        _atom_key = lambda literal: literal.symbol,
+        _start_clause_indices = lambda: list(range(40)),
+        _flush_new_ground_clauses = lambda: None,
+        _solve_ground_clauses = lambda: None,
+        enable_paper_mode = lambda enabled = True: setattr(state, 'paper_mode', enabled),
+    )
+    env = SimpleNamespace(legal_actions = lambda: starts, state = state)
+    strategy = Strategy.strategies()['SATSolveLiteralFirstStart'](env)
+
+    assert strategy.step() in starts[:32]
+    assert 'candidates:32' in strategy.final_info()
+
 def test_sat_solve_propagation_prefers_failed_assumption(monkeypatch):
     monkeypatch.setattr(sat_solve_module, 'pydical', SimpleNamespace(UNSATISFIABLE = 20))
 
@@ -1135,6 +1213,7 @@ def test_sat_solve_records_nonzero_atom_score():
         'SATSolveLiteralFrequencyTie',
         'SATSolveLiteralLowFrequencyTie',
         'SATSolveLiteralOppositeSignedFrequencyTie',
+        'SATSolveLiteralFirstStart',
         'SATSolveLiteralRareStart',
         'SATSolveLiteralModelStart',
         'SATSolvePropagation',

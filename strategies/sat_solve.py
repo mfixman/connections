@@ -1175,6 +1175,62 @@ class SATSolveLiteralModelStart(_SATSolveLiteralStartMixin, SATSolveLiteral):
         super().__init__(env)
         self._init_start_guidance()
 
+class SATSolveLiteralFirstStart(_SATSolveLiteralStartMixin, SATSolveLiteral):
+    """SATSolveLiteral with one SAT-guided start choice per fresh root list.
+
+    This is the conservative version of the Start-guidance experiment.
+    When a reset creates a fresh root list containing all start clauses,
+    the strategy scores only the first few randomized starts and uses
+    SAT metadata once to choose the first start clause to try.  After
+    backtracking returns to root, the remaining starts are left in the
+    ordinary SATSolveLiteral/randomised order.  The score is model-aware
+    when a SAT model exists, and otherwise falls back to the rare-atom
+    signal from the initial shadow CNF.
+    """
+
+    _start_mode = 'model'
+    _start_candidate_limit = 32
+
+    def __init__(self, env):
+        super().__init__(env)
+        self._init_start_guidance()
+        self._fresh_start_count = None
+
+    def _root_start_count(self) -> int:
+        state = self.env.state
+        if hasattr(state, '_start_clause_indices'):
+            return max(1, len(state._start_clause_indices()))
+        if self._fresh_start_count is None:
+            self._fresh_start_count = 0
+        return self._fresh_start_count
+
+    def _is_fresh_root_start_list(self, starts: list[Start]) -> bool:
+        state = self.env.state
+        goal = getattr(state, 'goal', None)
+        if goal is None or getattr(goal, 'parent', None) is not None:
+            return False
+
+        expected = self._root_start_count()
+        if expected == 0:
+            self._fresh_start_count = len(starts)
+            expected = self._fresh_start_count
+        return len(starts) == expected
+
+    def _choose_action(self, actions: list[ConnectionAction]) -> ConnectionAction | None:
+        if not actions:
+            return None
+
+        starts = [action for action in actions if isinstance(action, Start)]
+        best_score = min(self.score(action) for action in actions)
+        if (
+            len(starts) > 1
+            and best_score == self.score(starts[0])
+            and self._is_fresh_root_start_list(starts)
+        ):
+            return self._choose_start_clause(starts[:self._start_candidate_limit])
+
+        return SATSolveLiteral._choose_action(self, actions)
+
 class SATSolvePropagation(_SATSolvePropagationMixin, SATSolveLiteral):
     """Rank forward SATCoP actions by SAT propagation data.
 
