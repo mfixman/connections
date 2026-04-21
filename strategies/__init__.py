@@ -1145,4 +1145,9 @@ from .sat_solve import (  # noqa: E402,F401
     SATSolveGuidedProbeConflicts,
     SATSolveGuidedShort,
     SATSolveLiteral,
+    SATSolveLiteralLookaheadTie,
+    SATSolveLiteralPropagation,
+    SATSolveLiteralRandomTie,
+    SATSolveLiteralShortTie,
+    SATSolvePropagation,
 )

@@ -11,7 +11,7 @@ def _add_common_prover_arguments(parser: argparse.ArgumentParser, *, max_steps_d
     parser.add_argument('--logic', default=None, choices=list(Logic), type=Logic, help='Which logic')
     parser.add_argument(
         '--sat-solver',
-        default=SATSolver.CaDiCaL,
+        default=None,
         choices=list(SATSolver),
         type=SATSolver,
         help='SAT backend for ClassicalSAT',
@@ -175,6 +175,9 @@ def parse_pycop_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = _build_pycop_parser()
     args = parser.parse_args(argv)
     validate_problem_split_arguments(args, parser)
+    if args.sat_solver is None:
+        strategy = Strategy.strategies().get(args.strategy)
+        args.sat_solver = SATSolver(getattr(strategy, 'sat_solver_backend', SATSolver.CaDiCaL))
     return args
 
 

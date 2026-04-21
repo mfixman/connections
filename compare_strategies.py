@@ -123,12 +123,23 @@ def resolve_logic_for_strategy(strategy_name: str, logic_override: Optional[Logi
         return logic_override
     return default_logic_for_strategy(strategy_name)
 
+def default_sat_solver_for_strategy(strategy_name: str) -> SATSolver:
+    strategy = Strategy.strategies().get(strategy_name)
+    if strategy is None:
+        return SATSolver.CaDiCaL
+    return SATSolver(getattr(strategy, 'sat_solver_backend', SATSolver.CaDiCaL))
+
+def resolve_sat_solver_for_strategy(strategy_name: str, sat_solver_override: Optional[SATSolver]) -> SATSolver:
+    if sat_solver_override is not None:
+        return sat_solver_override
+    return default_sat_solver_for_strategy(strategy_name)
+
 def _run_problem(
     conn: Connection,
     path: str,
     strategy_name: str,
     logic: Logic,
-    sat_solver: SATSolver,
+    sat_solver: Optional[SATSolver],
     max_steps: int,
 ) -> None:
     """Worker function: run one strategy on one problem and send back a result."""
@@ -137,6 +148,7 @@ def _run_problem(
             with contextlib.redirect_stdout(devnull), contextlib.redirect_stderr(devnull):
                 logging.disable(logging.CRITICAL)
                 try:
+                    sat_solver = resolve_sat_solver_for_strategy(strategy_name, sat_solver)
                     env = ConnectionEnv(path, Settings(logic=logic, sat_solver=sat_solver))
                     strategy = Strategy.strategies()[strategy_name](env)
                     env.reset()
@@ -471,7 +483,7 @@ def run_tasks(
     problems: list[Path],
     strategies: list[str],
     logic_override: Optional[Logic],
-    sat_solver: SATSolver,
+    sat_solver: Optional[SATSolver],
     max_steps: int,
     timeout: float,
     max_workers: int,

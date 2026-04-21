@@ -163,6 +163,16 @@ class TestCompareStrategiesLogicSelection:
         assert compare_strategies.default_logic_for_strategy('SATSolveGuided') is Logic.ClassicalSAT
         assert compare_strategies.default_logic_for_strategy('SATSolveGuidedFast') is Logic.ClassicalSAT
 
+    def test_default_sat_solver_is_inferred_from_strategy(self):
+        assert compare_strategies.default_sat_solver_for_strategy('SATSolve') is SATSolver.CaDiCaL
+        assert compare_strategies.default_sat_solver_for_strategy('SATSolvePropagation') is SATSolver.CaDiCaL
+
+    def test_explicit_sat_solver_override_wins(self):
+        assert (
+            compare_strategies.resolve_sat_solver_for_strategy('SATSolvePropagation', SATSolver.CaDiCaL)
+            is SATSolver.CaDiCaL
+        )
+
     def test_explicit_logic_override_wins(self):
         assert (
             compare_strategies.resolve_logic_for_strategy('SATSolve', Logic.ClassicalCut)
@@ -184,11 +194,11 @@ class TestCompareStrategiesLogicSelection:
         assert args.sat_solver == 'cadical'
         assert args.sat_solver is SATSolver.CaDiCaL
 
-    def test_parse_args_defaults_sat_solver_to_cadical(self, monkeypatch):
+    def test_parse_args_leaves_sat_solver_unset_for_implicit_strategy_defaults(self, monkeypatch):
         monkeypatch.setattr(sys, 'argv', ['compare_strategies.py', '--csv', '/tmp/results.csv'])
         args = compare_strategies.parse_args()
 
-        assert args.sat_solver is SATSolver.CaDiCaL
+        assert args.sat_solver is None
 
     def test_parse_args_accepts_logic_enum(self, monkeypatch):
         monkeypatch.setattr(
@@ -227,6 +237,11 @@ class TestCompareStrategiesLogicSelection:
             'SATSolveGuidedShort',
             'SATSolveGuidedFast',
             'SATSolveLiteral',
+            'SATSolveLiteralRandomTie',
+            'SATSolveLiteralShortTie',
+            'SATSolveLiteralLookaheadTie',
+            'SATSolvePropagation',
+            'SATSolveLiteralPropagation',
         ]
 
     def test_parse_args_deduplicates_expanded_groups(self, monkeypatch):
@@ -442,3 +457,53 @@ class TestCompareStrategiesInitialStatus:
 
         assert sent['status'] == 'max_steps'
         assert sent['info'] == 'score=3.5'
+
+    def test_run_problem_infers_sat_solver_when_none_is_selected(self, monkeypatch):
+        captured = {}
+
+        class FakeConn:
+            def send(self, result):
+                captured['result'] = result
+
+            def close(self):
+                pass
+
+        class FakeEnv:
+            def __init__(self, path, settings):
+                captured['sat_solver'] = settings.sat_solver
+                self.state = type(
+                    'State',
+                    (),
+                    {
+                        'initial_status': lambda self: (True, 'Theorem (SAT)'),
+                    },
+                )()
+
+            def reset(self):
+                return None
+
+        class FakeStrategy:
+            sat_solver_backend = SATSolver.CaDiCaL
+
+            def __init__(self, env):
+                pass
+
+        class FakeStrategyRegistry:
+            @staticmethod
+            def strategies():
+                return {'SATSolvePropagation': FakeStrategy}
+
+        monkeypatch.setattr(compare_strategies, 'ConnectionEnv', FakeEnv)
+        monkeypatch.setattr(compare_strategies, 'Strategy', FakeStrategyRegistry)
+
+        compare_strategies._run_problem(
+            FakeConn(),
+            'dummy.p',
+            'SATSolvePropagation',
+            Logic.ClassicalSAT,
+            None,
+            100,
+        )
+
+        assert captured['sat_solver'] is SATSolver.CaDiCaL
+        assert captured['result']['status'] == 'solved'

@@ -6,7 +6,7 @@ import strategies.sat_solve as sat_solve_module
 from types import SimpleNamespace
 
 from connections.env import ConnectionEnv, Settings
-from connections.calculi.classicalsat import Backtrack, Extension, Reset, SATConnectionState, SATSolver, ShadowSAT, pydical
+from connections.calculi.classicalsat import Backtrack, Extension, Reduction, Reset, SATConnectionState, SATSolver, ShadowSAT, pydical
 from connections.utils.primitives import Literal, Variable
 from connections.utils.tableau import Tableau
 from connections.utils.unification import Substitution
@@ -44,6 +44,11 @@ def test_sat_solve_is_registered():
     assert 'SATSolveGuidedShort' in Strategy.strategies()
     assert 'SATSolveGuidedFast' in Strategy.strategies()
     assert 'SATSolveLiteral' in Strategy.strategies()
+    assert 'SATSolveLiteralRandomTie' in Strategy.strategies()
+    assert 'SATSolveLiteralShortTie' in Strategy.strategies()
+    assert 'SATSolveLiteralLookaheadTie' in Strategy.strategies()
+    assert 'SATSolvePropagation' in Strategy.strategies()
+    assert 'SATSolveLiteralPropagation' in Strategy.strategies()
 
 @pytest.mark.skipif(pydical is None, reason = 'pydical is not installed')
 def test_sat_solve_runs_in_classical_cut_env():
@@ -370,7 +375,19 @@ def test_paper_mode_skips_goal_when_model_assigns_false():
     assert state.goal.parent is None
     assert state.is_terminal is False
 
-@pytest.mark.parametrize('strategy_name', ['SATSolve', 'SATSolveGuided', 'SATSolveLiteral'])
+@pytest.mark.parametrize(
+    'strategy_name',
+    [
+        'SATSolve',
+        'SATSolveGuided',
+        'SATSolveLiteral',
+        'SATSolveLiteralRandomTie',
+        'SATSolveLiteralShortTie',
+        'SATSolveLiteralLookaheadTie',
+        'SATSolvePropagation',
+        'SATSolveLiteralPropagation',
+    ],
+)
 def test_sat_strategies_use_restricted_backtracking_on_forward_steps(strategy_name):
     class FakeSolver:
         def score(self, atom_id):
@@ -655,6 +672,152 @@ def test_sat_solve_guided_fast_skips_assumption_probes(monkeypatch):
 
     assert strategy.step() is strong
 
+def test_sat_solve_literal_short_tie_prefers_reduction_before_extension():
+    reduction = Reduction(id = 'rd0', path_lit = Literal('p', []))
+    extension = Extension(id = 'ex0', lit_idx = 0, clause_copy = [Literal('q', []), Literal('r', [])])
+
+    state = SimpleNamespace(
+        goal = SimpleNamespace(parent = object()),
+        max_depth = 1,
+        shadow = SimpleNamespace(new_ground_clauses = set(), atom_map = {}, solver = None),
+        sat_literal_value = lambda literal: None,
+        _flush_new_ground_clauses = lambda: None,
+        _solve_ground_clauses = lambda: None,
+        enable_paper_mode = lambda enabled = True: setattr(state, 'paper_mode', enabled),
+    )
+    env = SimpleNamespace(legal_actions = lambda: [extension, reduction], state = state)
+    strategy = Strategy.strategies()['SATSolveLiteralShortTie'](env)
+
+    assert strategy.step() is reduction
+
+def test_sat_solve_literal_lookahead_tie_prefers_lookahead_literal():
+    weak = Extension(id = 'ex0', lit_idx = 0, clause_copy = [Literal('weak', [])])
+    strong = Extension(id = 'ex1', lit_idx = 0, clause_copy = [Literal('strong', [])])
+
+    class FakeSolver:
+        def lookahead(self):
+            return 2
+
+        def score(self, atom_id):
+            return 0
+
+    state = SimpleNamespace(
+        goal = SimpleNamespace(parent = object()),
+        max_depth = 1,
+        shadow = SimpleNamespace(
+            new_ground_clauses = set(),
+            atom_map = {'weak': 1, 'strong': 2},
+            solver = FakeSolver(),
+        ),
+        substitution = Substitution(),
+        sat_literal_value = lambda literal: None,
+        _atom_key = lambda literal: literal.symbol,
+        _flush_new_ground_clauses = lambda: None,
+        _solve_ground_clauses = lambda: None,
+        enable_paper_mode = lambda enabled = True: setattr(state, 'paper_mode', enabled),
+    )
+    env = SimpleNamespace(legal_actions = lambda: [weak, strong], state = state)
+    strategy = Strategy.strategies()['SATSolveLiteralLookaheadTie'](env)
+
+    assert strategy.step() is strong
+
+def test_sat_solve_propagation_prefers_failed_assumption(monkeypatch):
+    monkeypatch.setattr(sat_solve_module, 'pydical', SimpleNamespace(UNSATISFIABLE = 20))
+
+    weak = Extension(id = 'ex0', lit_idx = 0, clause_copy = [Literal('weak', [])])
+    strong = Extension(id = 'ex1', lit_idx = 0, clause_copy = [Literal('strong', [])])
+
+    class FakeSolver:
+        def __init__(self):
+            self.assumptions = []
+            self.calls = []
+
+        def assume(self, sat_lit):
+            self.calls.append(('assume', sat_lit))
+            self.assumptions.append(sat_lit)
+
+        def solve(self):
+            self.calls.append(('solve', tuple(self.assumptions)))
+            return 20 if self.assumptions == [2] else 10
+
+        def reset_assumptions(self):
+            self.calls.append(('reset_assumptions', tuple(self.assumptions)))
+            self.assumptions = []
+
+        def score(self, atom_id):
+            return 0
+
+    solver = FakeSolver()
+    state = SimpleNamespace(
+        goal = SimpleNamespace(parent = object()),
+        max_depth = 1,
+        shadow = SimpleNamespace(
+            new_ground_clauses = set(),
+            ground_clauses = set(),
+            atom_map = {'weak': 1, 'strong': 2},
+            solver = solver,
+        ),
+        substitution = Substitution(),
+        sat_literal_value = lambda literal: None,
+        _atom_key = lambda literal: literal.symbol,
+        _flush_new_ground_clauses = lambda: None,
+        _solve_ground_clauses = lambda: None,
+        enable_paper_mode = lambda enabled = True: setattr(state, 'paper_mode', enabled),
+    )
+    env = SimpleNamespace(legal_actions = lambda: [weak, strong], state = state)
+    strategy = Strategy.strategies()['SATSolvePropagation'](env)
+    monkeypatch.setattr(strategy, '_pysat_propagation', lambda sat_lit: None)
+
+    assert strategy.step() is strong
+    assert strong.cut is True
+    assert ('assume', 1) in solver.calls
+    assert ('assume', 2) in solver.calls
+    assert 'prop=backend:cadical-fallback' in strategy.final_info()
+
+def test_sat_solve_literal_propagation_keeps_literal_value_primary(monkeypatch):
+    monkeypatch.setattr(sat_solve_module, 'pydical', SimpleNamespace(UNSATISFIABLE = 20))
+
+    true_action = Extension(id = 'ex0', lit_idx = 0, clause_copy = [Literal('model_true', [])])
+    false_action = Extension(id = 'ex1', lit_idx = 0, clause_copy = [Literal('model_false', [])])
+
+    class FakeSolver:
+        def __init__(self):
+            self.assumptions = []
+
+        def assume(self, sat_lit):
+            self.assumptions.append(sat_lit)
+
+        def solve(self):
+            return 20 if self.assumptions == [2] else 10
+
+        def reset_assumptions(self):
+            self.assumptions = []
+
+        def score(self, atom_id):
+            return 0
+
+    state = SimpleNamespace(
+        goal = SimpleNamespace(parent = object()),
+        max_depth = 1,
+        shadow = SimpleNamespace(
+            new_ground_clauses = set(),
+            ground_clauses = set(),
+            atom_map = {'model_true': 1, 'model_false': 2},
+            solver = FakeSolver(),
+        ),
+        substitution = Substitution(),
+        sat_literal_value = lambda literal: literal.symbol == 'model_true',
+        _atom_key = lambda literal: literal.symbol,
+        _flush_new_ground_clauses = lambda: None,
+        _solve_ground_clauses = lambda: None,
+        enable_paper_mode = lambda enabled = True: setattr(state, 'paper_mode', enabled),
+    )
+    env = SimpleNamespace(legal_actions = lambda: [false_action, true_action], state = state)
+    strategy = Strategy.strategies()['SATSolveLiteralPropagation'](env)
+    monkeypatch.setattr(strategy, '_pysat_propagation', lambda sat_lit: None)
+
+    assert strategy.step() is true_action
+
 def test_sat_solve_records_nonzero_atom_score():
     class FakeSolver:
         def score(self, atom_id):
@@ -681,7 +844,19 @@ def test_sat_solve_records_nonzero_atom_score():
     assert strategy.step() is action
     assert strategy.final_info() == 'score=3.5'
 
-@pytest.mark.parametrize('strategy_name', ['SATSolve', 'SATSolveGuided', 'SATSolveLiteral'])
+@pytest.mark.parametrize(
+    'strategy_name',
+    [
+        'SATSolve',
+        'SATSolveGuided',
+        'SATSolveLiteral',
+        'SATSolveLiteralRandomTie',
+        'SATSolveLiteralShortTie',
+        'SATSolveLiteralLookaheadTie',
+        'SATSolvePropagation',
+        'SATSolveLiteralPropagation',
+    ],
+)
 def test_sat_strategies_only_reset_at_root_when_shadow_is_still_growing(strategy_name):
     class FakeSolver:
         def score(self, atom_id):
