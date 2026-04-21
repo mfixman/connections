@@ -9,7 +9,7 @@ import random
 import logging
 
 from connections.env import *
-from parse_args import parse_args
+from parse_args import parse_pycop_args
 from problem_inputs import resolved_problem_paths, split_problem_paths
 
 from pathlib import Path
@@ -123,7 +123,7 @@ def _run_problem(path: str, args) -> dict:
     return info | {'steps': steps}
 
 def main():
-    args = parse_args()
+    args = parse_pycop_args()
     logging.basicConfig(level = logging.INFO if args.verbose else logging.WARN, format = '[%(relativeCreated)d] %(message)s')
 
     try:

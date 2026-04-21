@@ -1,6 +1,5 @@
 """Compare proof strategies across a set of problems."""
 
-import argparse
 import contextlib
 import csv
 import multiprocessing as mp
@@ -18,13 +17,11 @@ from typing import Optional
 
 from connections.env import ConnectionEnv, Logic, SATSolver, Settings
 from problem_inputs import (
-    add_problem_split_arguments,
     expand_problem_inputs,
     split_problem_paths,
-    validate_problem_split_arguments,
 )
+from parse_args import parse_compare_args
 from strategies import Strategy
-from strategies.groups import expand_strategy_groups, strategy_choices, strategy_group_names
 
 _ANSI = re.compile(r'\033\[[0-9;]*m')
 
@@ -596,127 +593,8 @@ def write_results_csv(
                     'error': result.get('error'),
                 })
 
-def _input_basename(inputs: list[str]) -> str:
-    if not inputs:
-        return 'all'
-    return Path(inputs[0]).name
-
-def _named_result_stem(inputs: list[str], split: int, part: int) -> str:
-    suffix = '' if split == 1 else f'_{part}'
-    return f'{_input_basename(inputs)}{suffix}'
-
-def _named_partial_file(name: str, inputs: list[str], split: int, part: int) -> str:
-    stem = _named_result_stem(inputs, split, part)
-    return str(Path('results') / 'partial' / f'{name}_{stem}')
-
-def _named_csv_file(name: str, inputs: list[str], split: int, part: int) -> str:
-    return str(Path('results') / name / _named_result_stem(inputs, split, part))
-
-def parse_args() -> argparse.Namespace:
-    available_strategies = list(Strategy.strategies().keys())
-    default_strategies = [available_strategies[0], available_strategies[-1]]
-    available_choices = strategy_choices(available_strategies)
-
-    parser = argparse.ArgumentParser(
-        prog='compare_strategies.py',
-        description='Compare proof strategies across a set of problems.',
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog=(
-            f'available strategies: {", ".join(available_strategies)}\n'
-            f'available strategy groups: {", ".join(strategy_group_names())}\n'
-            f'available logics:     {", ".join(str(logic) for logic in Logic)}\n'
-            '\n'
-            'examples:\n'
-            '  %(prog)s\n'
-            '  %(prog)s tests/cnf_problems\n'
-            '  %(prog)s comparisons/classical --timeout 60 --max-steps 100000\n'
-            '  %(prog)s tests --strategies FirstAction SmartCut\n'
-            '  %(prog)s tests --all-strategies\n'
-            '  %(prog)s tests --no-time\n'
-            '  %(prog)s tests --no-steps\n'
-            '  %(prog)s tests --split 4 --part 0\n'
-            '  %(prog)s tests --name run1 --split 4 --part 2\n'
-        ),
-    )
-    parser.add_argument(
-        'inputs', nargs='*', metavar='DIR_OR_FILE',
-        help='directories and/or problem files/codenames (default: all $TPTP/Problems/*/*.p)',
-    )
-
-    strategy_group = parser.add_mutually_exclusive_group()
-    strategy_group.add_argument(
-        '--strategies', nargs='+',
-        choices=available_choices, metavar='STRATEGY_OR_GROUP',
-        help=f'strategies or groups to compare (default: {" ".join(default_strategies)})',
-    )
-    strategy_group.add_argument(
-        '--all-strategies', action='store_true',
-        help='compare all available strategies',
-    )
-    parser.add_argument(
-        '--logic', choices=list(Logic), type=Logic, metavar='LOGIC',
-        help='logic to use for all strategies (default: strategy-dependent)',
-    )
-    parser.add_argument(
-        '--sat-solver',
-        choices=list(SATSolver),
-        default=SATSolver.CaDiCaL,
-        type=SATSolver,
-        metavar='BACKEND',
-        help='SAT backend for ClassicalSAT (default: cadical)',
-    )
-    parser.add_argument(
-        '--max-steps', type=int, default=50000, metavar='N',
-        help='max steps per run (default: 50000)',
-    )
-    parser.add_argument(
-        '--timeout', type=float, default=30.0, metavar='SEC',
-        help='timeout per problem in seconds (default: 30)',
-    )
-    parser.add_argument(
-        '--steps', default=True, action=argparse.BooleanOptionalAction,
-        help='show step counts in results (default: on)',
-    )
-    parser.add_argument(
-        '--time', default=True, action=argparse.BooleanOptionalAction,
-        help='show wall-clock time in results (default: on)',
-    )
-    parser.add_argument(
-        '--csv', default=None, metavar='PATH',
-        help='write final results as CSV to PATH (default: results.csv, or results/NAME/INPUT_PART with --name)',
-    )
-    parser.add_argument(
-        '--partial-file', metavar='PATH',
-        help='append report output to PATH and resume from any completed rows already present',
-    )
-    parser.add_argument(
-        '--name', metavar='NAME',
-        help='derive default --partial-file and --csv paths from NAME and the input basename',
-    )
-    parser.add_argument(
-        '--color', '--colour', dest='color', action='store_true',
-        help='preserve ANSI colour codes in --partial-file output (default: off)',
-    )
-    add_problem_split_arguments(parser)
-    args = parser.parse_args()
-    validate_problem_split_arguments(args, parser)
-
-    if args.all_strategies:
-        args.strategies = available_strategies
-    elif args.strategies is None:
-        args.strategies = default_strategies
-    else:
-        args.strategies = expand_strategy_groups(args.strategies)
-
-    if args.name is not None:
-        if args.partial_file is None:
-            args.partial_file = _named_partial_file(args.name, args.inputs, args.split, args.part)
-        if args.csv is None:
-            args.csv = _named_csv_file(args.name, args.inputs, args.split, args.part)
-    elif args.csv is None:
-        args.csv = 'results.csv'
-
-    return args
+def parse_args(argv: list[str] | None = None):
+    return parse_compare_args(argv)
 
 def main() -> None:
     logging.basicConfig(level = logging.INFO, format = '[%(relativeCreated)d] %(message)s')

@@ -2,7 +2,7 @@ import sys
 
 import pytest
 
-from parse_args import parse_args
+from parse_args import parse_pycop_args
 from connections.env import Logic, SATSolver, Settings
 
 def test_parse_args_accepts_cadical_sat_solver(monkeypatch):
@@ -12,7 +12,7 @@ def test_parse_args_accepts_cadical_sat_solver(monkeypatch):
         ['pycop.py', '--sat-solver', 'cadical', 'tests/cnf_problems/SYN081+1.cnf'],
     )
 
-    args = parse_args()
+    args = parse_pycop_args()
 
     assert args.sat_solver == 'cadical'
     assert args.sat_solver is SATSolver.CaDiCaL
@@ -24,7 +24,7 @@ def test_parse_args_defaults_sat_solver_to_cadical(monkeypatch):
         ['pycop.py', 'tests/cnf_problems/SYN081+1.cnf'],
     )
 
-    args = parse_args()
+    args = parse_pycop_args()
 
     assert args.sat_solver is SATSolver.CaDiCaL
 
@@ -44,7 +44,7 @@ def test_parse_args_accepts_debug(monkeypatch):
         ['pycop.py', '--debug', 'tests/cnf_problems/SYN081+1.cnf'],
     )
 
-    args = parse_args()
+    args = parse_pycop_args()
 
     assert args.debug is True
 
@@ -55,7 +55,7 @@ def test_parse_args_defaults_logic_to_none(monkeypatch):
         ['pycop.py', 'tests/cnf_problems/SYN081+1.cnf'],
     )
 
-    args = parse_args()
+    args = parse_pycop_args()
 
     assert args.logic is None
 
@@ -66,7 +66,7 @@ def test_parse_args_accepts_split_and_part(monkeypatch):
         ['pycop.py', '--split', '4', '--part', '2', 'tests/cnf_problems/SYN081+1.cnf'],
     )
 
-    args = parse_args()
+    args = parse_pycop_args()
 
     assert args.split == 4
     assert args.part == 2
@@ -80,7 +80,7 @@ def test_parse_args_uses_slurm_array_when_split_and_part_are_absent(monkeypatch,
         ['pycop.py', 'tests/cnf_problems/SYN081+1.cnf'],
     )
 
-    args = parse_args()
+    args = parse_pycop_args()
 
     captured = capsys.readouterr()
     assert args.split == 4
@@ -97,7 +97,7 @@ def test_parse_args_prefers_explicit_split_and_part_over_slurm_array(monkeypatch
         ['pycop.py', '--split', '3', '--part', '1', 'tests/cnf_problems/SYN081+1.cnf'],
     )
 
-    args = parse_args()
+    args = parse_pycop_args()
 
     captured = capsys.readouterr()
     assert args.split == 3
@@ -112,7 +112,7 @@ def test_parse_args_rejects_part_not_less_than_split(monkeypatch):
     )
 
     with pytest.raises(SystemExit) as excinfo:
-        parse_args()
+        parse_pycop_args()
 
     assert excinfo.value.code == 2
 
@@ -124,6 +124,6 @@ def test_parse_args_rejects_strategy_groups(monkeypatch):
     )
 
     with pytest.raises(SystemExit) as excinfo:
-        parse_args()
+        parse_pycop_args()
 
     assert excinfo.value.code == 2

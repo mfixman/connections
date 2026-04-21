@@ -121,32 +121,48 @@ class TestCompareStrategiesLogicSelection:
         )
 
     def test_parse_args_accepts_cadical_sat_solver(self, monkeypatch):
-        monkeypatch.setattr(sys, 'argv', ['compare_strategies.py', '--sat-solver', 'cadical'])
+        monkeypatch.setattr(
+            sys,
+            'argv',
+            ['compare_strategies.py', '--sat-solver', 'cadical', '--csv', '/tmp/results.csv'],
+        )
         args = compare_strategies.parse_args()
 
         assert args.sat_solver == 'cadical'
         assert args.sat_solver is SATSolver.CaDiCaL
 
     def test_parse_args_defaults_sat_solver_to_cadical(self, monkeypatch):
-        monkeypatch.setattr(sys, 'argv', ['compare_strategies.py'])
+        monkeypatch.setattr(sys, 'argv', ['compare_strategies.py', '--csv', '/tmp/results.csv'])
         args = compare_strategies.parse_args()
 
         assert args.sat_solver is SATSolver.CaDiCaL
 
     def test_parse_args_accepts_logic_enum(self, monkeypatch):
-        monkeypatch.setattr(sys, 'argv', ['compare_strategies.py', '--logic', 'ClassicalSAT'])
+        monkeypatch.setattr(
+            sys,
+            'argv',
+            ['compare_strategies.py', '--logic', 'ClassicalSAT', '--csv', '/tmp/results.csv'],
+        )
         args = compare_strategies.parse_args()
 
         assert args.logic is Logic.ClassicalSAT
 
     def test_parse_args_expands_sat_control_group(self, monkeypatch):
-        monkeypatch.setattr(sys, 'argv', ['compare_strategies.py', '--strategies', 'SATControl'])
+        monkeypatch.setattr(
+            sys,
+            'argv',
+            ['compare_strategies.py', '--strategies', 'SATControl', '--csv', '/tmp/results.csv'],
+        )
         args = compare_strategies.parse_args()
 
         assert args.strategies == ['FirstAction', 'LeanCopCut']
 
     def test_parse_args_expands_sat_test_group(self, monkeypatch):
-        monkeypatch.setattr(sys, 'argv', ['compare_strategies.py', '--strategies', 'SATTest'])
+        monkeypatch.setattr(
+            sys,
+            'argv',
+            ['compare_strategies.py', '--strategies', 'SATTest', '--csv', '/tmp/results.csv'],
+        )
         args = compare_strategies.parse_args()
 
         assert args.strategies == [
@@ -164,7 +180,7 @@ class TestCompareStrategiesLogicSelection:
         monkeypatch.setattr(
             sys,
             'argv',
-            ['compare_strategies.py', '--strategies', 'SATSolve', 'SATTest'],
+            ['compare_strategies.py', '--strategies', 'SATSolve', 'SATTest', '--csv', '/tmp/results.csv'],
         )
         args = compare_strategies.parse_args()
 
@@ -174,18 +190,31 @@ class TestCompareStrategiesLogicSelection:
         monkeypatch.setattr(
             sys,
             'argv',
-            ['compare_strategies.py', '--split', '3', '--part', '1'],
+            ['compare_strategies.py', '--split', '3', '--part', '1', '--csv', '/tmp/results.csv'],
         )
         args = compare_strategies.parse_args()
 
         assert args.split == 3
         assert args.part == 1
 
-    def test_parse_args_defaults_csv_to_results_csv_without_name(self, monkeypatch):
+    def test_parse_args_requires_csv_without_name(self, monkeypatch):
         monkeypatch.setattr(sys, 'argv', ['compare_strategies.py'])
+
+        with pytest.raises(SystemExit) as excinfo:
+            compare_strategies.parse_args()
+
+        assert excinfo.value.code == 2
+
+    def test_parse_args_defaults_partial_file_without_name(self, monkeypatch):
+        monkeypatch.setattr(
+            sys,
+            'argv',
+            ['compare_strategies.py', 'tests/cnf_problems', '--csv', '/tmp/results.csv'],
+        )
         args = compare_strategies.parse_args()
 
-        assert args.csv == 'results.csv'
+        assert args.partial_file == str(Path('partial') / 'cnf_problems')
+        assert args.csv == '/tmp/results.csv'
 
     def test_parse_args_name_sets_partial_file_and_csv_for_nonzero_part(self, monkeypatch):
         monkeypatch.setattr(
@@ -195,7 +224,7 @@ class TestCompareStrategiesLogicSelection:
         )
         args = compare_strategies.parse_args()
 
-        assert args.partial_file == str(Path('results') / 'partial' / 'run_cnf_problems_2')
+        assert args.partial_file == str(Path('partial') / 'run_cnf_problems_2')
         assert args.csv == str(Path('results') / 'run' / 'cnf_problems_2')
 
     def test_parse_args_name_sets_partial_file_and_csv_with_part_zero_suffix_when_split(self, monkeypatch):
@@ -206,7 +235,7 @@ class TestCompareStrategiesLogicSelection:
         )
         args = compare_strategies.parse_args()
 
-        assert args.partial_file == str(Path('results') / 'partial' / 'run_cnf_problems_0')
+        assert args.partial_file == str(Path('partial') / 'run_cnf_problems_0')
         assert args.csv == str(Path('results') / 'run' / 'cnf_problems_0')
 
     def test_parse_args_name_omits_part_suffix_when_unsplit(self, monkeypatch):
@@ -217,7 +246,7 @@ class TestCompareStrategiesLogicSelection:
         )
         args = compare_strategies.parse_args()
 
-        assert args.partial_file == str(Path('results') / 'partial' / 'run_cnf_problems')
+        assert args.partial_file == str(Path('partial') / 'run_cnf_problems')
         assert args.csv == str(Path('results') / 'run' / 'cnf_problems')
 
     def test_parse_args_name_does_not_override_explicit_partial_file_or_csv(self, monkeypatch):
@@ -243,7 +272,7 @@ class TestCompareStrategiesLogicSelection:
     def test_parse_args_uses_slurm_array_when_split_and_part_are_absent(self, monkeypatch, capsys):
         monkeypatch.setenv('SLURM_ARRAY_TASK_COUNT', '3')
         monkeypatch.setenv('SLURM_ARRAY_TASK_ID', '1')
-        monkeypatch.setattr(sys, 'argv', ['compare_strategies.py'])
+        monkeypatch.setattr(sys, 'argv', ['compare_strategies.py', '--csv', '/tmp/results.csv'])
 
         args = compare_strategies.parse_args()
 
