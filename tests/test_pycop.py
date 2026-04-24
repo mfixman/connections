@@ -167,6 +167,7 @@ class TestPycopLogicSelection:
         assert pycop.default_logic_for_strategy('SATSolve') is Logic.ClassicalSAT
         assert pycop.default_logic_for_strategy('SATSolveGuided') is Logic.ClassicalSAT
         assert pycop.default_logic_for_strategy('SATSolveGuidedFast') is Logic.ClassicalSAT
+        assert pycop.default_logic_for_strategy('SATCoPRust') is Logic.ClassicalSAT
 
     def test_resolve_logic_for_strategy_honours_explicit_override(self):
         assert pycop.resolve_logic_for_strategy('LeanCopCut', Logic.Classical) is Logic.Classical

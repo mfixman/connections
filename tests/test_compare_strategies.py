@@ -162,6 +162,7 @@ class TestCompareStrategiesLogicSelection:
         assert compare_strategies.default_logic_for_strategy('SATSolve') is Logic.ClassicalSAT
         assert compare_strategies.default_logic_for_strategy('SATSolveGuided') is Logic.ClassicalSAT
         assert compare_strategies.default_logic_for_strategy('SATSolveGuidedFast') is Logic.ClassicalSAT
+        assert compare_strategies.default_logic_for_strategy('SATCoPRust') is Logic.ClassicalSAT
 
     def test_default_sat_solver_is_inferred_from_strategy(self):
         assert compare_strategies.default_sat_solver_for_strategy('SATSolve') is SATSolver.CaDiCaL
@@ -237,6 +238,7 @@ class TestCompareStrategiesLogicSelection:
 
         assert args.strategies == [
             'SATSolve',
+            'SATCoPRust',
             'SATSolveGuided',
             'SATSolveGuidedProbeConflicts',
             'SATSolveGuidedForcedTrue',
