@@ -126,6 +126,99 @@ class SATSolve(_SATScoreTracker, Strategy):
 
         raise LookupError('Expected at least one action to be Start, Reduction, Extension, Backtrack, or Reset.')
 
+class SATCoPRust(_SATScoreTracker, Strategy):
+    """Approximate the upstream SATCoP Rust search policy on ``ClassicalSAT``.
+
+    This follows the Rust control flow in ``packages/satcop/src/search.rs``
+    as closely as the ``ClassicalSAT`` action API allows:
+
+    - continuously refresh the shadow SAT state rather than only at resets;
+    - always prefer the first available ``Start`` at the root;
+    - otherwise try the first available ``Reduction`` before any extension;
+    - otherwise try the first available ``Extension`` in the calculus'
+      existing randomized order;
+    - within a chosen extension, reorder the remaining subgoals so literals
+      currently assigned ``True`` in the shadow SAT model are attempted first;
+    - stay at the same depth when new ground clauses were discovered.
+
+    Important approximation:
+        The Rust prover can stop after proving only the SAT-true promises of an
+        extension clause, because that behaviour is baked into its recursive
+        search procedure. ``ClassicalSAT`` always materializes the whole clause
+        as tableau children, so this strategy can only reorder the children,
+        not skip the remaining ones outright.
+    """
+
+    def __init__(self, env):
+        super().__init__(env)
+        self._init_sat_score_tracker()
+        if not hasattr(self.env.state, 'sat_literal_value'):
+            raise TypeError('SATCoPRust requires the ClassicalSAT calculus')
+        self.env.state.enable_paper_mode(True)
+
+    def _extension_with_true_promises_first(self, action: Extension) -> Extension:
+        state = self.env.state
+        if not action.clause_copy or not (0 <= action.lit_idx < len(action.clause_copy)):
+            return action
+
+        head_literal = action.clause_copy[action.lit_idx]
+        remaining = [
+            literal
+            for idx, literal in enumerate(action.clause_copy)
+            if idx != action.lit_idx
+        ]
+
+        state.substitution.update(action.sub_updates)
+        try:
+            true_promises = [
+                literal for literal in remaining
+                if state.sat_literal_value(literal) is True
+            ]
+        finally:
+            state.substitution.backtrack()
+
+        if not true_promises:
+            return action
+
+        remaining_true = set(id(literal) for literal in true_promises)
+        false_or_unknown = [
+            literal for literal in remaining
+            if id(literal) not in remaining_true
+        ]
+        action.clause_copy = [head_literal] + true_promises + false_or_unknown
+        action.lit_idx = 0
+        return action
+
+    def step(self):
+        actions = self.env.legal_actions()
+
+        self._sync_shadow_solver()
+        self._record_nonzero_atom_scores()
+
+        if action := next((a for a in actions if isinstance(a, Start)), None):
+            return action
+
+        if action := next((a for a in actions if isinstance(a, Reduction)), None):
+            return action
+
+        if action := next((a for a in actions if isinstance(a, Extension)), None):
+            return self._extension_with_true_promises_first(action)
+
+        if (
+            self.env.state.goal.parent is None
+            and any(isinstance(action, Reset) for action in actions)
+            and self.env.state.shadow.new_ground_clauses
+        ):
+            return Reset(id = 'rs', depth = self.env.state.max_depth, reason = 'ground shadow still growing')
+
+        if action := next((a for a in actions if isinstance(a, Backtrack)), None):
+            return action
+
+        if action := next((a for a in actions if isinstance(a, Reset)), None):
+            return action
+
+        raise LookupError('Expected at least one action to be Start, Reduction, Extension, Backtrack, or Reset.')
+
 class _GuidedExtensionChoice:
     """Shared SAT-shadow extension-choice policy for guided variants."""
 

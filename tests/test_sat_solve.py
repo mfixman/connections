@@ -36,6 +36,7 @@ cnf(clause5,negated_conjecture,
 """
 
 def test_sat_solve_is_registered():
+    assert 'SATCoPRust' in Strategy.strategies()
     assert 'SATSolve' in Strategy.strategies()
     assert 'SATSolveGuided' in Strategy.strategies()
     assert 'SATSolveGuidedProbeConflicts' in Strategy.strategies()
@@ -443,6 +444,97 @@ def test_sat_solve_uses_first_randomised_forward_action():
     strategy = Strategy.strategies()['SATSolve'](env)
 
     assert strategy.step() is first
+
+def test_satcop_rust_prefers_start_at_root_and_syncs_shadow():
+    start = Start(id = 'st0', clause_copy = [Literal('p', [])])
+    reset = Reset(id = 'rs', depth = 2)
+    calls = []
+
+    state = SimpleNamespace(
+        goal = SimpleNamespace(parent = None),
+        max_depth = 1,
+        shadow = SimpleNamespace(new_ground_clauses = set(), atom_map = {}, solver = None),
+        sat_literal_value = lambda literal: None,
+        _flush_new_ground_clauses = lambda: calls.append('flush'),
+        _solve_ground_clauses = lambda: calls.append('solve'),
+        enable_paper_mode = lambda enabled = True: setattr(state, 'paper_mode', enabled),
+    )
+    env = SimpleNamespace(legal_actions = lambda: [start, reset], state = state)
+    strategy = Strategy.strategies()['SATCoPRust'](env)
+
+    assert strategy.step() is start
+    assert calls == ['flush', 'solve']
+
+def test_satcop_rust_prefers_reduction_before_extension_without_cut():
+    reduction = Reduction(id = 're0', path_lit = Literal('p', []))
+    extension = Extension(id = 'ex0', lit_idx = 0, clause_copy = [Literal('q', []), Literal('r', [])])
+
+    state = SimpleNamespace(
+        goal = SimpleNamespace(parent = object()),
+        max_depth = 1,
+        shadow = SimpleNamespace(new_ground_clauses = set(), atom_map = {}, solver = None),
+        sat_literal_value = lambda literal: None,
+        _flush_new_ground_clauses = lambda: None,
+        _solve_ground_clauses = lambda: None,
+        enable_paper_mode = lambda enabled = True: setattr(state, 'paper_mode', enabled),
+    )
+    env = SimpleNamespace(legal_actions = lambda: [extension, reduction], state = state)
+    strategy = Strategy.strategies()['SATCoPRust'](env)
+    action = strategy.step()
+
+    assert action is reduction
+    assert action.cut is False
+
+def test_satcop_rust_reorders_true_promises_first_inside_extension():
+    head = Literal('head', [])
+    unknown = Literal('unknown', [])
+    promising = Literal('promising', [])
+    extension = Extension(
+        id = 'ex0',
+        lit_idx = 1,
+        clause_copy = [unknown, head, promising],
+        sub_updates = [],
+    )
+
+    state = SimpleNamespace(
+        goal = SimpleNamespace(parent = object()),
+        max_depth = 1,
+        shadow = SimpleNamespace(new_ground_clauses = set(), atom_map = {}, solver = None),
+        substitution = Substitution(),
+        sat_literal_value = lambda literal: True if literal.symbol == 'promising' else None,
+        _flush_new_ground_clauses = lambda: None,
+        _solve_ground_clauses = lambda: None,
+        enable_paper_mode = lambda enabled = True: setattr(state, 'paper_mode', enabled),
+    )
+    env = SimpleNamespace(legal_actions = lambda: [extension], state = state)
+    strategy = Strategy.strategies()['SATCoPRust'](env)
+
+    action = strategy.step()
+
+    assert action is extension
+    assert action.cut is False
+    assert action.lit_idx == 0
+    assert [literal.symbol for literal in action.clause_copy] == ['head', 'promising', 'unknown']
+
+def test_satcop_rust_restarts_same_depth_when_shadow_grows_at_root():
+    reset = Reset(id = 'rs', depth = 3)
+
+    state = SimpleNamespace(
+        goal = SimpleNamespace(parent = None),
+        max_depth = 2,
+        shadow = SimpleNamespace(new_ground_clauses = {(1,)}, atom_map = {}, solver = None),
+        sat_literal_value = lambda literal: None,
+        _flush_new_ground_clauses = lambda: None,
+        _solve_ground_clauses = lambda: None,
+        enable_paper_mode = lambda enabled = True: setattr(state, 'paper_mode', enabled),
+    )
+    env = SimpleNamespace(legal_actions = lambda: [reset], state = state)
+    strategy = Strategy.strategies()['SATCoPRust'](env)
+
+    action = strategy.step()
+
+    assert isinstance(action, Reset)
+    assert action.depth == 2
 
 @pytest.mark.skipif(pydical is None, reason = 'pydical is not installed')
 def test_sat_solve_guided_chooses_best_scored_extension():

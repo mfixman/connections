@@ -1137,6 +1137,7 @@ class InitialSchedule(Strategy):
         return action
 
 from .sat_solve import (  # noqa: E402,F401
+    SATCoPRust,
     SATSolve,
     SATSolveGuided,
     SATSolveGuidedEVSIDS,
