@@ -503,7 +503,7 @@ def run_tasks(
     initial_results: Optional[dict[Path, dict[str, dict]]] = None,
 ) -> tuple[dict[Path, dict[str, dict]], list[tuple[str, str, str]]]:
     results: dict[Path, dict[str, dict]] = {
-        problem: dict((initial_results or {}).get(problem, {}))
+        problem: (initial_results or {}).get(problem, {}).copy()
         for problem in problems
     }
     task_queue = deque(

@@ -255,6 +255,9 @@ class TestCompareStrategiesLogicSelection:
             'SATSolveLiteralRareStart',
             'SATSolveLiteralModelStart',
             'SATSolveLiteralFirstStart',
+            'SATSolveLiteralFridayStartCut',
+            'SATSolveLiteralFridayRootReset',
+            'SATSolveLiteralFridayHybrid',
             'SATSolvePropagation',
             'SATSolveLiteralPropagation',
         ]

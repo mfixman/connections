@@ -290,7 +290,7 @@ class ClassicalCut:
             return {action.id: action for action in actions}
 
         back = cast(list[ConnectionAction], self.backtracks() + self.resets())
-        return {**self.legal_forward_actions(), **{a.id: a for a in back}}
+        return self.legal_forward_actions() | {action.id: action for action in back}
 
     def _refresh_remaining_actions(self, remaining_ids: list[str]) -> dict[str, ConnectionAction]:
         """Recompute the current node's actions after substitution rewind."""

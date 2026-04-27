@@ -71,7 +71,7 @@ def _print_result(result: dict, problem: str | None = None) -> None:
         print(payload)
         return
 
-    summary = dict(payload)
+    summary = payload.copy()
     del summary['info']
     print(summary)
     print(info)

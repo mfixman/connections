@@ -49,6 +49,9 @@ def test_sat_solve_is_registered():
     assert 'SATSolveLiteralShortTie' in Strategy.strategies()
     assert 'SATSolveLiteralLookaheadTie' in Strategy.strategies()
     assert 'SATSolveLiteralFrequencyTie' in Strategy.strategies()
+    assert 'SATSolveLiteralFridayStartCut' in Strategy.strategies()
+    assert 'SATSolveLiteralFridayRootReset' in Strategy.strategies()
+    assert 'SATSolveLiteralFridayHybrid' in Strategy.strategies()
     assert 'SATSolveLiteralLowFrequencyTie' in Strategy.strategies()
     assert 'SATSolveLiteralOppositeSignedFrequencyTie' in Strategy.strategies()
     assert 'SATSolveLiteralFirstStart' in Strategy.strategies()
@@ -1062,7 +1065,7 @@ def test_sat_solve_literal_rare_start_does_not_change_extension_choice():
 
 def test_sat_solve_literal_first_start_guides_only_fresh_root_list():
     rare_first = Start(id = 'st0', clause_copy = [Literal('rare', [])])
-    common_second = Start(id = 'st1', clause_copy = [Literal('common', [])])
+    common_second = Start(id = 'st1', clause_copy = [Literal('common', []), Literal('common2', [])])
     rare_remaining = Start(id = 'st0', clause_copy = [Literal('rare', [])])
 
     state = SimpleNamespace(
@@ -1075,7 +1078,7 @@ def test_sat_solve_literal_first_start_guides_only_fresh_root_list():
                 (2,),
                 (2, 3),
             },
-            atom_map = {'rare': 1, 'common': 2},
+            atom_map = {'rare': 1, 'common': 2, 'common2': 3},
             model = {},
             solver = None,
         ),
@@ -1135,6 +1138,112 @@ def test_sat_solve_literal_first_start_scores_only_bounded_prefix():
 
     assert strategy.step() in starts[:32]
     assert 'candidates:32' in strategy.final_info()
+
+def test_sat_solve_literal_friday_start_cut_resets_after_confident_root_choice_fails():
+    weak = Start(id = 'st0', clause_copy = [Literal('weak', [])])
+    strong = Start(id = 'st1', clause_copy = [Literal('strong', [])])
+
+    state = SimpleNamespace(
+        goal = SimpleNamespace(parent = None),
+        max_depth = 1,
+        shadow = SimpleNamespace(
+            new_ground_clauses = set(),
+            ground_clauses = {(1,), (2,), (2, 3)},
+            atom_map = {'weak': 1, 'strong': 2},
+            model = {1: True, 2: False},
+            solver = None,
+        ),
+        substitution = Substitution(),
+        sat_literal_value = lambda literal: None,
+        _atom_key = lambda literal: literal.symbol,
+        _start_clause_indices = lambda: [0, 1],
+        _flush_new_ground_clauses = lambda: None,
+        _solve_ground_clauses = lambda: None,
+        enable_paper_mode = lambda enabled = True: setattr(state, 'paper_mode', enabled),
+    )
+    env = SimpleNamespace(legal_actions = lambda: [weak, strong, Reset(id = 'rs', depth = 2)], state = state)
+    strategy = Strategy.strategies()['SATSolveLiteralFridayStartCut'](env)
+
+    assert strategy.step() is strong
+
+    env.legal_actions = lambda: [weak, Reset(id = 'rs', depth = 2)]
+    action = strategy.step()
+
+    assert isinstance(action, Reset)
+    assert action.depth == 2
+    info = strategy.final_info()
+    assert 'friday=' in info
+    assert 'confident_starts:1' in info
+    assert 'commit_resets:1' in info
+
+def test_sat_solve_literal_friday_root_reset_fires_after_stale_root_revisits():
+    state = SimpleNamespace(
+        goal = SimpleNamespace(parent = None),
+        max_depth = 1,
+        shadow = SimpleNamespace(
+            new_ground_clauses = set(),
+            ground_clauses = {(1,), (2,), (3,)},
+            atom_map = {'a': 1, 'b': 2},
+            model = {},
+            solver = None,
+        ),
+        substitution = Substitution(),
+        sat_literal_value = lambda literal: None,
+        _atom_key = lambda literal: literal.symbol,
+        _start_clause_indices = lambda: [0, 1],
+        _flush_new_ground_clauses = lambda: None,
+        _solve_ground_clauses = lambda: None,
+        enable_paper_mode = lambda enabled = True: setattr(state, 'paper_mode', enabled),
+    )
+    start = Start(id = 'st0', clause_copy = [Literal('a', [])])
+    env = SimpleNamespace(legal_actions = lambda: [start, Reset(id = 'rs', depth = 2)], state = state)
+    strategy = Strategy.strategies()['SATSolveLiteralFridayRootReset'](env)
+
+    for _ in range(strategy._friday_root_visit_limit - 1):
+        assert strategy.step() is start
+
+    action = strategy.step()
+
+    assert isinstance(action, Reset)
+    assert action.depth == 2
+    assert 'stagnation_resets:1' in strategy.final_info()
+
+def test_sat_solve_literal_friday_hybrid_guides_only_first_fresh_root_then_defaults():
+    rare_first = Start(id = 'st0', clause_copy = [Literal('rare', [])])
+    common_second = Start(id = 'st1', clause_copy = [Literal('common', []), Literal('common2', [])])
+    rare_remaining = Start(id = 'st0', clause_copy = [Literal('rare', [])])
+
+    state = SimpleNamespace(
+        goal = SimpleNamespace(parent = None),
+        max_depth = 1,
+        shadow = SimpleNamespace(
+            new_ground_clauses = set(),
+            ground_clauses = {(1,), (2,), (3,)},
+            atom_map = {'rare': 1, 'common': 2, 'common2': 3},
+            model = {},
+            solver = None,
+        ),
+        substitution = Substitution(),
+        sat_literal_value = lambda literal: None,
+        _atom_key = lambda literal: literal.symbol,
+        _start_clause_indices = lambda: [0, 1],
+        _flush_new_ground_clauses = lambda: None,
+        _solve_ground_clauses = lambda: None,
+        enable_paper_mode = lambda enabled = True: setattr(state, 'paper_mode', enabled),
+    )
+
+    calls = {'count': 0}
+    def legal_actions():
+        calls['count'] += 1
+        if calls['count'] == 1:
+            return [common_second, rare_first, Reset(id = 'rs', depth = 2)]
+        return [rare_remaining, Reset(id = 'rs', depth = 2)]
+
+    env = SimpleNamespace(legal_actions = legal_actions, state = state)
+    strategy = Strategy.strategies()['SATSolveLiteralFridayHybrid'](env)
+
+    assert strategy.step() is rare_first
+    assert strategy.step() is rare_remaining
 
 def test_sat_solve_propagation_prefers_failed_assumption(monkeypatch):
     monkeypatch.setattr(sat_solve_module, 'pydical', SimpleNamespace(UNSATISFIABLE = 20))

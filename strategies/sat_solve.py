@@ -133,6 +133,8 @@ class SATCoPRust(_SATScoreTracker, Strategy):
     as closely as the ``ClassicalSAT`` action API allows:
 
     - continuously refresh the shadow SAT state rather than only at resets;
+    - commit successful reductions/extensions via ``cut`` to emulate Rust's
+      restricted backtracking;
     - always prefer the first available ``Start`` at the root;
     - otherwise try the first available ``Reduction`` before any extension;
     - otherwise try the first available ``Extension`` in the calculus'
@@ -199,9 +201,11 @@ class SATCoPRust(_SATScoreTracker, Strategy):
             return action
 
         if action := next((a for a in actions if isinstance(a, Reduction)), None):
+            action.cut = True
             return action
 
         if action := next((a for a in actions if isinstance(a, Extension)), None):
+            action.cut = True
             return self._extension_with_true_promises_first(action)
 
         if (
@@ -1323,6 +1327,225 @@ class SATSolveLiteralFirstStart(_SATSolveLiteralStartMixin, SATSolveLiteral):
             return self._choose_start_clause(starts[:self._start_candidate_limit])
 
         return SATSolveLiteral._choose_action(self, actions)
+
+class _SATSolveLiteralFridayMixin(_SATSolveLiteralStartMixin):
+    """Root-control experiments guided by SAT start-clause metadata."""
+
+    _start_mode = 'model'
+    _friday_enable_start_guidance = True
+    _friday_commit_on_confident_start = False
+    _friday_enable_root_stagnation = False
+    _friday_use_first_start = False
+    _friday_root_visit_limit = 8
+    _start_candidate_limit = 32
+
+    def _init_friday_controls(self) -> None:
+        self._init_start_guidance()
+        self._fresh_start_count = None
+        self._friday_committed_depth = None
+        self._friday_root_depth = None
+        self._friday_root_visits = 0
+        self._friday_root_clause_count = None
+        self._friday_confident_starts = 0
+        self._friday_commit_resets = 0
+        self._friday_stagnation_resets = 0
+
+    def _root_start_count(self) -> int:
+        state = self.env.state
+        if hasattr(state, '_start_clause_indices'):
+            return max(1, len(state._start_clause_indices()))
+        if self._fresh_start_count is None:
+            self._fresh_start_count = 0
+        return self._fresh_start_count
+
+    def _is_fresh_root_start_list(self, starts: list[Start]) -> bool:
+        state = self.env.state
+        goal = getattr(state, 'goal', None)
+        if goal is None or getattr(goal, 'parent', None) is not None:
+            return False
+
+        expected = self._root_start_count()
+        if expected == 0:
+            self._fresh_start_count = len(starts)
+            expected = self._fresh_start_count
+        return len(starts) == expected
+
+    def _choose_start_clause_with_confidence(self, starts: list[Start]) -> tuple[Start | None, bool]:
+        if not starts:
+            return None, False
+
+        self._sync_start_frequency_counts()
+        default_choice = starts[0]
+        scored = [
+            (action, self._start_clause_signals(action))
+            for action in starts
+        ]
+
+        self._start_decisions += 1
+        self._start_candidates += len(starts)
+        self._start_mapped += sum(1 for _, signals in scored if signals.mapped > 0)
+        self._start_unmapped += sum(1 for _, signals in scored if signals.mapped == 0)
+        self._start_total_min_frequency += sum(signals.min_frequency for _, signals in scored)
+        self._start_model_false += sum(signals.model_false for _, signals in scored)
+        self._start_model_true += sum(signals.model_true for _, signals in scored)
+        self._start_model_unknown += sum(signals.model_unknown for _, signals in scored)
+
+        best_score = max(self._start_clause_score(signals) for _, signals in scored)
+        best = [
+            (action, signals)
+            for action, signals in scored
+            if self._start_clause_score(signals) == best_score
+        ]
+        if len(best) == 1:
+            self._start_unique_best += 1
+        else:
+            self._start_ties += 1
+
+        chosen, chosen_signals = best[0]
+        if chosen is default_choice:
+            self._start_agreed_default += 1
+        else:
+            self._start_changed_default += 1
+
+        if len(best) != 1:
+            return chosen, False
+
+        other_signals = [
+            signals
+            for action, signals in scored
+            if action is not chosen
+        ]
+        if not other_signals or chosen_signals.mapped == 0:
+            return chosen, False
+
+        strong_model = (
+            chosen_signals.model_false > 0
+            and chosen_signals.model_false > max(signals.model_false for signals in other_signals)
+        )
+        strong_rarity = chosen_signals.min_frequency < min(
+            signals.min_frequency for signals in other_signals
+        )
+        return chosen, (strong_model or strong_rarity)
+
+    def _maybe_friday_root_reset(self, starts: list[Start]) -> Reset | None:
+        state = self.env.state
+        expected = self._root_start_count()
+        clause_count = len(getattr(state.shadow, 'ground_clauses', ()))
+
+        if self._friday_root_depth != state.max_depth:
+            self._friday_committed_depth = None
+            self._friday_root_depth = state.max_depth
+            self._friday_root_visits = 0
+            self._friday_root_clause_count = clause_count
+
+        if (
+            self._friday_commit_on_confident_start
+            and self._friday_committed_depth == state.max_depth
+            and 0 < len(starts) < expected
+        ):
+            self._friday_committed_depth = None
+            self._friday_commit_resets += 1
+            self._friday_root_visits = 0
+            self._friday_root_clause_count = clause_count
+            return Reset(id = 'rs', depth = state.max_depth + 1, reason = 'friday committed start failed')
+
+        if not self._friday_enable_root_stagnation:
+            return None
+
+        if len(starts) >= expected:
+            self._friday_root_visits = 0
+            self._friday_root_clause_count = clause_count
+            return None
+
+        if getattr(state.shadow, 'new_ground_clauses', set()) or clause_count > (self._friday_root_clause_count or 0):
+            self._friday_root_visits = 0
+            self._friday_root_clause_count = clause_count
+            return None
+
+        self._friday_root_visits += 1
+        if self._friday_root_visits < self._friday_root_visit_limit:
+            return None
+
+        self._friday_stagnation_resets += 1
+        self._friday_root_visits = 0
+        self._friday_root_clause_count = clause_count
+        return Reset(id = 'rs', depth = state.max_depth + 1, reason = 'friday root stagnation')
+
+    def _choose_action(self, actions: list[ConnectionAction]) -> ConnectionAction | None:
+        if not actions:
+            return None
+
+        state = self.env.state
+        starts = [action for action in actions if isinstance(action, Start)]
+        goal = getattr(state, 'goal', None)
+        at_root = goal is not None and getattr(goal, 'parent', None) is None
+
+        if at_root and starts:
+            if reset := self._maybe_friday_root_reset(starts):
+                return reset
+
+            best_score = min(self.score(action) for action in actions)
+            if (
+                self._friday_enable_start_guidance
+                and len(starts) > 1
+                and best_score == self.score(starts[0])
+            ):
+                if self._friday_use_first_start and not self._is_fresh_root_start_list(starts):
+                    return SATSolveLiteral._choose_action(self, actions)
+
+                candidates = starts[:self._start_candidate_limit] if self._friday_use_first_start else starts
+                chosen, confident = self._choose_start_clause_with_confidence(candidates)
+                if chosen is not None:
+                    if confident and self._friday_commit_on_confident_start:
+                        self._friday_confident_starts += 1
+                        self._friday_committed_depth = state.max_depth
+                    return chosen
+
+        return SATSolveLiteral._choose_action(self, actions)
+
+    def final_info(self) -> str | None:
+        parts = []
+        base_info = super().final_info()
+        if base_info is not None:
+            parts.append(base_info)
+        if self._friday_confident_starts or self._friday_commit_resets or self._friday_stagnation_resets:
+            parts.append(
+                'friday='
+                f'confident_starts:{self._friday_confident_starts},'
+                f'commit_resets:{self._friday_commit_resets},'
+                f'stagnation_resets:{self._friday_stagnation_resets}'
+            )
+        return '; '.join(parts) if parts else None
+
+class SATSolveLiteralFridayStartCut(_SATSolveLiteralFridayMixin, SATSolveLiteral):
+    """SAT-guided root-start choice with selective root commitment."""
+
+    _friday_commit_on_confident_start = True
+
+    def __init__(self, env):
+        super().__init__(env)
+        self._init_friday_controls()
+
+class SATSolveLiteralFridayRootReset(_SATSolveLiteralFridayMixin, SATSolveLiteral):
+    """SATSolveLiteral with early reset on repeated stale root revisits."""
+
+    _friday_enable_start_guidance = False
+    _friday_enable_root_stagnation = True
+
+    def __init__(self, env):
+        super().__init__(env)
+        self._init_friday_controls()
+
+class SATSolveLiteralFridayHybrid(_SATSolveLiteralFridayMixin, SATSolveLiteral):
+    """Conservative Friday hybrid: first-start guidance, commitment, stagnation reset."""
+
+    _friday_commit_on_confident_start = True
+    _friday_enable_root_stagnation = True
+    _friday_use_first_start = True
+
+    def __init__(self, env):
+        super().__init__(env)
+        self._init_friday_controls()
 
 class SATSolvePropagation(_SATSolvePropagationMixin, SATSolveLiteral):
     """Rank forward SATCoP actions by SAT propagation data.

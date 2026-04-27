@@ -191,7 +191,7 @@ class SATConnectionState:
             return {action.id: action for action in actions}
 
         back = cast(list[ConnectionAction], self.backtracks() + self.resets())
-        return {**self.legal_forward_actions(), **{a.id: a for a in back}}
+        return self.legal_forward_actions() | {action.id: action for action in back}
 
     def _refresh_remaining_actions(self, remaining_ids: list[str]) -> dict[str, ConnectionAction]:
         if self.goal.parent is None:
@@ -546,7 +546,7 @@ class SATConnectionState:
             self.shadow.expanded_clauses[grounded_clause] = expanded_clause
 
     def _restart_same_iteration(self) -> None:
-        remaining_actions = dict(self.tableau.actions)
+        remaining_actions = self.tableau.actions.copy()
         self.tableau = Tableau()
         self.tableau.actions = remaining_actions
         self.goal = self.tableau
