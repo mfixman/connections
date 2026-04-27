@@ -44,8 +44,12 @@ class Extension(ConnectionAction):
 
 @dataclass
 class Backtrack(ConnectionAction):
+    steps: int = 1
+
     def __repr__(self) -> str:
-        return 'Backtrack'
+        if self.steps == 1:
+            return 'Backtrack'
+        return f'Backtrack {self.steps}'
 
 @dataclass
 class Reset(ConnectionAction):
@@ -284,7 +288,7 @@ class SATConnectionState:
         self.random.shuffle(extensions)
         return extensions
 
-    def backtrack(self) -> None:
+    def _backtrack_once(self) -> None:
         if self.goal.parent is None:
             return
 
@@ -333,6 +337,12 @@ class SATConnectionState:
 
             return
 
+    def backtrack(self, steps: int = 1) -> None:
+        for _ in range(max(1, steps)):
+            self._backtrack_once()
+            if self.is_terminal or self.goal.parent is None:
+                break
+
     def update_goal(self, action: ConnectionAction) -> None:
         if action.id in self.goal.actions:
             del self.goal.actions[action.id]
@@ -343,8 +353,8 @@ class SATConnectionState:
             self.proof_sequence.append(action)
 
         match action:
-            case Backtrack():
-                self.backtrack()
+            case Backtrack(steps = steps):
+                self.backtrack(steps)
                 return
 
             case Reset(depth = depth):

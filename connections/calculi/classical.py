@@ -38,8 +38,12 @@ class Extension(ConnectionAction):
 
 @dataclass
 class Backtrack(ConnectionAction):
+    steps: int = 1
+
     def __repr__(self) -> str:
-        return 'Backtrack'
+        if self.steps == 1:
+            return 'Backtrack'
+        return f'Backtrack {self.steps}'
 
 class ConnectionState:
     matrix: Matrix
@@ -184,7 +188,7 @@ class ConnectionState:
         fresh_actions = self.legal_actions()
         return {action_id: fresh_actions[action_id] for action_id in remaining_ids if action_id in fresh_actions}
 
-    def backtrack(self) -> None:
+    def _backtrack_once(self) -> None:
         # Backtrack to previous choice point (goal). If no choice points left, reset.
         actions: dict[str, ConnectionAction] = {}
 
@@ -210,8 +214,15 @@ class ConnectionState:
                 self.reset(depth = self.max_depth + 1)
                 break
 
+    def backtrack(self, steps: int = 1) -> None:
+        for _ in range(max(1, steps)):
+            self._backtrack_once()
+            if self.is_terminal or self.goal.parent is None:
+                break
+
     def update_goal(self, action: ConnectionAction) -> None:
-        del self.goal.actions[action.id]
+        if action.id in self.goal.actions:
+            del self.goal.actions[action.id]
         self.goal.num_attempted += 1
 
         if isinstance(action, Start | Reduction | Extension):
@@ -219,8 +230,8 @@ class ConnectionState:
             self.proof_sequence.append(action)
 
         match action:
-            case Backtrack():
-                self.backtrack()
+            case Backtrack(steps = steps):
+                self.backtrack(steps)
                 return
 
             case Start(clause_copy = clause_copy):

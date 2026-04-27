@@ -55,8 +55,12 @@ class Extension(ConnectionAction):
 
 @dataclass
 class Backtrack(ConnectionAction):
+    steps: int = 1
+
     def __repr__(self) -> str:
-        return 'Backtrack'
+        if self.steps == 1:
+            return 'Backtrack'
+        return f'Backtrack {self.steps}'
 
 @dataclass
 class Reset(ConnectionAction):
@@ -300,7 +304,7 @@ class ClassicalCut:
             fresh_actions = self.legal_forward_actions()
         return {action_id: fresh_actions[action_id] for action_id in remaining_ids if action_id in fresh_actions}
 
-    def backtrack(self) -> None:
+    def _backtrack_once(self) -> None:
         if self.goal.parent is None:
             return
 
@@ -330,6 +334,12 @@ class ClassicalCut:
 
             break
 
+    def backtrack(self, steps: int = 1) -> None:
+        for _ in range(max(1, steps)):
+            self._backtrack_once()
+            if self.is_terminal or self.goal.parent is None:
+                break
+
     def update_goal(self, action: ConnectionAction) -> None:
         # Control actions (Backtrack, Reset) may not be in goal.actions
         # when the strategy creates them directly.
@@ -345,8 +355,8 @@ class ClassicalCut:
                 self._cached_facts.add(fact)
 
         match action:
-            case Backtrack():
-                self.backtrack()
+            case Backtrack(steps = steps):
+                self.backtrack(steps)
                 return
 
             case Reset(depth = depth):

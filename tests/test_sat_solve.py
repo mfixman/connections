@@ -1,7 +1,9 @@
+import json
 import os
 import pytest
 
 import connections.calculi.classicalsat as classicalsat
+import strategies.sat_solve_learn as sat_solve_learn_module
 import strategies.sat_solve as sat_solve_module
 from types import SimpleNamespace
 
@@ -45,6 +47,10 @@ def test_sat_solve_is_registered():
     assert 'SATSolveGuidedShort' in Strategy.strategies()
     assert 'SATSolveGuidedFast' in Strategy.strategies()
     assert 'SATSolveLearnInitial' in Strategy.strategies()
+    assert 'SATSolveLearnTrain' in Strategy.strategies()
+    assert 'SATSolveLearnEval' in Strategy.strategies()
+    assert 'SATSolveLearnControl' in Strategy.strategies()
+    assert 'SATSolveLearnCombined' in Strategy.strategies()
     assert 'SATSolveLiteral' in Strategy.strategies()
     assert 'SATSolveLiteralRandomTie' in Strategy.strategies()
     assert 'SATSolveLiteralShortTie' in Strategy.strategies()
@@ -392,6 +398,8 @@ def test_paper_mode_skips_goal_when_model_assigns_false():
         'SATSolve',
         'SATSolveGuided',
         'SATSolveLearnInitial',
+        'SATSolveLearnControl',
+        'SATSolveLearnCombined',
         'SATSolveLiteral',
         'SATSolveLiteralRandomTie',
         'SATSolveLiteralShortTie',
@@ -870,11 +878,12 @@ def test_sat_solve_learn_initial_prefers_extension_with_more_model_false_childre
 
     rows = strategy.training_rows()
     assert len(rows) == 1
-    assert rows[0]['schema'] == 'sat_solve_learn_initial/v1'
+    assert rows[0]['schema'] == 'sat_solve_learn_initial_bandit/v1'
     assert rows[0]['chosen_action_id'] == 'ex1'
     assert rows[0]['default_action_id'] == 'ex0'
     assert {candidate['action_id'] for candidate in rows[0]['candidates']} == {'ex0', 'ex1'}
-    assert 'learn=schema:sat_solve_learn_initial/v1' in strategy.final_info()
+    assert rows[0]['chosen_arm'] == 'whole'
+    assert 'learn=schema:sat_solve_learn_initial_bandit/v1' in strategy.final_info()
 
 def test_sat_solve_learn_initial_keeps_literal_score_primary():
     true_action = Extension(
@@ -914,6 +923,280 @@ def test_sat_solve_learn_initial_keeps_literal_score_primary():
 
     assert strategy.step() is true_action
     assert strategy.training_rows() == []
+
+def test_sat_solve_learn_initial_rewards_ground_progress():
+    weak = Extension(
+        id = 'ex0',
+        lit_idx = 0,
+        clause_copy = [Literal('head', []), Literal('open', [])],
+    )
+    strong = Extension(
+        id = 'ex1',
+        lit_idx = 0,
+        clause_copy = [Literal('head', []), Literal('close', [])],
+    )
+
+    class FakeSolver:
+        def score(self, atom_id):
+            return 0
+
+    goal = SimpleNamespace(parent = object(), depth = 3, path = lambda: [Literal('path', [])])
+    shadow = SimpleNamespace(
+        new_ground_clauses = set(),
+        ground_clauses = {(2,), (2, 3), (3, 4)},
+        atom_map = {'head': 1, 'open': 2, 'close': 3},
+        solver = FakeSolver(),
+    )
+    state = SimpleNamespace(
+        goal = goal,
+        max_depth = 3,
+        shadow = shadow,
+        substitution = Substitution(),
+        sat_literal_value = lambda literal: False if literal.symbol == 'close' else None,
+        _atom_key = lambda literal: literal.symbol,
+        _flush_new_ground_clauses = lambda: None,
+        _solve_ground_clauses = lambda: None,
+        enable_paper_mode = lambda enabled = True: setattr(state, 'paper_mode', enabled),
+        proof_sequence = [],
+        is_terminal = False,
+        info = None,
+    )
+    env = SimpleNamespace(legal_actions = lambda: [weak, strong], state = state)
+    strategy = Strategy.strategies()['SATSolveLearnInitial'](env)
+
+    chosen = strategy.step()
+    assert chosen is strong
+
+    state.proof_sequence = [chosen]
+    state.shadow.ground_clauses = {(2,), (2, 3), (3, 4), (5,)}
+    strategy.step()
+
+    rows = strategy.training_rows()
+    assert rows[0]['reward'] == 1.0
+    assert rows[0]['outcome'] == 'ground'
+
+def test_sat_solve_learn_train_persists_and_eval_reads_store(tmp_path, monkeypatch):
+    weak = Extension(
+        id = 'ex0',
+        lit_idx = 0,
+        clause_copy = [Literal('head', []), Literal('open', [])],
+    )
+    strong = Extension(
+        id = 'ex1',
+        lit_idx = 0,
+        clause_copy = [Literal('head', []), Literal('close', [])],
+    )
+
+    class FakeSolver:
+        def score(self, atom_id):
+            return 0
+
+    def make_state():
+        goal = SimpleNamespace(parent = object(), depth = 3, path = lambda: [Literal('path', [])])
+        shadow = SimpleNamespace(
+            new_ground_clauses = set(),
+            ground_clauses = {(2,), (2, 3), (3, 4)},
+            atom_map = {'head': 1, 'open': 2, 'close': 3},
+            solver = FakeSolver(),
+        )
+        state = SimpleNamespace(
+            goal = goal,
+            max_depth = 3,
+            shadow = shadow,
+            substitution = Substitution(),
+            sat_literal_value = lambda literal: False if literal.symbol == 'close' else None,
+            _atom_key = lambda literal: literal.symbol,
+            _flush_new_ground_clauses = lambda: None,
+            _solve_ground_clauses = lambda: None,
+            proof_sequence = [],
+            is_terminal = False,
+            info = None,
+        )
+        state.enable_paper_mode = lambda enabled = True: setattr(state, 'paper_mode', enabled)
+        return state
+
+    store_path = tmp_path / 'learn_store'
+    monkeypatch.setattr(sat_solve_learn_module.SATSolveLearnTrain, '_learn_store_path', store_path)
+    monkeypatch.setattr(sat_solve_learn_module.SATSolveLearnEval, '_learn_store_path', store_path)
+
+    train_state = make_state()
+    train_env = SimpleNamespace(legal_actions = lambda: [weak, strong], state = train_state)
+    train_strategy = Strategy.strategies()['SATSolveLearnTrain'](train_env)
+
+    chosen = train_strategy.step()
+    assert chosen is strong
+
+    train_state.proof_sequence = [chosen]
+    train_state.shadow.ground_clauses = {(2,), (2, 3), (3, 4), (5,)}
+    assert 'learn_store=mode:train' in train_strategy.final_info()
+
+    store_files = list(store_path.glob('forward-*.json'))
+    assert len(store_files) == 1
+    stored = json.loads(store_files[0].read_text(encoding = 'utf-8'))
+    assert stored['forward']['extensions_only']['whole']['pulls'] == 1
+    assert stored['forward']['extensions_only']['whole']['reward'] == 1.0
+
+    eval_state = make_state()
+    eval_env = SimpleNamespace(legal_actions = lambda: [weak, strong], state = eval_state)
+    eval_strategy = Strategy.strategies()['SATSolveLearnEval'](eval_env)
+
+    assert eval_strategy.step() is strong
+    assert eval_strategy.training_rows() == []
+    assert 'learn_eval=schema:sat_solve_learn_initial_bandit/v1' in eval_strategy.final_info()
+
+def test_sat_solve_learn_control_can_prefer_reset():
+    class FakeSolver:
+        def score(self, atom_id):
+            return 0
+
+    goal_parent = SimpleNamespace(parent = object())
+    env = SimpleNamespace(
+        legal_actions = lambda: [Backtrack(id = 'bt'), Reset(id = 'rs', depth = 5)],
+        state = SimpleNamespace(
+            goal = SimpleNamespace(parent = goal_parent),
+            max_depth = 4,
+            shadow = SimpleNamespace(
+                new_ground_clauses = set(),
+                atom_map = {},
+                solver = FakeSolver(),
+                ground_clauses = set(),
+            ),
+            sat_literal_value = lambda literal: None,
+            _flush_new_ground_clauses = lambda: None,
+            _solve_ground_clauses = lambda: None,
+            proof_sequence = [],
+            is_terminal = False,
+            info = None,
+        ),
+    )
+    env.state.enable_paper_mode = lambda enabled = True: setattr(env.state, 'paper_mode', enabled)
+    strategy = Strategy.strategies()['SATSolveLearnControl'](env)
+
+    for arm in strategy._control_arms:
+        strategy._control_pulls['shadow_stagnant'][arm] = 4
+    strategy._control_rewards['shadow_stagnant']['bt1'] = 1.0
+    strategy._control_rewards['shadow_stagnant']['bt2'] = 2.0
+    strategy._control_rewards['shadow_stagnant']['reset'] = 5.0
+
+    action = strategy.step()
+    assert isinstance(action, Reset)
+    assert action.depth == 5
+
+def test_sat_solve_learn_control_can_emit_backjump_two():
+    class FakeSolver:
+        def score(self, atom_id):
+            return 0
+
+    goal_parent = SimpleNamespace(parent = object())
+    env = SimpleNamespace(
+        legal_actions = lambda: [Backtrack(id = 'bt'), Reset(id = 'rs', depth = 5)],
+        state = SimpleNamespace(
+            goal = SimpleNamespace(parent = goal_parent),
+            max_depth = 4,
+            shadow = SimpleNamespace(
+                new_ground_clauses = set(),
+                atom_map = {},
+                solver = FakeSolver(),
+                ground_clauses = set(),
+            ),
+            sat_literal_value = lambda literal: None,
+            _flush_new_ground_clauses = lambda: None,
+            _solve_ground_clauses = lambda: None,
+            proof_sequence = [],
+            is_terminal = False,
+            info = None,
+        ),
+    )
+    env.state.enable_paper_mode = lambda enabled = True: setattr(env.state, 'paper_mode', enabled)
+    strategy = Strategy.strategies()['SATSolveLearnControl'](env)
+
+    for arm in strategy._control_arms:
+        strategy._control_pulls['shadow_stagnant'][arm] = 4
+    strategy._control_rewards['shadow_stagnant']['bt1'] = 1.0
+    strategy._control_rewards['shadow_stagnant']['bt2'] = 5.0
+    strategy._control_rewards['shadow_stagnant']['reset'] = 2.0
+
+    action = strategy.step()
+    assert isinstance(action, Backtrack)
+    assert action.steps == 2
+
+def test_sat_solve_learn_combined_uses_forward_tie_breaking():
+    weak = Extension(
+        id = 'ex0',
+        lit_idx = 0,
+        clause_copy = [Literal('head', []), Literal('open', [])],
+    )
+    strong = Extension(
+        id = 'ex1',
+        lit_idx = 0,
+        clause_copy = [Literal('head', []), Literal('close', [])],
+    )
+
+    class FakeSolver:
+        def score(self, atom_id):
+            return 0
+
+    goal = SimpleNamespace(parent = object(), depth = 4, path = lambda: [Literal('path', [])])
+    state = SimpleNamespace(
+        goal = goal,
+        max_depth = 4,
+        shadow = SimpleNamespace(
+            new_ground_clauses = set(),
+            ground_clauses = {(2,), (2, 3), (3, 4)},
+            atom_map = {'head': 1, 'open': 2, 'close': 3},
+            solver = FakeSolver(),
+        ),
+        substitution = Substitution(),
+        sat_literal_value = lambda literal: False if literal.symbol == 'close' else None,
+        _atom_key = lambda literal: literal.symbol,
+        _flush_new_ground_clauses = lambda: None,
+        _solve_ground_clauses = lambda: None,
+        proof_sequence = [],
+        is_terminal = False,
+        info = None,
+    )
+    state.enable_paper_mode = lambda enabled = True: setattr(state, 'paper_mode', enabled)
+    env = SimpleNamespace(legal_actions = lambda: [weak, strong], state = state)
+    strategy = Strategy.strategies()['SATSolveLearnCombined'](env)
+
+    assert strategy.step() is strong
+    assert len(strategy.training_rows()) == 1
+
+def test_sat_solve_learn_combined_uses_control_bandit():
+    class FakeSolver:
+        def score(self, atom_id):
+            return 0
+
+    goal_parent = SimpleNamespace(parent = object())
+    env = SimpleNamespace(
+        legal_actions = lambda: [Backtrack(id = 'bt'), Reset(id = 'rs', depth = 5)],
+        state = SimpleNamespace(
+            goal = SimpleNamespace(parent = goal_parent),
+            max_depth = 4,
+            shadow = SimpleNamespace(
+                new_ground_clauses = set(),
+                atom_map = {},
+                solver = FakeSolver(),
+                ground_clauses = set(),
+            ),
+            sat_literal_value = lambda literal: None,
+            _flush_new_ground_clauses = lambda: None,
+            _solve_ground_clauses = lambda: None,
+            proof_sequence = [],
+            is_terminal = False,
+            info = None,
+        ),
+    )
+    env.state.enable_paper_mode = lambda enabled = True: setattr(env.state, 'paper_mode', enabled)
+    strategy = Strategy.strategies()['SATSolveLearnCombined'](env)
+
+    for arm in strategy._control_arms:
+        strategy._control_pulls['shadow_stagnant'][arm] = 4
+    strategy._control_rewards['shadow_stagnant']['bt1'] = 1.0
+    strategy._control_rewards['shadow_stagnant']['bt2'] = 2.0
+    strategy._control_rewards['shadow_stagnant']['reset'] = 5.0
+
+    assert isinstance(strategy.step(), Reset)
 
 def test_sat_solve_literal_frequency_tie_prefers_frequent_unknown_atom():
     weak = Extension(id = 'ex0', lit_idx = 0, clause_copy = [Literal('weak', [])])
@@ -1495,6 +1778,8 @@ def test_sat_solve_records_nonzero_atom_score():
         'SATSolve',
         'SATSolveGuided',
         'SATSolveLearnInitial',
+        'SATSolveLearnControl',
+        'SATSolveLearnCombined',
         'SATSolveLiteral',
         'SATSolveLiteralRandomTie',
         'SATSolveLiteralShortTie',

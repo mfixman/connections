@@ -1145,7 +1145,13 @@ from .sat_solve_guided import (  # noqa: E402,F401
     SATSolveGuidedProbeConflicts,
     SATSolveGuidedShort,
 )
-from .sat_solve_learn import SATSolveLearnInitial  # noqa: E402,F401
+from .sat_solve_learn import (  # noqa: E402,F401
+    SATSolveLearnCombined,
+    SATSolveLearnControl,
+    SATSolveLearnEval,
+    SATSolveLearnInitial,
+    SATSolveLearnTrain,
+)
 from .sat_solve_propagation import SATSolveLiteralPropagation, SATSolvePropagation  # noqa: E402,F401
 from .sat_solve_rust import SATCoPRust  # noqa: E402,F401
 from .sat_solve_start import (  # noqa: E402,F401
