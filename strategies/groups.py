@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Sequence
 
-import strategies.sat_solve as sat_solve_module
 from strategies.base import Strategy
 
 
@@ -14,16 +13,34 @@ STRATEGY_GROUPS: dict[str, tuple[str, ...]] = {
 
 
 def _sat_test_strategies() -> tuple[str, ...]:
-    return tuple(
-        cls.__name__
-        for cls in sat_solve_module.__dict__.values()
-        if (
-            isinstance(cls, type)
-            and cls.__module__ == sat_solve_module.__name__
-            and issubclass(cls, Strategy)
-            and not cls.__name__.startswith('_')
-        )
+    ordered_names = (
+        'SATSolve',
+        'SATCoPRust',
+        'SATSolveGuided',
+        'SATSolveGuidedProbeConflicts',
+        'SATSolveGuidedForcedTrue',
+        'SATSolveGuidedEVSIDS',
+        'SATSolveGuidedShort',
+        'SATSolveGuidedFast',
+        'SATSolveLiteral',
+        'SATSolveLiteralRandomTie',
+        'SATSolveLiteralShortTie',
+        'SATSolveLiteralLookaheadTie',
+        'SATSolveLearnInitial',
+        'SATSolveLiteralFrequencyTie',
+        'SATSolveLiteralLowFrequencyTie',
+        'SATSolveLiteralOppositeSignedFrequencyTie',
+        'SATSolveLiteralRareStart',
+        'SATSolveLiteralModelStart',
+        'SATSolveLiteralFirstStart',
+        'SATSolveLiteralFridayStartCut',
+        'SATSolveLiteralFridayRootReset',
+        'SATSolveLiteralFridayHybrid',
+        'SATSolvePropagation',
+        'SATSolveLiteralPropagation',
     )
+    available = Strategy.strategies()
+    return tuple(name for name in ordered_names if name in available)
 
 
 def strategy_groups() -> dict[str, tuple[str, ...]]:
