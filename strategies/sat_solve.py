@@ -271,14 +271,14 @@ class SATSolveLiteral(_SATScoreTracker, Strategy):
         elif isinstance(chosen, Extension):
             self._literal_chosen_extension += 1
 
-    def _choose_action(self, actions: list[ConnectionAction]) -> ConnectionAction | None:
+    def choose_action(self, actions: list[ConnectionAction]) -> ConnectionAction | None:
         return min(actions, key = self.score, default = None)
 
     def step(self):
         state = self.env.state
         actions = self.env.legal_actions()
         self._record_nonzero_atom_scores()
-        action = self._choose_action(actions)
+        action = self.choose_action(actions)
         self._record_literal_choice_diagnostics(actions, action)
 
         if isinstance(action, (Reduction, Extension)):

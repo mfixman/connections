@@ -63,9 +63,9 @@ class _GuidedExtensionChoice:
 
     def _extension_score(self, action: Extension) -> tuple[int, int, float, int]:
         signals = self._extension_signals(action)
-        return self._extension_signal_score(signals)
+        return self.extension_signal_score(signals)
 
-    def _extension_signal_score(self, signals: _ExtensionSignals) -> tuple[int, int, float, int]:
+    def extension_signal_score(self, signals: _ExtensionSignals) -> tuple[int, int, float, int]:
         return (
             signals.probe_conflicts,
             signals.forced_true,
@@ -177,7 +177,7 @@ class SATSolveGuidedProbeConflicts(SATSolveGuided):
     _use_forced_true = False
     _use_evsids = False
 
-    def _extension_signal_score(self, signals: _ExtensionSignals) -> tuple[int]:
+    def extension_signal_score(self, signals: _ExtensionSignals) -> tuple[int]:
         return (signals.probe_conflicts,)
 
 
@@ -187,7 +187,7 @@ class SATSolveGuidedForcedTrue(SATSolveGuided):
     _use_probe_conflicts = False
     _use_evsids = False
 
-    def _extension_signal_score(self, signals: _ExtensionSignals) -> tuple[int]:
+    def extension_signal_score(self, signals: _ExtensionSignals) -> tuple[int]:
         return (signals.forced_true,)
 
 
@@ -197,7 +197,7 @@ class SATSolveGuidedEVSIDS(SATSolveGuided):
     _use_probe_conflicts = False
     _use_forced_true = False
 
-    def _extension_signal_score(self, signals: _ExtensionSignals) -> tuple[float]:
+    def extension_signal_score(self, signals: _ExtensionSignals) -> tuple[float]:
         return (signals.evsids,)
 
 
@@ -208,7 +208,7 @@ class SATSolveGuidedShort(SATSolveGuided):
     _use_forced_true = False
     _use_evsids = False
 
-    def _extension_signal_score(self, signals: _ExtensionSignals) -> tuple[int]:
+    def extension_signal_score(self, signals: _ExtensionSignals) -> tuple[int]:
         return (-signals.subgoal_count,)
 
 
@@ -217,5 +217,5 @@ class SATSolveGuidedFast(SATSolveGuided):
 
     _use_probe_conflicts = False
 
-    def _extension_signal_score(self, signals: _ExtensionSignals) -> tuple[int, float, int]:
+    def extension_signal_score(self, signals: _ExtensionSignals) -> tuple[int, float, int]:
         return (signals.forced_true, signals.evsids, -signals.subgoal_count)

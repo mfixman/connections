@@ -32,7 +32,7 @@ class _SATSolveLiteralTieMixin:
 class SATSolveLiteralRandomTie(_SATSolveLiteralTieMixin, SATSolveLiteral):
     """SATSolveLiteral, but choose randomly among actions tied on model value."""
 
-    def _choose_action(self, actions: list[ConnectionAction]) -> ConnectionAction | None:
+    def choose_action(self, actions: list[ConnectionAction]) -> ConnectionAction | None:
         tied = self._best_score_tied_actions(actions)
         if not tied:
             return None
@@ -44,7 +44,7 @@ class SATSolveLiteralRandomTie(_SATSolveLiteralTieMixin, SATSolveLiteral):
 class SATSolveLiteralShortTie(_SATSolveLiteralTieMixin, SATSolveLiteral):
     """SATSolveLiteral with reduction/short-extension tie-breaking."""
 
-    def _choose_action(self, actions: list[ConnectionAction]) -> ConnectionAction | None:
+    def choose_action(self, actions: list[ConnectionAction]) -> ConnectionAction | None:
         tied = self._best_score_tied_actions(actions)
         return min(tied, key = self._connection_tie_key, default = None)
 
@@ -58,7 +58,7 @@ class SATSolveLiteralLookaheadTie(_SATSolveLiteralTieMixin, SATSolveLiteral):
     selection.
     """
 
-    def _choose_action(self, actions: list[ConnectionAction]) -> ConnectionAction | None:
+    def choose_action(self, actions: list[ConnectionAction]) -> ConnectionAction | None:
         tied = self._best_score_tied_actions(actions)
         if not tied:
             return None
@@ -221,7 +221,7 @@ class SATSolveLiteralFrequencyTie(_SATSolveLiteralFrequencyTieMixin, SATSolveLit
         super().__init__(env)
         self._init_frequency_tie_breaker()
 
-    def _choose_action(self, actions: list[ConnectionAction]) -> ConnectionAction | None:
+    def choose_action(self, actions: list[ConnectionAction]) -> ConnectionAction | None:
         tied = self._best_score_tied_actions(actions)
         if not tied:
             return None

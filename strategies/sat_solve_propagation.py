@@ -232,7 +232,7 @@ class SATSolvePropagation(_SATSolvePropagationMixin, SATSolveLiteral):
         super().__init__(env)
         self._init_propagation_probe()
 
-    def _choose_action(self, actions: list[ConnectionAction]) -> ConnectionAction | None:
+    def choose_action(self, actions: list[ConnectionAction]) -> ConnectionAction | None:
         starts = [action for action in actions if isinstance(action, Start)]
         if starts:
             return starts[0]
@@ -253,6 +253,6 @@ class SATSolveLiteralPropagation(_SATSolvePropagationMixin, SATSolveLiteral):
         super().__init__(env)
         self._init_propagation_probe()
 
-    def _choose_action(self, actions: list[ConnectionAction]) -> ConnectionAction | None:
+    def choose_action(self, actions: list[ConnectionAction]) -> ConnectionAction | None:
         tied = self._best_score_tied_actions(actions)
         return self._choose_by_propagation(tied)

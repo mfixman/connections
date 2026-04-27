@@ -278,7 +278,7 @@ class SATSolveLearnInitial(_SATSolveLiteralTieMixin, SATSolveLiteral):
             )
         return '; '.join(parts) if parts else None
 
-    def _choose_action(self, actions: list[ConnectionAction]) -> ConnectionAction | None:
+    def choose_action(self, actions: list[ConnectionAction]) -> ConnectionAction | None:
         tied = self._best_score_tied_actions(actions)
         if not tied:
             return None

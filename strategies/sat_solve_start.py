@@ -160,11 +160,11 @@ class _SATSolveLiteralStartMixin:
             self._start_changed_default += 1
         return chosen
 
-    def _choose_action(self, actions: list[ConnectionAction]) -> ConnectionAction | None:
+    def choose_action(self, actions: list[ConnectionAction]) -> ConnectionAction | None:
         starts = [action for action in actions if isinstance(action, Start)]
         if len(starts) > 1 and min(self.score(action) for action in actions) == self.score(starts[0]):
             return self._choose_start_clause(starts)
-        return super()._choose_action(actions)
+        return super().choose_action(actions)
 
     def final_info(self) -> str | None:
         parts = []
@@ -267,7 +267,7 @@ class SATSolveLiteralFirstStart(_SATSolveLiteralStartMixin, SATSolveLiteral):
             expected = self._fresh_start_count
         return len(starts) == expected
 
-    def _choose_action(self, actions: list[ConnectionAction]) -> ConnectionAction | None:
+    def choose_action(self, actions: list[ConnectionAction]) -> ConnectionAction | None:
         if not actions:
             return None
 
@@ -280,7 +280,7 @@ class SATSolveLiteralFirstStart(_SATSolveLiteralStartMixin, SATSolveLiteral):
         ):
             return self._choose_start_clause(starts[:self._start_candidate_limit])
 
-        return SATSolveLiteral._choose_action(self, actions)
+        return SATSolveLiteral.choose_action(self, actions)
 
 
 class _SATSolveLiteralFridayMixin(_SATSolveLiteralStartMixin):
@@ -426,7 +426,7 @@ class _SATSolveLiteralFridayMixin(_SATSolveLiteralStartMixin):
         self._friday_root_clause_count = clause_count
         return Reset(id = 'rs', depth = state.max_depth + 1, reason = 'friday root stagnation')
 
-    def _choose_action(self, actions: list[ConnectionAction]) -> ConnectionAction | None:
+    def choose_action(self, actions: list[ConnectionAction]) -> ConnectionAction | None:
         if not actions:
             return None
 
@@ -446,7 +446,7 @@ class _SATSolveLiteralFridayMixin(_SATSolveLiteralStartMixin):
                 and best_score == self.score(starts[0])
             ):
                 if self._friday_use_first_start and not self._is_fresh_root_start_list(starts):
-                    return SATSolveLiteral._choose_action(self, actions)
+                    return SATSolveLiteral.choose_action(self, actions)
 
                 candidates = starts[:self._start_candidate_limit] if self._friday_use_first_start else starts
                 chosen, confident = self._choose_start_clause_with_confidence(candidates)
@@ -456,7 +456,7 @@ class _SATSolveLiteralFridayMixin(_SATSolveLiteralStartMixin):
                         self._friday_committed_depth = state.max_depth
                     return chosen
 
-        return SATSolveLiteral._choose_action(self, actions)
+        return SATSolveLiteral.choose_action(self, actions)
 
     def final_info(self) -> str | None:
         parts = []
