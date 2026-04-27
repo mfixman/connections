@@ -468,7 +468,7 @@ def test_satcop_rust_prefers_start_at_root_and_syncs_shadow():
     assert strategy.step() is start
     assert calls == ['flush', 'solve']
 
-def test_satcop_rust_prefers_reduction_before_extension_without_cut():
+def test_satcop_rust_prefers_reduction_before_extension_with_cut():
     reduction = Reduction(id = 're0', path_lit = Literal('p', []))
     extension = Extension(id = 'ex0', lit_idx = 0, clause_copy = [Literal('q', []), Literal('r', [])])
 
@@ -486,7 +486,7 @@ def test_satcop_rust_prefers_reduction_before_extension_without_cut():
     action = strategy.step()
 
     assert action is reduction
-    assert action.cut is False
+    assert action.cut is True
 
 def test_satcop_rust_reorders_true_promises_first_inside_extension():
     head = Literal('head', [])
@@ -515,7 +515,7 @@ def test_satcop_rust_reorders_true_promises_first_inside_extension():
     action = strategy.step()
 
     assert action is extension
-    assert action.cut is False
+    assert action.cut is True
     assert action.lit_idx == 0
     assert [literal.symbol for literal in action.clause_copy] == ['head', 'promising', 'unknown']
 
