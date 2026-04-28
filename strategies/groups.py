@@ -29,6 +29,7 @@ def _sat_test_strategies() -> tuple[str, ...]:
         'SATSolveLearnInitial',
         'SATSolveLearnControl',
         'SATSolveLearnCombined',
+        'SATSolveLearnSATContext',
         'SATSolveLiteralFrequencyTie',
         'SATSolveLiteralLowFrequencyTie',
         'SATSolveLiteralOppositeSignedFrequencyTie',

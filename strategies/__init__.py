@@ -1150,6 +1150,7 @@ from .sat_solve_learn import (  # noqa: E402,F401
     SATSolveLearnControl,
     SATSolveLearnEval,
     SATSolveLearnInitial,
+    SATSolveLearnSATContext,
     SATSolveLearnTrain,
 )
 from .sat_solve_propagation import SATSolveLiteralPropagation, SATSolvePropagation  # noqa: E402,F401

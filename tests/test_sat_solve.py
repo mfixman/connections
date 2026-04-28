@@ -51,6 +51,7 @@ def test_sat_solve_is_registered():
     assert 'SATSolveLearnEval' in Strategy.strategies()
     assert 'SATSolveLearnControl' in Strategy.strategies()
     assert 'SATSolveLearnCombined' in Strategy.strategies()
+    assert 'SATSolveLearnSATContext' in Strategy.strategies()
     assert 'SATSolveLiteral' in Strategy.strategies()
     assert 'SATSolveLiteralRandomTie' in Strategy.strategies()
     assert 'SATSolveLiteralShortTie' in Strategy.strategies()
@@ -1197,6 +1198,108 @@ def test_sat_solve_learn_combined_uses_control_bandit():
     strategy._control_rewards['shadow_stagnant']['reset'] = 5.0
 
     assert isinstance(strategy.step(), Reset)
+
+def test_sat_solve_learn_sat_context_uses_sat_aware_forward_context():
+    weak = Extension(
+        id = 'ex0',
+        lit_idx = 0,
+        clause_copy = [Literal('head', []), Literal('open', [])],
+    )
+    strong = Extension(
+        id = 'ex1',
+        lit_idx = 0,
+        clause_copy = [Literal('head', []), Literal('close', [])],
+    )
+
+    class FakeSolver:
+        def score(self, atom_id):
+            return {1: 0.0, 2: 0.0, 3: 4.5}.get(atom_id, 0.0)
+
+        def lookahead(self):
+            return 3
+
+    goal = SimpleNamespace(parent = object(), depth = 4, path = lambda: [Literal('path', [])])
+    state = SimpleNamespace(
+        goal = goal,
+        max_depth = 4,
+        shadow = SimpleNamespace(
+            new_ground_clauses = set(),
+            ground_clauses = {(2,), (2, 3), (3, 4)},
+            atom_map = {'head': 1, 'open': 2, 'close': 3},
+            solver = FakeSolver(),
+            model = {},
+        ),
+        substitution = Substitution(),
+        sat_literal_value = lambda literal: None,
+        _atom_key = lambda literal: literal.symbol,
+        _flush_new_ground_clauses = lambda: None,
+        _solve_ground_clauses = lambda: None,
+        proof_sequence = [],
+        is_terminal = False,
+        info = None,
+    )
+    state.enable_paper_mode = lambda enabled = True: setattr(state, 'paper_mode', enabled)
+    env = SimpleNamespace(legal_actions = lambda: [weak, strong], state = state)
+    strategy = Strategy.strategies()['SATSolveLearnSATContext'](env)
+
+    strategy._forward_explore = False
+    for context in strategy._forward_contexts:
+        for arm in strategy._forward_arms:
+            strategy._forward_pulls[context][arm] = 3
+
+    target = 'extensions_only|lookahead_hit|evsids'
+    strategy._forward_rewards[target]['default'] = 0.0
+    strategy._forward_rewards[target]['short'] = 0.0
+    strategy._forward_rewards[target]['lookahead'] = 6.0
+    strategy._forward_rewards[target]['whole'] = 1.0
+
+    assert strategy.step() is strong
+    assert 'learn=schema:sat_solve_learn_sat_context_forward_bandit/v1' in strategy.final_info()
+
+def test_sat_solve_learn_sat_context_uses_sat_aware_control_context():
+    class FakeSolver:
+        def score(self, atom_id):
+            return 0.0
+
+    goal_parent = SimpleNamespace(parent = object())
+    env = SimpleNamespace(
+        legal_actions = lambda: [Backtrack(id = 'bt'), Reset(id = 'rs', depth = 5)],
+        state = SimpleNamespace(
+            goal = SimpleNamespace(parent = goal_parent),
+            max_depth = 4,
+            shadow = SimpleNamespace(
+                new_ground_clauses = set(),
+                atom_map = {},
+                solver = FakeSolver(),
+                ground_clauses = set(),
+                model = {1: True},
+            ),
+            sat_literal_value = lambda literal: None,
+            _flush_new_ground_clauses = lambda: None,
+            _solve_ground_clauses = lambda: None,
+            proof_sequence = [],
+            is_terminal = False,
+            info = None,
+        ),
+    )
+    env.state.enable_paper_mode = lambda enabled = True: setattr(env.state, 'paper_mode', enabled)
+    strategy = Strategy.strategies()['SATSolveLearnSATContext'](env)
+    strategy._sat_nonzero_atom_score = 1.0
+
+    strategy._control_explore = False if hasattr(strategy, '_control_explore') else False
+    for context in strategy._control_contexts:
+        for arm in strategy._control_arms:
+            strategy._control_pulls[context][arm] = 4
+
+    target = 'shadow_stagnant|model|scored'
+    strategy._control_rewards[target]['bt1'] = 1.0
+    strategy._control_rewards[target]['bt2'] = 2.0
+    strategy._control_rewards[target]['reset'] = 5.0
+
+    action = strategy.step()
+    assert isinstance(action, Reset)
+    assert action.depth == 5
+    assert 'control=schema:sat_solve_learn_sat_context_control_bandit/v1' in strategy.final_info()
 
 def test_sat_solve_literal_frequency_tie_prefers_frequent_unknown_atom():
     weak = Extension(id = 'ex0', lit_idx = 0, clause_copy = [Literal('weak', [])])

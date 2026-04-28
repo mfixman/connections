@@ -352,6 +352,15 @@ class _ForwardBanditMixin(_BanditTableMixin):
             return 'with_reduction'
         return 'extensions_only'
 
+    def _forward_context_from_features(
+        self,
+        tied: list[ConnectionAction],
+        features_by_id: dict[str, dict],
+        lookahead_lit: int | None,
+    ) -> str:
+        del features_by_id, lookahead_lit
+        return self._forward_context(tied)
+
     def _forward_bandit_score(self, context: str, arm: str) -> float:
         count = self._forward_total_pulls(context, arm)
         reward = self._forward_total_reward(context, arm)
@@ -477,12 +486,12 @@ class _ForwardBanditMixin(_BanditTableMixin):
         if not tied:
             return None
 
-        context = self._forward_context(tied)
         lookahead_lit = self._lookahead_literal()
         features_by_id = {
             action.id: self._action_feature_row(action, lookahead_lit)
             for action in tied
         }
+        context = self._forward_context_from_features(tied, features_by_id, lookahead_lit)
         arm_choices = self._forward_arm_action_choices(tied, features_by_id, lookahead_lit)
         arm_scores = {
             arm: self._forward_bandit_score(context, arm)
@@ -531,16 +540,29 @@ class _ForwardBanditMixin(_BanditTableMixin):
         return self._choose_forward_tie(tied)
 
     def _forward_context_summary(self, context: str) -> str:
+        total = sum(self._forward_pulls[context].values())
         arm_parts = []
         for arm in self._forward_arms:
             pulls = self._forward_pulls[context][arm]
             mean = self._forward_rewards[context][arm] / pulls if pulls else 0.0
             arm_parts.append(f'{self._forward_arm_alias[arm]}:{pulls}/{mean:.2f}')
-        return f'{self._forward_context_alias[context]}[{",".join(arm_parts)}]'
+        return f'{self._forward_context_alias[context]}:{total}[{",".join(arm_parts)}]'
+
+    def _forward_nonzero_contexts(self) -> list[str]:
+        return [
+            context
+            for context in self._forward_contexts
+            if sum(self._forward_pulls[context].values()) > 0
+        ]
 
     def _forward_final_info_piece(self) -> str | None:
         if not self._forward_decisions:
             return None
+        used_contexts = self._forward_nonzero_contexts()
+        context_summary = ','.join(
+            self._forward_context_summary(context)
+            for context in used_contexts
+        )
         return (
             'learn='
             f'schema:{self._learn_schema},'
@@ -548,10 +570,10 @@ class _ForwardBanditMixin(_BanditTableMixin):
             f'updates:{self._forward_updates},'
             f'agreed_default:{self._forward_agreed_default},'
             f'changed_default:{self._forward_changed_default},'
+            f'used_contexts:{len(used_contexts)},'
             f'row_samples:{len(self._learn_rows)},'
             f'rows_dumped:{self._learn_rows_dumped},'
-            f'{self._forward_context_summary("with_reduction")},'
-            f'{self._forward_context_summary("extensions_only")}'
+            f'{context_summary}'
         )
 
 
@@ -671,16 +693,29 @@ class _ControlBanditMixin(_BanditTableMixin):
         return chosen
 
     def _control_context_summary(self, context: str) -> str:
+        total = sum(self._control_pulls[context].values())
         arm_parts = []
         for arm in self._control_arms:
             pulls = self._control_pulls[context][arm]
             mean = self._control_rewards[context][arm] / pulls if pulls else 0.0
             arm_parts.append(f'{self._control_arm_alias[arm]}:{pulls}/{mean:.2f}')
-        return f'{self._control_context_alias[context]}[{",".join(arm_parts)}]'
+        return f'{self._control_context_alias[context]}:{total}[{",".join(arm_parts)}]'
+
+    def _control_nonzero_contexts(self) -> list[str]:
+        return [
+            context
+            for context in self._control_contexts
+            if sum(self._control_pulls[context].values()) > 0
+        ]
 
     def _control_final_info_piece(self) -> str | None:
         if not self._control_decisions:
             return None
+        used_contexts = self._control_nonzero_contexts()
+        context_summary = ','.join(
+            self._control_context_summary(context)
+            for context in used_contexts
+        )
         return (
             'control='
             f'schema:{self._control_schema},'
@@ -688,8 +723,8 @@ class _ControlBanditMixin(_BanditTableMixin):
             f'updates:{self._control_updates},'
             f'agreed_default:{self._control_agreed_default},'
             f'changed_default:{self._control_changed_default},'
-            f'{self._control_context_summary("shadow_growing")},'
-            f'{self._control_context_summary("shadow_stagnant")}'
+            f'used_contexts:{len(used_contexts)},'
+            f'{context_summary}'
         )
 
 
@@ -881,3 +916,102 @@ class SATSolveLearnCombined(_ControlBanditMixin, SATSolveLearnInitial):
         if control_info is not None:
             parts.append(control_info)
         return '; '.join(parts) if parts else None
+
+
+class SATSolveLearnSATContext(SATSolveLearnCombined):
+    """SATSolveLearnCombined with richer SAT-aware bandit contexts.
+
+    This keeps the same forward and control arms as ``SATSolveLearnCombined``,
+    but replaces the coarse contexts with SAT-shadow summaries:
+
+    - Forward unknown-tie contexts add:
+      - whether any tied action matches CaDiCaL's lookahead variable;
+      - whether any tied action has non-zero EVSIDS score.
+    - Control dead-end contexts add:
+      - whether a SAT model is currently available;
+      - whether the solver has exposed any non-zero atom score so far.
+
+    The goal is to let the bandit separate regimes where SAT-side guidance is
+    likely to be informative from those where the shadow carries little signal.
+    """
+
+    _learn_schema = 'sat_solve_learn_sat_context_forward_bandit/v1'
+    _control_schema = 'sat_solve_learn_sat_context_control_bandit/v1'
+
+    _forward_contexts = tuple(
+        f'{base}|{lookahead}|{score}'
+        for base in ('with_reduction', 'extensions_only')
+        for lookahead in ('lookahead_hit', 'no_lookahead_hit')
+        for score in ('evsids', 'flat')
+    )
+    _forward_context_alias = {
+        f'{base}|{lookahead}|{score}': (
+            f'{"mix" if base == "with_reduction" else "ext"}'
+            f'/{ "lh" if lookahead == "lookahead_hit" else "nlh"}'
+            f'/{ "ev" if score == "evsids" else "fl"}'
+        )
+        for base in ('with_reduction', 'extensions_only')
+        for lookahead in ('lookahead_hit', 'no_lookahead_hit')
+        for score in ('evsids', 'flat')
+    }
+    _forward_prior_reward_mass = {
+        f'{base}|{lookahead}|{score}': dict(
+            _ForwardBanditMixin._forward_prior_reward_mass[base],
+        )
+        for base in ('with_reduction', 'extensions_only')
+        for lookahead in ('lookahead_hit', 'no_lookahead_hit')
+        for score in ('evsids', 'flat')
+    }
+
+    _control_contexts = tuple(
+        f'{growth}|{model}|{score}'
+        for growth in ('shadow_growing', 'shadow_stagnant')
+        for model in ('model', 'nomodel')
+        for score in ('scored', 'flat')
+    )
+    _control_context_alias = {
+        f'{growth}|{model}|{score}': (
+            f'{"grow" if growth == "shadow_growing" else "stall"}'
+            f'/{ "mdl" if model == "model" else "nmdl"}'
+            f'/{ "sc" if score == "scored" else "fl"}'
+        )
+        for growth in ('shadow_growing', 'shadow_stagnant')
+        for model in ('model', 'nomodel')
+        for score in ('scored', 'flat')
+    }
+    _control_prior_reward_mass = {
+        f'{growth}|{model}|{score}': dict(
+            _ControlBanditMixin._control_prior_reward_mass[growth],
+        )
+        for growth in ('shadow_growing', 'shadow_stagnant')
+        for model in ('model', 'nomodel')
+        for score in ('scored', 'flat')
+    }
+
+    def _forward_context_from_features(
+        self,
+        tied: list[ConnectionAction],
+        features_by_id: dict[str, dict],
+        lookahead_lit: int | None,
+    ) -> str:
+        base = super()._forward_context(tied)
+        del lookahead_lit
+
+        lookahead_bucket = 'no_lookahead_hit'
+        if any(
+            features['lookahead_exact'] or features['lookahead_variable']
+            for features in features_by_id.values()
+        ):
+            lookahead_bucket = 'lookahead_hit'
+
+        score_bucket = 'flat'
+        if any(features['selected_evsids'] > 0 for features in features_by_id.values()):
+            score_bucket = 'evsids'
+
+        return f'{base}|{lookahead_bucket}|{score_bucket}'
+
+    def _control_context(self) -> str:
+        base = super()._control_context()
+        model_bucket = 'model' if getattr(self.env.state.shadow, 'model', {}) else 'nomodel'
+        score_bucket = 'scored' if getattr(self, '_sat_nonzero_atom_score', None) not in (None, 0) else 'flat'
+        return f'{base}|{model_bucket}|{score_bucket}'
