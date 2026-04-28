@@ -805,8 +805,11 @@ class SATSolveLearnSATContext(SATSolveLearnCombined):
 
         return f'{base}|{lookahead_bucket}|{score_bucket}'
 
-    def _control_context(self) -> str:
-        base = super()._control_context()
+    def control_context(self) -> str:
+        base = super().control_context()
         model_bucket = 'model' if getattr(self.env.state.shadow, 'model', {}) else 'nomodel'
         score_bucket = 'scored' if getattr(self, '_sat_nonzero_atom_score', None) not in (None, 0) else 'flat'
         return f'{base}|{model_bucket}|{score_bucket}'
+
+    def _control_context(self) -> str:
+        return self.control_context()

@@ -17,19 +17,38 @@ from .sat_solve import SATSolveLiteral
 
 
 class _BanditTableMixin:
-    def _zero_bandit_table(self, contexts: tuple[str, ...], arms: tuple[str, ...], value):
+    """Allocate small ``context -> arm -> value`` tables for bandit state.
+
+    The reset learners keep a few pull/reward counters indexed by a tiny
+    discrete context space.  This mixin centralises the bookkeeping shape so
+    both the reset bandit and the older learning strategies can build the same
+    kind of table without duplicating loops.
+    """
+
+    def zero_bandit_table(self, contexts: tuple[str, ...], arms: tuple[str, ...], value):
         return {
             context: {arm: value() for arm in arms}
             for context in contexts
         }
 
+    # Compatibility shim for older mixins that still call the underscored name.
+    def _zero_bandit_table(self, contexts: tuple[str, ...], arms: tuple[str, ...], value):
+        return self.zero_bandit_table(contexts, arms, value)
+
 
 class _ResetStatsMixin:
-    """Compact per-run reset diagnostics for CSV inspection."""
+    """Record how a reset-style policy spent its search budget.
+
+    These strategies are interesting primarily because of *when* they reset,
+    how long they search between resets, and whether they are harvesting new
+    shadow clauses or just thrashing.  This mixin turns that information into a
+    compact ``reset=...`` summary suitable for CSV output, so later experiment
+    analysis can compare policies without replaying traces.
+    """
 
     def _init_reset_stats(self) -> None:
         self._reset_policy = self.__class__.__name__
-        self._reset_forward_cuts = bool(self._forward_cuts_enabled())
+        self._reset_forward_cuts = bool(self.forward_cuts_enabled())
 
         self._reset_starts = 0
         self._reset_reductions = 0
@@ -162,7 +181,20 @@ class _ResetStatsMixin:
 
 
 class _SATResetBase(_ResetStatsMixin, SATSolveLiteral):
-    """Shared step loop for reset-oriented SAT strategies."""
+    """Common SAT-reset control loop layered on top of ``SATSolveLiteral``.
+
+    All concrete strategies here keep the same forward ranking as
+    ``SATSolveLiteral``: when a ``Start``, ``Reduction``, or ``Extension`` is
+    available, the chosen forward action is still the one preferred by the SAT
+    model.  The variation point is what happens around resets:
+
+    - subclasses can decide whether forward cuts stay on;
+    - subclasses can trigger a proactive same-depth reset before a dead end;
+    - subclasses can override the dead-end action selection policy.
+
+    This keeps the reset experiments comparable: they differ in reset control,
+    not in the literal-ordering baseline.
+    """
 
     _forward_cuts = True
 
@@ -170,22 +202,22 @@ class _SATResetBase(_ResetStatsMixin, SATSolveLiteral):
         super().__init__(env)
         self._init_reset_stats()
 
-    def _forward_cuts_enabled(self) -> bool:
+    def forward_cuts_enabled(self) -> bool:
         return self._forward_cuts
 
-    def _before_step(self, actions: list[ConnectionAction]) -> None:
+    def before_step(self, actions: list[ConnectionAction]) -> None:
         del actions
 
-    def _same_depth_reset(self, reason: str) -> Reset:
+    def same_depth_reset(self, reason: str) -> Reset:
         return Reset(id = 'rs', depth = self.env.state.max_depth, reason = reason)
 
-    def _copy_reset(self, action: Reset, reason: str) -> Reset:
+    def copy_reset(self, action: Reset, reason: str) -> Reset:
         return Reset(id = action.id, depth = action.depth, reason = reason)
 
-    def _available_reset(self, actions: list[ConnectionAction]) -> Reset | None:
+    def available_reset(self, actions: list[ConnectionAction]) -> Reset | None:
         return next((action for action in actions if isinstance(action, Reset)), None)
 
-    def _proactive_reset(
+    def proactive_reset(
         self,
         actions: list[ConnectionAction],
         chosen: ConnectionAction | None,
@@ -193,30 +225,30 @@ class _SATResetBase(_ResetStatsMixin, SATSolveLiteral):
         del actions, chosen
         return None
 
-    def _dead_end_action(self, actions: list[ConnectionAction]) -> ConnectionAction:
+    def dead_end_action(self, actions: list[ConnectionAction]) -> ConnectionAction:
         if action := next((candidate for candidate in actions if isinstance(candidate, Backtrack)), None):
             return action
-        if action := self._available_reset(actions):
-            return self._copy_reset(action, 'dead_reset')
+        if action := self.available_reset(actions):
+            return self.copy_reset(action, 'dead_reset')
         raise LookupError('expected Backtrack or Reset action')
 
     def step(self):
         actions = self.env.legal_actions()
-        self._before_step(actions)
+        self.before_step(actions)
         self._record_nonzero_atom_scores()
         action = self.choose_action(actions)
         self._record_literal_choice_diagnostics(actions, action)
 
-        if reset := self._proactive_reset(actions, action):
+        if reset := self.proactive_reset(actions, action):
             return self._record_emitted_action(reset)
 
-        if isinstance(action, (Reduction, Extension)) and self._forward_cuts_enabled():
+        if isinstance(action, (Reduction, Extension)) and self.forward_cuts_enabled():
             action.cut = True
 
         if isinstance(action, (Start, Reduction, Extension)):
             return self._record_emitted_action(action)
 
-        return self._record_emitted_action(self._dead_end_action(actions))
+        return self._record_emitted_action(self.dead_end_action(actions))
 
     def final_info(self) -> str | None:
         parts = []
@@ -228,7 +260,19 @@ class _SATResetBase(_ResetStatsMixin, SATSolveLiteral):
 
 
 class _ControlBanditMixin(_BanditTableMixin):
-    """Bandit over backtrack / small backjump / reset control actions."""
+    """Online control learner for dead-end actions.
+
+    When no forward step is available, the policy has to decide whether to:
+
+    - backtrack one level,
+    - backtrack two levels, or
+    - reset.
+
+    This mixin runs a tiny UCB bandit over those three arms.  The context is
+    deliberately coarse: it only distinguishes whether the shadow CNF is still
+    growing.  Reward is also coarse: a control choice is rewarded if it leads
+    to a theorem or to more grounded shadow clauses before the next stall.
+    """
 
     _control_schema = 'sat_solve_learn_control_bandit/v1'
     _control_arms = ('bt1', 'bt2', 'reset')
@@ -242,19 +286,27 @@ class _ControlBanditMixin(_BanditTableMixin):
     _control_arm_alias = {'bt1': 'b1', 'bt2': 'b2', 'reset': 'rs'}
     _control_context_alias = {'shadow_growing': 'grow', 'shadow_stagnant': 'stall'}
 
-    def _init_control_bandit(self) -> None:
-        self._control_pulls = self._zero_bandit_table(self._control_contexts, self._control_arms, int)
-        self._control_rewards = self._zero_bandit_table(self._control_contexts, self._control_arms, float)
+    def init_control_bandit(self) -> None:
+        self._control_pulls = self.zero_bandit_table(self._control_contexts, self._control_arms, int)
+        self._control_rewards = self.zero_bandit_table(self._control_contexts, self._control_arms, float)
         self._control_decisions = 0
         self._control_updates = 0
         self._control_agreed_default = 0
         self._control_changed_default = 0
         self._control_open = None
 
-    def _control_context(self) -> str:
+    # Compatibility shim for older callers in sat_solve_learn.py.
+    def _init_control_bandit(self) -> None:
+        self.init_control_bandit()
+
+    def control_context(self) -> str:
         if getattr(self.env.state.shadow, 'new_ground_clauses', ()):
             return 'shadow_growing'
         return 'shadow_stagnant'
+
+    # Compatibility shim for older overrides in sat_solve_learn.py.
+    def _control_context(self) -> str:
+        return self.control_context()
 
     def _control_score(self, context: str, arm: str) -> float:
         count = self._control_prior_count + self._control_pulls[context][arm]
@@ -294,7 +346,7 @@ class _ControlBanditMixin(_BanditTableMixin):
         self._control_updates += 1
         self._control_open = None
 
-    def _settle_control_feedback(self, actions: list[ConnectionAction], force: bool = False) -> None:
+    def settle_control_feedback(self, actions: list[ConnectionAction], force: bool = False) -> None:
         if self._control_open is None:
             return
 
@@ -314,14 +366,18 @@ class _ControlBanditMixin(_BanditTableMixin):
         elif force or not forward_available:
             self._finalize_control_record(0.0, 'forced' if force else 'stalled', ground_gain)
 
-    def _choose_control_action(self, actions: list[ConnectionAction]) -> ConnectionAction | None:
+    # Compatibility shim for older callers in sat_solve_learn.py.
+    def _settle_control_feedback(self, actions: list[ConnectionAction], force: bool = False) -> None:
+        self.settle_control_feedback(actions, force = force)
+
+    def choose_control_action(self, actions: list[ConnectionAction]) -> ConnectionAction | None:
         choices = self._control_arm_choices(actions)
         if not choices:
             return None
         if len(choices) == 1:
             return next(iter(choices.values()))
 
-        context = self._control_context()
+        context = self.control_context()
         arm_scores = {
             arm: self._control_score(context, arm)
             for arm in choices
@@ -343,6 +399,10 @@ class _ControlBanditMixin(_BanditTableMixin):
         }
         return chosen
 
+    # Compatibility shim for older callers in sat_solve_learn.py.
+    def _choose_control_action(self, actions: list[ConnectionAction]) -> ConnectionAction | None:
+        return self.choose_control_action(actions)
+
     def _control_context_summary(self, context: str) -> str:
         total = sum(self._control_pulls[context].values())
         arm_parts = []
@@ -359,7 +419,7 @@ class _ControlBanditMixin(_BanditTableMixin):
             if sum(self._control_pulls[context].values()) > 0
         ]
 
-    def _control_final_info_piece(self) -> str | None:
+    def control_final_info_piece(self) -> str | None:
         if not self._control_decisions:
             return None
         used_contexts = self._control_nonzero_contexts()
@@ -378,108 +438,170 @@ class _ControlBanditMixin(_BanditTableMixin):
             f'{context_summary}'
         )
 
+    # Compatibility shim for older callers in sat_solve_learn.py.
+    def _control_final_info_piece(self) -> str | None:
+        return self.control_final_info_piece()
+
 
 class SATReset(_ControlBanditMixin, _SATResetBase):
-    """Rename of the learned reset controller discovered from experiments."""
+    """Adaptive reset controller discovered from the earlier learning run.
+
+    This is the renamed version of ``SATSolveLearnControl`` and should be
+    thought of as the new baseline reset policy.  It behaves as follows:
+
+    - forward steps are still chosen exactly like ``SATSolveLiteral``;
+    - at the root, if fresh shadow clauses exist, it immediately resets at the
+      same depth to exploit that growth;
+    - otherwise, at dead ends it uses the bandit from
+      ``_ControlBanditMixin`` to choose between ``Backtrack(1)``,
+      ``Backtrack(2)``, and ``Reset``.
+
+    The main idea is to learn whether clause-harvesting breadth or local
+    persistence is paying off on the current run, while keeping the overall
+    mechanism simple and fully online.
+    """
 
     def __init__(self, env):
         super().__init__(env)
-        self._init_control_bandit()
+        self.init_control_bandit()
 
-    def _before_step(self, actions: list[ConnectionAction]) -> None:
-        self._settle_control_feedback(actions)
+    def before_step(self, actions: list[ConnectionAction]) -> None:
+        self.settle_control_feedback(actions)
 
-    def _dead_end_action(self, actions: list[ConnectionAction]) -> ConnectionAction:
+    def dead_end_action(self, actions: list[ConnectionAction]) -> ConnectionAction:
         state = self.env.state
         if (
             state.goal.parent is None
             and any(isinstance(candidate, Reset) for candidate in actions)
             and state.shadow.new_ground_clauses
         ):
-            return self._same_depth_reset('root_shadow')
+            return self.same_depth_reset('root_shadow')
 
-        action = self._choose_control_action(actions)
+        action = self.choose_control_action(actions)
         if action is None:
             raise LookupError('expected Backtrack or Reset action')
         if isinstance(action, Reset):
-            return self._copy_reset(action, 'bandit_reset')
+            return self.copy_reset(action, 'bandit_reset')
         return action
 
     def final_info(self) -> str | None:
-        self._settle_control_feedback(self.env.legal_actions(), force = True)
+        self.settle_control_feedback(self.env.legal_actions(), force = True)
 
         parts = []
         base_info = _SATResetBase.final_info(self)
         if base_info is not None:
             parts.append(base_info)
-        control_info = self._control_final_info_piece()
+        control_info = self.control_final_info_piece()
         if control_info is not None:
             parts.append(control_info)
         return '; '.join(parts) if parts else None
 
 
 class SATSolveLearnControl(SATReset):
-    """Backward-compatible alias for the old strategy name."""
+    """Backward-compatible name for ``SATReset``.
+
+    The implementation is identical.  The alias exists so old scripts, CSVs,
+    and partial benchmark runs do not break when the policy is promoted from
+    “learning experiment” to “named reset strategy”.
+    """
 
 
 class SATResetNoCut(SATReset):
-    """SATReset with cuts disabled on reductions/extensions."""
+    """``SATReset`` without Prolog-style forward cuts.
+
+    The control logic is unchanged, including the same root-reset rule and the
+    same bandit over dead-end actions.  The only difference is that reductions
+    and extensions do not commit a cut, so the tableau is allowed to revisit
+    more local alternatives before reset or backtrack control takes over.
+
+    This is intentionally simple: it isolates the interaction between
+    reset-heavy control and restricted backtracking.
+    """
 
     _forward_cuts = False
 
 
 class SATResetShadow(_SATResetBase):
-    """Simple reset policy: keep restarting at the same depth while shadow grows."""
+    """Deterministic shadow-growth reset policy.
 
-    def _dead_end_action(self, actions: list[ConnectionAction]) -> ConnectionAction:
-        reset_action = self._available_reset(actions)
+    This is the simplest “SAT-resetmaxxing” baseline in the file.  It keeps the
+    ``SATSolveLiteral`` forward policy, but removes online learning entirely:
+
+    - if the shadow CNF has accumulated fresh grounded clauses, reset at the
+      same depth immediately;
+    - otherwise prefer ordinary ``Backtrack`` when available;
+    - only deepen via the calculus' ordinary ``Reset`` when there is nothing
+      else to do.
+
+    In effect it distils the strongest qualitative lesson from the learned
+    controller into a fixed rule.
+    """
+
+    def dead_end_action(self, actions: list[ConnectionAction]) -> ConnectionAction:
+        reset_action = self.available_reset(actions)
         if reset_action is not None and getattr(self.env.state.shadow, 'new_ground_clauses', ()):
-            return self._same_depth_reset('shadow_reset')
+            return self.same_depth_reset('shadow_reset')
 
         if action := next((candidate for candidate in actions if isinstance(candidate, Backtrack)), None):
             return action
 
         if reset_action is not None:
-            return self._copy_reset(reset_action, 'shadow_deepen')
+            return self.copy_reset(reset_action, 'shadow_deepen')
 
         raise LookupError('expected Backtrack or Reset action')
 
 
 class SATResetStepBudget(SATResetShadow):
-    """Same-depth reset after a bounded number of emitted steps."""
+    """Shadow-reset policy with a simple step-count restart trigger.
 
-    def _step_budget(self) -> int:
+    This inherits the deterministic shadow-growth policy, but also forces a
+    same-depth reset after a bounded number of emitted proof actions since the
+    last reset.  The budget is scaled by current depth so shallow iterations are
+    reset quickly while deeper ones get a slightly longer burst.
+
+    It is meant as a cheap analogue of “restart early and often”, without any
+    learning and without inspecting detailed SAT features.
+    """
+
+    def step_budget(self) -> int:
         return max(8, 2 * max(1, self.env.state.max_depth))
 
-    def _proactive_reset(
+    def proactive_reset(
         self,
         actions: list[ConnectionAction],
         chosen: ConnectionAction | None,
     ) -> Reset | None:
         if not isinstance(chosen, (Start, Reduction, Extension)):
             return None
-        if self._available_reset(actions) is None:
+        if self.available_reset(actions) is None:
             return None
-        if self._since_reset_steps < self._step_budget():
+        if self._since_reset_steps < self.step_budget():
             return None
-        return self._same_depth_reset('step_budget')
+        return self.same_depth_reset('step_budget')
 
 
 class SATResetExtensionBudget(SATResetShadow):
-    """Same-depth reset after a bounded number of extensions."""
+    """Shadow-reset policy with an extension-count restart trigger.
 
-    def _extension_budget(self) -> int:
+    Instead of counting all emitted steps, this variant counts only extensions.
+    The intent is to reset after harvesting a modest number of fresh clause
+    instances, regardless of how many reductions or backtracks happened around
+    them.  Like ``SATResetStepBudget``, the budget scales with current depth and
+    the reset stays at the same depth.
+    """
+
+    def extension_budget(self) -> int:
         return max(4, max(1, self.env.state.max_depth))
 
-    def _proactive_reset(
+    def proactive_reset(
         self,
         actions: list[ConnectionAction],
         chosen: ConnectionAction | None,
     ) -> Reset | None:
         if not isinstance(chosen, (Start, Reduction, Extension)):
             return None
-        if self._available_reset(actions) is None:
+        if self.available_reset(actions) is None:
             return None
-        if self._since_reset_extensions < self._extension_budget():
+        if self._since_reset_extensions < self.extension_budget():
             return None
-        return self._same_depth_reset('extension_budget')
+        return self.same_depth_reset('extension_budget')
