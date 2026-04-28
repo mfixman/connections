@@ -157,13 +157,9 @@ class TestPycopDebugOutput:
         assert result['steps'] == 1
 
 class TestPycopLogicSelection:
-    def test_default_logic_for_strategy_uses_classical_for_first_action(self):
-        assert pycop.default_logic_for_strategy('FirstAction') is Logic.Classical
-
-    def test_default_logic_for_strategy_uses_classical_cut_for_leancopcut(self):
-        assert pycop.default_logic_for_strategy('LeanCopCut') is Logic.ClassicalCut
-
-    def test_default_logic_for_strategy_uses_classical_sat_for_sat_solve(self):
+    def test_default_logic_for_strategy_uses_classical_sat(self):
+        assert pycop.default_logic_for_strategy('FirstAction') is Logic.ClassicalSAT
+        assert pycop.default_logic_for_strategy('LeanCopCut') is Logic.ClassicalSAT
         assert pycop.default_logic_for_strategy('SATSolve') is Logic.ClassicalSAT
         assert pycop.default_logic_for_strategy('SATSolveGuided') is Logic.ClassicalSAT
         assert pycop.default_logic_for_strategy('SATSolveGuidedFast') is Logic.ClassicalSAT
@@ -211,7 +207,7 @@ class TestPycopLogicSelection:
             ),
         )
 
-        assert seen['logic'] is Logic.ClassicalCut
+        assert seen['logic'] is Logic.ClassicalSAT
         assert result['info'] == 'Theorem'
 
     def test_run_problem_keeps_explicit_logic_override(self, monkeypatch):

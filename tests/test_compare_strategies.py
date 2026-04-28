@@ -207,11 +207,9 @@ class TestCompareStrategiesPartialReport:
         assert 'timeout=120s' in captured.err
 
 class TestCompareStrategiesLogicSelection:
-    def test_default_logic_is_classical_cut_for_non_sat_strategies(self):
-        assert compare_strategies.default_logic_for_strategy('FirstAction') is Logic.ClassicalCut
-        assert compare_strategies.default_logic_for_strategy('SmartCut') is Logic.ClassicalCut
-
-    def test_default_logic_is_classical_sat_for_sat_solve(self):
+    def test_default_logic_is_classical_sat_for_all_strategies(self):
+        assert compare_strategies.default_logic_for_strategy('FirstAction') is Logic.ClassicalSAT
+        assert compare_strategies.default_logic_for_strategy('SmartCut') is Logic.ClassicalSAT
         assert compare_strategies.default_logic_for_strategy('SATSolve') is Logic.ClassicalSAT
         assert compare_strategies.default_logic_for_strategy('SATSolveGuided') is Logic.ClassicalSAT
         assert compare_strategies.default_logic_for_strategy('SATSolveGuidedFast') is Logic.ClassicalSAT

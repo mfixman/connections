@@ -17,11 +17,7 @@ from pathlib import Path
 from strategies import *
 
 def default_logic_for_strategy(strategy_name: str) -> Logic:
-    if strategy_name.startswith('SATSolve') or strategy_name == 'SATCoPRust':
-        return Logic.ClassicalSAT
-    if strategy_name == 'FirstAction':
-        return Logic.Classical
-    return Logic.ClassicalCut
+    return Logic.ClassicalSAT
 
 def resolve_logic_for_strategy(strategy_name: str, logic_override: Logic | None) -> Logic:
     if logic_override is not None:
