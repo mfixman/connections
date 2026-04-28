@@ -246,7 +246,8 @@ def test_missing_cadical_disables_sat_backend(monkeypatch):
     with pytest.raises(ModuleNotFoundError):
         state._require_sat_backend()
 
-def test_unsat_shadow_records_current_ground_clauses_for_reporting():
+@pytest.mark.skipif(pydical is None, reason = 'pydical is not installed')
+def test_unsat_shadow_shrinks_debug_reporting_to_irreducible_subset():
     state = object.__new__(SATConnectionState)
     state.settings = SimpleNamespace(debug = True)
     state.shadow = ShadowSAT(
@@ -263,10 +264,10 @@ def test_unsat_shadow_records_current_ground_clauses_for_reporting():
     state._solve_ground_clauses()
 
     assert state.shadow.satisfiable is False
-    assert set(state.shadow.unsat_core) == {(1,), (-1,), (2, 3)}
+    assert set(state.shadow.unsat_core) == {(1,), (-1,)}
     done, info = state.initial_status()
     assert done is True
-    assert 'q(a)' in info
+    assert 'q(a)' not in info
     assert '(p(a))' in info
     assert '(-p(a))' in info
 

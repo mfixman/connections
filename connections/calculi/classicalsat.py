@@ -453,7 +453,14 @@ class SATConnectionState:
 
         result = self._solve_current_shadow_cnf_with_pydical()
         if result == 'UNSAT':
-            self.shadow.unsat_core = self._sorted_shadow_clauses(self.shadow.ground_clauses)
+            ground_clauses = self._sorted_shadow_clauses(self.shadow.ground_clauses)
+            if getattr(getattr(self, 'settings', None), 'debug', False):
+                # In debug mode, print an irreducible UNSAT subset instead of
+                # the full grounded shadow CNF.  This keeps theorem witnesses
+                # readable without changing the underlying proof search.
+                self.shadow.unsat_core = self._debug_unsat_subset(ground_clauses) or ground_clauses
+            else:
+                self.shadow.unsat_core = []
             self.shadow.model = {}
             self.shadow.satisfiable = False
         elif result == 'UNKNOWN':
@@ -477,6 +484,29 @@ class SATConnectionState:
         for clause in self._sorted_shadow_clauses(self.shadow.ground_clauses):
             self._add_clause_to_cadical_solver(clause)
         return self._read_pydical_result(solver)
+
+    def _solve_clause_set_with_pydical(self, clauses: list[SATClause]) -> list[int] | TypeLiteral['UNSAT', 'UNKNOWN']:
+        solver = self._new_cadical_solver()
+        for clause in clauses:
+            solver.add_clause(list(clause))
+        return self._read_pydical_result(solver)
+
+    def _debug_unsat_subset(self, clauses: list[SATClause]) -> list[SATClause]:
+        if not clauses:
+            return []
+
+        if self._solve_clause_set_with_pydical(clauses) != 'UNSAT':
+            return []
+
+        kept = list(clauses)
+        idx = 0
+        while idx < len(kept):
+            trial = kept[:idx] + kept[idx + 1:]
+            if trial and self._solve_clause_set_with_pydical(trial) == 'UNSAT':
+                kept = trial
+                continue
+            idx += 1
+        return kept
 
     def _read_pydical_result(self, solver) -> list[int] | TypeLiteral['UNSAT', 'UNKNOWN']:
         status = solver.solve()
