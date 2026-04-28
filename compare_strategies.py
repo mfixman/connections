@@ -2,6 +2,7 @@
 
 import contextlib
 import csv
+import json
 import multiprocessing as mp
 import os
 import re
@@ -24,6 +25,7 @@ from parse_args import parse_compare_args
 from strategies import Strategy
 
 _ANSI = re.compile(r'\033\[[0-9;]*m')
+_PARTIAL_RESULT_PREFIX = 'RESULT_JSON\t'
 
 def _colour(code: str, s: str, enabled: bool = True) -> str:
     if not enabled:
@@ -383,6 +385,39 @@ def parse_result_text(text: str) -> Optional[dict]:
         return None
     return result
 
+def _partial_result_line(problem: Path, strategy_name: str, result: dict) -> str:
+    return (
+        f'{_PARTIAL_RESULT_PREFIX}'
+        f'{_problem_display_name(problem)}\t{strategy_name}\t'
+        f'{json.dumps(result, sort_keys=True, ensure_ascii=True)}'
+    )
+
+def _parse_partial_result_line(
+    line: str,
+    problem_by_name: dict[str, Path],
+    strategy_names: set[str],
+) -> Optional[tuple[Path, str, dict]]:
+    if not line.startswith(_PARTIAL_RESULT_PREFIX):
+        return None
+
+    try:
+        problem_name, strategy_name, payload = line[len(_PARTIAL_RESULT_PREFIX):].split('\t', 2)
+    except ValueError:
+        return None
+
+    problem = problem_by_name.get(problem_name)
+    if problem is None or strategy_name not in strategy_names:
+        return None
+
+    try:
+        result = json.loads(payload)
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(result, dict):
+        return None
+
+    return problem, strategy_name, result
+
 @dataclass
 class PartialReportState:
     results: dict[Path, dict[str, dict]]
@@ -396,9 +431,10 @@ def load_partial_report(
     problems: list[Path],
     strategies: list[str],
 ) -> PartialReportState:
-    results: dict[Path, dict[str, dict]] = {problem: {} for problem in problems}
+    row_results: dict[Path, dict[str, dict]] = {problem: {} for problem in problems}
+    metadata_results: dict[Path, dict[str, dict]] = {problem: {} for problem in problems}
     if partial_path is None or not partial_path.exists():
-        return PartialReportState(results, False, False, False, None)
+        return PartialReportState(row_results, False, False, False, None)
 
     problem_by_name = {_problem_display_name(problem): problem for problem in problems}
     strategy_names = set(strategies)
@@ -410,6 +446,12 @@ def load_partial_report(
     for raw_line in partial_path.read_text(encoding='utf-8', errors='replace').splitlines():
         line = strip_ansi(raw_line).rstrip()
         if not line:
+            continue
+
+        partial_result = _parse_partial_result_line(line, problem_by_name, strategy_names)
+        if partial_result is not None:
+            problem, strategy_name, result = partial_result
+            metadata_results[problem][strategy_name] = result
             continue
 
         last_line = line
@@ -434,7 +476,18 @@ def load_partial_report(
         result = parse_result_text(result_text)
         if result is None:
             continue
-        results[problem][strategy_name] = result
+        row_results[problem][strategy_name] = result
+
+    results = {
+        problem: {
+            strategy_name: metadata_results[problem].get(
+                strategy_name,
+                row_results[problem][strategy_name],
+            )
+            for strategy_name in row_results[problem].keys() | metadata_results[problem].keys()
+        }
+        for problem in problems
+    }
 
     completed_tasks = sum(len(result_map) for result_map in results.values())
     total_tasks = len(problems) * len(strategies)
@@ -480,6 +533,21 @@ class ReportWriter:
                 self._needs_leading_newline = False
             partial.write(line if self.partial_color else strip_ansi(line))
             partial.write('\n')
+            partial.flush()
+
+        self.last_line = strip_ansi(line)
+
+    def emit_task_result(self, problem: Path, strategy_name: str, result: dict, line: str) -> None:
+        print(line, flush=True)
+
+        partial = self._open_partial()
+        if partial is not None:
+            text = line if self.partial_color else strip_ansi(line)
+            payload = f'{text}\n{_partial_result_line(problem, strategy_name, result)}\n'
+            if self._needs_leading_newline:
+                payload = '\n' + payload
+                self._needs_leading_newline = False
+            partial.write(payload)
             partial.flush()
 
         self.last_line = strip_ansi(line)
@@ -544,10 +612,15 @@ def run_tasks(
             result = _cleanup_task_process(conn, proc)
             conn.close()
             results[problem][strategy_name] = result
-            reporter.emit(format_task_result(
-                problem, strategy_name, result,
-                show_steps, show_time, problem_width, strategy_width,
-            ))
+            reporter.emit_task_result(
+                problem,
+                strategy_name,
+                result,
+                format_task_result(
+                    problem, strategy_name, result,
+                    show_steps, show_time, problem_width, strategy_width,
+                ),
+            )
             if result.get('status') == 'error':
                 error = result.get('error', 'unknown error')
                 errors.append((_problem_display_name(problem), strategy_name, error))
@@ -568,10 +641,15 @@ def run_tasks(
             proc.join()
             conn.close()
             results[problem][strategy_name] = result
-            reporter.emit(format_task_result(
-                problem, strategy_name, result,
-                show_steps, show_time, problem_width, strategy_width,
-            ))
+            reporter.emit_task_result(
+                problem,
+                strategy_name,
+                result,
+                format_task_result(
+                    problem, strategy_name, result,
+                    show_steps, show_time, problem_width, strategy_width,
+                ),
+            )
             if result.get('status') == 'error':
                 error = result.get('error', 'unknown error')
                 errors.append((_problem_display_name(problem), strategy_name, error))

@@ -38,6 +38,43 @@ class TestCompareStrategiesPartialReport:
             'solved': False,
         }
 
+    def test_load_partial_report_prefers_full_metadata_for_final_csv_fields(self, tmp_path: Path):
+        partial = tmp_path / 'partial.txt'
+        problem = Path('SET027+3.p')
+        result = {
+            'status': 'error',
+            'solved': False,
+            'error': 'ValueError: boom',
+            'info': 'score=3.5',
+            'steps': 17,
+            'time': 0.25,
+        }
+        problem_width, strategy_width, header, sep = compare_strategies.report_layout([problem], ['SmartCut'])
+        partial.write_text(
+            '\n'.join(
+                [
+                    header,
+                    sep,
+                    compare_strategies.strip_ansi(
+                        compare_strategies.format_task_result(
+                            problem, 'SmartCut', result, True, True, problem_width, strategy_width
+                        )
+                    ),
+                    compare_strategies._partial_result_line(problem, 'SmartCut', result),
+                ]
+            ) + '\n',
+            encoding='utf-8',
+        )
+
+        state = compare_strategies.load_partial_report(partial, [problem], ['SmartCut'])
+
+        assert state.results[problem]['SmartCut'] == result
+        assert state.last_line == compare_strategies.strip_ansi(
+            compare_strategies.format_task_result(
+                problem, 'SmartCut', result, True, True, problem_width, strategy_width
+            )
+        )
+
     def test_report_writer_strips_color_from_partial_by_default(self, tmp_path: Path, capsys):
         partial = tmp_path / 'partial.txt'
         writer = ReportWriter(partial, partial_color=False)
@@ -60,8 +97,18 @@ class TestCompareStrategiesPartialReport:
         full_writer = ReportWriter(full_partial, partial_color=False)
         full_writer.emit(header)
         full_writer.emit(sep)
-        full_writer.emit(compare_strategies.format_task_result(problem, 'FirstAction', result1, True, True, problem_width, strategy_width))
-        full_writer.emit(compare_strategies.format_task_result(problem, 'SmartCut', result2, True, True, problem_width, strategy_width))
+        full_writer.emit_task_result(
+            problem,
+            'FirstAction',
+            result1,
+            compare_strategies.format_task_result(problem, 'FirstAction', result1, True, True, problem_width, strategy_width),
+        )
+        full_writer.emit_task_result(
+            problem,
+            'SmartCut',
+            result2,
+            compare_strategies.format_task_result(problem, 'SmartCut', result2, True, True, problem_width, strategy_width),
+        )
         full_writer.emit(sep)
         full_writer.emit('Solved: FirstAction=1/1  SmartCut=0/1  |  step wins: FirstAction=1  SmartCut=0  ties=0')
         full_writer.emit('CSV: /tmp/results.csv')
@@ -79,6 +126,7 @@ class TestCompareStrategiesPartialReport:
                             problem, 'FirstAction', result1, True, True, problem_width, strategy_width
                         )
                     ),
+                    compare_strategies._partial_result_line(problem, 'FirstAction', result1),
                 ]
             ) + '\n',
             encoding='utf-8',
@@ -90,7 +138,12 @@ class TestCompareStrategiesPartialReport:
             partial_color=False,
             last_line=state.last_line,
         )
-        resumed_writer.emit(compare_strategies.format_task_result(problem, 'SmartCut', result2, True, True, problem_width, strategy_width))
+        resumed_writer.emit_task_result(
+            problem,
+            'SmartCut',
+            result2,
+            compare_strategies.format_task_result(problem, 'SmartCut', result2, True, True, problem_width, strategy_width),
+        )
         if resumed_writer.last_line != sep:
             resumed_writer.emit(sep)
         resumed_writer.emit('Solved: FirstAction=1/1  SmartCut=0/1  |  step wins: FirstAction=1  SmartCut=0  ties=0')
