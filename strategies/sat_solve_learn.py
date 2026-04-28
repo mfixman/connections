@@ -10,7 +10,6 @@ import time
 import uuid
 
 from connections.calculi.classicalsat import (
-    Backtrack,
     ConnectionAction,
     Extension,
     Reduction,
@@ -19,16 +18,9 @@ from connections.calculi.classicalsat import (
 )
 from connections.utils.primitives import Literal
 
+from .sat_reset import _BanditTableMixin, _ControlBanditMixin
 from .sat_solve import SATSolveLiteral
 from .sat_solve_ties import _SATSolveLiteralTieMixin
-
-
-class _BanditTableMixin:
-    def _zero_bandit_table(self, contexts: tuple[str, ...], arms: tuple[str, ...], value):
-        return {
-            context: {arm: value() for arm in arms}
-            for context in contexts
-        }
 
 
 class _LearnStoreMixin(_BanditTableMixin):
@@ -577,157 +569,6 @@ class _ForwardBanditMixin(_BanditTableMixin):
         )
 
 
-class _ControlBanditMixin(_BanditTableMixin):
-    """Bandit over backtrack / small backjump / reset control actions."""
-
-    _control_schema = 'sat_solve_learn_control_bandit/v1'
-    _control_arms = ('bt1', 'bt2', 'reset')
-    _control_contexts = ('shadow_growing', 'shadow_stagnant')
-    _control_prior_count = 1.0
-    _control_ucb_scale = 0.40
-    _control_prior_reward_mass = {
-        'shadow_growing': {'bt1': 1.0, 'bt2': 1.0, 'reset': 1.0},
-        'shadow_stagnant': {'bt1': 1.0, 'bt2': 1.0, 'reset': 1.0},
-    }
-    _control_arm_alias = {'bt1': 'b1', 'bt2': 'b2', 'reset': 'rs'}
-    _control_context_alias = {'shadow_growing': 'grow', 'shadow_stagnant': 'stall'}
-
-    def _init_control_bandit(self) -> None:
-        self._control_pulls = self._zero_bandit_table(self._control_contexts, self._control_arms, int)
-        self._control_rewards = self._zero_bandit_table(self._control_contexts, self._control_arms, float)
-        self._control_decisions = 0
-        self._control_updates = 0
-        self._control_agreed_default = 0
-        self._control_changed_default = 0
-        self._control_open = None
-
-    def _control_context(self) -> str:
-        if getattr(self.env.state.shadow, 'new_ground_clauses', ()):
-            return 'shadow_growing'
-        return 'shadow_stagnant'
-
-    def _control_score(self, context: str, arm: str) -> float:
-        count = self._control_prior_count + self._control_pulls[context][arm]
-        reward = self._control_prior_reward_mass[context][arm] + self._control_rewards[context][arm]
-        mean = reward / count
-        total = len(self._control_arms) * self._control_prior_count + sum(self._control_pulls[context].values())
-        bonus = self._control_ucb_scale * math.sqrt(math.log(max(total, 2.0)) / count)
-        return mean + bonus
-
-    def _control_arm_choices(self, actions: list[ConnectionAction]) -> dict[str, ConnectionAction]:
-        choices = {}
-        backtrack_action = next((action for action in actions if isinstance(action, Backtrack)), None)
-        if backtrack_action is not None:
-            choices['bt1'] = backtrack_action
-            goal = getattr(self.env.state, 'goal', None)
-            if (
-                goal is not None
-                and getattr(goal, 'parent', None) is not None
-                and getattr(goal.parent, 'parent', None) is not None
-            ):
-                choices['bt2'] = Backtrack(id = 'bt2', steps = 2)
-
-        reset_action = next((action for action in actions if isinstance(action, Reset)), None)
-        if reset_action is not None:
-            choices['reset'] = reset_action
-        return choices
-
-    def _finalize_control_record(self, reward: float, outcome: str, ground_gain: int) -> None:
-        if self._control_open is None:
-            return
-
-        context = self._control_open['context']
-        arm = self._control_open['arm']
-        self._control_pulls[context][arm] += 1
-        self._control_rewards[context][arm] += reward
-        self._control_updates += 1
-        self._control_open = None
-
-    def _settle_control_feedback(self, actions: list[ConnectionAction], force: bool = False) -> None:
-        if self._control_open is None:
-            return
-
-        state = self.env.state
-        ground_gain = max(0, len(getattr(state.shadow, 'ground_clauses', ())) - self._control_open['ground_clause_count'])
-        theorem = bool(
-            getattr(state, 'is_terminal', False)
-            and isinstance(getattr(state, 'info', None), str)
-            and state.info.startswith('Theorem')
-        )
-        forward_available = any(isinstance(action, (Start, Reduction, Extension)) for action in actions)
-
-        if theorem:
-            self._finalize_control_record(1.0, 'theorem', ground_gain)
-        elif ground_gain > 0:
-            self._finalize_control_record(1.0, 'ground', ground_gain)
-        elif force or not forward_available:
-            self._finalize_control_record(0.0, 'forced' if force else 'stalled', ground_gain)
-
-    def _choose_control_action(self, actions: list[ConnectionAction]) -> ConnectionAction | None:
-        choices = self._control_arm_choices(actions)
-        if not choices:
-            return None
-        if len(choices) == 1:
-            return next(iter(choices.values()))
-
-        context = self._control_context()
-        arm_scores = {
-            arm: self._control_score(context, arm)
-            for arm in choices
-        }
-        chosen_arm = max(choices, key = lambda arm: arm_scores[arm])
-        chosen = choices[chosen_arm]
-        default_choice = choices['bt1'] if 'bt1' in choices else next(iter(choices.values()))
-
-        self._control_decisions += 1
-        if chosen is default_choice:
-            self._control_agreed_default += 1
-        else:
-            self._control_changed_default += 1
-
-        self._control_open = {
-            'context': context,
-            'arm': chosen_arm,
-            'ground_clause_count': len(getattr(self.env.state.shadow, 'ground_clauses', ())),
-        }
-        return chosen
-
-    def _control_context_summary(self, context: str) -> str:
-        total = sum(self._control_pulls[context].values())
-        arm_parts = []
-        for arm in self._control_arms:
-            pulls = self._control_pulls[context][arm]
-            mean = self._control_rewards[context][arm] / pulls if pulls else 0.0
-            arm_parts.append(f'{self._control_arm_alias[arm]}:{pulls}/{mean:.2f}')
-        return f'{self._control_context_alias[context]}:{total}[{",".join(arm_parts)}]'
-
-    def _control_nonzero_contexts(self) -> list[str]:
-        return [
-            context
-            for context in self._control_contexts
-            if sum(self._control_pulls[context].values()) > 0
-        ]
-
-    def _control_final_info_piece(self) -> str | None:
-        if not self._control_decisions:
-            return None
-        used_contexts = self._control_nonzero_contexts()
-        context_summary = ','.join(
-            self._control_context_summary(context)
-            for context in used_contexts
-        )
-        return (
-            'control='
-            f'schema:{self._control_schema},'
-            f'decisions:{self._control_decisions},'
-            f'updates:{self._control_updates},'
-            f'agreed_default:{self._control_agreed_default},'
-            f'changed_default:{self._control_changed_default},'
-            f'used_contexts:{len(used_contexts)},'
-            f'{context_summary}'
-        )
-
-
 class SATSolveLearnInitial(_ForwardBanditMixin, _SATSolveLiteralTieMixin, SATSolveLiteral):
     """Online UCB over four cheap tie-breakers inside SAT-unknown ties."""
 
@@ -818,52 +659,6 @@ class SATSolveLearnEval(_LearnStoreMixin, SATSolveLearnInitial):
                 f'loaded_pulls:{self._forward_loaded_pulls()},'
                 f'path:{Path(self._learn_store_path).name}'
             )
-        return '; '.join(parts) if parts else None
-
-
-class SATSolveLearnControl(_ControlBanditMixin, SATSolveLiteral):
-    """Online UCB over ``Backtrack(1)``, ``Backtrack(2)``, and ``Reset``."""
-
-    def __init__(self, env):
-        super().__init__(env)
-        self._init_control_bandit()
-
-    def step(self):
-        state = self.env.state
-        actions = self.env.legal_actions()
-        self._settle_control_feedback(actions)
-        self._record_nonzero_atom_scores()
-        action = self.choose_action(actions)
-        self._record_literal_choice_diagnostics(actions, action)
-
-        if isinstance(action, (Reduction, Extension)):
-            action.cut = True
-
-        if isinstance(action, (Start, Reduction, Extension)):
-            return action
-
-        if (
-            state.goal.parent is None
-            and any(isinstance(candidate, Reset) for candidate in actions)
-            and state.shadow.new_ground_clauses
-        ):
-            return Reset(id = 'rs', depth = state.max_depth)
-
-        if action := self._choose_control_action(actions):
-            return action
-
-        raise LookupError('expected Backtrack or Reset action')
-
-    def final_info(self) -> str | None:
-        self._settle_control_feedback(self.env.legal_actions(), force = True)
-
-        parts = []
-        base_info = super().final_info()
-        if base_info is not None:
-            parts.append(base_info)
-        control_info = self._control_final_info_piece()
-        if control_info is not None:
-            parts.append(control_info)
         return '; '.join(parts) if parts else None
 
 

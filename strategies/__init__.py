@@ -1145,9 +1145,16 @@ from .sat_solve_guided import (  # noqa: E402,F401
     SATSolveGuidedProbeConflicts,
     SATSolveGuidedShort,
 )
+from .sat_reset import (  # noqa: E402,F401
+    SATReset,
+    SATResetExtensionBudget,
+    SATResetNoCut,
+    SATResetShadow,
+    SATResetStepBudget,
+    SATSolveLearnControl,
+)
 from .sat_solve_learn import (  # noqa: E402,F401
     SATSolveLearnCombined,
-    SATSolveLearnControl,
     SATSolveLearnEval,
     SATSolveLearnInitial,
     SATSolveLearnSATContext,

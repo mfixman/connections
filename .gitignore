@@ -262,6 +262,7 @@ presentations/*
 results/*
 partial/*
 llm/*
+debug/*
 
 .codex
 nohup.out

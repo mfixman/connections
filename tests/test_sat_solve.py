@@ -49,6 +49,11 @@ def test_sat_solve_is_registered():
     assert 'SATSolveLearnInitial' in Strategy.strategies()
     assert 'SATSolveLearnTrain' in Strategy.strategies()
     assert 'SATSolveLearnEval' in Strategy.strategies()
+    assert 'SATReset' in Strategy.strategies()
+    assert 'SATResetShadow' in Strategy.strategies()
+    assert 'SATResetNoCut' in Strategy.strategies()
+    assert 'SATResetStepBudget' in Strategy.strategies()
+    assert 'SATResetExtensionBudget' in Strategy.strategies()
     assert 'SATSolveLearnControl' in Strategy.strategies()
     assert 'SATSolveLearnCombined' in Strategy.strategies()
     assert 'SATSolveLearnSATContext' in Strategy.strategies()
@@ -400,6 +405,10 @@ def test_paper_mode_skips_goal_when_model_assigns_false():
         'SATSolve',
         'SATSolveGuided',
         'SATSolveLearnInitial',
+        'SATReset',
+        'SATResetShadow',
+        'SATResetStepBudget',
+        'SATResetExtensionBudget',
         'SATSolveLearnControl',
         'SATSolveLearnCombined',
         'SATSolveLiteral',
@@ -436,6 +445,28 @@ def test_sat_strategies_use_restricted_backtracking_on_forward_steps(strategy_na
     action = strategy.step()
 
     assert action.cut is True
+
+def test_sat_reset_no_cut_leaves_forward_action_uncut():
+    class FakeSolver:
+        def score(self, atom_id):
+            return 0
+
+    action = Extension(id = 'ex0')
+    env = SimpleNamespace(
+        legal_actions = lambda: [action],
+        state = SimpleNamespace(
+            goal = SimpleNamespace(parent = object()),
+            shadow = SimpleNamespace(new_ground_clauses = set(), atom_map = {}, solver = FakeSolver()),
+            sat_literal_value = lambda literal: None,
+            enable_paper_mode = lambda enabled = True: setattr(env.state, 'paper_mode', enabled),
+            _flush_new_ground_clauses = lambda: None,
+            _solve_ground_clauses = lambda: None,
+        ),
+    )
+    strategy = Strategy.strategies()['SATResetNoCut'](env)
+
+    assert strategy.step() is action
+    assert action.cut is False
 
 def test_sat_solve_uses_first_randomised_forward_action():
     class FakeSolver:
@@ -1072,7 +1103,7 @@ def test_sat_solve_learn_control_can_prefer_reset():
         ),
     )
     env.state.enable_paper_mode = lambda enabled = True: setattr(env.state, 'paper_mode', enabled)
-    strategy = Strategy.strategies()['SATSolveLearnControl'](env)
+    strategy = Strategy.strategies()['SATReset'](env)
 
     for arm in strategy._control_arms:
         strategy._control_pulls['shadow_stagnant'][arm] = 4
@@ -1110,7 +1141,7 @@ def test_sat_solve_learn_control_can_emit_backjump_two():
         ),
     )
     env.state.enable_paper_mode = lambda enabled = True: setattr(env.state, 'paper_mode', enabled)
-    strategy = Strategy.strategies()['SATSolveLearnControl'](env)
+    strategy = Strategy.strategies()['SATReset'](env)
 
     for arm in strategy._control_arms:
         strategy._control_pulls['shadow_stagnant'][arm] = 4
@@ -1121,6 +1152,100 @@ def test_sat_solve_learn_control_can_emit_backjump_two():
     action = strategy.step()
     assert isinstance(action, Backtrack)
     assert action.steps == 2
+
+def test_sat_reset_shadow_prefers_same_depth_reset_while_shadow_grows():
+    class FakeSolver:
+        def score(self, atom_id):
+            return 0
+
+    env = SimpleNamespace(
+        legal_actions = lambda: [Backtrack(id = 'bt'), Reset(id = 'rs', depth = 5)],
+        state = SimpleNamespace(
+            goal = SimpleNamespace(parent = object()),
+            max_depth = 4,
+            shadow = SimpleNamespace(
+                new_ground_clauses = {(1,), (2,)},
+                atom_map = {},
+                solver = FakeSolver(),
+                ground_clauses = {(1,), (2,)},
+            ),
+            sat_literal_value = lambda literal: None,
+            _flush_new_ground_clauses = lambda: None,
+            _solve_ground_clauses = lambda: None,
+            proof_sequence = [],
+            is_terminal = False,
+            info = None,
+        ),
+    )
+    env.state.enable_paper_mode = lambda enabled = True: setattr(env.state, 'paper_mode', enabled)
+    strategy = Strategy.strategies()['SATResetShadow'](env)
+
+    action = strategy.step()
+    assert isinstance(action, Reset)
+    assert action.depth == 4
+    assert action.reason == 'shadow_reset'
+
+def test_sat_reset_step_budget_can_proactively_reset():
+    class FakeSolver:
+        def score(self, atom_id):
+            return 0
+
+    action = Extension(id = 'ex0')
+    env = SimpleNamespace(
+        legal_actions = lambda: [action, Reset(id = 'rs', depth = 5)],
+        state = SimpleNamespace(
+            goal = SimpleNamespace(parent = object()),
+            max_depth = 4,
+            shadow = SimpleNamespace(
+                new_ground_clauses = set(),
+                atom_map = {},
+                solver = FakeSolver(),
+                ground_clauses = set(),
+            ),
+            sat_literal_value = lambda literal: None,
+            _flush_new_ground_clauses = lambda: None,
+            _solve_ground_clauses = lambda: None,
+        ),
+    )
+    env.state.enable_paper_mode = lambda enabled = True: setattr(env.state, 'paper_mode', enabled)
+    strategy = Strategy.strategies()['SATResetStepBudget'](env)
+    strategy._since_reset_steps = 8
+
+    reset = strategy.step()
+    assert isinstance(reset, Reset)
+    assert reset.depth == 4
+    assert reset.reason == 'step_budget'
+
+def test_sat_reset_extension_budget_can_proactively_reset():
+    class FakeSolver:
+        def score(self, atom_id):
+            return 0
+
+    action = Extension(id = 'ex0')
+    env = SimpleNamespace(
+        legal_actions = lambda: [action, Reset(id = 'rs', depth = 5)],
+        state = SimpleNamespace(
+            goal = SimpleNamespace(parent = object()),
+            max_depth = 4,
+            shadow = SimpleNamespace(
+                new_ground_clauses = set(),
+                atom_map = {},
+                solver = FakeSolver(),
+                ground_clauses = set(),
+            ),
+            sat_literal_value = lambda literal: None,
+            _flush_new_ground_clauses = lambda: None,
+            _solve_ground_clauses = lambda: None,
+        ),
+    )
+    env.state.enable_paper_mode = lambda enabled = True: setattr(env.state, 'paper_mode', enabled)
+    strategy = Strategy.strategies()['SATResetExtensionBudget'](env)
+    strategy._since_reset_extensions = 4
+
+    reset = strategy.step()
+    assert isinstance(reset, Reset)
+    assert reset.depth == 4
+    assert reset.reason == 'extension_budget'
 
 def test_sat_solve_learn_combined_uses_forward_tie_breaking():
     weak = Extension(
@@ -1882,6 +2007,7 @@ def test_sat_solve_records_nonzero_atom_score():
         'SATSolve',
         'SATSolveGuided',
         'SATSolveLearnInitial',
+        'SATReset',
         'SATSolveLearnControl',
         'SATSolveLearnCombined',
         'SATSolveLiteral',
