@@ -225,23 +225,27 @@ def _process_cpu_count() -> Optional[int]:
         return None
     return process_cpu_count()
 
-def determine_worker_count(total_tasks: int) -> int:
+def determine_worker_count(total_tasks: int, requested_workers: Optional[int] = None) -> int:
     if total_tasks <= 0:
         logging.info(f'using 0 worker processes for {total_tasks} tasks')
         return 0
 
-    slurm_raw = os.getenv('SLURM_CPUS_PER_TASK')
-    slurm_cpus = _parse_slurm_cpus_per_task(slurm_raw)
-    process_cpus = _process_cpu_count()
-
-    logging.info(f'SLURM_CPUS_PER_TASK={slurm_raw!r}')
-    logging.info(f'os.process_cpu_count()={process_cpus!r}')
-
-    candidates = [count for count in (slurm_cpus, process_cpus) if count is not None]
-    if not candidates:
-        workers = 1
+    if requested_workers is not None:
+        workers = requested_workers
+        logging.info(f'--num-workers={requested_workers}')
     else:
-        workers = min(candidates)
+        slurm_raw = os.getenv('SLURM_CPUS_PER_TASK')
+        slurm_cpus = _parse_slurm_cpus_per_task(slurm_raw)
+        process_cpus = _process_cpu_count()
+
+        logging.info(f'SLURM_CPUS_PER_TASK={slurm_raw!r}')
+        logging.info(f'os.process_cpu_count()={process_cpus!r}')
+
+        candidates = [count for count in (slurm_cpus, process_cpus) if count is not None]
+        if not candidates:
+            workers = 1
+        else:
+            workers = min(candidates)
 
     workers = max(1, min(workers, total_tasks))
     worker_label = 'worker process' if workers == 1 else 'worker processes'
@@ -760,7 +764,7 @@ def main() -> None:
     two = len(strategies) == 2
     total = len(problems)
     total_tasks = total * len(strategies)
-    max_workers = determine_worker_count(total_tasks)
+    max_workers = determine_worker_count(total_tasks, args.num_workers)
     partial_path = None if args.partial_file is None else Path(args.partial_file)
     partial_state = load_partial_report(partial_path, problems, strategies)
     reporter = ReportWriter(partial_path, partial_color=args.color, last_line=partial_state.last_line)

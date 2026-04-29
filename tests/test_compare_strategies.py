@@ -272,6 +272,15 @@ class TestCompareStrategiesLogicSelection:
             is Logic.ClassicalSAT
         )
 
+    def test_determine_worker_count_uses_override_instead_of_cpu_detection(self, monkeypatch):
+        monkeypatch.setenv('SLURM_CPUS_PER_TASK', '32')
+        monkeypatch.setattr(compare_strategies, '_process_cpu_count', lambda: 64)
+
+        assert compare_strategies.determine_worker_count(10, requested_workers=3) == 3
+
+    def test_determine_worker_count_caps_override_at_total_tasks(self):
+        assert compare_strategies.determine_worker_count(2, requested_workers=8) == 2
+
     def test_parse_args_accepts_cadical_sat_solver(self, monkeypatch):
         monkeypatch.setattr(
             sys,
@@ -295,6 +304,29 @@ class TestCompareStrategiesLogicSelection:
 
         assert args.max_steps == 1000000
         assert args.timeout == 90.0
+        assert args.num_workers is None
+
+    def test_parse_args_accepts_num_workers_override(self, monkeypatch):
+        monkeypatch.setattr(
+            sys,
+            'argv',
+            ['compare_strategies.py', '--num-workers', '7', '--csv', '/tmp/results.csv'],
+        )
+        args = compare_strategies.parse_args()
+
+        assert args.num_workers == 7
+
+    def test_parse_args_rejects_non_positive_num_workers(self, monkeypatch):
+        monkeypatch.setattr(
+            sys,
+            'argv',
+            ['compare_strategies.py', '--num-workers', '0', '--csv', '/tmp/results.csv'],
+        )
+
+        with pytest.raises(SystemExit) as excinfo:
+            compare_strategies.parse_args()
+
+        assert excinfo.value.code == 2
 
     def test_parse_args_accepts_logic_enum(self, monkeypatch):
         monkeypatch.setattr(

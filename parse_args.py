@@ -7,6 +7,13 @@ from strategies import Strategy
 from strategies.groups import expand_strategy_groups, strategy_choices, strategy_group_names
 
 
+def _positive_int(raw: str) -> int:
+    value = int(raw)
+    if value <= 0:
+        raise argparse.ArgumentTypeError('must be a positive integer')
+    return value
+
+
 def _add_common_prover_arguments(parser: argparse.ArgumentParser, *, max_steps_default: int) -> None:
     parser.add_argument('--logic', default=None, choices=list(Logic), type=Logic, help='Which logic')
     parser.add_argument(
@@ -82,6 +89,10 @@ def _add_compare_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         '--timeout', type=float, default=90.0, metavar='SEC',
         help='timeout per problem in seconds (default: 90)',
+    )
+    parser.add_argument(
+        '--num-workers', type=_positive_int, default=None, metavar='N',
+        help='override worker process count (default: CPU count, capped by tasks)',
     )
     parser.add_argument(
         '--steps', default=True, action=argparse.BooleanOptionalAction,
