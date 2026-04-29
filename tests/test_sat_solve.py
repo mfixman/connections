@@ -50,6 +50,8 @@ def test_sat_solve_is_registered():
     assert 'SATSolveLearnTrain' in Strategy.strategies()
     assert 'SATSolveLearnEval' in Strategy.strategies()
     assert 'SATReset' in Strategy.strategies()
+    assert 'SATResetAtStaleBacktrack' in Strategy.strategies()
+    assert 'SATResetAtStaleAction' in Strategy.strategies()
     assert 'SATResetShadow' in Strategy.strategies()
     assert 'SATResetNoCut' in Strategy.strategies()
     assert 'SATResetStepBudget' in Strategy.strategies()
@@ -406,6 +408,8 @@ def test_paper_mode_skips_goal_when_model_assigns_false():
         'SATSolveGuided',
         'SATSolveLearnInitial',
         'SATReset',
+        'SATResetAtStaleBacktrack',
+        'SATResetAtStaleAction',
         'SATResetShadow',
         'SATResetStepBudget',
         'SATResetExtensionBudget',
@@ -1184,6 +1188,69 @@ def test_sat_reset_shadow_prefers_same_depth_reset_while_shadow_grows():
     assert isinstance(action, Reset)
     assert action.depth == 4
     assert action.reason == 'shadow_reset'
+
+def test_sat_reset_at_stale_backtrack_deepens_once_shadow_stalls():
+    class FakeSolver:
+        def score(self, atom_id):
+            return 0
+
+    env = SimpleNamespace(
+        legal_actions = lambda: [Backtrack(id = 'bt'), Reset(id = 'rs', depth = 5)],
+        state = SimpleNamespace(
+            goal = SimpleNamespace(parent = object()),
+            max_depth = 4,
+            shadow = SimpleNamespace(
+                new_ground_clauses = set(),
+                atom_map = {},
+                solver = FakeSolver(),
+                ground_clauses = {(1,), (2,)},
+            ),
+            sat_literal_value = lambda literal: None,
+            _flush_new_ground_clauses = lambda: None,
+            _solve_ground_clauses = lambda: None,
+            proof_sequence = [],
+            is_terminal = False,
+            info = None,
+        ),
+    )
+    env.state.enable_paper_mode = lambda enabled = True: setattr(env.state, 'paper_mode', enabled)
+    strategy = Strategy.strategies()['SATResetAtStaleBacktrack'](env)
+
+    action = strategy.step()
+    assert isinstance(action, Reset)
+    assert action.depth == 5
+    assert action.reason == 'stale_deepen'
+
+def test_sat_reset_at_stale_action_can_proactively_deepen_after_budget():
+    class FakeSolver:
+        def score(self, atom_id):
+            return 0
+
+    action = Extension(id = 'ex0')
+    env = SimpleNamespace(
+        legal_actions = lambda: [action, Reset(id = 'rs', depth = 5)],
+        state = SimpleNamespace(
+            goal = SimpleNamespace(parent = object()),
+            max_depth = 4,
+            shadow = SimpleNamespace(
+                new_ground_clauses = set(),
+                atom_map = {},
+                solver = FakeSolver(),
+                ground_clauses = set(),
+            ),
+            sat_literal_value = lambda literal: None,
+            _flush_new_ground_clauses = lambda: None,
+            _solve_ground_clauses = lambda: None,
+        ),
+    )
+    env.state.enable_paper_mode = lambda enabled = True: setattr(env.state, 'paper_mode', enabled)
+    strategy = Strategy.strategies()['SATResetAtStaleAction'](env)
+    strategy._stale_action_count = strategy.stale_action_budget()
+
+    reset = strategy.step()
+    assert isinstance(reset, Reset)
+    assert reset.depth == 5
+    assert reset.reason == 'stale_action_reset'
 
 def test_sat_reset_step_budget_can_proactively_reset():
     class FakeSolver:

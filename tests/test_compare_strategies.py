@@ -75,6 +75,39 @@ class TestCompareStrategiesPartialReport:
             )
         )
 
+    def test_load_partial_report_reads_inline_metadata_on_same_line(self, tmp_path: Path):
+        partial = tmp_path / 'partial.txt'
+        problem = Path('SET027+3.p')
+        result = {
+            'status': 'error',
+            'solved': False,
+            'error': 'ValueError: boom',
+            'info': 'score=3.5',
+            'steps': 17,
+            'time': 0.25,
+        }
+        problem_width, strategy_width, header, sep = compare_strategies.report_layout([problem], ['SmartCut'])
+        row = compare_strategies.strip_ansi(
+            compare_strategies.format_task_result(
+                problem, 'SmartCut', result, True, True, problem_width, strategy_width
+            )
+        )
+        partial.write_text(
+            '\n'.join(
+                [
+                    header,
+                    sep,
+                    compare_strategies._task_result_with_inline_metadata(problem, 'SmartCut', result, row),
+                ]
+            ) + '\n',
+            encoding='utf-8',
+        )
+
+        state = compare_strategies.load_partial_report(partial, [problem], ['SmartCut'])
+
+        assert state.results[problem]['SmartCut'] == result
+        assert state.last_line == row
+
     def test_report_writer_strips_color_from_partial_by_default(self, tmp_path: Path, capsys):
         partial = tmp_path / 'partial.txt'
         writer = ReportWriter(partial, partial_color=False)
@@ -121,12 +154,16 @@ class TestCompareStrategiesPartialReport:
                 [
                     header,
                     sep,
-                    compare_strategies.strip_ansi(
-                        compare_strategies.format_task_result(
-                            problem, 'FirstAction', result1, True, True, problem_width, strategy_width
-                        )
+                    compare_strategies._task_result_with_inline_metadata(
+                        problem,
+                        'FirstAction',
+                        result1,
+                        compare_strategies.strip_ansi(
+                            compare_strategies.format_task_result(
+                                problem, 'FirstAction', result1, True, True, problem_width, strategy_width
+                            )
+                        ),
                     ),
-                    compare_strategies._partial_result_line(problem, 'FirstAction', result1),
                 ]
             ) + '\n',
             encoding='utf-8',
@@ -302,6 +339,8 @@ class TestCompareStrategiesLogicSelection:
             'SATSolveLiteralLookaheadTie',
             'SATSolveLearnInitial',
             'SATReset',
+            'SATResetAtStaleBacktrack',
+            'SATResetAtStaleAction',
             'SATResetShadow',
             'SATResetNoCut',
             'SATResetStepBudget',

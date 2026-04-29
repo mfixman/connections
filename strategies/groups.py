@@ -28,6 +28,8 @@ def _sat_test_strategies() -> tuple[str, ...]:
         'SATSolveLiteralLookaheadTie',
         'SATSolveLearnInitial',
         'SATReset',
+        'SATResetAtStaleBacktrack',
+        'SATResetAtStaleAction',
         'SATResetShadow',
         'SATResetNoCut',
         'SATResetStepBudget',

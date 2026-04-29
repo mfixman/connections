@@ -521,6 +521,86 @@ class SATResetNoCut(SATReset):
     _forward_cuts = False
 
 
+class SATResetAtStaleBacktrack(_SATResetBase):
+    """Reset instead of backtracking once the shadow stops growing.
+
+    This is the simplest deterministic approximation to the current
+    ``SATReset`` story:
+
+    - if fresh shadow clauses exist at a dead end, restart at the same depth to
+      exploit that new information;
+    - otherwise, skip local backtracking and deepen immediately.
+
+    The forward policy remains exactly ``SATSolveLiteral``.
+    """
+
+    def dead_end_action(self, actions: list[ConnectionAction]) -> ConnectionAction:
+        reset_action = self.available_reset(actions)
+        if reset_action is not None and getattr(self.env.state.shadow, 'new_ground_clauses', ()):
+            return self.same_depth_reset('shadow_reset')
+
+        if reset_action is not None:
+            return self.copy_reset(reset_action, 'stale_deepen')
+
+        if action := next((candidate for candidate in actions if isinstance(candidate, Backtrack)), None):
+            return action
+
+        raise LookupError('expected Backtrack or Reset action')
+
+
+class SATResetAtStaleAction(SATResetAtStaleBacktrack):
+    """Deepen after too many actions without new shadow clauses.
+
+    This keeps the same deterministic dead-end rule as
+    ``SATResetAtStaleBacktrack``, but also watches whether the shadow CNF has
+    grown recently.  If not, it proactively resets before the next chosen
+    action once the stale-action budget is exhausted.
+    """
+
+    def __init__(self, env):
+        super().__init__(env)
+        self._stale_action_count = 0
+        self._last_shadow_clause_count = self._discovered_shadow_clause_count()
+
+    def stale_action_budget(self) -> int:
+        return max(8, 2 * max(1, self.env.state.max_depth))
+
+    def _discovered_shadow_clause_count(self) -> int:
+        shadow = self.env.state.shadow
+        return len(getattr(shadow, 'ground_clauses', ())) + len(getattr(shadow, 'new_ground_clauses', ()))
+
+    def before_step(self, actions: list[ConnectionAction]) -> None:
+        del actions
+        current = self._discovered_shadow_clause_count()
+        if current > self._last_shadow_clause_count:
+            self._stale_action_count = 0
+            self._last_shadow_clause_count = current
+
+    def proactive_reset(
+        self,
+        actions: list[ConnectionAction],
+        chosen: ConnectionAction | None,
+    ) -> Reset | None:
+        del chosen
+        reset_action = self.available_reset(actions)
+        if reset_action is None:
+            return None
+        if self._stale_action_count < self.stale_action_budget():
+            return None
+        if getattr(self.env.state.shadow, 'new_ground_clauses', ()):
+            return self.same_depth_reset('stale_action_shadow')
+        return self.copy_reset(reset_action, 'stale_action_reset')
+
+    def _record_emitted_action(self, action: ConnectionAction) -> ConnectionAction:
+        action = super()._record_emitted_action(action)
+        if isinstance(action, Reset):
+            self._stale_action_count = 0
+            self._last_shadow_clause_count = self._discovered_shadow_clause_count()
+        else:
+            self._stale_action_count += 1
+        return action
+
+
 class SATResetShadow(_SATResetBase):
     """Deterministic shadow-growth reset policy.
 

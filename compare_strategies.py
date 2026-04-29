@@ -26,6 +26,7 @@ from strategies import Strategy
 
 _ANSI = re.compile(r'\033\[[0-9;]*m')
 _PARTIAL_RESULT_PREFIX = 'RESULT_JSON\t'
+_INLINE_PARTIAL_SEPARATOR = '  |  '
 
 def _colour(code: str, s: str, enabled: bool = True) -> str:
     if not enabled:
@@ -390,6 +391,9 @@ def _partial_result_line(problem: Path, strategy_name: str, result: dict) -> str
         f'{json.dumps(result, sort_keys=True, ensure_ascii=True)}'
     )
 
+def _task_result_with_inline_metadata(problem: Path, strategy_name: str, result: dict, line: str) -> str:
+    return f'{line}{_INLINE_PARTIAL_SEPARATOR}{_partial_result_line(problem, strategy_name, result)}'
+
 def _parse_partial_result_line(
     line: str,
     problem_by_name: dict[str, Path],
@@ -415,6 +419,21 @@ def _parse_partial_result_line(
         return None
 
     return problem, strategy_name, result
+
+def _split_inline_partial_result(
+    line: str,
+    problem_by_name: dict[str, Path],
+    strategy_names: set[str],
+) -> tuple[str, Optional[tuple[Path, str, dict]]]:
+    idx = line.find(_PARTIAL_RESULT_PREFIX)
+    if idx < 0:
+        return line, None
+
+    visible = line[:idx].rstrip()
+    if visible.endswith(_INLINE_PARTIAL_SEPARATOR.rstrip()):
+        visible = visible[: -len(_INLINE_PARTIAL_SEPARATOR.rstrip())].rstrip()
+    partial_result = _parse_partial_result_line(line[idx:], problem_by_name, strategy_names)
+    return visible, partial_result
 
 @dataclass
 class PartialReportState:
@@ -446,11 +465,12 @@ def load_partial_report(
         if not line:
             continue
 
-        partial_result = _parse_partial_result_line(line, problem_by_name, strategy_names)
+        line, partial_result = _split_inline_partial_result(line, problem_by_name, strategy_names)
         if partial_result is not None:
             problem, strategy_name, result = partial_result
             metadata_results[problem][strategy_name] = result
-            continue
+            if not line:
+                continue
 
         last_line = line
         parts = re.split(r' {2,}', line, maxsplit=2)
@@ -478,9 +498,10 @@ def load_partial_report(
 
     results = {
         problem: {
-            strategy_name: metadata_results[problem].get(
-                strategy_name,
-                row_results[problem][strategy_name],
+            strategy_name: (
+                metadata_results[problem][strategy_name]
+                if strategy_name in metadata_results[problem]
+                else row_results[problem][strategy_name]
             )
             for strategy_name in row_results[problem].keys() | metadata_results[problem].keys()
         }
@@ -541,7 +562,7 @@ class ReportWriter:
         partial = self._open_partial()
         if partial is not None:
             text = line if self.partial_color else strip_ansi(line)
-            payload = f'{text}\n{_partial_result_line(problem, strategy_name, result)}\n'
+            payload = _task_result_with_inline_metadata(problem, strategy_name, result, text) + '\n'
             if self._needs_leading_newline:
                 payload = '\n' + payload
                 self._needs_leading_newline = False
