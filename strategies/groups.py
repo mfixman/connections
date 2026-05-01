@@ -27,7 +27,7 @@ def _sat_test_strategies() -> tuple[str, ...]:
         'SATSolveLiteralShortTie',
         'SATSolveLiteralLookaheadTie',
         'SATSolveLearnInitial',
-        'SATReset',
+        'SATResetBandit',
         'SATResetAtStaleBacktrack',
         'SATResetAtStaleAction',
         'SATResetShadow',

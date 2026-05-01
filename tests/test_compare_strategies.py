@@ -370,7 +370,7 @@ class TestCompareStrategiesLogicSelection:
             'SATSolveLiteralShortTie',
             'SATSolveLiteralLookaheadTie',
             'SATSolveLearnInitial',
-            'SATReset',
+            'SATResetBandit',
             'SATResetAtStaleBacktrack',
             'SATResetAtStaleAction',
             'SATResetShadow',

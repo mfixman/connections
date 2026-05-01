@@ -49,14 +49,13 @@ def test_sat_solve_is_registered():
     assert 'SATSolveLearnInitial' in Strategy.strategies()
     assert 'SATSolveLearnTrain' in Strategy.strategies()
     assert 'SATSolveLearnEval' in Strategy.strategies()
-    assert 'SATReset' in Strategy.strategies()
+    assert 'SATResetBandit' in Strategy.strategies()
     assert 'SATResetAtStaleBacktrack' in Strategy.strategies()
     assert 'SATResetAtStaleAction' in Strategy.strategies()
     assert 'SATResetShadow' in Strategy.strategies()
     assert 'SATResetNoCut' in Strategy.strategies()
     assert 'SATResetStepBudget' in Strategy.strategies()
     assert 'SATResetExtensionBudget' in Strategy.strategies()
-    assert 'SATSolveLearnControl' in Strategy.strategies()
     assert 'SATSolveLearnCombined' in Strategy.strategies()
     assert 'SATSolveLearnSATContext' in Strategy.strategies()
     assert 'SATSolveLiteral' in Strategy.strategies()
@@ -407,13 +406,12 @@ def test_paper_mode_skips_goal_when_model_assigns_false():
         'SATSolve',
         'SATSolveGuided',
         'SATSolveLearnInitial',
-        'SATReset',
+        'SATResetBandit',
         'SATResetAtStaleBacktrack',
         'SATResetAtStaleAction',
         'SATResetShadow',
         'SATResetStepBudget',
         'SATResetExtensionBudget',
-        'SATSolveLearnControl',
         'SATSolveLearnCombined',
         'SATSolveLiteral',
         'SATSolveLiteralRandomTie',
@@ -1107,7 +1105,7 @@ def test_sat_solve_learn_control_can_prefer_reset():
         ),
     )
     env.state.enable_paper_mode = lambda enabled = True: setattr(env.state, 'paper_mode', enabled)
-    strategy = Strategy.strategies()['SATReset'](env)
+    strategy = Strategy.strategies()['SATResetBandit'](env)
 
     for arm in strategy._control_arms:
         strategy._control_pulls['shadow_stagnant'][arm] = 4
@@ -1145,7 +1143,7 @@ def test_sat_solve_learn_control_can_emit_backjump_two():
         ),
     )
     env.state.enable_paper_mode = lambda enabled = True: setattr(env.state, 'paper_mode', enabled)
-    strategy = Strategy.strategies()['SATReset'](env)
+    strategy = Strategy.strategies()['SATResetBandit'](env)
 
     for arm in strategy._control_arms:
         strategy._control_pulls['shadow_stagnant'][arm] = 4
@@ -2071,11 +2069,10 @@ def test_sat_solve_records_nonzero_atom_score():
 @pytest.mark.parametrize(
     'strategy_name',
     [
+        'SATResetBandit',
         'SATSolve',
         'SATSolveGuided',
         'SATSolveLearnInitial',
-        'SATReset',
-        'SATSolveLearnControl',
         'SATSolveLearnCombined',
         'SATSolveLiteral',
         'SATSolveLiteralRandomTie',

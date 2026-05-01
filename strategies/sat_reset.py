@@ -443,11 +443,10 @@ class _ControlBanditMixin(_BanditTableMixin):
         return self.control_final_info_piece()
 
 
-class SATReset(_ControlBanditMixin, _SATResetBase):
+class SATResetBandit(_ControlBanditMixin, _SATResetBase):
     """Adaptive reset controller discovered from the earlier learning run.
 
-    This is the renamed version of ``SATSolveLearnControl`` and should be
-    thought of as the new baseline reset policy.  It behaves as follows:
+    This is the bandit-based reset baseline. It behaves as follows:
 
     - forward steps are still chosen exactly like ``SATSolveLiteral``;
     - at the root, if fresh shadow clauses exist, it immediately resets at the
@@ -497,22 +496,14 @@ class SATReset(_ControlBanditMixin, _SATResetBase):
         return '; '.join(parts) if parts else None
 
 
-class SATSolveLearnControl(SATReset):
-    """Backward-compatible name for ``SATReset``.
+class SATResetNoCut(SATResetBandit):
+    """``SATResetBandit`` without Prolog-style forward cuts.
 
-    The implementation is identical.  The alias exists so old scripts, CSVs,
-    and partial benchmark runs do not break when the policy is promoted from
-    “learning experiment” to “named reset strategy”.
-    """
-
-
-class SATResetNoCut(SATReset):
-    """``SATReset`` without Prolog-style forward cuts.
-
-    The control logic is unchanged, including the same root-reset rule and the
-    same bandit over dead-end actions.  The only difference is that reductions
-    and extensions do not commit a cut, so the tableau is allowed to revisit
-    more local alternatives before reset or backtrack control takes over.
+    The control logic is unchanged, including the same root-reset rule and
+    the same bandit over dead-end actions. The only difference is that
+    reductions and extensions do not commit a cut, so the tableau is allowed
+    to revisit more local alternatives before reset or backtrack control takes
+    over.
 
     This is intentionally simple: it isolates the interaction between
     reset-heavy control and restricted backtracking.
@@ -525,7 +516,7 @@ class SATResetAtStaleBacktrack(_SATResetBase):
     """Reset instead of backtracking once the shadow stops growing.
 
     This is the simplest deterministic approximation to the current
-    ``SATReset`` story:
+    ``SATResetBandit`` story:
 
     - if fresh shadow clauses exist at a dead end, restart at the same depth to
       exploit that new information;
