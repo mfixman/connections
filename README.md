@@ -25,7 +25,8 @@ pip install git+https://github.com/fredrrom/connections.git
 ```
 
 This install pulls a pinned revision of the custom `pydical` fork used by the
-default `ClassicalSAT` prover code.
+default `ClassicalSAT` prover code. The pin includes a pybind11 build-dependency
+update so it can build on modern Python releases such as Python 3.14.
 
 If you are working from a checkout of this repository instead of installing from
 GitHub, use:

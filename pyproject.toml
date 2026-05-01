@@ -7,7 +7,7 @@ readme = "README.md"
 
 [tool.poetry.dependencies]
 python = "^3.10"
-pydical = { git = "https://github.com/mfixman/pydical.git", rev = "351cd42911d069b38d02cd0c651ec57f38832418" }
+pydical = { git = "https://github.com/mfixman/pydical.git", rev = "0e0778bdf98408ed434bfaa0ede8fd3a3514f623" }
 python-sat = "*"
 
 [tool.poetry.dev-dependencies]

@@ -30,6 +30,8 @@ def _sat_test_strategies() -> tuple[str, ...]:
         'SATResetBandit',
         'SATResetAtStaleBacktrack',
         'SATResetAtStaleAction',
+        'SATResetAtTwo',
+        'SATResetStart',
         'SATResetShadow',
         'SATResetNoCut',
         'SATResetStepBudget',

@@ -592,6 +592,112 @@ class SATResetAtStaleAction(SATResetAtStaleBacktrack):
         return action
 
 
+class SATResetAtTwo(SATResetAtStaleAction):
+    """Allow one same-depth zero-yield burst before deepening.
+
+    This is a two-strike variant of ``SATResetAtStaleAction``. When a burst at
+    the current depth ends without harvesting any fresh shadow clauses, the
+    first such strike triggers one more same-depth reset. Only after a second
+    consecutive zero-yield burst at that depth does the strategy deepen.
+    """
+
+    def __init__(self, env):
+        super().__init__(env)
+        self._zero_yield_strikes = 0
+
+    def _zero_yield_reset(self, reset_action: Reset) -> Reset:
+        if self._zero_yield_strikes >= 1:
+            return self.copy_reset(reset_action, 'two_strike_deepen')
+        return self.same_depth_reset('two_strike_retry')
+
+    def dead_end_action(self, actions: list[ConnectionAction]) -> ConnectionAction:
+        reset_action = self.available_reset(actions)
+        if reset_action is None:
+            if action := next((candidate for candidate in actions if isinstance(candidate, Backtrack)), None):
+                return action
+            raise LookupError('expected Backtrack or Reset action')
+
+        if getattr(self.env.state.shadow, 'new_ground_clauses', ()):
+            return self.same_depth_reset('shadow_reset')
+
+        return self._zero_yield_reset(reset_action)
+
+    def proactive_reset(
+        self,
+        actions: list[ConnectionAction],
+        chosen: ConnectionAction | None,
+    ) -> Reset | None:
+        del chosen
+        reset_action = self.available_reset(actions)
+        if reset_action is None:
+            return None
+        if self._stale_action_count < self.stale_action_budget():
+            return None
+        if getattr(self.env.state.shadow, 'new_ground_clauses', ()):
+            return self.same_depth_reset('stale_action_shadow')
+        return self._zero_yield_reset(reset_action)
+
+    def _record_emitted_action(self, action: ConnectionAction) -> ConnectionAction:
+        state = self.env.state
+        current_depth = getattr(state, 'max_depth', 0)
+        pending_new = len(getattr(state.shadow, 'new_ground_clauses', ()))
+
+        action = super()._record_emitted_action(action)
+        if not isinstance(action, Reset):
+            return action
+
+        if action.depth > current_depth or pending_new > 0:
+            self._zero_yield_strikes = 0
+        else:
+            self._zero_yield_strikes += 1
+
+        return action
+
+
+class SATResetStart(SATResetAtStaleAction):
+    """Rotate the first root start after each same-depth reset.
+
+    This keeps the ``SATResetAtStaleAction`` reset policy unchanged, but after
+    every same-depth reset it forces the next root start choice to a different
+    start clause in round-robin order. The goal is to diversify the early
+    grounded clauses harvested at a fixed depth without changing the ordinary
+    non-root ``SATSolveLiteral`` policy.
+    """
+
+    def __init__(self, env):
+        super().__init__(env)
+        self._start_cycle = 0
+        self._force_root_start = False
+
+    def choose_action(self, actions: list[ConnectionAction]) -> ConnectionAction | None:
+        state = self.env.state
+        if self._force_root_start and getattr(getattr(state, 'goal', None), 'parent', None) is None:
+            starts = [action for action in actions if isinstance(action, Start)]
+            if starts:
+                ordered = sorted(starts, key = lambda action: action.id)
+                chosen = ordered[self._start_cycle % len(ordered)]
+                self._force_root_start = False
+                return chosen
+
+        return super().choose_action(actions)
+
+    def _record_emitted_action(self, action: ConnectionAction) -> ConnectionAction:
+        state = self.env.state
+        current_depth = getattr(state, 'max_depth', 0)
+
+        action = super()._record_emitted_action(action)
+        if not isinstance(action, Reset):
+            return action
+
+        if action.depth <= current_depth:
+            self._force_root_start = True
+            self._start_cycle += 1
+        else:
+            self._force_root_start = False
+
+        return action
+
+
 class SATResetShadow(_SATResetBase):
     """Deterministic shadow-growth reset policy.
 
