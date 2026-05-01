@@ -33,6 +33,26 @@ class TestClassicalProblemParsing:
         assert str(matrix.clauses[0][0]) == 'p(a)'
         assert str(matrix.clauses[1][0]) == '-p(a)'
 
+    def test_raw_minus_problem_resolves_axioms_include_from_tptp_root(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ):
+        tptp_root = tmp_path / 'tptp'
+        axiom = tptp_root / 'Axioms' / 'AX001-0.ax'
+        problem = tptp_root / 'Problems' / 'FLD' / 'FLD071-2.p'
+        axiom.parent.mkdir(parents = True)
+        problem.parent.mkdir(parents = True)
+        axiom.write_text("cnf(ax,axiom,p(a)).")
+        problem.write_text("include('Axioms/AX001-0.ax').\ncnf(goal,negated_conjecture,~p(a)).")
+        monkeypatch.setenv('TPTP', str(tptp_root))
+
+        matrix = file2cnf(str(problem))
+
+        assert len(matrix.clauses) == 2
+        assert str(matrix.clauses[0][0]) == 'p(a)'
+        assert str(matrix.clauses[1][0]) == '-p(a)'
+
     def test_raw_plus_problem_uses_tptp_translation(self, tmp_path: Path):
         problem = tmp_path / 'GEO205+1.p'
         problem.write_text("fof(a,axiom,p).")

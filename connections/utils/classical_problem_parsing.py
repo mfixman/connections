@@ -207,18 +207,27 @@ def _repo_root() -> Path:
     return Path(__file__).resolve().parents[2]
 
 def _tptp_root() -> Path:
-    """Use the repo root as the TPTP root when `Axioms/` is present."""
+    """Return the TPTP root from the environment or a repo-local fallback."""
+    env_root_raw = os.getenv('TPTP')
+    if env_root_raw is not None:
+        env_root = Path(env_root_raw).resolve()
+        if env_root.is_dir():
+            return env_root
+        raise FileNotFoundError(f'TPTP is set but does not point to a directory: {env_root}')
+
     repo_root = _repo_root()
     axioms = repo_root / 'Axioms'
     if axioms.is_dir():
         return repo_root
-    raise FileNotFoundError(f'expected an Axioms directory at {axioms}')
+    raise FileNotFoundError(
+        f'TPTP is not set and no repo-local Axioms directory exists at {axioms}'
+    )
 
 def _resolve_include(include_path: str, current_path: Path) -> Path:
-    """Resolve an `include(...)` path relative to the file or repo root."""
+    """Resolve an `include(...)` path relative to the file or the TPTP root."""
     include_path = include_path.strip().strip("'")
 
-    for candidate in (current_path.parent / include_path, _repo_root() / include_path):
+    for candidate in (current_path.parent / include_path, _tptp_root() / include_path):
         candidate = candidate.resolve()
         if candidate.exists():
             return candidate
