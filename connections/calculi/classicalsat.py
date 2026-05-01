@@ -476,7 +476,7 @@ class SATConnectionState:
         if pydical is None:
             raise ModuleNotFoundError(
                 'ClassicalSAT requires pydical. '
-                'Install it in ~/venv and run with that environment.'
+                'Install the project dependencies so the pinned pydical fork is available.'
             )
 
     def _solve_current_shadow_cnf_with_pydical(self) -> list[int] | TypeLiteral['UNSAT', 'UNKNOWN']:

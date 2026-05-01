@@ -11,6 +11,7 @@ For further details see the [paper](https://ceur-ws.org/Vol-3613/AReCCa2023_pape
 
  - Python 3.10 or later
  - Git
+ - A C++ compiler and CMake (to build the pinned `pydical` fork)
  - SWI Prolog 8.4.3 (For TPTP/QMLTP translation and to run pyCoP provers)
 
 ## Installation
@@ -21,6 +22,16 @@ To begin using the reinforcement learning environments, simply install the `conn
 
 ```
 pip install git+https://github.com/fredrrom/connections.git 
+```
+
+This install pulls a pinned revision of the custom `pydical` fork used by the
+default `ClassicalSAT` prover code.
+
+If you are working from a checkout of this repository instead of installing from
+GitHub, use:
+
+```
+pip install .
 ```
 
 ### Conjectures and pyCoP provers
