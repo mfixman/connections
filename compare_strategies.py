@@ -117,6 +117,10 @@ def _cleanup_task_process(conn: Connection, proc: mp.Process) -> dict:
     }
 
 def default_logic_for_strategy(strategy_name: str) -> Logic:
+    if strategy_name == 'FirstAction':
+        return Logic.Classical
+    if strategy_name == 'LeanCopCut':
+        return Logic.ClassicalCut
     return Logic.ClassicalSAT
 
 def resolve_logic_for_strategy(strategy_name: str, logic_override: Optional[Logic]) -> Logic:
