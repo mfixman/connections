@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Optional
 
 from connections.env import ConnectionEnv, Logic, SATSolver, Settings
+from connections.utils.classical_problem_parsing import problem_metadata
 from problem_inputs import (
     expand_problem_inputs,
     split_problem_paths,
@@ -89,6 +90,76 @@ def _combine_info(*parts: object) -> Optional[str]:
     if not present:
         return None
     return '; '.join(present)
+
+def _terminal_result_label(status_info: object) -> Optional[str]:
+    if not isinstance(status_info, str) or not status_info:
+        return None
+    if status_info == 'Theorem':
+        return status_info
+    if status_info.startswith('Theorem (SAT)'):
+        return 'Theorem (SAT)'
+    if status_info.startswith('Non-Theorem'):
+        return status_info
+    return None
+
+def _info_without_terminal_result(status_info: object) -> Optional[str]:
+    if not isinstance(status_info, str) or not status_info:
+        return None
+    label = _terminal_result_label(status_info)
+    if label is None:
+        return status_info
+    if status_info == label:
+        return None
+    if status_info.startswith(label):
+        suffix = status_info[len(label):].lstrip()
+        if suffix.startswith(';'):
+            suffix = suffix[1:].strip()
+        return suffix or None
+    return None
+
+def _problem_result_metadata(path: str | Path) -> dict:
+    problem_path = Path(path)
+    if not problem_path.exists():
+        return {}
+
+    metadata = problem_metadata(problem_path)
+    return {
+        'problem_spc_tags': sorted(metadata.spc_tags),
+        'problem_typed': metadata.typed,
+        'problem_declared_status': metadata.declared_status,
+        'problem_declared_status_kind': metadata.declared_status_kind,
+    }
+
+def _contradiction_warning(result_label: Optional[str], path: str | Path) -> Optional[str]:
+    if result_label is None:
+        return None
+    if result_label not in {'Theorem', 'Theorem (SAT)'}:
+        return None
+
+    metadata = problem_metadata(path)
+    if metadata.declared_status_kind in {None, 'unsat'}:
+        return None
+
+    declared = metadata.declared_status or 'unknown'
+    return f'WARNING: declared status={declared} but prover found {result_label}'
+
+def _normalize_result(problem: Path, result: dict) -> dict:
+    normalized = dict(result)
+    label = normalized.get('result')
+    if not isinstance(label, str) or not label:
+        label = _terminal_result_label(normalized.get('info'))
+        if label is not None:
+            normalized['result'] = label
+
+    stripped_info = _info_without_terminal_result(normalized.get('info'))
+    if stripped_info is None:
+        normalized.pop('info', None)
+    else:
+        normalized['info'] = stripped_info
+
+    for key, value in _problem_result_metadata(problem).items():
+        normalized.setdefault(key, value)
+    return normalized
 
 def _recv_result(conn: Connection, proc: mp.Process) -> dict:
     try:
@@ -198,19 +269,29 @@ def _run_problem(
                         'steps': steps,
                         'time': elapsed,
                     }
+                    result_label = _terminal_result_label(status_info)
+                    if result_label is not None:
+                        result['result'] = result_label
                     final_strategy_info = _final_strategy_info(strategy)
-                    final_info = _combine_info(status_info, final_strategy_info)
+                    final_info = _combine_info(
+                        _info_without_terminal_result(status_info),
+                        final_strategy_info,
+                        _contradiction_warning(result_label, path),
+                    )
                     if final_info is not None:
                         result['info'] = final_info
+                    result.update(_problem_result_metadata(path))
 
                     conn.send(result)
                 except Exception as exc:
-                    conn.send({
+                    result = {
                         'status': 'error',
                         'solved': False,
                         'error': f'{type(exc).__name__}: {exc}',
                         'traceback': traceback.format_exc(),
-                    })
+                    }
+                    result.update(_problem_result_metadata(path))
+                    conn.send(result)
     finally:
         conn.close()
 
@@ -266,8 +347,8 @@ def fmt_result(r: Optional[dict], show_steps: bool, show_time: bool, use_color: 
     if status == 'max_steps':
         return bold('max-steps', use_color)
     if status == 'unsolved':
-        info = r.get('info', 'unsolved')
-        if str(info).startswith('Non-Theorem'):
+        result_label = r.get('result')
+        if isinstance(result_label, str) and result_label.startswith('Non-Theorem'):
             return dim('non-theorem', use_color)
         return dim('unsolved', use_color)
     if status == 'error':
@@ -374,7 +455,7 @@ def parse_result_text(text: str) -> Optional[dict]:
         'timeout': {'status': 'timeout', 'solved': False},
         'max-steps': {'status': 'max_steps', 'solved': False},
         'unsolved': {'status': 'unsolved', 'solved': False},
-        'non-theorem': {'status': 'unsolved', 'solved': False, 'info': 'Non-Theorem'},
+        'non-theorem': {'status': 'unsolved', 'solved': False, 'result': 'Non-Theorem'},
         'error': {'status': 'error', 'solved': False},
         'solved': {'status': 'solved', 'solved': True},
     }
@@ -476,7 +557,7 @@ def load_partial_report(
         line, partial_result = _split_inline_partial_result(line, problem_by_name, strategy_names)
         if partial_result is not None:
             problem, strategy_name, result = partial_result
-            metadata_results[problem][strategy_name] = result
+            metadata_results[problem][strategy_name] = _normalize_result(problem, result)
             if not line:
                 continue
 
@@ -502,14 +583,14 @@ def load_partial_report(
         result = parse_result_text(result_text)
         if result is None:
             continue
-        row_results[problem][strategy_name] = result
+        row_results[problem][strategy_name] = _normalize_result(problem, result)
 
     results = {
         problem: {
             strategy_name: (
                 metadata_results[problem][strategy_name]
                 if strategy_name in metadata_results[problem]
-                else row_results[problem][strategy_name]
+                else _normalize_result(problem, row_results[problem][strategy_name])
             )
             for strategy_name in row_results[problem].keys() | metadata_results[problem].keys()
         }
@@ -636,7 +717,7 @@ def run_tasks(
         ]
         for conn in expired:
             problem, strategy_name, proc, _ = active.pop(conn)
-            result = _cleanup_task_process(conn, proc)
+            result = _normalize_result(problem, _cleanup_task_process(conn, proc))
             conn.close()
             results[problem][strategy_name] = result
             reporter.emit_task_result(
@@ -664,7 +745,7 @@ def run_tasks(
         ready = wait(list(active), timeout=timeout_remaining)
         for conn in ready:
             problem, strategy_name, proc, _ = active.pop(conn)
-            result = _recv_result(conn, proc)
+            result = _normalize_result(problem, _recv_result(conn, proc))
             proc.join()
             conn.close()
             results[problem][strategy_name] = result
@@ -697,9 +778,14 @@ def write_results_csv(
         'problem',
         'strategy',
         'status',
+        'result',
         'solved',
         'steps',
         'time_ms',
+        'problem_spc_tags',
+        'problem_typed',
+        'problem_declared_status',
+        'problem_declared_status_kind',
         'info',
         'error',
     ]
@@ -709,16 +795,21 @@ def write_results_csv(
         writer.writeheader()
         for problem in problems:
             for strategy_name in strategies:
-                result = results[problem].get(strategy_name, {})
+                result = _normalize_result(problem, results[problem].get(strategy_name, {}))
                 writer.writerow({
                     'problem': _problem_csv_name(problem),
                     'strategy': strategy_name,
                     'status': result.get('status'),
+                    'result': result.get('result'),
                     'solved': result.get('solved'),
                     'steps': result.get('steps'),
                     'time_ms': (
                         None if result.get('time') is None else round(result['time'] * 1000)
                     ),
+                    'problem_spc_tags': ' '.join(result.get('problem_spc_tags', [])),
+                    'problem_typed': result.get('problem_typed'),
+                    'problem_declared_status': result.get('problem_declared_status'),
+                    'problem_declared_status_kind': result.get('problem_declared_status_kind'),
                     'info': result.get('info'),
                     'error': 'error' if result.get('status') == 'error' else None,
                 })

@@ -267,12 +267,37 @@ class TestCompareStrategiesPartialReport:
             'problem': 'SET027+3.p',
             'strategy': 'SmartCut',
             'status': 'error',
+            'result': '',
             'solved': 'False',
             'steps': '',
             'time_ms': '250',
+            'problem_spc_tags': '',
+            'problem_typed': '',
+            'problem_declared_status': '',
+            'problem_declared_status_kind': '',
             'info': '',
             'error': 'error',
         }]
+
+    def test_load_partial_report_backfills_result_from_old_inline_info(self, tmp_path: Path):
+        partial = tmp_path / 'partial.txt'
+        problem = Path('SET027+3.p')
+        old_result = {
+            'status': 'solved',
+            'solved': True,
+            'steps': 17,
+            'time': 0.25,
+            'info': 'Theorem (SAT); score=3.5',
+        }
+        partial.write_text(
+            compare_strategies._partial_result_line(problem, 'SmartCut', old_result) + '\n',
+            encoding='utf-8',
+        )
+
+        state = compare_strategies.load_partial_report(partial, [problem], ['SmartCut'])
+
+        assert state.results[problem]['SmartCut']['result'] == 'Theorem (SAT)'
+        assert state.results[problem]['SmartCut']['info'] == 'score=3.5'
 
 class TestCompareStrategiesLogicSelection:
     def test_default_logic_matches_strategy_family(self):
@@ -554,6 +579,7 @@ class TestCompareStrategiesInitialStatus:
         self,
         monkeypatch,
         *,
+        path = 'dummy.p',
         initial_status = (False, None),
         step_info = 'Theorem (SAT)',
         strategy_info = None,
@@ -605,7 +631,7 @@ class TestCompareStrategiesInitialStatus:
 
         compare_strategies._run_problem(
             FakeConn(),
-            'dummy.p',
+            path,
             'SATSolve',
             Logic.ClassicalSAT,
             SATSolver.CaDiCaL,
@@ -624,7 +650,8 @@ class TestCompareStrategiesInitialStatus:
         assert sent['status'] == 'solved'
         assert sent['solved'] is True
         assert sent['steps'] == 0
-        assert sent['info'] == 'Theorem (SAT)'
+        assert sent['result'] == 'Theorem (SAT)'
+        assert 'info' not in sent
 
     def test_run_problem_appends_strategy_final_info(self, monkeypatch):
         sent = self._run_fake_problem(
@@ -632,7 +659,8 @@ class TestCompareStrategiesInitialStatus:
             strategy_info = 'score=3.5',
         )
 
-        assert sent['info'] == 'Theorem (SAT); score=3.5'
+        assert sent['result'] == 'Theorem (SAT)'
+        assert sent['info'] == 'score=3.5'
 
     def test_run_problem_keeps_strategy_final_info_on_max_steps(self, monkeypatch):
         sent = self._run_fake_problem(
@@ -663,6 +691,19 @@ class TestCompareStrategiesInitialStatus:
         assert sent['status'] == 'timeout'
         assert sent['steps'] == 0
         assert sent['info'] == 'literal=choices:1'
+
+    def test_run_problem_warns_when_declared_satisfiable_is_proved_unsat(self, monkeypatch, tmp_path: Path):
+        problem = tmp_path / 'SYN000-3.p'
+        problem.write_text("% Status   : Satisfiable\n% SPC      : CNF_SAT_RFO\ncnf(a,axiom,p(a)).\n")
+
+        sent = self._run_fake_problem(
+            monkeypatch,
+            path = str(problem),
+            initial_status = (True, 'Theorem'),
+        )
+
+        assert sent['result'] == 'Theorem'
+        assert 'WARNING: declared status=Satisfiable but prover found Theorem' in sent['info']
 
     def test_run_problem_infers_sat_solver_when_none_is_selected(self, monkeypatch):
         captured = {}

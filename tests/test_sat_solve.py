@@ -146,23 +146,11 @@ def test_sat_solve_handles_empty_start_clause_via_sat(tmp_path):
 
 @pytest.mark.skipif(pydical is None, reason = 'pydical is not installed')
 @pytest.mark.skipif(os.getenv('TPTP') is None, reason = 'TPTP is not set')
-def test_sat_solve_solves_tptp_syn000_3():
+def test_sat_solve_rejects_typed_tptp_syn000_3():
     path = resolve_problem_path('SYN000-3.p')
-    env = ConnectionEnv(path, Settings(logic = 'ClassicalSAT'))
-    strategy = Strategy.strategies()['SATSolve'](env)
-    env.reset()
-
-    done = False
-    info = None
-    for _ in range(100):
-        action = strategy.step()
-        _, _, done, info = env.step(action)
-        if done:
-            break
-
-    assert done is True
-    assert isinstance(info, str)
-    assert info.startswith('Theorem (SAT)')
+    with pytest.warns(UserWarning, match='unsupported typed problem file'):
+        with pytest.raises(ValueError, match='unsupported typed problem file'):
+            ConnectionEnv(path, Settings(logic = 'ClassicalSAT'))
 
 @pytest.mark.skipif(pydical is None, reason = 'pydical is not installed')
 @pytest.mark.skipif(os.getenv('TPTP') is None, reason = 'TPTP is not set')

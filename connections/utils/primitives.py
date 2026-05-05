@@ -1,5 +1,14 @@
 from collections import defaultdict
 from abc import ABC
+from dataclasses import dataclass, field
+
+
+@dataclass(frozen = True)
+class ProblemMetadata:
+    spc_tags: frozenset[str] = field(default_factory = frozenset)
+    typed: bool = False
+    declared_status: str | None = None
+    declared_status_kind: str | None = None
 
 class Expression(ABC):
     def __init__(self, symbol, args=[], prefix=None):
@@ -79,10 +88,11 @@ class Literal(Expression):
         )
 
 class Matrix:
-    def __init__(self, clauses):
+    def __init__(self, clauses, metadata: ProblemMetadata | None = None):
         self.index = 0
         self.clauses = clauses
         self.num_clauses = len(clauses)
+        self.metadata = metadata if metadata is not None else ProblemMetadata()
         self._update_mappings()
 
     def reset(self):

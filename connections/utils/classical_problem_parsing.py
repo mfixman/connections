@@ -3,10 +3,16 @@ import re
 import subprocess
 import tempfile
 import warnings
+from functools import lru_cache
 from pathlib import Path
 
 from connections.utils.cnf_parsing import file2cnf as parse_connections_cnf
-from connections.utils.primitives import Constant, Function, Literal, Matrix, Variable
+from connections.utils.primitives import Constant, Function, Literal, Matrix, ProblemMetadata, Variable
+
+_TYPED_SPC_FAMILIES = frozenset({'TCF', 'TF0', 'TF1', 'TX0', 'TX1', 'TH0', 'TH1', 'NX0', 'NH0'})
+_UNSAT_STATUSES = frozenset({'Theorem', 'Unsatisfiable', 'ContradictoryAxioms'})
+_SAT_STATUSES = frozenset({'Satisfiable', 'CounterSatisfiable', 'Open'})
+_UNKNOWN_STATUSES = frozenset({'Unknown'})
 
 def file2cnf(path: str):
     """Load a classical problem from internal CNF or raw TPTP syntax."""
@@ -17,9 +23,17 @@ def file2cnf(path: str):
         case 'connections':
             return parse_connections_cnf(path)
         case 'tptp-cnf':
-            return _parse_tptp_cnf(file_path)
+            metadata = problem_metadata(file_path)
+            if metadata.typed:
+                _fail_for_typed_problem(file_path, metadata)
+            matrix = _parse_tptp_cnf(file_path)
+            matrix.metadata = metadata
+            return matrix
         case 'tptp-fof':
-            return _translate_tptp_problem(file_path)
+            metadata = problem_metadata(file_path)
+            if metadata.typed:
+                _fail_for_typed_problem(file_path, metadata)
+            return _translate_tptp_problem(file_path, metadata)
         case _:
             _fail_for_unsupported_problem(file_path)
 
@@ -44,6 +58,13 @@ def _fail_for_unsupported_problem(path: Path) -> None:
         f'unsupported problem file {path}: expected translated connection CNF '
         f'or a TPTP file with suffix .p/.ax and a "+" or "-" in the filename'
     )
+    warnings.warn(message, stacklevel=2)
+    raise ValueError(message)
+
+def _fail_for_typed_problem(path: Path, metadata: ProblemMetadata) -> None:
+    """Reject typed problems that the prover does not support semantically."""
+    tags = ', '.join(sorted(metadata.spc_tags)) or 'none'
+    message = f'unsupported typed problem file {path}: SPC tags={tags}'
     warnings.warn(message, stacklevel=2)
     raise ValueError(message)
 
@@ -172,7 +193,7 @@ def _preprocess_tptp_for_prolog(path: Path) -> Path:
     tmp.close()
     return Path(tmp.name)
 
-def _translate_tptp_problem(path: Path) -> Matrix:
+def _translate_tptp_problem(path: Path, metadata: ProblemMetadata | None = None) -> Matrix:
     """Translate raw TPTP FOF to connection CNF, then parse it."""
     repo_root = _repo_root()
     translator = repo_root / 'translation' / 'classical' / 'translate.sh'
@@ -196,11 +217,84 @@ def _translate_tptp_problem(path: Path) -> Matrix:
         if result.returncode != 0:
             detail = (result.stderr or result.stdout).strip()
             raise ValueError(detail or f'failed to translate {path}')
-        return parse_connections_cnf(str(output_path))
+        matrix = parse_connections_cnf(str(output_path))
+        if metadata is not None:
+            matrix.metadata = metadata
+        return matrix
     finally:
         output_path.unlink(missing_ok=True)
         if input_path != path:
             input_path.unlink(missing_ok=True)
+
+@lru_cache(maxsize = None)
+def problem_metadata(path: str | Path) -> ProblemMetadata:
+    """Return cached metadata for a problem or included axiom file."""
+    return _problem_metadata(Path(path).resolve())
+
+def _problem_metadata(path: Path) -> ProblemMetadata:
+    if not path.exists():
+        return ProblemMetadata()
+
+    text = path.read_text()
+    declared_status = _parse_declared_status(text)
+    declared_status_kind = _declared_status_kind(declared_status)
+    spc_tags = _collect_spc_tags(path)
+    typed = any(_spc_family(tag) in _TYPED_SPC_FAMILIES for tag in spc_tags)
+    return ProblemMetadata(
+        spc_tags = frozenset(spc_tags),
+        typed = typed,
+        declared_status = declared_status,
+        declared_status_kind = declared_status_kind,
+    )
+
+def _parse_declared_status(text: str) -> str | None:
+    match = re.search(r'^\s*%\s*Status\s*:\s*(.+?)\s*$', text, flags = re.MULTILINE)
+    if match is None:
+        return None
+    return match.group(1).strip()
+
+def _declared_status_kind(status: str | None) -> str | None:
+    if status is None:
+        return None
+    if status in _UNSAT_STATUSES:
+        return 'unsat'
+    if status in _SAT_STATUSES:
+        return 'sat'
+    if status in _UNKNOWN_STATUSES:
+        return 'unknown'
+    return 'other'
+
+def _spc_family(tag: str) -> str:
+    return tag.split('_', 1)[0]
+
+def _collect_spc_tags(path: Path, seen: set[Path] | None = None) -> set[str]:
+    """Collect SPC tags over a file's transitive include closure."""
+    path = path.resolve()
+    if seen is None:
+        seen = set()
+    if path in seen:
+        return set()
+
+    seen.add(path)
+    text = path.read_text()
+    tags = set(_parse_spc_tags(text))
+    if not _has_supported_tptp_suffix(path):
+        return tags
+
+    for statement in _split_tptp_statements(re.sub(r'^\s*%.*$', '', text, flags = re.MULTILINE)):
+        if not statement.startswith('include('):
+            continue
+        inner = statement[len('include('):-1]
+        parts = _split_top_level(inner, ',')
+        include_path = _resolve_include(parts[0], path)
+        tags.update(_collect_spc_tags(include_path, seen))
+    return tags
+
+def _parse_spc_tags(text: str) -> set[str]:
+    return {
+        match.group(1).strip()
+        for match in re.finditer(r'^\s*%\s*SPC\s*:\s*(\S+)\s*$', text, flags = re.MULTILINE)
+    }
 
 def _repo_root() -> Path:
     """Return the repository root for translation and include resolution."""

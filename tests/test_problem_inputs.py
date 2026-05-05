@@ -8,10 +8,12 @@ class TestProblemInputsDirectoryFiltering:
     def test_expand_problem_inputs_skips_unsupported_directory_entries(self, tmp_path: Path):
         problems = tmp_path / 'Problems'
         supported = problems / 'AAA001-1.p'
+        typed_supported_shape = problems / 'AAA002-1.p'
         unsupported_hat = problems / 'AAA001^1.p'
         unsupported_underscore = problems / 'AAA001_1.p'
         problems.mkdir()
-        supported.write_text('supported')
+        supported.write_text('% SPC      : CNF_UNS_RFO\nsupported')
+        typed_supported_shape.write_text('% SPC      : TCF_SAT_RFO_EQU_NUE\ntyped')
         unsupported_hat.write_text('unsupported')
         unsupported_underscore.write_text('unsupported')
 
@@ -58,9 +60,11 @@ class TestProblemInputSplitting:
     def test_expand_problem_inputs_filters_default_tptp_listing(self, tmp_path: Path, monkeypatch):
         tptp_root = tmp_path / 'tptp'
         supported = tptp_root / 'Problems' / 'SYN' / 'SYN001+1.p'
+        typed_supported_shape = tptp_root / 'Problems' / 'SYN' / 'SYN002-1.p'
         unsupported = tptp_root / 'Problems' / 'SYN' / 'SYN001^1.p'
         supported.parent.mkdir(parents = True)
-        supported.write_text('supported')
+        supported.write_text('% SPC      : FOF_THM_RFO\nsupported')
+        typed_supported_shape.write_text('% SPC      : TCF_SAT_RFO_EQU_NUE\ntyped')
         unsupported.write_text('unsupported')
 
         monkeypatch.setenv('TPTP', str(tptp_root))

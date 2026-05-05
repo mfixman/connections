@@ -10,6 +10,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Sequence, TypeVar
 
+from connections.utils.classical_problem_parsing import problem_metadata
 
 T = TypeVar('T')
 
@@ -120,7 +121,7 @@ def expand_problem_inputs(inputs: list[str]) -> list[Path]:
         if input_path.exists() and input_path.is_dir():
             dir_problems = sorted(
                 path for path in input_path.glob('*.p')
-                if _is_supported_tptp_problem_path(path)
+                if _is_supported_tptp_problem_path(path) and not problem_metadata(path).typed
             )
             if not dir_problems:
                 raise FileNotFoundError(f'no supported .p files found in {raw!r}')
@@ -240,7 +241,7 @@ def _all_tptp_problem_paths() -> list[Path]:
         (
             path.resolve()
             for path in problems_root.glob('*/*.p')
-            if _is_supported_tptp_problem_path(path)
+            if _is_supported_tptp_problem_path(path) and not problem_metadata(path).typed
         ),
         key=_problem_priority_key,
     )
