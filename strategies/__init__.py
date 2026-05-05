@@ -1147,9 +1147,11 @@ from .sat_solve_guided import (  # noqa: E402,F401
 )
 from .sat_reset import (  # noqa: E402,F401
     SATResetAtTwo,
+    SATResetAtTwoTableau,
     SATResetBandit,
     SATResetAtStaleAction,
     SATResetAtStaleBacktrack,
+    SATResetAtStaleBacktrackTableau,
     SATResetExtensionBudget,
     SATResetNoCut,
     SATResetStart,

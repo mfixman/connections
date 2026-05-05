@@ -539,6 +539,20 @@ class SATResetAtStaleBacktrack(_SATResetBase):
         raise LookupError('expected Backtrack or Reset action')
 
 
+class SATResetAtStaleBacktrackTableau(SATResetAtStaleBacktrack):
+    """Tableau-accepting variant of ``SATResetAtStaleBacktrack``.
+
+    The reset/backtrack policy is unchanged. The only difference is that
+    SATCoP-style ``paper_mode`` is disabled after construction, so ordinary
+    tableau closure is accepted directly instead of restarting until the shadow
+    CNF becomes UNSAT.
+    """
+
+    def __init__(self, env):
+        super().__init__(env)
+        self.env.state.enable_paper_mode(False)
+
+
 class SATResetAtStaleAction(SATResetAtStaleBacktrack):
     """Deepen after too many actions without new shadow clauses.
 
@@ -652,6 +666,19 @@ class SATResetAtTwo(SATResetAtStaleAction):
             self._zero_yield_strikes += 1
 
         return action
+
+
+class SATResetAtTwoTableau(SATResetAtTwo):
+    """Tableau-accepting variant of ``SATResetAtTwo``.
+
+    The control policy is identical to ``SATResetAtTwo``; only the acceptance
+    semantics differ. Successful runs may therefore terminate with ``Theorem``
+    when tableau closure happens before the shadow CNF becomes UNSAT.
+    """
+
+    def __init__(self, env):
+        super().__init__(env)
+        self.env.state.enable_paper_mode(False)
 
 
 class SATResetStart(SATResetAtStaleAction):
