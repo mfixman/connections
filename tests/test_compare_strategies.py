@@ -1,3 +1,4 @@
+import csv
 from pathlib import Path
 import sys
 
@@ -242,6 +243,36 @@ class TestCompareStrategiesPartialReport:
         assert 'remaining=2749' in captured.err
         assert 'workers=4' in captured.err
         assert 'timeout=120s' in captured.err
+
+    def test_write_results_csv_reduces_error_field_to_status_marker(self, tmp_path: Path):
+        csv_path = tmp_path / 'results.csv'
+        problem = Path('SET027+3.p')
+        results = {
+            problem: {
+                'SmartCut': {
+                    'status': 'error',
+                    'solved': False,
+                    'error': 'ValueError: boom',
+                    'time': 0.25,
+                }
+            }
+        }
+
+        compare_strategies.write_results_csv(str(csv_path), [problem], ['SmartCut'], results)
+
+        with open(csv_path, newline='', encoding='utf-8') as handle:
+            rows = list(csv.DictReader(handle))
+
+        assert rows == [{
+            'problem': 'SET027+3.p',
+            'strategy': 'SmartCut',
+            'status': 'error',
+            'solved': 'False',
+            'steps': '',
+            'time_ms': '250',
+            'info': '',
+            'error': 'error',
+        }]
 
 class TestCompareStrategiesLogicSelection:
     def test_default_logic_matches_strategy_family(self):

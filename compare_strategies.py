@@ -720,7 +720,7 @@ def write_results_csv(
                         None if result.get('time') is None else round(result['time'] * 1000)
                     ),
                     'info': result.get('info'),
-                    'error': result.get('error'),
+                    'error': 'error' if result.get('status') == 'error' else None,
                 })
 
 def parse_args(argv: list[str] | None = None):
