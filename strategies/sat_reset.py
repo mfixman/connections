@@ -668,6 +668,74 @@ class SATResetAtTwo(SATResetAtStaleAction):
         return action
 
 
+class SATResetAtTwoFixedStep(SATResetAtTwo):
+    """``SATResetAtTwo`` with a constant proactive reset after ``N`` steps.
+
+    This keeps the same dead-end/two-strike control rule as ``SATResetAtTwo``,
+    but replaces the inherited stale-action trigger with a fixed budget on the
+    number of emitted actions since the last reset. Once the budget is reached
+    and a reset is available:
+
+    - if fresh shadow clauses are pending, restart at the same depth;
+    - otherwise use the ordinary two-strike zero-yield rule.
+
+    In paper terms this is the closest "reset every ``N`` steps" variant of
+    ``SATResetAtTwo``.
+    """
+
+    _fixed_step_budget = 8
+
+    def step_budget(self) -> int:
+        return self._fixed_step_budget
+
+    def proactive_reset(
+        self,
+        actions: list[ConnectionAction],
+        chosen: ConnectionAction | None,
+    ) -> Reset | None:
+        del chosen
+        reset_action = self.available_reset(actions)
+        if reset_action is None:
+            return None
+        if self._since_reset_steps < self.step_budget():
+            return None
+        if getattr(self.env.state.shadow, 'new_ground_clauses', ()):
+            return self.same_depth_reset('fixed_step_shadow')
+        return self._zero_yield_reset(reset_action)
+
+
+class SATResetAtTwoDepthStep(SATResetAtTwo):
+    """``SATResetAtTwo`` with a depth-scaled proactive step budget.
+
+    This keeps the same forward policy and two-strike dead-end behavior as
+    ``SATResetAtTwo``, but replaces the inherited stale-action trigger with a
+    budget on the total number of emitted actions since the last reset. The
+    budget grows with the current depth bound, mirroring ``SATResetStepBudget``:
+
+    - if fresh shadow clauses are pending when the budget is hit, restart at the
+      same depth;
+    - otherwise use the ordinary two-strike zero-yield rule.
+    """
+
+    def step_budget(self) -> int:
+        return max(8, 2 * max(1, self.env.state.max_depth))
+
+    def proactive_reset(
+        self,
+        actions: list[ConnectionAction],
+        chosen: ConnectionAction | None,
+    ) -> Reset | None:
+        del chosen
+        reset_action = self.available_reset(actions)
+        if reset_action is None:
+            return None
+        if self._since_reset_steps < self.step_budget():
+            return None
+        if getattr(self.env.state.shadow, 'new_ground_clauses', ()):
+            return self.same_depth_reset('depth_step_shadow')
+        return self._zero_yield_reset(reset_action)
+
+
 class SATResetAtTwoTableau(SATResetAtTwo):
     """Tableau-accepting variant of ``SATResetAtTwo``.
 

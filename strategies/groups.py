@@ -32,6 +32,8 @@ def _sat_test_strategies() -> tuple[str, ...]:
         'SATResetAtStaleBacktrackTableau',
         'SATResetAtStaleAction',
         'SATResetAtTwo',
+        'SATResetAtTwoDepthStep',
+        'SATResetAtTwoFixedStep',
         'SATResetAtTwoTableau',
         'SATResetStart',
         'SATResetShadow',

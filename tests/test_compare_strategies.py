@@ -432,6 +432,8 @@ class TestCompareStrategiesLogicSelection:
             'SATResetAtStaleBacktrackTableau',
             'SATResetAtStaleAction',
             'SATResetAtTwo',
+            'SATResetAtTwoDepthStep',
+            'SATResetAtTwoFixedStep',
             'SATResetAtTwoTableau',
             'SATResetStart',
             'SATResetShadow',

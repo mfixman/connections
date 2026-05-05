@@ -53,6 +53,8 @@ def test_sat_solve_is_registered():
     assert 'SATResetAtStaleBacktrack' in Strategy.strategies()
     assert 'SATResetAtStaleBacktrackTableau' in Strategy.strategies()
     assert 'SATResetAtStaleAction' in Strategy.strategies()
+    assert 'SATResetAtTwoDepthStep' in Strategy.strategies()
+    assert 'SATResetAtTwoFixedStep' in Strategy.strategies()
     assert 'SATResetAtTwoTableau' in Strategy.strategies()
     assert 'SATResetShadow' in Strategy.strategies()
     assert 'SATResetNoCut' in Strategy.strategies()
@@ -1295,6 +1297,68 @@ def test_sat_reset_step_budget_can_proactively_reset():
     assert isinstance(reset, Reset)
     assert reset.depth == 4
     assert reset.reason == 'step_budget'
+
+def test_sat_reset_at_two_fixed_step_can_proactively_reset():
+    class FakeSolver:
+        def score(self, atom_id):
+            return 0
+
+    action = Extension(id = 'ex0')
+    env = SimpleNamespace(
+        legal_actions = lambda: [action, Reset(id = 'rs', depth = 5)],
+        state = SimpleNamespace(
+            goal = SimpleNamespace(parent = object()),
+            max_depth = 4,
+            shadow = SimpleNamespace(
+                new_ground_clauses = set(),
+                atom_map = {},
+                solver = FakeSolver(),
+                ground_clauses = set(),
+            ),
+            sat_literal_value = lambda literal: None,
+            _flush_new_ground_clauses = lambda: None,
+            _solve_ground_clauses = lambda: None,
+        ),
+    )
+    env.state.enable_paper_mode = lambda enabled = True: setattr(env.state, 'paper_mode', enabled)
+    strategy = Strategy.strategies()['SATResetAtTwoFixedStep'](env)
+    strategy._since_reset_steps = strategy.step_budget()
+
+    reset = strategy.step()
+    assert isinstance(reset, Reset)
+    assert reset.depth == 4
+    assert reset.reason == 'two_strike_retry'
+
+def test_sat_reset_at_two_depth_step_can_proactively_reset():
+    class FakeSolver:
+        def score(self, atom_id):
+            return 0
+
+    action = Extension(id = 'ex0')
+    env = SimpleNamespace(
+        legal_actions = lambda: [action, Reset(id = 'rs', depth = 5)],
+        state = SimpleNamespace(
+            goal = SimpleNamespace(parent = object()),
+            max_depth = 5,
+            shadow = SimpleNamespace(
+                new_ground_clauses = set(),
+                atom_map = {},
+                solver = FakeSolver(),
+                ground_clauses = set(),
+            ),
+            sat_literal_value = lambda literal: None,
+            _flush_new_ground_clauses = lambda: None,
+            _solve_ground_clauses = lambda: None,
+        ),
+    )
+    env.state.enable_paper_mode = lambda enabled = True: setattr(env.state, 'paper_mode', enabled)
+    strategy = Strategy.strategies()['SATResetAtTwoDepthStep'](env)
+    strategy._since_reset_steps = strategy.step_budget()
+
+    reset = strategy.step()
+    assert isinstance(reset, Reset)
+    assert reset.depth == 5
+    assert reset.reason == 'two_strike_retry'
 
 def test_sat_reset_at_two_tableau_disables_paper_mode():
     class FakeSolver:
