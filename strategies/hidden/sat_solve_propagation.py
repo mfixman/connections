@@ -6,8 +6,8 @@ from typing import NamedTuple
 
 from connections.calculi.classicalsat import ConnectionAction, Extension, Reduction, SATSolver, Start
 
-from . import sat_solve as sat_solve_module
-from .sat_solve import SATSolveLiteral
+from .. import sat_solve as sat_solve_module
+from ..sat_solve import SATSolveLiteral
 from .sat_solve_ties import _SATSolveLiteralTieMixin
 
 

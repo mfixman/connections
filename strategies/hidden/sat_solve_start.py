@@ -6,7 +6,7 @@ from typing import NamedTuple
 
 from connections.calculi.classicalsat import ConnectionAction, Reset, Start
 
-from .sat_solve import SATSolveLiteral
+from ..sat_solve import SATSolveLiteral
 
 
 class _StartClauseSignals(NamedTuple):

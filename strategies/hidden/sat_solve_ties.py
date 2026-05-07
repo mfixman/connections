@@ -6,7 +6,7 @@ import random
 
 from connections.calculi.classicalsat import ConnectionAction, Extension, Reduction, Start
 
-from .sat_solve import SATSolveLiteral
+from ..sat_solve import SATSolveLiteral
 
 
 class _SATSolveLiteralTieMixin:

@@ -7,8 +7,8 @@ from typing import NamedTuple
 from connections.calculi.classicalsat import Backtrack, Extension, Reduction, Reset, Start
 from connections.utils.primitives import Literal
 
-from . import sat_solve as sat_solve_module
-from .sat_solve import SATSolve
+from .. import sat_solve as sat_solve_module
+from ..sat_solve import SATSolve
 
 
 class _ExtensionSignals(NamedTuple):

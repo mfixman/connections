@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 
 import strategies
+from strategies.hidden import classical as hidden_classical
 
 class DummyEnv:
     def __init__(self):
@@ -33,10 +34,10 @@ class TestInitialSchedule:
             encoding = 'utf-8',
         )
 
-        monkeypatch.setattr(strategies.InitialSchedule, 'schedule_path', schedule_path)
+        monkeypatch.setattr(hidden_classical.InitialSchedule, 'schedule_path', schedule_path)
 
         env = DummyEnv()
-        strategy = strategies.InitialSchedule(env)
+        strategy = hidden_classical.InitialSchedule(env)
 
         assert strategy.step() == 'alpha'
         assert strategy.step() == 'alpha'
@@ -53,10 +54,10 @@ class TestInitialSchedule:
             encoding = 'utf-8',
         )
 
-        monkeypatch.setattr(strategies.InitialSchedule, 'schedule_path', schedule_path)
+        monkeypatch.setattr(hidden_classical.InitialSchedule, 'schedule_path', schedule_path)
 
         try:
-            strategies.InitialSchedule(DummyEnv())
+            hidden_classical.InitialSchedule(DummyEnv())
         except ValueError as exc:
             assert 'cannot schedule itself' in str(exc)
         else:

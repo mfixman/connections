@@ -21,14 +21,13 @@ T = TypeVar('T')
 def default_logic_for_strategy(strategy_name: str) -> Logic:
     if strategy_name == 'FirstAction':
         return Logic.Classical
-    if strategy_name == 'LeanCopCut':
+    strategy = Strategy.strategies().get(strategy_name)
+    if strategy is not None and strategy.__module__ == 'strategies.classical':
         return Logic.ClassicalCut
     return Logic.ClassicalSAT
 
 
 def resolve_logic_for_strategy(strategy_name: str, logic_override: Logic | None) -> Logic:
-    if logic_override is not None:
-        return logic_override
     return default_logic_for_strategy(strategy_name)
 
 
@@ -180,7 +179,13 @@ def _positive_int(raw: str) -> int:
 
 
 def _add_common_prover_arguments(parser: argparse.ArgumentParser, *, max_steps_default: int) -> None:
-    parser.add_argument('--logic', default=None, choices=list(Logic), type=Logic, help='Which logic')
+    parser.add_argument(
+        '--logic',
+        default=None,
+        choices=list(Logic),
+        type=Logic,
+        help='deprecated override; effective logic is determined by the selected strategy',
+    )
     parser.add_argument(
         '--sat-solver',
         default=None,
@@ -295,7 +300,7 @@ def _compare_epilog() -> str:
         'examples:\n'
         '  %(prog)s --csv results.csv\n'
         '  %(prog)s tests/cnf_problems --csv results.csv\n'
-        '  %(prog)s tests --strategies FirstAction SmartCut --csv results.csv\n'
+        '  %(prog)s tests --strategies FirstAction SATSolveLiteral --csv results.csv\n'
         '  %(prog)s tests --all-strategies --csv results.csv\n'
         '  %(prog)s tests --no-time --csv results.csv\n'
         '  %(prog)s tests --no-steps --csv results.csv\n'

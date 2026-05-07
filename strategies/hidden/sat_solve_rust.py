@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from connections.calculi.classicalsat import Backtrack, Extension, Reduction, Reset, Start
 
-from .base import Strategy
-from .sat_solve import _SATScoreTracker
+from ..base import Strategy
+from ..sat_solve import _SATScoreTracker
 
 
 class SATCoPRust(_SATScoreTracker, Strategy):

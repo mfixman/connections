@@ -3,7 +3,7 @@ import os
 import pytest
 
 import connections.calculi.classicalsat as classicalsat
-import strategies.sat_solve_learn as sat_solve_learn_module
+import strategies.hidden.sat_solve_learn as sat_solve_learn_module
 import strategies.sat_solve as sat_solve_module
 from types import SimpleNamespace
 

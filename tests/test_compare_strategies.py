@@ -14,7 +14,7 @@ class TestCompareStrategiesPartialReport:
             'Problem     Strategy     Result\n'
             '--------------------------------\n'
             f'SET027+3.p  FirstAction  {compare_strategies.green("1,234 / 56ms")}\n'
-            f'SET027+3.p  SmartCut     {compare_strategies.bold("max-steps")}\n',
+            f'SET027+3.p  LeanCopCut  {compare_strategies.bold("max-steps")}\n',
             encoding='utf-8',
         )
 
@@ -22,7 +22,7 @@ class TestCompareStrategiesPartialReport:
         state = compare_strategies.load_partial_report(
             partial,
             [problem],
-            ['FirstAction', 'SmartCut'],
+            ['FirstAction', 'LeanCopCut'],
         )
 
         assert state.has_header is True
@@ -34,7 +34,7 @@ class TestCompareStrategiesPartialReport:
             'steps': 1234,
             'time': 0.056,
         }
-        assert state.results[problem]['SmartCut'] == {
+        assert state.results[problem]['LeanCopCut'] == {
             'status': 'max_steps',
             'solved': False,
         }
@@ -50,7 +50,7 @@ class TestCompareStrategiesPartialReport:
             'steps': 17,
             'time': 0.25,
         }
-        problem_width, strategy_width, header, sep = compare_strategies.report_layout([problem], ['SmartCut'])
+        problem_width, strategy_width, header, sep = compare_strategies.report_layout([problem], ['LeanCopCut'])
         partial.write_text(
             '\n'.join(
                 [
@@ -58,21 +58,21 @@ class TestCompareStrategiesPartialReport:
                     sep,
                     compare_strategies.strip_ansi(
                         compare_strategies.format_task_result(
-                            problem, 'SmartCut', result, True, True, problem_width, strategy_width
+                            problem, 'LeanCopCut', result, True, True, problem_width, strategy_width
                         )
                     ),
-                    compare_strategies._partial_result_line(problem, 'SmartCut', result),
+                    compare_strategies._partial_result_line(problem, 'LeanCopCut', result),
                 ]
             ) + '\n',
             encoding='utf-8',
         )
 
-        state = compare_strategies.load_partial_report(partial, [problem], ['SmartCut'])
+        state = compare_strategies.load_partial_report(partial, [problem], ['LeanCopCut'])
 
-        assert state.results[problem]['SmartCut'] == result
+        assert state.results[problem]['LeanCopCut'] == result
         assert state.last_line == compare_strategies.strip_ansi(
             compare_strategies.format_task_result(
-                problem, 'SmartCut', result, True, True, problem_width, strategy_width
+                problem, 'LeanCopCut', result, True, True, problem_width, strategy_width
             )
         )
 
@@ -87,10 +87,10 @@ class TestCompareStrategiesPartialReport:
             'steps': 17,
             'time': 0.25,
         }
-        problem_width, strategy_width, header, sep = compare_strategies.report_layout([problem], ['SmartCut'])
+        problem_width, strategy_width, header, sep = compare_strategies.report_layout([problem], ['LeanCopCut'])
         row = compare_strategies.strip_ansi(
             compare_strategies.format_task_result(
-                problem, 'SmartCut', result, True, True, problem_width, strategy_width
+                problem, 'LeanCopCut', result, True, True, problem_width, strategy_width
             )
         )
         partial.write_text(
@@ -98,15 +98,15 @@ class TestCompareStrategiesPartialReport:
                 [
                     header,
                     sep,
-                    compare_strategies._task_result_with_inline_metadata(problem, 'SmartCut', result, row),
+                    compare_strategies._task_result_with_inline_metadata(problem, 'LeanCopCut', result, row),
                 ]
             ) + '\n',
             encoding='utf-8',
         )
 
-        state = compare_strategies.load_partial_report(partial, [problem], ['SmartCut'])
+        state = compare_strategies.load_partial_report(partial, [problem], ['LeanCopCut'])
 
-        assert state.results[problem]['SmartCut'] == result
+        assert state.results[problem]['LeanCopCut'] == result
         assert state.last_line == row
 
     def test_report_writer_strips_color_from_partial_by_default(self, tmp_path: Path, capsys):
@@ -122,7 +122,7 @@ class TestCompareStrategiesPartialReport:
 
     def test_resumed_partial_matches_single_pass_output(self, tmp_path: Path, capsys):
         problem = Path('SET027+3.p')
-        strategies = ['FirstAction', 'SmartCut']
+        strategies = ['FirstAction', 'LeanCopCut']
         result1 = {'status': 'solved', 'solved': True, 'steps': 10, 'time': 0.012}
         result2 = {'status': 'max_steps', 'solved': False}
         problem_width, strategy_width, header, sep = compare_strategies.report_layout([problem], strategies)
@@ -139,12 +139,12 @@ class TestCompareStrategiesPartialReport:
         )
         full_writer.emit_task_result(
             problem,
-            'SmartCut',
+            'LeanCopCut',
             result2,
-            compare_strategies.format_task_result(problem, 'SmartCut', result2, True, True, problem_width, strategy_width),
+            compare_strategies.format_task_result(problem, 'LeanCopCut', result2, True, True, problem_width, strategy_width),
         )
         full_writer.emit(sep)
-        full_writer.emit('Solved: FirstAction=1/1  SmartCut=0/1  |  step wins: FirstAction=1  SmartCut=0  ties=0')
+        full_writer.emit('Solved: FirstAction=1/1  LeanCopCut=0/1  |  step wins: FirstAction=1  LeanCopCut=0  ties=0')
         full_writer.emit('CSV: /tmp/results.csv')
         full_writer.close()
         capsys.readouterr()
@@ -178,13 +178,13 @@ class TestCompareStrategiesPartialReport:
         )
         resumed_writer.emit_task_result(
             problem,
-            'SmartCut',
+            'LeanCopCut',
             result2,
-            compare_strategies.format_task_result(problem, 'SmartCut', result2, True, True, problem_width, strategy_width),
+            compare_strategies.format_task_result(problem, 'LeanCopCut', result2, True, True, problem_width, strategy_width),
         )
         if resumed_writer.last_line != sep:
             resumed_writer.emit(sep)
-        resumed_writer.emit('Solved: FirstAction=1/1  SmartCut=0/1  |  step wins: FirstAction=1  SmartCut=0  ties=0')
+        resumed_writer.emit('Solved: FirstAction=1/1  LeanCopCut=0/1  |  step wins: FirstAction=1  LeanCopCut=0  ties=0')
         resumed_writer.emit('CSV: /tmp/results.csv')
         resumed_writer.close()
         capsys.readouterr()
@@ -249,7 +249,7 @@ class TestCompareStrategiesPartialReport:
         problem = Path('SET027+3.p')
         results = {
             problem: {
-                'SmartCut': {
+                'LeanCopCut': {
                     'status': 'error',
                     'solved': False,
                     'error': 'ValueError: boom',
@@ -258,14 +258,14 @@ class TestCompareStrategiesPartialReport:
             }
         }
 
-        compare_strategies.write_results_csv(str(csv_path), [problem], ['SmartCut'], results)
+        compare_strategies.write_results_csv(str(csv_path), [problem], ['LeanCopCut'], results)
 
         with open(csv_path, newline='', encoding='utf-8') as handle:
             rows = list(csv.DictReader(handle))
 
         assert rows == [{
             'problem': 'SET027+3.p',
-            'strategy': 'SmartCut',
+            'strategy': 'LeanCopCut',
             'status': 'error',
             'result': '',
             'solved': 'False',
@@ -290,43 +290,42 @@ class TestCompareStrategiesPartialReport:
             'info': 'Theorem (SAT); score=3.5',
         }
         partial.write_text(
-            compare_strategies._partial_result_line(problem, 'SmartCut', old_result) + '\n',
+            compare_strategies._partial_result_line(problem, 'LeanCopCut', old_result) + '\n',
             encoding='utf-8',
         )
 
-        state = compare_strategies.load_partial_report(partial, [problem], ['SmartCut'])
+        state = compare_strategies.load_partial_report(partial, [problem], ['LeanCopCut'])
 
-        assert state.results[problem]['SmartCut']['result'] == 'Theorem (SAT)'
-        assert state.results[problem]['SmartCut']['info'] == 'score=3.5'
+        assert state.results[problem]['LeanCopCut']['result'] == 'Theorem (SAT)'
+        assert state.results[problem]['LeanCopCut']['info'] == 'score=3.5'
 
 class TestCompareStrategiesLogicSelection:
     def test_default_logic_matches_strategy_family(self):
         assert compare_strategies.default_logic_for_strategy('FirstAction') is Logic.Classical
         assert compare_strategies.default_logic_for_strategy('LeanCopCut') is Logic.ClassicalCut
-        assert compare_strategies.default_logic_for_strategy('SmartCut') is Logic.ClassicalSAT
         assert compare_strategies.default_logic_for_strategy('SATSolve') is Logic.ClassicalSAT
-        assert compare_strategies.default_logic_for_strategy('SATSolveGuided') is Logic.ClassicalSAT
-        assert compare_strategies.default_logic_for_strategy('SATSolveGuidedFast') is Logic.ClassicalSAT
-        assert compare_strategies.default_logic_for_strategy('SATCoPRust') is Logic.ClassicalSAT
+        assert compare_strategies.default_logic_for_strategy('SATSolveLiteral') is Logic.ClassicalSAT
+        assert compare_strategies.default_logic_for_strategy('SATResetAtTwoFixedStep') is Logic.ClassicalSAT
+        assert compare_strategies.default_logic_for_strategy('SATResetShadow') is Logic.ClassicalSAT
 
     def test_default_sat_solver_is_inferred_from_strategy(self):
         assert compare_strategies.default_sat_solver_for_strategy('SATSolve') is SATSolver.CaDiCaL
-        assert compare_strategies.default_sat_solver_for_strategy('SATSolvePropagation') is SATSolver.CaDiCaL
+        assert compare_strategies.default_sat_solver_for_strategy('SATSolveLiteral') is SATSolver.CaDiCaL
 
     def test_explicit_sat_solver_override_wins(self):
         assert (
-            compare_strategies.resolve_sat_solver_for_strategy('SATSolvePropagation', SATSolver.CaDiCaL)
+            compare_strategies.resolve_sat_solver_for_strategy('SATSolveLiteral', SATSolver.CaDiCaL)
             is SATSolver.CaDiCaL
         )
 
-    def test_explicit_logic_override_wins(self):
+    def test_explicit_logic_override_is_ignored(self):
         assert (
             compare_strategies.resolve_logic_for_strategy('SATSolve', Logic.ClassicalCut)
-            is Logic.ClassicalCut
+            is Logic.ClassicalSAT
         )
         assert (
             compare_strategies.resolve_logic_for_strategy('FirstAction', Logic.ClassicalSAT)
-            is Logic.ClassicalSAT
+            is Logic.Classical
         )
 
     def test_determine_worker_count_uses_override_instead_of_cpu_detection(self, monkeypatch):
@@ -415,44 +414,15 @@ class TestCompareStrategiesLogicSelection:
 
         assert args.strategies == [
             'SATSolve',
-            'SATCoPRust',
-            'SATSolveGuided',
-            'SATSolveGuidedProbeConflicts',
-            'SATSolveGuidedForcedTrue',
-            'SATSolveGuidedEVSIDS',
-            'SATSolveGuidedShort',
-            'SATSolveGuidedFast',
             'SATSolveLiteral',
-            'SATSolveLiteralRandomTie',
-            'SATSolveLiteralShortTie',
-            'SATSolveLiteralLookaheadTie',
-            'SATSolveLearnInitial',
-            'SATResetBandit',
             'SATResetAtStaleBacktrack',
-            'SATResetAtStaleBacktrackTableau',
             'SATResetAtStaleAction',
             'SATResetAtTwo',
-            'SATResetAtTwoDepthStep',
             'SATResetAtTwoFixedStep',
-            'SATResetAtTwoTableau',
             'SATResetStart',
             'SATResetShadow',
             'SATResetNoCut',
             'SATResetStepBudget',
-            'SATResetExtensionBudget',
-            'SATSolveLearnCombined',
-            'SATSolveLearnSATContext',
-            'SATSolveLiteralFrequencyTie',
-            'SATSolveLiteralLowFrequencyTie',
-            'SATSolveLiteralOppositeSignedFrequencyTie',
-            'SATSolveLiteralRareStart',
-            'SATSolveLiteralModelStart',
-            'SATSolveLiteralFirstStart',
-            'SATSolveLiteralFridayStartCut',
-            'SATSolveLiteralFridayRootReset',
-            'SATSolveLiteralFridayHybrid',
-            'SATSolvePropagation',
-            'SATSolveLiteralPropagation',
         ]
 
     def test_parse_args_deduplicates_expanded_groups(self, monkeypatch):
@@ -740,7 +710,7 @@ class TestCompareStrategiesInitialStatus:
         class FakeStrategyRegistry:
             @staticmethod
             def strategies():
-                return {'SATSolvePropagation': FakeStrategy}
+                return {'SATSolveLiteral': FakeStrategy}
 
         monkeypatch.setattr(compare_strategies, 'ConnectionEnv', FakeEnv)
         monkeypatch.setattr(compare_strategies, 'Strategy', FakeStrategyRegistry)
@@ -748,7 +718,7 @@ class TestCompareStrategiesInitialStatus:
         compare_strategies._run_problem(
             FakeConn(),
             'dummy.p',
-            'SATSolvePropagation',
+            'SATSolveLiteral',
             Logic.ClassicalSAT,
             None,
             100,

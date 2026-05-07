@@ -443,22 +443,20 @@ class _ControlBanditMixin(_BanditTableMixin):
         return self.control_final_info_piece()
 
 
-class SATResetBandit(_ControlBanditMixin, _SATResetBase):
-    """Adaptive reset controller discovered from the earlier learning run.
+class SATResetNoCut(_ControlBanditMixin, _SATResetBase):
+    """``SATResetBandit`` without Prolog-style forward cuts.
 
-    This is the bandit-based reset baseline. It behaves as follows:
+    The control logic is unchanged, including the same root-reset rule and
+    the same bandit over dead-end actions. The only difference is that
+    reductions and extensions do not commit a cut, so the tableau is allowed
+    to revisit more local alternatives before reset or backtrack control takes
+    over.
 
-    - forward steps are still chosen exactly like ``SATSolveLiteral``;
-    - at the root, if fresh shadow clauses exist, it immediately resets at the
-      same depth to exploit that growth;
-    - otherwise, at dead ends it uses the bandit from
-      ``_ControlBanditMixin`` to choose between ``Backtrack(1)``,
-      ``Backtrack(2)``, and ``Reset``.
-
-    The main idea is to learn whether clause-harvesting breadth or local
-    persistence is paying off on the current run, while keeping the overall
-    mechanism simple and fully online.
+    This is intentionally simple: it isolates the interaction between
+    reset-heavy control and restricted backtracking.
     """
+
+    _forward_cuts = False
 
     def __init__(self, env):
         super().__init__(env)
@@ -496,22 +494,6 @@ class SATResetBandit(_ControlBanditMixin, _SATResetBase):
         return '; '.join(parts) if parts else None
 
 
-class SATResetNoCut(SATResetBandit):
-    """``SATResetBandit`` without Prolog-style forward cuts.
-
-    The control logic is unchanged, including the same root-reset rule and
-    the same bandit over dead-end actions. The only difference is that
-    reductions and extensions do not commit a cut, so the tableau is allowed
-    to revisit more local alternatives before reset or backtrack control takes
-    over.
-
-    This is intentionally simple: it isolates the interaction between
-    reset-heavy control and restricted backtracking.
-    """
-
-    _forward_cuts = False
-
-
 class SATResetAtStaleBacktrack(_SATResetBase):
     """Reset instead of backtracking once the shadow stops growing.
 
@@ -537,20 +519,6 @@ class SATResetAtStaleBacktrack(_SATResetBase):
             return action
 
         raise LookupError('expected Backtrack or Reset action')
-
-
-class SATResetAtStaleBacktrackTableau(SATResetAtStaleBacktrack):
-    """Tableau-accepting variant of ``SATResetAtStaleBacktrack``.
-
-    The reset/backtrack policy is unchanged. The only difference is that
-    SATCoP-style ``paper_mode`` is disabled after construction, so ordinary
-    tableau closure is accepted directly instead of restarting until the shadow
-    CNF becomes UNSAT.
-    """
-
-    def __init__(self, env):
-        super().__init__(env)
-        self.env.state.enable_paper_mode(False)
 
 
 class SATResetAtStaleAction(SATResetAtStaleBacktrack):
@@ -704,51 +672,6 @@ class SATResetAtTwoFixedStep(SATResetAtTwo):
         return self._zero_yield_reset(reset_action)
 
 
-class SATResetAtTwoDepthStep(SATResetAtTwo):
-    """``SATResetAtTwo`` with a depth-scaled proactive step budget.
-
-    This keeps the same forward policy and two-strike dead-end behavior as
-    ``SATResetAtTwo``, but replaces the inherited stale-action trigger with a
-    budget on the total number of emitted actions since the last reset. The
-    budget grows with the current depth bound, mirroring ``SATResetStepBudget``:
-
-    - if fresh shadow clauses are pending when the budget is hit, restart at the
-      same depth;
-    - otherwise use the ordinary two-strike zero-yield rule.
-    """
-
-    def step_budget(self) -> int:
-        return max(8, 2 * max(1, self.env.state.max_depth))
-
-    def proactive_reset(
-        self,
-        actions: list[ConnectionAction],
-        chosen: ConnectionAction | None,
-    ) -> Reset | None:
-        del chosen
-        reset_action = self.available_reset(actions)
-        if reset_action is None:
-            return None
-        if self._since_reset_steps < self.step_budget():
-            return None
-        if getattr(self.env.state.shadow, 'new_ground_clauses', ()):
-            return self.same_depth_reset('depth_step_shadow')
-        return self._zero_yield_reset(reset_action)
-
-
-class SATResetAtTwoTableau(SATResetAtTwo):
-    """Tableau-accepting variant of ``SATResetAtTwo``.
-
-    The control policy is identical to ``SATResetAtTwo``; only the acceptance
-    semantics differ. Successful runs may therefore terminate with ``Theorem``
-    when tableau closure happens before the shadow CNF becomes UNSAT.
-    """
-
-    def __init__(self, env):
-        super().__init__(env)
-        self.env.state.enable_paper_mode(False)
-
-
 class SATResetStart(SATResetAtStaleAction):
     """Rotate the first root start after each same-depth reset.
 
@@ -850,30 +773,3 @@ class SATResetStepBudget(SATResetShadow):
         if self._since_reset_steps < self.step_budget():
             return None
         return self.same_depth_reset('step_budget')
-
-
-class SATResetExtensionBudget(SATResetShadow):
-    """Shadow-reset policy with an extension-count restart trigger.
-
-    Instead of counting all emitted steps, this variant counts only extensions.
-    The intent is to reset after harvesting a modest number of fresh clause
-    instances, regardless of how many reductions or backtracks happened around
-    them.  Like ``SATResetStepBudget``, the budget scales with current depth and
-    the reset stays at the same depth.
-    """
-
-    def extension_budget(self) -> int:
-        return max(4, max(1, self.env.state.max_depth))
-
-    def proactive_reset(
-        self,
-        actions: list[ConnectionAction],
-        chosen: ConnectionAction | None,
-    ) -> Reset | None:
-        if not isinstance(chosen, (Start, Reduction, Extension)):
-            return None
-        if self.available_reset(actions) is None:
-            return None
-        if self._since_reset_extensions < self.extension_budget():
-            return None
-        return self.same_depth_reset('extension_budget')

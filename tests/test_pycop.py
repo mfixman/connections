@@ -159,12 +159,13 @@ class TestPycopLogicSelection:
         assert pycop.default_logic_for_strategy('FirstAction') is Logic.Classical
         assert pycop.default_logic_for_strategy('LeanCopCut') is Logic.ClassicalCut
         assert pycop.default_logic_for_strategy('SATSolve') is Logic.ClassicalSAT
-        assert pycop.default_logic_for_strategy('SATSolveGuided') is Logic.ClassicalSAT
-        assert pycop.default_logic_for_strategy('SATSolveGuidedFast') is Logic.ClassicalSAT
-        assert pycop.default_logic_for_strategy('SATCoPRust') is Logic.ClassicalSAT
+        assert pycop.default_logic_for_strategy('SATSolveLiteral') is Logic.ClassicalSAT
+        assert pycop.default_logic_for_strategy('SATResetAtStaleAction') is Logic.ClassicalSAT
+        assert pycop.default_logic_for_strategy('SATResetStepBudget') is Logic.ClassicalSAT
 
-    def test_resolve_logic_for_strategy_honours_explicit_override(self):
-        assert pycop.resolve_logic_for_strategy('LeanCopCut', Logic.Classical) is Logic.Classical
+    def test_resolve_logic_for_strategy_ignores_explicit_override(self):
+        assert pycop.resolve_logic_for_strategy('LeanCopCut', Logic.Classical) is Logic.ClassicalCut
+        assert pycop.resolve_logic_for_strategy('FirstAction', Logic.ClassicalSAT) is Logic.Classical
 
     def test_run_problem_uses_strategy_default_logic(self, monkeypatch):
         seen = {}
@@ -207,7 +208,7 @@ class TestPycopLogicSelection:
         assert seen['logic'] is Logic.ClassicalCut
         assert result['info'] == 'Theorem'
 
-    def test_run_problem_keeps_explicit_logic_override(self, monkeypatch):
+    def test_run_problem_ignores_explicit_logic_override(self, monkeypatch):
         seen = {}
 
         class FakeEnv:
@@ -245,7 +246,7 @@ class TestPycopLogicSelection:
             ),
         )
 
-        assert seen['logic'] is Logic.Classical
+        assert seen['logic'] is Logic.ClassicalCut
         assert result['info'] == 'Theorem'
 
 class TestPycopPrinting:

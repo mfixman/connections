@@ -18,8 +18,8 @@ from connections.calculi.classicalsat import (
 )
 from connections.utils.primitives import Literal
 
-from .sat_reset import _BanditTableMixin, _ControlBanditMixin
-from .sat_solve import SATSolveLiteral
+from ..sat_reset import _BanditTableMixin, _ControlBanditMixin
+from ..sat_solve import SATSolveLiteral
 from .sat_solve_ties import _SATSolveLiteralTieMixin
 
 
