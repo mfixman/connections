@@ -1,9 +1,8 @@
 [tool.poetry]
-name = "connections"
+name = "MyPyCoP"
 version = "0.1.0"
 description = ""
-authors = ["Fredrik Rømming <fr409@cam.ac.uk>"]
-readme = "README.md"
+authors = ["Martin Fixman <msf43@cam.ac.uk>"]
 
 [tool.poetry.dependencies]
 python = "^3.10"
