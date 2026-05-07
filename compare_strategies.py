@@ -16,13 +16,17 @@ from multiprocessing.connection import Connection, wait
 from pathlib import Path
 from typing import Optional
 
-from connections.env import ConnectionEnv, Logic, SATSolver, Settings
-from connections.utils.classical_problem_parsing import problem_metadata
-from problem_inputs import (
+from cli import (
+    default_logic_for_strategy,
+    default_sat_solver_for_strategy,
     expand_problem_inputs,
+    parse_compare_args,
+    resolve_logic_for_strategy,
+    resolve_sat_solver_for_strategy,
     split_problem_paths,
 )
-from parse_args import parse_compare_args
+from connections.env import ConnectionEnv, Logic, SATSolver, Settings
+from connections.utils.classical_problem_parsing import problem_metadata
 from strategies import Strategy
 
 _ANSI = re.compile(r'\033\[[0-9;]*m')
@@ -186,29 +190,6 @@ def _cleanup_task_process(conn: Connection, proc: mp.Process) -> dict:
         'solved': False,
         'error': f'worker exited with code {proc.exitcode}',
     }
-
-def default_logic_for_strategy(strategy_name: str) -> Logic:
-    if strategy_name == 'FirstAction':
-        return Logic.Classical
-    if strategy_name == 'LeanCopCut':
-        return Logic.ClassicalCut
-    return Logic.ClassicalSAT
-
-def resolve_logic_for_strategy(strategy_name: str, logic_override: Optional[Logic]) -> Logic:
-    if logic_override is not None:
-        return logic_override
-    return default_logic_for_strategy(strategy_name)
-
-def default_sat_solver_for_strategy(strategy_name: str) -> SATSolver:
-    strategy = Strategy.strategies().get(strategy_name)
-    if strategy is None:
-        return SATSolver.CaDiCaL
-    return SATSolver(getattr(strategy, 'sat_solver_backend', SATSolver.CaDiCaL))
-
-def resolve_sat_solver_for_strategy(strategy_name: str, sat_solver_override: Optional[SATSolver]) -> SATSolver:
-    if sat_solver_override is not None:
-        return sat_solver_override
-    return default_sat_solver_for_strategy(strategy_name)
 
 def _run_problem(
     conn: Connection,

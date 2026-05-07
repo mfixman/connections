@@ -2,7 +2,7 @@ import sys
 
 import pytest
 
-from parse_args import parse_pycop_args
+from cli import parse_pycop_args
 from connections.env import Logic, SATSolver, Settings
 
 def test_parse_args_accepts_cadical_sat_solver(monkeypatch):

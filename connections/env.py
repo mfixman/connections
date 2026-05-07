@@ -1,56 +1,41 @@
 import dataclasses
 from dataclasses import dataclass
+from enum import StrEnum, auto
 from typing import Optional
 
-from enum import auto
-from connections.Utils import *
-
-from connections.calculi.classicalsat import SATConnectionState, SATSolver
 from connections.calculi.classical import ConnectionState
 from connections.calculi.classicalcut import ClassicalCut
-from connections.calculi.intuitionistic import IConnectionState
-from connections.calculi.modal_d import DConnectionState
-from connections.calculi.modal_t import TConnectionState
-from connections.calculi.modal_s4 import S4ConnectionState
-from connections.calculi.modal_s5 import S5ConnectionState
-
+from connections.calculi.classicalsat import SATConnectionState, SATSolver
 from connections.utils.classical_problem_parsing import file2cnf as CNF
-from connections.utils.icnf_parsing import file2cnf as ICNF
+
+
+class UncaseEnum(StrEnum):
+    @classmethod
+    def _missing_(cls, value):
+        try:
+            return next(x for x in cls if x.name.lower() == value.lower())
+        except StopIteration as exc:
+            raise LookupError(f'"{value}" not a valid {cls.__name__}') from exc
+
+    def __str__(self):
+        return self.name
 
 class Logic(UncaseEnum):
     ClassicalSAT = auto()
     Classical = auto()
     ClassicalCut = auto()
-    Intuitionistic = auto()
-    Modal = auto()
-    D = auto()
-    T = auto()
-    S4 = auto()
-    S5 = auto()
 
     def state_class(self):
         class_map = {
             Logic.ClassicalSAT: SATConnectionState,
             Logic.Classical: ConnectionState,
             Logic.ClassicalCut: ClassicalCut,
-            Logic.Intuitionistic: IConnectionState,
-            Logic.D: DConnectionState,
-            Logic.T: TConnectionState,
-            Logic.S4: S4ConnectionState,
-            Logic.S5: S5ConnectionState
         }
 
         return class_map[self]
 
     def parser(self):
-        match self:
-            case Logic.Classical | Logic.ClassicalCut | Logic.ClassicalSAT:
-                return CNF
-
-            case Logic.Intuitionistic | Logic.D | Logic.T | Logic.S4 | Logic.S5:
-                return ICNF
-
-        raise LookupError(f'Unknown parser for logic {self}')
+        return CNF
 
     def overrides(self):
         match self:
@@ -62,11 +47,6 @@ class Logic(UncaseEnum):
 
         return {}
 
-class Domain(UncaseEnum):
-    Constant = auto()
-    Cumulative = auto()
-    Varying = auto()
-
 @dataclass
 class Settings:
     positive_start_clauses: bool = True
@@ -76,13 +56,11 @@ class Settings:
     backtrack_after: int = 2
     random_seed: int = 0
     logic: Logic = Logic.Classical
-    domain: Domain = Domain.Constant
     sat_solver: SATSolver = SATSolver.CaDiCaL
     debug: bool = False
 
     def __post_init__(self):
         self.logic = Logic(self.logic)
-        self.domain = Domain(self.domain)
         self.sat_solver = SATSolver(self.sat_solver)
 
 class ConnectionEnv:
@@ -112,6 +90,10 @@ class ConnectionEnv:
         if hasattr(self.state, 'control_actions'):
             actions.extend(self.state.control_actions())
         return actions
+
+    @property
+    def action_space(self):
+        return self.legal_actions()
 
     def step(self, action):
         if not self.state.is_terminal:

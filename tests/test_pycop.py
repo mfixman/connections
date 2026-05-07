@@ -2,7 +2,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pycop
-from pycop import Domain, Logic, SATSolver
+from pycop import Logic, SATSolver
 
 class TestPycopProblemResolution:
     def test_resolved_problem_paths_prefers_local_file(self, tmp_path: Path, monkeypatch):
@@ -95,7 +95,6 @@ class TestPycopDebugOutput:
             'dummy.p',
             SimpleNamespace(
                 logic = Logic.Classical,
-                domain = Domain.Constant,
                 sat_solver = SATSolver.CaDiCaL,
                 debug = True,
                 strategy = 'FirstAction',
@@ -144,7 +143,6 @@ class TestPycopDebugOutput:
             'dummy.p',
             SimpleNamespace(
                 logic = Logic.Classical,
-                domain = Domain.Constant,
                 sat_solver = SATSolver.CaDiCaL,
                 debug = False,
                 strategy = 'FirstAction',
@@ -198,7 +196,6 @@ class TestPycopLogicSelection:
             'dummy.p',
             SimpleNamespace(
                 logic = None,
-                domain = Domain.Constant,
                 sat_solver = SATSolver.CaDiCaL,
                 debug = False,
                 strategy = 'LeanCopCut',
@@ -240,7 +237,6 @@ class TestPycopLogicSelection:
             'dummy.p',
             SimpleNamespace(
                 logic = Logic.Classical,
-                domain = Domain.Constant,
                 sat_solver = SATSolver.CaDiCaL,
                 debug = False,
                 strategy = 'LeanCopCut',

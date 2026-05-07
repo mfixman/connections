@@ -12,7 +12,7 @@ from connections.calculi.classicalsat import Backtrack, Extension, Reduction, Re
 from connections.utils.primitives import Literal, Variable
 from connections.utils.tableau import Tableau
 from connections.utils.unification import Substitution
-from problem_inputs import resolve_problem_path
+from cli import resolve_problem_path
 from strategies import Strategy
 
 SYN344_1 = """\

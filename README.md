@@ -1,137 +1,88 @@
-# Connections
+# MyPyCoP
 
-[![tests](https://github.com/fredrrom/CoPs/actions/workflows/python-app.yml/badge.svg?branch=main)](https://github.com/fredrrom/CoPs/actions/workflows/python-app.yml)
-[![License: MIT](https://img.shields.io/github/license/fredrrom/connections)](https://github.com/fredrrom/connections/blob/main/LICENSE)
+Small research fork of the `connections` prover codebase, trimmed to the parts
+used for running:
 
-Reinforcement learning environments for classical, intuitionistic, and modal first-order connection calculi in Python. 
+```bash
+python pycop.py ...
+python compare_strategies.py ...
+```
 
-For further details see the [paper](https://ceur-ws.org/Vol-3613/AReCCa2023_paper8.pdf).
+The retained runtime supports three calculi only:
+
+- `Classical`
+- `ClassicalCut`
+- `ClassicalSAT`
+
+It keeps the strategy code used to compare those calculi, plus classical TPTP
+input handling and the classical Prolog translator in `translation/classical/`.
 
 ## Requirements
 
- - Python 3.10 or later
- - Git
- - A C++ compiler and CMake (to build the pinned `pydical` fork)
- - SWI Prolog 8.4.3 (For TPTP/QMLTP translation and to run pyCoP provers)
+- Python 3.10 or later
+- A C++ compiler and CMake to build the pinned `pydical` fork
+- SWI-Prolog 8.4.3 for classical FOF-to-CNF translation
 
 ## Installation
 
-### Reinforcement Learning Environments
-
-To begin using the reinforcement learning environments, simply install the `connections` Python package using the folllowing command:
-
-```
-pip install git+https://github.com/fredrrom/connections.git 
-```
-
-This install pulls a pinned revision of the custom `pydical` fork used by the
-default `ClassicalSAT` prover code. The pin includes a pybind11 build-dependency
-update so it can build on modern Python releases such as Python 3.14.
-
-If you are working from a checkout of this repository instead of installing from
-GitHub, use:
-
-```
+```bash
 pip install .
 ```
 
-### Conjectures and pyCoP provers
+This installs the pinned `pydical` revision used by the `ClassicalSAT` code.
 
-Each `connections` environment is initialized with a first-order conjecture as input. These conjectures are read in a custom cnf format. 
+## Entry Points
 
-To translate TPTP/QMLTP formated files or run the standalone pyCoP provers, either clone the repository:
+Run a single strategy on one problem:
 
+```bash
+python pycop.py tests/cnf_problems/SYN001+1.p --strategy FirstAction
+python pycop.py tests/cnf_problems/SYN001+1.p --strategy LeanCopCut
+python pycop.py tests/cnf_problems/SYN001+1.p --strategy SATSolve
 ```
-git clone https://github.com/fredrrom/connections.git
+
+Compare several strategies across a directory or TPTP slice:
+
+```bash
+python compare_strategies.py tests/cnf_problems --strategies FirstAction LeanCopCut --csv results.csv
+python compare_strategies.py tests/cnf_problems --strategies SATControl SATTest --csv results.csv
 ```
 
-or download the repository [ZIP](https://github.com/fredrrom/connections/archive/refs/heads/main.zip).
+Both entrypoints accept:
 
-## Getting Started
+- local `.p` / `.ax` files
+- directories of classical TPTP problems
+- TPTP codenames such as `SYN001+1`
+- raw quoted TPTP problem text
+- already-translated connection CNF files
 
-The environments closely follow the [OpenAI Gym](https://www.gymlibrary.dev/)/[Gymnasium](https://gymnasium.farama.org/) interface. Here is a simple connection prover implemented using the `ConnectionEnv` environment:
+## Minimal API Example
 
 ```python
-from connections.calculi.classical import ConnectionEnv
+from connections.env import ConnectionEnv, Settings
 
-env = ConnectionEnv("problem_path")
-observation = env.reset()
-
-while True:
-    action = env.action_space[0]
-    observation, reward, done, info = env.step(action)
-
-    if done:
-        break
-```
-
-In addition to classical first-order logic, `ConnectionEnv` supports intuitionistic logic and modal logics S4, S5, D, and T each for the constant, cumulative, and varying domains. Logic and domain can be specifified during the creation of the environment as by passing settings as follows:
-
-```python
-settings = Settings(logic="S5", domain="varying")
-
-env = ConnectionEnv("problem_path", settings=settings)
-```
-
-**NB** The environments cannot be registered as gym environments, as their state and action spaces do not inherit from `gym.spaces`. 
-They are, however, designed to be used as backends for your own gym environments.
-
-## A Worked Example
-Consider double-negation elimination, that $p$ is equivalent to $\lnot \lnot p$. This is a theorem in classical logic, and is saved in the file `tests/cnf_problems/SYN001+1.p`
-
-That file contains 5 clauses, which are found by means of Definition 3 in [Otten's "Restricting Backtracking in Connection Calculi"](http://www.otten1.de/papers/restricting_backtracking_aicom10.pdf). 
-
-Running the following code (from inside this project's directory):
-```python
-from connections.calculi.classical import ConnectionEnv
-
-env = ConnectionEnv("tests/cnf_problems/SYN001+1.p")
+env = ConnectionEnv("tests/cnf_problems/SYN001+1.p", settings=Settings(logic="Classical"))
 observation = env.reset()
 
 while True:
     action = env.action_space[0]
     observation, reward, done, info = env.step(action)
     if done:
-        print(observation.proof_sequence, "\n")
         print(info)
         break
 ```
 
-should print 
-```
-[st0: [p_defini(1), p_defini(2)], ex0: p_defini(1) -> [-p_defini(1), p], ex1: p -> [-p_defini(1), -p], re0: -p_defini(1) <- p_defini(1), ex0: p_defini(2) -> [-p_defini(2), p], ex0: p -> [-p_defini(2), -p], re0: -p_defini(2) <- p_defini(2)]
+## Translation
 
-{'status': 'Theorem'}
-```
-The latter line tells us that this is a theorem, i.e. that the formula is valid. The former line gives us the proof sequence reached at the end, from which one can reconstruct the full proof tree. Alternatively, one can inspect the tableau by calling `print(observation.tableau)`.
+Raw classical FOF problems are translated through:
 
-## TPTP/QMLTP Translation
-
-To translate TPTP/QMLTP formatted files into the `connections` format, run the following command
-
-```
-translation/<logic>/translate.sh <file>
+```bash
+translation/classical/translate.sh <file> <output>
 ```
 
-where `<file>` is the name of the problem file in TPTP/QMLTP syntax and `<logic>` is one of `classical`, `intuitionistic`, and `modal` depending on the target proof logic.
+The repository keeps only the classical translation pipeline.
 
-To guarantee correct translation, please use SWI-Prolog version 8.4.3 and ensure that the `PROLOG_PATH` and `TPTP` variables in `translation/<logic>/translate.sh` are set to your SWI Prolog installation location and TPTP/QMLTP directory location, respectively.
-
-## The pyCoP, ipyCoP and mpyCoP Connection Provers
-
-`pycop.py` contains the standalone provers pyCoP, ipyCoP, and mpyCoP for classical, intuitionistic, and modal logics, respectively.
-
-The provers can be invoked (at the top level directory of this repository) with the following command
-
-```
-python pycop.py <file> [logic] [domain]
-```
-
-where `<file>` is the path to the problem file in TPTP/QMLTP syntax, the optional argument `[logic]` is one of `classical` (default), `intuitionistic`, `D`, `T`, `S4`, or `S5`, and the optional argument `[domain]` is one of `constant` (default), `cumulative`, and `varying`. Note that the value of `[domain]` is inconsequential if `[logic]` is  `classical` or `intuitionistic`. If the formula in `<file>` is valid for the logic `[logic]` (with `[domain]` domains if logic is modal), then the prover reports `Theorem`.
-
-These connection provers are equivalent to version 1.0f of the leanCoP, ileanCoP and MleanCoP provers for classical, intuitionistic and modal logic, respectively, which can be found in the `comparisons` directory.
-
-## BibTeX Citation
+## Citation
 
 ```
 @inproceedings{connections_2023,

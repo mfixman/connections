@@ -1,44 +1,18 @@
 import sys
-import os 
-import subprocess
-import signal
-import traceback
-from os.path import dirname, abspath
-
 import random
 import logging
-
-from connections.env import *
-from parse_args import parse_pycop_args
-from problem_inputs import resolved_problem_paths, split_problem_paths
-
 from pathlib import Path
 
-from strategies import *
-
-def default_logic_for_strategy(strategy_name: str) -> Logic:
-    if strategy_name == 'FirstAction':
-        return Logic.Classical
-    if strategy_name == 'LeanCopCut':
-        return Logic.ClassicalCut
-    return Logic.ClassicalSAT
-
-def resolve_logic_for_strategy(strategy_name: str, logic_override: Logic | None) -> Logic:
-    if logic_override is not None:
-        return logic_override
-    return default_logic_for_strategy(strategy_name)
-
-def translate_logic(file: str, logic: Logic) -> str:
-    translator_path = Path('translation') / str(logic) / 'translate.sh'
-
-    problem = os.path.basename(os.path.normpath(file))
-    with subprocess.Popen([translator_path, file, problem], preexec_fn = os.setsid) as process:
-        try:
-            output, errors = process.communicate(timeout = 1)
-        except subprocess.TimeoutExpired as err:
-            os.killpg(os.getpgid(process.pid), signal.SIGTERM)
-
-    return str(output)
+from cli import (
+    default_logic_for_strategy,
+    parse_pycop_args,
+    resolve_logic_for_strategy,
+    resolved_problem_paths,
+    split_problem_paths,
+)
+from connections.env import ConnectionEnv, Logic, Settings
+from connections.calculi.classicalsat import SATSolver
+from strategies import Strategy
 
 def _final_closed_tableau(state) -> str | None:
     tableau = getattr(state, 'tableau', None)
@@ -82,7 +56,6 @@ def _run_problem(path: str, args) -> dict:
         path,
         Settings(
             logic = logic,
-            domain = args.domain,
             sat_solver = args.sat_solver,
             debug = args.debug,
         ),
@@ -132,7 +105,7 @@ def main():
             multiple = len(problem_paths) > 1
             for path in problem_paths:
                 result = _run_problem(path, args)
-                _print_result(result, os.path.basename(path) if multiple else None)
+                _print_result(result, Path(path).name if multiple else None)
     except FileNotFoundError as exc:
         sys.exit(f'error: {exc}')
 

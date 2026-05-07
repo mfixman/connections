@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-import problem_inputs
+import cli as problem_inputs
 
 class TestProblemInputsDirectoryFiltering:
     def test_expand_problem_inputs_skips_unsupported_directory_entries(self, tmp_path: Path):
