@@ -4,6 +4,7 @@ import subprocess
 import tempfile
 import warnings
 from functools import lru_cache
+from importlib.resources import as_file, files
 from pathlib import Path
 
 from connections.utils.cnf_parsing import file2cnf as parse_connections_cnf
@@ -195,8 +196,6 @@ def _preprocess_tptp_for_prolog(path: Path) -> Path:
 
 def _translate_tptp_problem(path: Path, metadata: ProblemMetadata | None = None) -> Matrix:
     """Translate raw TPTP FOF to connection CNF, then parse it."""
-    repo_root = _repo_root()
-    translator = repo_root / 'translation' / 'classical' / 'translate.sh'
     env = os.environ.copy()
     env.setdefault('TPTP', str(_tptp_root()))
 
@@ -206,14 +205,17 @@ def _translate_tptp_problem(path: Path, metadata: ProblemMetadata | None = None)
         output_path = Path(tmp.name)
 
     try:
-        result = subprocess.run(
-            [str(translator), str(input_path), str(output_path)],
-            cwd=repo_root,
-            env=env,
-            text=True,
-            capture_output=True,
-            check=False,
-        )
+        translator_resource = files('mypycop_data').joinpath('translation', 'classical', 'translate.sh')
+        with as_file(translator_resource) as translator:
+            package_root = translator.parents[2]
+            result = subprocess.run(
+                ['sh', str(translator), str(input_path), str(output_path)],
+                cwd=package_root,
+                env=env,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
         if result.returncode != 0:
             detail = (result.stderr or result.stdout).strip()
             raise ValueError(detail or f'failed to translate {path}')
@@ -297,11 +299,11 @@ def _parse_spc_tags(text: str) -> set[str]:
     }
 
 def _repo_root() -> Path:
-    """Return the repository root for translation and include resolution."""
+    """Return the source-tree root for include resolution."""
     return Path(__file__).resolve().parents[2]
 
 def _tptp_root() -> Path:
-    """Return the TPTP root from the environment or a repo-local fallback."""
+    """Return the TPTP root from the environment or a source-tree fallback."""
     env_root_raw = os.getenv('TPTP')
     if env_root_raw is not None:
         env_root = Path(env_root_raw).resolve()
@@ -314,7 +316,7 @@ def _tptp_root() -> Path:
     if axioms.is_dir():
         return repo_root
     raise FileNotFoundError(
-        f'TPTP is not set and no repo-local Axioms directory exists at {axioms}'
+        f'TPTP is not set and no local Axioms directory exists at {axioms}'
     )
 
 def _resolve_include(include_path: str, current_path: Path) -> Path:

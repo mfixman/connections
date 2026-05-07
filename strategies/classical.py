@@ -2,6 +2,7 @@ import json
 import math
 from collections import defaultdict
 from dataclasses import dataclass
+from importlib.resources import files
 from pathlib import Path
 from typing import Optional, TypeVar
 
@@ -1074,7 +1075,7 @@ class InitialSchedule(Strategy):
     except that budgets here are expressed directly in proof steps.
     """
 
-    schedule_path = Path(__file__).resolve().parent.parent / 'schedules' / 'initial_schedule.json'
+    schedule_path = files('mypycop_data').joinpath('schedules', 'initial_schedule.json')
 
     def __init__(self, env):
         super().__init__(env)
@@ -1085,8 +1086,7 @@ class InitialSchedule(Strategy):
 
     @classmethod
     def _load_slots(cls) -> tuple[ScheduledStrategySlot, ...]:
-        with open(cls.schedule_path, encoding = 'utf-8') as handle:
-            raw = json.load(handle)
+        raw = json.loads(cls.schedule_path.read_text(encoding = 'utf-8'))
 
         raw_slots = raw.get('slots')
         if not isinstance(raw_slots, list) or not raw_slots:

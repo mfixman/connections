@@ -1,18 +1,41 @@
-[tool.poetry]
-name = "MyPyCoP"
-version = "0.1.0"
-description = ""
-authors = ["Martin Fixman <msf43@cam.ac.uk>"]
-
-[tool.poetry.dependencies]
-python = "^3.10"
-pydical = { git = "https://github.com/mfixman/pydical.git", rev = "0e0778bdf98408ed434bfaa0ede8fd3a3514f623" }
-python-sat = "*"
-
-[tool.poetry.dev-dependencies]
-pytest = "^7.2.0"
-pytest-cov = "^4.0.0"
-
 [build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mypycop"
+version = "0.1.0"
+description = "Classical connection prover experiments and strategy comparison tooling"
+readme = "README.md"
+requires-python = ">=3.11,<3.15"
+authors = [
+    { name = "Martin Fixman", email = "msf43@cam.ac.uk" },
+]
+dependencies = [
+    "python-sat",
+    "pydical @ git+https://github.com/mfixman/pydical.git@main",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=9,<10",
+    "pytest-cov>=6,<7",
+]
+
+[project.scripts]
+pycop = "pycop:main"
+compare-strategies = "compare_strategies:main"
+
+[tool.setuptools]
+include-package-data = true
+py-modules = ["cli", "pycop", "compare_strategies"]
+
+[tool.setuptools.packages.find]
+include = ["connections*", "strategies*", "mypycop_data*"]
+exclude = ["tests*"]
+
+[tool.setuptools.package-data]
+mypycop_data = [
+    "schedules/*.json",
+    "translation/classical/*",
+]
