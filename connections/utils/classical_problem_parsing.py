@@ -4,7 +4,6 @@ import subprocess
 import tempfile
 import warnings
 from functools import lru_cache
-from importlib.resources import as_file, files
 from pathlib import Path
 
 from connections.utils.cnf_parsing import file2cnf as parse_connections_cnf
@@ -14,6 +13,8 @@ _TYPED_SPC_FAMILIES = frozenset({'TCF', 'TF0', 'TF1', 'TX0', 'TX1', 'TH0', 'TH1'
 _UNSAT_STATUSES = frozenset({'Theorem', 'Unsatisfiable', 'ContradictoryAxioms'})
 _SAT_STATUSES = frozenset({'Satisfiable', 'CounterSatisfiable', 'Open'})
 _UNKNOWN_STATUSES = frozenset({'Unknown'})
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+_CLASSICAL_TRANSLATION_DIR = _REPO_ROOT / 'translation' / 'classical'
 
 def file2cnf(path: str):
     """Load a classical problem from internal CNF or raw TPTP syntax."""
@@ -205,17 +206,15 @@ def _translate_tptp_problem(path: Path, metadata: ProblemMetadata | None = None)
         output_path = Path(tmp.name)
 
     try:
-        translator_resource = files('mypycop_data').joinpath('translation', 'classical', 'translate.sh')
-        with as_file(translator_resource) as translator:
-            package_root = translator.parents[2]
-            result = subprocess.run(
-                ['sh', str(translator), str(input_path), str(output_path)],
-                cwd=package_root,
-                env=env,
-                text=True,
-                capture_output=True,
-                check=False,
-            )
+        translator = _CLASSICAL_TRANSLATION_DIR / 'translate.sh'
+        result = subprocess.run(
+            ['sh', str(translator), str(input_path), str(output_path)],
+            cwd=_REPO_ROOT,
+            env=env,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
         if result.returncode != 0:
             detail = (result.stderr or result.stdout).strip()
             raise ValueError(detail or f'failed to translate {path}')

@@ -2,7 +2,6 @@ import json
 import math
 from collections import defaultdict
 from dataclasses import dataclass
-from importlib.resources import files
 from pathlib import Path
 from typing import Optional, TypeVar
 
@@ -11,6 +10,9 @@ from connections.calculi.classicalcut import ConnectionAction, Start, Reduction,
 from .base import Strategy
 
 TAction = TypeVar('TAction', bound = ConnectionAction)
+
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+_SCHEDULES_DIR = _REPO_ROOT / 'schedules'
 
 def backtrack_or_reset(actions: list[ConnectionAction]) -> ConnectionAction:
     backtracks = (a for a in actions if isinstance(a, Backtrack))
@@ -1075,7 +1077,7 @@ class InitialSchedule(Strategy):
     except that budgets here are expressed directly in proof steps.
     """
 
-    schedule_path = files('mypycop_data').joinpath('schedules', 'initial_schedule.json')
+    schedule_path = _SCHEDULES_DIR / 'initial_schedule.json'
 
     def __init__(self, env):
         super().__init__(env)

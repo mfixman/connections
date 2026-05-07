@@ -31,11 +31,5 @@ include-package-data = true
 py-modules = ["cli", "pycop", "compare_strategies"]
 
 [tool.setuptools.packages.find]
-include = ["connections*", "strategies*", "mypycop_data*"]
+include = ["connections*", "strategies*"]
 exclude = ["tests*"]
-
-[tool.setuptools.package-data]
-mypycop_data = [
-    "schedules/*.json",
-    "translation/classical/*",
-]
