@@ -255,6 +255,10 @@ TPTP_subset
 *.blg
 *.fdb_latexmk
 *.fls
+*.bcf
+*.bbl-SAVE-ERROR
+*.run.xml
+*.out
 
 .jupyter/
 results/old
