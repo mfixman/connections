@@ -176,7 +176,7 @@ def _strip_tcf_quantifiers(text: str) -> str:
         text = _strip_outer_parens(text[split_at + 1:])
     return text
 
-def _preprocess_tptp_for_prolog(path: Path) -> Path:
+def _preprocess_tptp_for_prolog(path: Path, workdir: Path) -> Path:
     """Quote ~| for SWI-Prolog 7+ which treats | as a meta-character.
 
     SWI-Prolog 7+ tokenizes ~| as two tokens (~ and |) instead of
@@ -188,24 +188,19 @@ def _preprocess_tptp_for_prolog(path: Path) -> Path:
     modified = re.sub(r"(?<!')~\|(?!')", "'~|'", text)
     if modified == text:
         return path
-    tmp = tempfile.NamedTemporaryFile(
-        suffix=path.suffix, delete=False, mode='w', encoding='utf-8',
-    )
-    tmp.write(modified)
-    tmp.close()
-    return Path(tmp.name)
+    rewritten_path = workdir / f'{path.stem}.quoted{path.suffix}'
+    rewritten_path.write_text(modified, encoding = 'utf-8')
+    return rewritten_path
 
 def _translate_tptp_problem(path: Path, metadata: ProblemMetadata | None = None) -> Matrix:
     """Translate raw TPTP FOF to connection CNF, then parse it."""
     env = os.environ.copy()
     env.setdefault('TPTP', str(_tptp_root()))
 
-    input_path = _preprocess_tptp_for_prolog(path)
-
-    with tempfile.NamedTemporaryFile(suffix='.cnf', delete=False) as tmp:
-        output_path = Path(tmp.name)
-
-    try:
+    with tempfile.TemporaryDirectory(prefix = 'tptp-translate-') as temp_dir:
+        temp_dir_path = Path(temp_dir)
+        input_path = _preprocess_tptp_for_prolog(path, temp_dir_path)
+        output_path = temp_dir_path / f'{path.stem}.cnf'
         translator = _CLASSICAL_TRANSLATION_DIR / 'translate.sh'
         result = subprocess.run(
             ['sh', str(translator), str(input_path), str(output_path)],
@@ -222,10 +217,6 @@ def _translate_tptp_problem(path: Path, metadata: ProblemMetadata | None = None)
         if metadata is not None:
             matrix.metadata = metadata
         return matrix
-    finally:
-        output_path.unlink(missing_ok=True)
-        if input_path != path:
-            input_path.unlink(missing_ok=True)
 
 @lru_cache(maxsize = None)
 def problem_metadata(path: str | Path) -> ProblemMetadata:

@@ -163,18 +163,10 @@ def expand_problem_inputs(inputs: list[str]) -> list[Path]:
 def resolved_problem_paths(raw_input: str):
     raw_suffix = _raw_tptp_suffix(raw_input)
     if raw_suffix is not None and not Path(raw_input).exists():
-        with tempfile.NamedTemporaryFile(
-            mode='w',
-            suffix=raw_suffix,
-            delete=False,
-            encoding='utf-8',
-        ) as tmp:
-            tmp.write(raw_input)
-            temp_path = Path(tmp.name)
-        try:
+        with tempfile.TemporaryDirectory(prefix = 'raw-problem-') as temp_dir:
+            temp_path = Path(temp_dir) / f'problem{raw_suffix}'
+            temp_path.write_text(raw_input, encoding = 'utf-8')
             yield [str(temp_path)]
-        finally:
-            temp_path.unlink(missing_ok=True)
         return
 
     yield [str(path) for path in expand_problem_inputs([raw_input])]
@@ -460,4 +452,3 @@ def _is_supported_tptp_problem_path(path: Path) -> bool:
     if ''.join(path.suffixes) not in {'.p', '.ax'}:
         return False
     return '+' in path.name or '-' in path.name
-
