@@ -257,9 +257,7 @@ TPTP_subset
 *.fls
 
 .jupyter/
-plots/*
-presentations/*
-results/*
+results/old
 partial/*
 llm/*
 debug/*

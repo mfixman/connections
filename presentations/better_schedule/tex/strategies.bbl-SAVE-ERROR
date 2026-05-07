@@ -1,0 +1,486 @@
+% $ biblatex auxiliary file $
+% $ biblatex bbl format version 3.3 $
+% Do not modify the above lines!
+%
+% This is an auxiliary file used by the 'biblatex' package.
+% This file may safely be deleted. It will be recreated by
+% biber as required.
+%
+\begingroup
+\makeatletter
+\@ifundefined{ver@biblatex.sty}
+  {\@latex@error
+     {Missing 'biblatex' package}
+     {The bibliography requires the 'biblatex' package.}
+      \aftergroup\endinput}
+  {}
+\endgroup
+
+\refsection{0}
+  \datalist[entry]{nty/global//global/global/global}
+    \entry{farberCuriouslyEffectiveBacktracking2024}{online}{}{}
+      \name{author}{1}{}{%
+        {{hash=5c24a11f6b5f6791c310588eff3ce1db}{%
+           family={Färber},
+           familyi={F\bibinitperiod},
+           given={Michael},
+           giveni={M\bibinitperiod}}}%
+      }
+      \strng{namehash}{5c24a11f6b5f6791c310588eff3ce1db}
+      \strng{fullhash}{5c24a11f6b5f6791c310588eff3ce1db}
+      \strng{fullhashraw}{5c24a11f6b5f6791c310588eff3ce1db}
+      \strng{bibnamehash}{5c24a11f6b5f6791c310588eff3ce1db}
+      \strng{authorbibnamehash}{5c24a11f6b5f6791c310588eff3ce1db}
+      \strng{authornamehash}{5c24a11f6b5f6791c310588eff3ce1db}
+      \strng{authorfullhash}{5c24a11f6b5f6791c310588eff3ce1db}
+      \strng{authorfullhashraw}{5c24a11f6b5f6791c310588eff3ce1db}
+      \field{sortinit}{F}
+      \field{sortinithash}{2638baaa20439f1b5a8f80c6c08a13b4}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{abstract}{Automated proof search with connection tableaux, such as implemented by Otten's leanCoP prover, depends on backtracking for completeness. Otten's restricted backtracking strategy loses completeness, yet for many problems, it significantly reduces the time required to find a proof. I introduce a new, less restricted backtracking strategy based on the notion of exclusive cuts. I implement the strategy in a new prover called meanCoP and show that it greatly improves upon the previous best strategy in leanCoP.}
+      \field{day}{16}
+      \field{eprintclass}{cs}
+      \field{eprinttype}{arXiv}
+      \field{month}{1}
+      \field{pubstate}{prepublished}
+      \field{title}{A {{Curiously Effective Backtracking Strategy}} for {{Connection Tableaux}}}
+      \field{urlday}{2}
+      \field{urlmonth}{2}
+      \field{urlyear}{2026}
+      \field{year}{2024}
+      \field{dateera}{ce}
+      \field{urldateera}{ce}
+      \verb{doi}
+      \verb 10.48550/arXiv.2106.13722
+      \endverb
+      \verb{eprint}
+      \verb 2106.13722
+      \endverb
+      \verb{file}
+      \verb /home/mfixman/TP/Papers/Zotero/storage/VHCEWQQC/Färber - 2024 - A Curiously Effective Backtracking Strategy for Connection Tableaux.pdf;/home/mfixman/TP/Papers/Zotero/storage/DFQSYYNV/2106.html
+      \endverb
+      \verb{urlraw}
+      \verb http://arxiv.org/abs/2106.13722
+      \endverb
+      \verb{url}
+      \verb http://arxiv.org/abs/2106.13722
+      \endverb
+      \keyw{Computer Science - Logic in Computer Science}
+    \endentry
+    \entry{HoldenSATQSAT}{article}{}{}
+      \name{author}{1}{}{%
+        {{hash=5e914d628484983e8f3a573a7bb3f362}{%
+           family={Holden},
+           familyi={H\bibinitperiod},
+           given={Sean\bibnamedelima B.},
+           giveni={S\bibinitperiod\bibinitdelim B\bibinitperiod}}}%
+      }
+      \strng{namehash}{5e914d628484983e8f3a573a7bb3f362}
+      \strng{fullhash}{5e914d628484983e8f3a573a7bb3f362}
+      \strng{fullhashraw}{5e914d628484983e8f3a573a7bb3f362}
+      \strng{bibnamehash}{5e914d628484983e8f3a573a7bb3f362}
+      \strng{authorbibnamehash}{5e914d628484983e8f3a573a7bb3f362}
+      \strng{authornamehash}{5e914d628484983e8f3a573a7bb3f362}
+      \strng{authorfullhash}{5e914d628484983e8f3a573a7bb3f362}
+      \strng{authorfullhashraw}{5e914d628484983e8f3a573a7bb3f362}
+      \field{sortinit}{H}
+      \field{sortinithash}{23a3aa7c24e56cfa16945d55545109b5}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{shorttitle}
+      \field{issn}{1935-8237, 1935-8245}
+      \field{journaltitle}{Foundations and Trends® in Machine Learning}
+      \field{langid}{english}
+      \field{number}{6}
+      \field{shortjournal}{FNT in Machine Learning}
+      \field{shorttitle}{Machine {{Learning}} for {{Automated Theorem Proving}}}
+      \field{title}{Machine {{Learning}} for {{Automated Theorem Proving}}: {{Learning}} to {{Solve SAT}} and {{QSAT}}}
+      \field{urlday}{13}
+      \field{urlmonth}{11}
+      \field{urlyear}{2025}
+      \field{volume}{14}
+      \field{year}{2021}
+      \field{dateera}{ce}
+      \field{urldateera}{ce}
+      \field{pages}{807\bibrangedash 989}
+      \range{pages}{183}
+      \verb{doi}
+      \verb 10.1561/2200000081
+      \endverb
+      \verb{file}
+      \verb /home/mfixman/TP/Papers/Zotero/storage/LZPB74VH/Holden - 2021 - Machine Learning for Automated Theorem Proving Learning to Solve SAT and QSAT.pdf
+      \endverb
+      \verb{urlraw}
+      \verb http://www.nowpublishers.com/article/Details/MAL-081
+      \endverb
+      \verb{url}
+      \verb http://www.nowpublishers.com/article/Details/MAL-081
+      \endverb
+    \endentry
+    \entry{letzModelEliminationConnection2001}{incollection}{}{}
+      \name{author}{2}{}{%
+        {{hash=237db04f2f8bbe1955a4d6137819cfc8}{%
+           family={Letz},
+           familyi={L\bibinitperiod},
+           given={Reinhold},
+           giveni={R\bibinitperiod}}}%
+        {{hash=0dc30175610d14d0fd497532841e2514}{%
+           family={Stenz},
+           familyi={S\bibinitperiod},
+           given={Gernot},
+           giveni={G\bibinitperiod}}}%
+      }
+      \list{publisher}{1}{%
+        {Elsevier}%
+      }
+      \strng{namehash}{27f5fe9355fb651da802954f88858f4f}
+      \strng{fullhash}{27f5fe9355fb651da802954f88858f4f}
+      \strng{fullhashraw}{27f5fe9355fb651da802954f88858f4f}
+      \strng{bibnamehash}{27f5fe9355fb651da802954f88858f4f}
+      \strng{authorbibnamehash}{27f5fe9355fb651da802954f88858f4f}
+      \strng{authornamehash}{27f5fe9355fb651da802954f88858f4f}
+      \strng{authorfullhash}{27f5fe9355fb651da802954f88858f4f}
+      \strng{authorfullhashraw}{27f5fe9355fb651da802954f88858f4f}
+      \field{sortinit}{L}
+      \field{sortinithash}{7c47d417cecb1f4bd38d1825c427a61a}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{booktitle}{Handbook of {{Automated Reasoning}}}
+      \field{isbn}{978-0-444-50813-3}
+      \field{langid}{english}
+      \field{title}{Model {{Elimination}} and {{Connection Tableau Procedures}}}
+      \field{urlday}{18}
+      \field{urlmonth}{2}
+      \field{urlyear}{2026}
+      \field{year}{2001}
+      \field{dateera}{ce}
+      \field{urldateera}{ce}
+      \field{pages}{2015\bibrangedash 2114}
+      \range{pages}{100}
+      \verb{doi}
+      \verb 10.1016/B978-044450813-3/50030-8
+      \endverb
+      \verb{file}
+      \verb /home/mfixman/TP/Papers/Zotero/storage/MMNTR45Z/Letz and Stenz - 2001 - Model Elimination and Connection Tableau Procedures.pdf
+      \endverb
+      \verb{urlraw}
+      \verb https://linkinghub.elsevier.com/retrieve/pii/B9780444508133500308
+      \endverb
+      \verb{url}
+      \verb https://linkinghub.elsevier.com/retrieve/pii/B9780444508133500308
+      \endverb
+    \endentry
+    \entry{liReinforcementLearningBased2024}{article}{}{}
+      \name{author}{6}{}{%
+        {{hash=2ee3c28b643f9701eae99995e1443d35}{%
+           family={Li},
+           familyi={L\bibinitperiod},
+           given={Chunxiao},
+           giveni={C\bibinitperiod}}}%
+        {{hash=bb8dfef3df96b6f56d0d6cb5e0dea5e9}{%
+           family={Liu},
+           familyi={L\bibinitperiod},
+           given={Charlie},
+           giveni={C\bibinitperiod}}}%
+        {{hash=6ad6f0f7a9dd506db5776d182df60bf2}{%
+           family={Chung},
+           familyi={C\bibinitperiod},
+           given={Jonathan},
+           giveni={J\bibinitperiod}}}%
+        {{hash=454c659d91e9c5411f38e4b898689cb4}{%
+           family={Lu},
+           familyi={L\bibinitperiod},
+           given={Zhengyang},
+           giveni={Z\bibinitperiod}}}%
+        {{hash=7ce480dcd85deb670b2b2cfa4393fce2}{%
+           family={Jha},
+           familyi={J\bibinitperiod},
+           given={Piyush},
+           giveni={P\bibinitperiod}}}%
+        {{hash=e7a563f2d0aa7eca2d78388c064a0db4}{%
+           family={Ganesh},
+           familyi={G\bibinitperiod},
+           given={Vijay},
+           giveni={V\bibinitperiod}}}%
+      }
+      \strng{namehash}{ef26af9f7b7f8759702add1facca8dc7}
+      \strng{fullhash}{a9a307251363897d08a53b5610388cdc}
+      \strng{fullhashraw}{a9a307251363897d08a53b5610388cdc}
+      \strng{bibnamehash}{ef26af9f7b7f8759702add1facca8dc7}
+      \strng{authorbibnamehash}{ef26af9f7b7f8759702add1facca8dc7}
+      \strng{authornamehash}{ef26af9f7b7f8759702add1facca8dc7}
+      \strng{authorfullhash}{a9a307251363897d08a53b5610388cdc}
+      \strng{authorfullhashraw}{a9a307251363897d08a53b5610388cdc}
+      \field{sortinit}{L}
+      \field{sortinithash}{7c47d417cecb1f4bd38d1825c427a61a}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{day}{19}
+      \field{eprintclass}{cs.LO}
+      \field{eprinttype}{arXiv}
+      \field{journaltitle}{CoRR}
+      \field{month}{4}
+      \field{pubstate}{prepublished}
+      \field{title}{A {{Reinforcement Learning}} Based {{Reset Policy}} for {{CDCL SAT Solvers}}}
+      \field{volume}{abs/2404.03753}
+      \field{year}{2024}
+      \field{dateera}{ce}
+      \verb{doi}
+      \verb 10.48550/arXiv.2404.03753
+      \endverb
+      \verb{eprint}
+      \verb 2404.03753
+      \endverb
+      \verb{file}
+      \verb /home/mfixman/TP/Papers/Zotero/storage/6ND3YJ4T/Li et al. - 2024 - A Reinforcement Learning based Reset Policy for CDCL SAT Solvers.pdf;/home/mfixman/TP/Papers/Zotero/storage/AHJGYM6Z/2404.html
+      \endverb
+      \keyw{Computer Science - Artificial Intelligence,Computer Science - Logic in Computer Science,Computer Science - Machine Learning}
+    \endentry
+    \entry{mangla2022a}{inproceedings}{}{}
+      \name{author}{3}{}{%
+        {{hash=a9ff42d3dee74665fcac3b8fa087463e}{%
+           family={Mangla},
+           familyi={M\bibinitperiod},
+           given={C.},
+           giveni={C\bibinitperiod}}}%
+        {{hash=c1e1e4748fbdab3b182f417addf4529f}{%
+           family={Holden},
+           familyi={H\bibinitperiod},
+           given={S.B.},
+           giveni={S\bibinitperiod}}}%
+        {{hash=a97ae584d93263507510d0c4e34a2f62}{%
+           family={Paulson},
+           familyi={P\bibinitperiod},
+           given={L.C.},
+           giveni={L\bibinitperiod}}}%
+      }
+      \strng{namehash}{dda173f9dedc9719acb2002460704f5f}
+      \strng{fullhash}{dda173f9dedc9719acb2002460704f5f}
+      \strng{fullhashraw}{dda173f9dedc9719acb2002460704f5f}
+      \strng{bibnamehash}{dda173f9dedc9719acb2002460704f5f}
+      \strng{authorbibnamehash}{dda173f9dedc9719acb2002460704f5f}
+      \strng{authornamehash}{dda173f9dedc9719acb2002460704f5f}
+      \strng{authorfullhash}{dda173f9dedc9719acb2002460704f5f}
+      \strng{authorfullhashraw}{dda173f9dedc9719acb2002460704f5f}
+      \field{sortinit}{M}
+      \field{sortinithash}{4625c616857f13d17ce56f7d4f97d451}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{booktitle}{International Joint Conference on Automated Reasoning ({{IJCAR}})}
+      \field{langid}{english}
+      \field{title}{Bayesian Ranking for Strategy Scheduling in Automated Theorem Provers}
+      \field{year}{2022}
+      \field{dateera}{ce}
+      \field{pages}{559\bibrangedash 577}
+      \range{pages}{19}
+      \verb{doi}
+      \verb 10.1007/978-3-031-10769-6_33
+      \endverb
+      \verb{file}
+      \verb /home/mfixman/TP/Papers/Zotero/storage/XBH5N5DT/Mangla et al. - 2022 - Bayesian ranking for strategy scheduling in automated theorem provers.pdf
+      \endverb
+    \endentry
+    \entry{Mangla2025MLTPS}{thesis}{}{}
+      \name{author}{1}{}{%
+        {{hash=5e57283586b8fac15b71d902760105e2}{%
+           family={Mangla},
+           familyi={M\bibinitperiod},
+           given={Chaitanya},
+           giveni={C\bibinitperiod}}}%
+      }
+      \list{institution}{1}{%
+        {University of Cambridge}%
+      }
+      \strng{namehash}{5e57283586b8fac15b71d902760105e2}
+      \strng{fullhash}{5e57283586b8fac15b71d902760105e2}
+      \strng{fullhashraw}{5e57283586b8fac15b71d902760105e2}
+      \strng{bibnamehash}{5e57283586b8fac15b71d902760105e2}
+      \strng{authorbibnamehash}{5e57283586b8fac15b71d902760105e2}
+      \strng{authornamehash}{5e57283586b8fac15b71d902760105e2}
+      \strng{authorfullhash}{5e57283586b8fac15b71d902760105e2}
+      \strng{authorfullhashraw}{5e57283586b8fac15b71d902760105e2}
+      \field{sortinit}{M}
+      \field{sortinithash}{4625c616857f13d17ce56f7d4f97d451}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{title}{Machine Learning for Theorem Prover Strategies}
+      \field{type}{phdthesis}
+      \field{year}{2025}
+      \field{dateera}{ce}
+      \verb{file}
+      \verb /home/mfixman/TP/Papers/Zotero/storage/K2A8NWS5/Mangla - 2025 - Machine learning for theorem prover strategies.pdf
+      \endverb
+      \verb{urlraw}
+      \verb https://www.cl.cam.ac.uk/lists/phd/
+      \endverb
+      \verb{url}
+      \verb https://www.cl.cam.ac.uk/lists/phd/
+      \endverb
+    \endentry
+    \entry{Otten2023leanCoP20}{inproceedings}{}{}
+      \name{author}{1}{}{%
+        {{hash=7431b97641b523547b83cb7ec88cba49}{%
+           family={Otten},
+           familyi={O\bibinitperiod},
+           given={Jens},
+           giveni={J\bibinitperiod}}}%
+      }
+      \strng{namehash}{7431b97641b523547b83cb7ec88cba49}
+      \strng{fullhash}{7431b97641b523547b83cb7ec88cba49}
+      \strng{fullhashraw}{7431b97641b523547b83cb7ec88cba49}
+      \strng{bibnamehash}{7431b97641b523547b83cb7ec88cba49}
+      \strng{authorbibnamehash}{7431b97641b523547b83cb7ec88cba49}
+      \strng{authornamehash}{7431b97641b523547b83cb7ec88cba49}
+      \strng{authorfullhash}{7431b97641b523547b83cb7ec88cba49}
+      \strng{authorfullhashraw}{7431b97641b523547b83cb7ec88cba49}
+      \field{extraname}{1}
+      \field{sortinit}{O}
+      \field{sortinithash}{2cd7140a07aea5341f9e2771efe90aae}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{booktitle}{Proceedings of the 1st International Workshop on Automated Reasoning with Connection Calculi ({{AReCCa}}@{{TABLEAUX}} 2023)}
+      \field{series}{{{CEUR}} Workshop Proceedings}
+      \field{title}{20 Years of {{leanCoP}} — an Overview of the Provers}
+      \field{volume}{3613}
+      \field{year}{2023}
+      \field{dateera}{ce}
+      \verb{file}
+      \verb /home/mfixman/TP/Papers/Zotero/storage/E6JF2SNV/Otten - 2023 - 20 years of leanCoP — an overview of the provers.pdf
+      \endverb
+      \verb{urlraw}
+      \verb https://ceur-ws.org/Vol-3613/AReCCa2023_paper1.pdf
+      \endverb
+      \verb{url}
+      \verb https://ceur-ws.org/Vol-3613/AReCCa2023_paper1.pdf
+      \endverb
+    \endentry
+    \entry{ottenLeanCoP20}{article}{}{}
+      \name{author}{1}{}{%
+        {{hash=7431b97641b523547b83cb7ec88cba49}{%
+           family={Otten},
+           familyi={O\bibinitperiod},
+           given={Jens},
+           giveni={J\bibinitperiod}}}%
+      }
+      \strng{namehash}{7431b97641b523547b83cb7ec88cba49}
+      \strng{fullhash}{7431b97641b523547b83cb7ec88cba49}
+      \strng{fullhashraw}{7431b97641b523547b83cb7ec88cba49}
+      \strng{bibnamehash}{7431b97641b523547b83cb7ec88cba49}
+      \strng{authorbibnamehash}{7431b97641b523547b83cb7ec88cba49}
+      \strng{authornamehash}{7431b97641b523547b83cb7ec88cba49}
+      \strng{authorfullhash}{7431b97641b523547b83cb7ec88cba49}
+      \strng{authorfullhashraw}{7431b97641b523547b83cb7ec88cba49}
+      \field{extraname}{2}
+      \field{sortinit}{O}
+      \field{sortinithash}{2cd7140a07aea5341f9e2771efe90aae}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{issn}{09217126}
+      \field{journaltitle}{AI Communications}
+      \field{number}{2--3}
+      \field{shortjournal}{AI Commun.}
+      \field{title}{Restricting Backtracking in Connection Calculi}
+      \field{urlday}{25}
+      \field{urlmonth}{1}
+      \field{urlyear}{2026}
+      \field{volume}{23}
+      \field{year}{2010}
+      \field{dateera}{ce}
+      \field{urldateera}{ce}
+      \field{pages}{159\bibrangedash 182}
+      \range{pages}{24}
+      \verb{doi}
+      \verb 10.3233/AIC-2010-0464
+      \endverb
+      \verb{file}
+      \verb /home/mfixman/TP/Papers/Zotero/storage/KWBU3LD2/Otten - 2010 - Restricting backtracking in connection calculi.pdf
+      \endverb
+      \verb{urlraw}
+      \verb https://journals.sagepub.com/doi/full/10.3233/AIC-2010-0464
+      \endverb
+      \verb{url}
+      \verb https://journals.sagepub.com/doi/full/10.3233/AIC-2010-0464
+      \endverb
+    \endentry
+    \entry{zomboriRoleEntropyGuiding2021}{incollection}{}{}
+      \name{author}{3}{}{%
+        {{hash=373b76a5f22c1f373d964d6d6930afb3}{%
+           family={Zombori},
+           familyi={Z\bibinitperiod},
+           given={Zsolt},
+           giveni={Z\bibinitperiod}}}%
+        {{hash=49a65895d90339355469ad0192f7f146}{%
+           family={Urban},
+           familyi={U\bibinitperiod},
+           given={Josef},
+           giveni={J\bibinitperiod}}}%
+        {{hash=750f33ba892c0e44ae290c10fcf159a4}{%
+           family={Olšák},
+           familyi={O\bibinitperiod},
+           given={Miroslav},
+           giveni={M\bibinitperiod}}}%
+      }
+      \name{editor}{2}{}{%
+        {{hash=bbce9aee267ed6a13345f2800ab8c288}{%
+           family={Das},
+           familyi={D\bibinitperiod},
+           given={Anupam},
+           giveni={A\bibinitperiod}}}%
+        {{hash=997747a4d39cbcf2b9d0bf0440769fb9}{%
+           family={Negri},
+           familyi={N\bibinitperiod},
+           given={Sara},
+           giveni={S\bibinitperiod}}}%
+      }
+      \list{location}{1}{%
+        {Cham}%
+      }
+      \list{publisher}{1}{%
+        {Springer International Publishing}%
+      }
+      \strng{namehash}{c3cc1112abec77244192469dfa48f5a3}
+      \strng{fullhash}{c3cc1112abec77244192469dfa48f5a3}
+      \strng{fullhashraw}{c3cc1112abec77244192469dfa48f5a3}
+      \strng{bibnamehash}{c3cc1112abec77244192469dfa48f5a3}
+      \strng{authorbibnamehash}{c3cc1112abec77244192469dfa48f5a3}
+      \strng{authornamehash}{c3cc1112abec77244192469dfa48f5a3}
+      \strng{authorfullhash}{c3cc1112abec77244192469dfa48f5a3}
+      \strng{authorfullhashraw}{c3cc1112abec77244192469dfa48f5a3}
+      \strng{editorbibnamehash}{944e2eb2d8ebd3cbf55e6bc0c2fe32f1}
+      \strng{editornamehash}{944e2eb2d8ebd3cbf55e6bc0c2fe32f1}
+      \strng{editorfullhash}{944e2eb2d8ebd3cbf55e6bc0c2fe32f1}
+      \strng{editorfullhashraw}{944e2eb2d8ebd3cbf55e6bc0c2fe32f1}
+      \field{sortinit}{Z}
+      \field{sortinithash}{96892c0b0a36bb8557c40c49813d48b3}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{booktitle}{Automated {{Reasoning}} with {{Analytic Tableaux}} and {{Related Methods}}}
+      \field{isbn}{978-3-030-86058-5 978-3-030-86059-2}
+      \field{langid}{english}
+      \field{title}{The {{Role}} of {{Entropy}} in {{Guiding}} a {{Connection Prover}}}
+      \field{urlday}{28}
+      \field{urlmonth}{1}
+      \field{urlyear}{2026}
+      \field{volume}{12842}
+      \field{year}{2021}
+      \field{dateera}{ce}
+      \field{urldateera}{ce}
+      \field{pages}{218\bibrangedash 235}
+      \range{pages}{18}
+      \verb{doi}
+      \verb 10.1007/978-3-030-86059-2_13
+      \endverb
+      \verb{file}
+      \verb /home/mfixman/TP/Papers/Zotero/storage/UXWXG9UU/Zombori et al. - 2021 - The Role of Entropy in Guiding a Connection Prover.pdf
+      \endverb
+      \verb{urlraw}
+      \verb https://link.springer.com/10.1007/978-3-030-86059-2_13
+      \endverb
+      \verb{url}
+      \verb https://link.springer.com/10.1007/978-3-030-86059-2_13
+      \endverb
+    \endentry
+  \enddatalist
+\endrefsection
+\endinput
+

@@ -1,0 +1,329 @@
+% $ biblatex auxiliary file $
+% $ biblatex bbl format version 3.3 $
+% Do not modify the above lines!
+%
+% This is an auxiliary file used by the 'biblatex' package.
+% This file may safely be deleted. It will be recreated by
+% biber as required.
+%
+\begingroup
+\makeatletter
+\@ifundefined{ver@biblatex.sty}
+  {\@latex@error
+     {Missing 'biblatex' package}
+     {The bibliography requires the 'biblatex' package.}
+      \aftergroup\endinput}
+  {}
+\endgroup
+
+
+\refsection{0}
+  \datalist[entry]{nty/global//global/global/global}
+    \entry{cadical20}{inproceedings}{}{}
+      \name{author}{6}{}{%
+        {{hash=22081d00e30965a89f413e528510617e}{%
+           family={Biere},
+           familyi={B\bibinitperiod},
+           given={Armin},
+           giveni={A\bibinitperiod}}}%
+        {{hash=a1349c1859354955c1cb0f8a9310cc92}{%
+           family={Faller},
+           familyi={F\bibinitperiod},
+           given={Tobias},
+           giveni={T\bibinitperiod}}}%
+        {{hash=aeba9a6c0728884b4ec3500970b53c69}{%
+           family={Fazekas},
+           familyi={F\bibinitperiod},
+           given={Katalin},
+           giveni={K\bibinitperiod}}}%
+        {{hash=2924c54a9875b88d7893f70cb5c5e729}{%
+           family={Fleury},
+           familyi={F\bibinitperiod},
+           given={Mathias},
+           giveni={M\bibinitperiod}}}%
+        {{hash=1045a4734d89ee905d4a53b5ca50a3b2}{%
+           family={Froleyks},
+           familyi={F\bibinitperiod},
+           given={Nils},
+           giveni={N\bibinitperiod}}}%
+        {{hash=437090c86b89faa523536c5e0654cdc4}{%
+           family={Pollitt},
+           familyi={P\bibinitperiod},
+           given={Florian},
+           giveni={F\bibinitperiod}}}%
+      }
+      \list{publisher}{1}{%
+        {Springer}%
+      }
+      \strng{namehash}{bc3be1691d20d567b9af500e799dfef0}
+      \strng{fullhash}{d842a13c4e55b8e00662f350a4d66795}
+      \strng{fullhashraw}{d842a13c4e55b8e00662f350a4d66795}
+      \strng{bibnamehash}{bc3be1691d20d567b9af500e799dfef0}
+      \strng{authorbibnamehash}{bc3be1691d20d567b9af500e799dfef0}
+      \strng{authornamehash}{bc3be1691d20d567b9af500e799dfef0}
+      \strng{authorfullhash}{d842a13c4e55b8e00662f350a4d66795}
+      \strng{authorfullhashraw}{d842a13c4e55b8e00662f350a4d66795}
+      \field{sortinit}{B}
+      \field{sortinithash}{d7095fff47cda75ca2589920aae98399}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{booktitle}{Computer Aided Verification}
+      \field{series}{Lecture Notes in Computer Science}
+      \field{title}{{CaDiCaL} 2.0}
+      \field{volume}{14681}
+      \field{year}{2024}
+      \field{pages}{133\bibrangedash 152}
+      \range{pages}{20}
+      \verb{doi}
+      \verb 10.1007/978-3-031-65627-9_7
+      \endverb
+    \endentry
+    \entry{chvalovsky2021characteristic}{inproceedings}{}{}
+      \name{author}{2}{}{%
+        {{hash=891e0fe3b437901e2531d2dd56afad0e}{%
+           family={Chvalovský},
+           familyi={C\bibinitperiod},
+           given={Karel},
+           giveni={K\bibinitperiod}}}%
+        {{hash=8c50a53adb6e6d50d5c8fd84d0ebbffd}{%
+           family={Jakubův},
+           familyi={J\bibinitperiod},
+           given={Jan},
+           giveni={J\bibinitperiod}}}%
+      }
+      \strng{namehash}{9b4ad068adc1b56b7d8948508cb0032e}
+      \strng{fullhash}{9b4ad068adc1b56b7d8948508cb0032e}
+      \strng{fullhashraw}{9b4ad068adc1b56b7d8948508cb0032e}
+      \strng{bibnamehash}{9b4ad068adc1b56b7d8948508cb0032e}
+      \strng{authorbibnamehash}{9b4ad068adc1b56b7d8948508cb0032e}
+      \strng{authornamehash}{9b4ad068adc1b56b7d8948508cb0032e}
+      \strng{authorfullhash}{9b4ad068adc1b56b7d8948508cb0032e}
+      \strng{authorfullhashraw}{9b4ad068adc1b56b7d8948508cb0032e}
+      \field{sortinit}{C}
+      \field{sortinithash}{4d103a86280481745c9c897c925753c0}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{booktitle}{Proceedings of the 6th Conference on Artificial Intelligence and Theorem Proving (AITP 2021)}
+      \field{eventday}{5}
+      \field{eventendday}{10}
+      \field{eventendmonth}{9}
+      \field{eventendyear}{2021}
+      \field{eventmonth}{9}
+      \field{eventyear}{2021}
+      \field{note}{Extended abstract in informal proceedings}
+      \field{title}{Characteristic Subsets of TPTP Benchmarks}
+      \field{venue}{Aussois, France}
+      \field{year}{2021}
+      \field{eventenddateera}{ce}
+      \field{eventdateera}{ce}
+      \verb{urlraw}
+      \verb https://aitp-conference.org/2021/abstract/paper_13.pdf
+      \endverb
+      \verb{url}
+      \verb https://aitp-conference.org/2021/abstract/paper_13.pdf
+      \endverb
+    \endentry
+    \entry{letzModelEliminationConnection2001}{incollection}{}{}
+      \name{author}{2}{}{%
+        {{hash=237db04f2f8bbe1955a4d6137819cfc8}{%
+           family={Letz},
+           familyi={L\bibinitperiod},
+           given={Reinhold},
+           giveni={R\bibinitperiod}}}%
+        {{hash=0dc30175610d14d0fd497532841e2514}{%
+           family={Stenz},
+           familyi={S\bibinitperiod},
+           given={Gernot},
+           giveni={G\bibinitperiod}}}%
+      }
+      \list{publisher}{1}{%
+        {Elsevier}%
+      }
+      \strng{namehash}{27f5fe9355fb651da802954f88858f4f}
+      \strng{fullhash}{27f5fe9355fb651da802954f88858f4f}
+      \strng{fullhashraw}{27f5fe9355fb651da802954f88858f4f}
+      \strng{bibnamehash}{27f5fe9355fb651da802954f88858f4f}
+      \strng{authorbibnamehash}{27f5fe9355fb651da802954f88858f4f}
+      \strng{authornamehash}{27f5fe9355fb651da802954f88858f4f}
+      \strng{authorfullhash}{27f5fe9355fb651da802954f88858f4f}
+      \strng{authorfullhashraw}{27f5fe9355fb651da802954f88858f4f}
+      \field{sortinit}{L}
+      \field{sortinithash}{7c47d417cecb1f4bd38d1825c427a61a}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{booktitle}{Handbook of {{Automated Reasoning}}}
+      \field{isbn}{978-0-444-50813-3}
+      \field{langid}{english}
+      \field{title}{Model {{Elimination}} and {{Connection Tableau Procedures}}}
+      \field{urlday}{18}
+      \field{urlmonth}{2}
+      \field{urlyear}{2026}
+      \field{year}{2001}
+      \field{dateera}{ce}
+      \field{urldateera}{ce}
+      \field{pages}{2015\bibrangedash 2114}
+      \range{pages}{100}
+      \verb{doi}
+      \verb 10.1016/B978-044450813-3/50030-8
+      \endverb
+      \verb{file}
+      \verb /home/mfixman/TP/Papers/Zotero/storage/MMNTR45Z/Letz and Stenz - 2001 - Model Elimination and Connection Tableau Procedures.pdf
+      \endverb
+      \verb{urlraw}
+      \verb https://linkinghub.elsevier.com/retrieve/pii/B9780444508133500308
+      \endverb
+      \verb{url}
+      \verb https://linkinghub.elsevier.com/retrieve/pii/B9780444508133500308
+      \endverb
+    \endentry
+    \entry{Otten2023leanCoP20}{inproceedings}{}{}
+      \name{author}{1}{}{%
+        {{hash=7431b97641b523547b83cb7ec88cba49}{%
+           family={Otten},
+           familyi={O\bibinitperiod},
+           given={Jens},
+           giveni={J\bibinitperiod}}}%
+      }
+      \strng{namehash}{7431b97641b523547b83cb7ec88cba49}
+      \strng{fullhash}{7431b97641b523547b83cb7ec88cba49}
+      \strng{fullhashraw}{7431b97641b523547b83cb7ec88cba49}
+      \strng{bibnamehash}{7431b97641b523547b83cb7ec88cba49}
+      \strng{authorbibnamehash}{7431b97641b523547b83cb7ec88cba49}
+      \strng{authornamehash}{7431b97641b523547b83cb7ec88cba49}
+      \strng{authorfullhash}{7431b97641b523547b83cb7ec88cba49}
+      \strng{authorfullhashraw}{7431b97641b523547b83cb7ec88cba49}
+      \field{sortinit}{O}
+      \field{sortinithash}{2cd7140a07aea5341f9e2771efe90aae}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{booktitle}{Proceedings of the 1st International Workshop on Automated Reasoning with Connection Calculi ({{AReCCa}}@{{TABLEAUX}} 2023)}
+      \field{series}{{{CEUR}} Workshop Proceedings}
+      \field{title}{20 Years of {{leanCoP}} — an Overview of the Provers}
+      \field{volume}{3613}
+      \field{year}{2023}
+      \field{dateera}{ce}
+      \verb{file}
+      \verb /home/mfixman/TP/Papers/Zotero/storage/E6JF2SNV/Otten - 2023 - 20 years of leanCoP — an overview of the provers.pdf
+      \endverb
+      \verb{urlraw}
+      \verb https://ceur-ws.org/Vol-3613/AReCCa2023_paper1.pdf
+      \endverb
+      \verb{url}
+      \verb https://ceur-ws.org/Vol-3613/AReCCa2023_paper1.pdf
+      \endverb
+    \endentry
+    \entry{eliminatingModels}{incollection}{}{}
+      \name{author}{2}{}{%
+        {{hash=fb2d1eeabca2f37d899576cf1a468d20}{%
+           family={Rawson},
+           familyi={R\bibinitperiod},
+           given={Michael},
+           giveni={M\bibinitperiod}}}%
+        {{hash=daad3f9438807920ae7ca5d4be1067aa}{%
+           family={Reger},
+           familyi={R\bibinitperiod},
+           given={Giles},
+           giveni={G\bibinitperiod}}}%
+      }
+      \name{editor}{2}{}{%
+        {{hash=bbce9aee267ed6a13345f2800ab8c288}{%
+           family={Das},
+           familyi={D\bibinitperiod},
+           given={Anupam},
+           giveni={A\bibinitperiod}}}%
+        {{hash=997747a4d39cbcf2b9d0bf0440769fb9}{%
+           family={Negri},
+           familyi={N\bibinitperiod},
+           given={Sara},
+           giveni={S\bibinitperiod}}}%
+      }
+      \list{location}{1}{%
+        {Cham}%
+      }
+      \list{publisher}{1}{%
+        {Springer International Publishing}%
+      }
+      \strng{namehash}{bdcf121a2ff0d8ed8f98fa2d12d84959}
+      \strng{fullhash}{bdcf121a2ff0d8ed8f98fa2d12d84959}
+      \strng{fullhashraw}{bdcf121a2ff0d8ed8f98fa2d12d84959}
+      \strng{bibnamehash}{bdcf121a2ff0d8ed8f98fa2d12d84959}
+      \strng{authorbibnamehash}{bdcf121a2ff0d8ed8f98fa2d12d84959}
+      \strng{authornamehash}{bdcf121a2ff0d8ed8f98fa2d12d84959}
+      \strng{authorfullhash}{bdcf121a2ff0d8ed8f98fa2d12d84959}
+      \strng{authorfullhashraw}{bdcf121a2ff0d8ed8f98fa2d12d84959}
+      \strng{editorbibnamehash}{944e2eb2d8ebd3cbf55e6bc0c2fe32f1}
+      \strng{editornamehash}{944e2eb2d8ebd3cbf55e6bc0c2fe32f1}
+      \strng{editorfullhash}{944e2eb2d8ebd3cbf55e6bc0c2fe32f1}
+      \strng{editorfullhashraw}{944e2eb2d8ebd3cbf55e6bc0c2fe32f1}
+      \field{sortinit}{R}
+      \field{sortinithash}{5e1c39a9d46ffb6bebd8f801023a9486}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{booktitle}{Automated {{Reasoning}} with {{Analytic Tableaux}} and {{Related Methods}}}
+      \field{isbn}{978-3-030-86058-5 978-3-030-86059-2}
+      \field{langid}{english}
+      \field{title}{Eliminating {{Models During Model Elimination}}}
+      \field{urlday}{13}
+      \field{urlmonth}{11}
+      \field{urlyear}{2025}
+      \field{volume}{12842}
+      \field{year}{2021}
+      \field{dateera}{ce}
+      \field{urldateera}{ce}
+      \field{pages}{250\bibrangedash 265}
+      \range{pages}{16}
+      \verb{doi}
+      \verb 10.1007/978-3-030-86059-2_15
+      \endverb
+      \verb{file}
+      \verb /home/mfixman/TP/Papers/Zotero/storage/UV2EGXGR/Rawson and Reger - 2021 - Eliminating Models During Model Elimination.pdf
+      \endverb
+      \verb{urlraw}
+      \verb https://link.springer.com/10.1007/978-3-030-86059-2_15
+      \endverb
+      \verb{url}
+      \verb https://link.springer.com/10.1007/978-3-030-86059-2_15
+      \endverb
+    \endentry
+    \entry{connections_2023}{inproceedings}{}{}
+      \name{author}{3}{}{%
+        {{hash=8cae1e0ab1bd1e1513ed86256eaa3eaf}{%
+           family={Rømming},
+           familyi={R\bibinitperiod},
+           given={Fredrik},
+           giveni={F\bibinitperiod}}}%
+        {{hash=7431b97641b523547b83cb7ec88cba49}{%
+           family={Otten},
+           familyi={O\bibinitperiod},
+           given={Jens},
+           giveni={J\bibinitperiod}}}%
+        {{hash=5e914d628484983e8f3a573a7bb3f362}{%
+           family={Holden},
+           familyi={H\bibinitperiod},
+           given={Sean\bibnamedelima B.},
+           giveni={S\bibinitperiod\bibinitdelim B\bibinitperiod}}}%
+      }
+      \strng{namehash}{2e7951f3759fa4fdf98d7d47e5e19d02}
+      \strng{fullhash}{2e7951f3759fa4fdf98d7d47e5e19d02}
+      \strng{fullhashraw}{2e7951f3759fa4fdf98d7d47e5e19d02}
+      \strng{bibnamehash}{2e7951f3759fa4fdf98d7d47e5e19d02}
+      \strng{authorbibnamehash}{2e7951f3759fa4fdf98d7d47e5e19d02}
+      \strng{authornamehash}{2e7951f3759fa4fdf98d7d47e5e19d02}
+      \strng{authorfullhash}{2e7951f3759fa4fdf98d7d47e5e19d02}
+      \strng{authorfullhashraw}{2e7951f3759fa4fdf98d7d47e5e19d02}
+      \field{sortinit}{R}
+      \field{sortinithash}{5e1c39a9d46ffb6bebd8f801023a9486}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{booktitle}{Proceedings of the 1st {International} {Workshop} on {Automated} {Reasoning} with {Connection} {Calculi}}
+      \field{series}{{CEUR} {Workshop} {Proceedings}}
+      \field{title}{Connections: {Markov} {Decision} {Processes} for {Classical}, {Intuitionistic} and {Modal} {Connection} {Calculi}}
+      \field{volume}{3613}
+      \field{year}{2023}
+      \field{pages}{107\bibrangedash 118}
+      \range{pages}{12}
+    \endentry
+  \enddatalist
+\endrefsection
+\endinput
+
