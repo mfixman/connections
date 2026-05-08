@@ -354,6 +354,16 @@ class TestCompareStrategiesLogicSelection:
 
         assert args.sat_solver is None
 
+    def test_parse_args_accepts_tptp_root(self, monkeypatch, tmp_path: Path):
+        monkeypatch.setattr(
+            sys,
+            'argv',
+            ['compare_strategies.py', '--tptp', str(tmp_path), '--csv', '/tmp/results.csv'],
+        )
+        args = compare_strategies.parse_args()
+
+        assert args.tptp == str(tmp_path)
+
     def test_parse_args_uses_large_compare_defaults(self, monkeypatch):
         monkeypatch.setattr(sys, 'argv', ['compare_strategies.py', '--csv', '/tmp/results.csv'])
         args = compare_strategies.parse_args()

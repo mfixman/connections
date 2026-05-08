@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Optional
 
 from cli import (
+    configure_tptp_root,
     default_logic_for_strategy,
     default_sat_solver_for_strategy,
     expand_problem_inputs,
@@ -828,6 +829,7 @@ def main() -> None:
     args = parse_args()
 
     try:
+        configure_tptp_root(args.tptp)
         problems = split_problem_paths(
             expand_problem_inputs(args.inputs),
             args.split,

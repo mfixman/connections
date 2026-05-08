@@ -4,6 +4,7 @@ import logging
 from pathlib import Path
 
 from cli import (
+    configure_tptp_root,
     default_logic_for_strategy,
     parse_pycop_args,
     resolve_logic_for_strategy,
@@ -100,6 +101,7 @@ def main():
     logging.basicConfig(level = logging.INFO if args.verbose else logging.WARN, format = '[%(relativeCreated)d] %(message)s')
 
     try:
+        configure_tptp_root(args.tptp)
         with resolved_problem_paths(args.file) as problem_paths:
             problem_paths = split_problem_paths(problem_paths, args.split, args.part)
             multiple = len(problem_paths) > 1

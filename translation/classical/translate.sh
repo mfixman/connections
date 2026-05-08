@@ -31,12 +31,8 @@ PROLOG_OPTIONS='--stack_limit=2500m --debug=false -O -q -g'
 
 # set TPTP library path
 if [ -z "${TPTP:-}" ]; then
- if [ -d Axioms ]; then
-  export TPTP=.
- else
-  echo "Error: expected an Axioms directory in the repository root" >&2
-  exit 2
- fi
+ echo "Error: TPTP is not set; pass --tptp ROOT to the Python entrypoint or set the TPTP environment variable" >&2
+ exit 2
 fi
 
 #----------

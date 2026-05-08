@@ -53,6 +53,18 @@ class TestClassicalProblemParsing:
         assert str(matrix.clauses[0][0]) == 'p(a)'
         assert str(matrix.clauses[1][0]) == '-p(a)'
 
+    def test_raw_minus_problem_include_without_tptp_fails_loudly(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ):
+        problem = tmp_path / 'FLD071-2.p'
+        problem.write_text("include('Axioms/AX001-0.ax').\ncnf(goal,negated_conjecture,~p(a)).")
+        monkeypatch.delenv('TPTP', raising = False)
+
+        with pytest.raises(FileNotFoundError, match='pass --tptp ROOT or set the TPTP environment variable'):
+            file2cnf(str(problem))
+
     def test_raw_plus_problem_uses_tptp_translation(self, tmp_path: Path):
         problem = tmp_path / 'GEO205+1.p'
         problem.write_text("fof(a,axiom,p).")

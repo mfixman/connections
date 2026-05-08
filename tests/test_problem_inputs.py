@@ -72,3 +72,15 @@ class TestProblemInputSplitting:
         result = problem_inputs.expand_problem_inputs([])
 
         assert result == [supported.resolve()]
+
+    def test_expand_problem_inputs_without_tptp_fails_loudly(self, monkeypatch):
+        monkeypatch.delenv('TPTP', raising = False)
+
+        with pytest.raises(FileNotFoundError, match='pass --tptp ROOT or set the TPTP environment variable'):
+            problem_inputs.expand_problem_inputs([])
+
+    def test_resolve_problem_path_without_tptp_fails_loudly(self, monkeypatch):
+        monkeypatch.delenv('TPTP', raising = False)
+
+        with pytest.raises(FileNotFoundError, match='pass --tptp ROOT or set the TPTP environment variable'):
+            problem_inputs.resolve_problem_path('SYN001+1.p')

@@ -1,8 +1,10 @@
+import os
 import sys
+from pathlib import Path
 
 import pytest
 
-from cli import parse_pycop_args
+from cli import configure_tptp_root, parse_pycop_args
 from connections.env import Logic, SATSolver, Settings
 
 def test_parse_args_accepts_cadical_sat_solver(monkeypatch):
@@ -27,6 +29,17 @@ def test_parse_args_defaults_sat_solver_to_cadical(monkeypatch):
     args = parse_pycop_args()
 
     assert args.sat_solver is SATSolver.CaDiCaL
+
+def test_parse_args_accepts_tptp_root(monkeypatch, tmp_path: Path):
+    monkeypatch.setattr(
+        sys,
+        'argv',
+        ['pycop.py', '--tptp', str(tmp_path), 'tests/cnf_problems/SYN081+1.cnf'],
+    )
+
+    args = parse_pycop_args()
+
+    assert args.tptp == str(tmp_path)
 
 def test_settings_defaults_sat_solver_to_cadical():
     assert Settings().sat_solver is SATSolver.CaDiCaL
@@ -127,3 +140,17 @@ def test_parse_args_rejects_strategy_groups(monkeypatch):
         parse_pycop_args()
 
     assert excinfo.value.code == 2
+
+def test_configure_tptp_root_sets_environment(monkeypatch, tmp_path: Path):
+    monkeypatch.delenv('TPTP', raising = False)
+
+    configure_tptp_root(str(tmp_path))
+
+    assert os.environ['TPTP'] == str(tmp_path.resolve())
+
+def test_configure_tptp_root_rejects_missing_directory(monkeypatch, tmp_path: Path):
+    monkeypatch.delenv('TPTP', raising = False)
+    missing = tmp_path / 'missing'
+
+    with pytest.raises(FileNotFoundError, match='--tptp does not point to a directory'):
+        configure_tptp_root(str(missing))

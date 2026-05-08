@@ -114,6 +114,18 @@ def split_problem_paths(paths: Sequence[T], split: int, part: int) -> list[T]:
     return [path for index, path in enumerate(paths) if index % split == part]
 
 
+def configure_tptp_root(tptp_root: str | None) -> None:
+    """Apply an explicit TPTP root override for this process."""
+    if tptp_root is None:
+        return
+
+    root = Path(tptp_root).resolve()
+    if not root.is_dir():
+        raise FileNotFoundError(f'--tptp does not point to a directory: {root}')
+
+    os.environ['TPTP'] = str(root)
+
+
 def resolve_problem_path(path: str) -> str:
     problem_path = Path(path)
 
@@ -123,7 +135,9 @@ def resolve_problem_path(path: str) -> str:
 
     tptp_root = os.getenv('TPTP')
     if tptp_root is None:
-        raise FileNotFoundError(f'could not find problem {path!r} and TPTP is not set')
+        raise FileNotFoundError(
+            f'could not find problem {path!r}; pass --tptp ROOT or set the TPTP environment variable'
+        )
 
     matches = _find_tptp_matches(problem_path, Path(tptp_root))
     if len(matches) == 1:
@@ -192,6 +206,12 @@ def _add_common_prover_arguments(parser: argparse.ArgumentParser, *, max_steps_d
         choices=list(SATSolver),
         type=SATSolver,
         help='SAT backend for ClassicalSAT',
+    )
+    parser.add_argument(
+        '--tptp',
+        default=None,
+        metavar='ROOT',
+        help='TPTP root directory; if omitted, use the TPTP environment variable',
     )
     parser.add_argument('--max-steps', default=max_steps_default, type=int, help='Maximum amount of steps before breaking.')
 
@@ -433,7 +453,10 @@ def _problem_priority_key(problem: Path) -> tuple[int, str, str]:
 def _all_tptp_problem_paths() -> list[Path]:
     tptp_root_raw = os.getenv('TPTP')
     if tptp_root_raw is None:
-        raise FileNotFoundError('no input problems provided and TPTP is not set')
+        raise FileNotFoundError(
+            'no input problems provided and no TPTP root is configured; '
+            'pass --tptp ROOT or set the TPTP environment variable'
+        )
 
     problems_root = Path(tptp_root_raw) / 'Problems'
     if not problems_root.is_dir():

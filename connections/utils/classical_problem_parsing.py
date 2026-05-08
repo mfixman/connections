@@ -293,7 +293,7 @@ def _repo_root() -> Path:
     return Path(__file__).resolve().parents[2]
 
 def _tptp_root() -> Path:
-    """Return the TPTP root from the environment or a source-tree fallback."""
+    """Return the configured TPTP root from the environment."""
     env_root_raw = os.getenv('TPTP')
     if env_root_raw is not None:
         env_root = Path(env_root_raw).resolve()
@@ -301,12 +301,8 @@ def _tptp_root() -> Path:
             return env_root
         raise FileNotFoundError(f'TPTP is set but does not point to a directory: {env_root}')
 
-    repo_root = _repo_root()
-    axioms = repo_root / 'Axioms'
-    if axioms.is_dir():
-        return repo_root
     raise FileNotFoundError(
-        f'TPTP is not set and no local Axioms directory exists at {axioms}'
+        'TPTP root is not configured; pass --tptp ROOT or set the TPTP environment variable'
     )
 
 def _resolve_include(include_path: str, current_path: Path) -> Path:
