@@ -11,8 +11,7 @@ from ..base import Strategy
 
 TAction = TypeVar('TAction', bound = ConnectionAction)
 
-_REPO_ROOT = Path(__file__).resolve().parents[2]
-_SCHEDULES_DIR = _REPO_ROOT / 'schedules'
+_SCHEDULES_DIR = Path(__file__).resolve().parent / 'schedules'
 
 def backtrack_or_reset(actions: list[ConnectionAction]) -> ConnectionAction:
     backtracks = (a for a in actions if isinstance(a, Backtrack))
