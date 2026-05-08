@@ -269,3 +269,5 @@ debug/*
 
 .codex
 nohup.out
+
+AGENTS.md
