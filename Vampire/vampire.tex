@@ -27,6 +27,7 @@
 \abstract{%
 	We improve SATCoP performance by resetting the connection tableau often.
 	This causes more and more varied SAT statements to be added to the SAT prover, which causes it to saturate faster.
+	The resulting prover solves problems faster and in fewer steps than SATCoP and the current state-of-the-art tableau provers.
 }
 
 \section{Introduction}
@@ -47,9 +48,17 @@ The prover builds a tree, where each node corresponds to a particular clause of 
 	\caption{Description of the operations of Tableau calculus\cite{farberCuriouslyEffectiveBacktracking2024}.}
 \end{figure}
 
-LeanCoP\cite{ottenLeanCoPLeanConnectionbased2003} improves 
+leanCoP improves on earlier connection-tableau provers by combining a very small Prolog implementation with aggressive restricted backtracking\cite{ottenLeanCoPLeanConnectionbased2003,ottenLeanCoP20}.
+Successful reduction and extension steps commit with a Prolog \emph{cut} (\texttt{!}), pruning alternative continuations and often reducing search substantially.
+To maximise the variety of substitutions in the tableau the maximum height of the tree is constrained, and each subsequent \step{Start} increases this height.
+A similar technique is later used in SATResetCoP, which is presented in this paper.
 
-Talk about LeanCoP\cite{ottenLeanCoP20}, possibly MeanCoP\cite{farberCuriouslyEffectiveBacktracking2024}.
+meanCoP revisits this design by separating the effects of reduction cuts and extension cuts, and by replacing leanCoP's particularly strong pruning with more selective exclusive cuts\cite{farberCuriouslyEffectiveBacktracking2024}.
+In particular, meanCoP commits only when a successful proof step rules out sibling alternatives at the current choice point, and otherwise allows ordinary backtracking to continue\cite{farberCuriouslyEffectiveBacktracking2024}.
+This keeps much of the practical benefit of cut-based control while avoiding some of the unnecessary incompleteness and over-commitment of the original leanCoP strategy\cite{farberCuriouslyEffectiveBacktracking2024}.
+
+The leanCoP line has also been extended in several other directions.
+Functional and machine-learning-guided connection provers refine proof-step ordering and clause selection\cite{farberMachineLearningGuidance2021}, rlCoP and plCoP add Monte Carlo Tree Search and reinforcement-learning-based control to leanCoP-style proof search\cite{Kaliszyk2018RLTP,zomboriPrologTechnologyReinforcement2020a}, and recent work on proof syntax and certification makes connection proofs easier to exchange and verify\cite{farberMachineLearningGuidance2018,ottenSyntaxConnectionProofs2023}.
 
 \subsection{SATCoP and Similar Methods}
 
