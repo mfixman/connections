@@ -13,7 +13,7 @@
 	United Kingdom
 }
 
-\titlerunning{SAT Resetmaxxing for Fun and Profix}
+\titlerunning{SAT Resetmaxxing for Fun and Profit}
 \authorrunning{Fixman, Rømming, Holden}
 
 \bibliographystyle{plain}
@@ -39,9 +39,8 @@
 
 Minimalist tableau-style provers based on Prolog have been used with great success since the release of leanTAP in 1995\cite{beckertLeanTAPLeanTableaubased1995}, and have consistently achieved high rankings in solving FOF and CNF problems in the Thousands of Problems for Theorem Provers (TPTP) library\cite{sutcliffe12thIJCARAutomated2025}.
 
-Rather than working like saturation provers \todo{what do saturation provers even \emph{do}?} such as Vampire prover\cite{riazanovDesignImplementationVAMPIRE2002}, Tableau-based provers attempt to create a Connection Tableau with ground terms.
+Rather than working like saturation provers such as Vampire\cite{riazanovDesignImplementationVAMPIRE2002}, which repeatedly derive new clauses from the current clause set until they derive a contradiction or reach saturation, tableau-based provers attempt to create a Connection Tableau with ground terms.
 The prover builds a tree, where each node corresponds to a particular clause of the problem in conjunctive normal form, using one of the following four steps.
-
 
 \begin{figure}[h]
 	\fbox{\parbox[c][75pt]{\textwidth}{\centering \todo{Add a diagram and/or a description.}}}
