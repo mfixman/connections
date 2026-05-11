@@ -3,14 +3,13 @@
 \usepackage{microtype}
 \usepackage[T1]{fontenc}
 \usepackage[utf8]{inputenc}
-\usepackage{parskip}
 \usepackage[noabbrev,nameinlink,capitalize,poorman]{cleveref}
 
 \title{SAT Resetmaxxing for Fun and Profit \\ \small (Final Title TBD)}
 \author{Martin S.\ Fixman\inst{1} \and Frederik Rømming\inst{1} \and Sean B.\ Holden\inst{1}}
 
 \institute{
-	University of Cambridge,
+	\textsuperscript{1} University of Cambridge,
 	United Kingdom
 }
 
@@ -20,27 +19,44 @@
 \bibliographystyle{plain}
 
 \newcommand{\todo}[1]{\textcolor{red}{(TODO: #1)}}
+\newcommand{\step}[1]{\textbf{#1}}
 
 \begin{document}
 \maketitle{}
 
-\abstract{This is an abstract.}
+\abstract{%
+	We improve SATCoP performance by resetting the connection tableau often.
+	This causes more and more varied SAT statements to be added to the SAT prover, which causes it to saturate faster.
+}
 
 \section{Introduction}
 
 \section{Preliminaries}
 
-\subsection{Tableaux Solving Methods}
+\todo{Tableau or Tableaux? Bibliography is inconsistent.}
 
-The original Tableau prover \todo{add citation here}
+\subsection{Tableau Solving Methods}
 
-LeanCoP\cite{ottenLeanCoPLeanConnectionbased2003} 
+Minimalist tableau-style provers based on Prolog have been used with great success since the release of leanTAP in 1995\cite{beckertLeanTAPLeanTableaubased1995}, and have consistently achieved high rankings in solving FOF and CNF problems in the Thousands of Problems for Theorem Provers (TPTP) library\cite{sutcliffe12thIJCARAutomated2025}.
+
+Rather than working like saturation provers \todo{what do saturation provers even \emph{do}?} such as Vampire prover\cite{riazanovDesignImplementationVAMPIRE2002}, Tableau-based provers attempt to create a Connection Tableau with ground terms.
+The prover builds a tree, where each node corresponds to a particular clause of the problem in conjunctive normal form, using one of the following four steps.
+
+
+\begin{figure}[h]
+	\fbox{\parbox[c][75pt]{\textwidth}{\centering \todo{Add a diagram and/or a description.}}}
+	\caption{Description of the operations of Tableau calculus\cite{farberCuriouslyEffectiveBacktracking2024}.}
+\end{figure}
+
+LeanCoP\cite{ottenLeanCoPLeanConnectionbased2003} improves 
 
 Talk about LeanCoP\cite{ottenLeanCoP20}, possibly MeanCoP\cite{farberCuriouslyEffectiveBacktracking2024}.
 
 \subsection{SATCoP and Similar Methods}
 
 \section{Research Vehicle}
+
+Talk about the Connections Prover\cite{connections_2023}.
 
 \section{Experimental Evaluation}
 
