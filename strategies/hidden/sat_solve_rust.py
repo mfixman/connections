@@ -21,11 +21,10 @@ class SATCoPRust(_SATScoreTracker, Strategy):
     - otherwise try the first available ``Reduction`` before any extension;
     - otherwise try the first available ``Extension`` in the calculus'
       existing randomized order;
-    - within a chosen extension, pre-insert the extension's ground clause
-      into the shadow SAT solver and re-solve (matching Rust's immediate
-      clause insertion in ``unify()`` and ``sat::Solver::assert``), then
-      reorder remaining subgoals: SAT-true first, SAT-false second (closed
-      by paper-mode model lemmata), SAT-unknown last;
+    - within a chosen extension, pre-insert the current tableau clauses and
+      the extension's ground clause into the shadow SAT solver and re-solve
+      (matching Rust's immediate clause insertion in ``unify()`` and
+      ``sat::Solver::assert``), then keep only SAT-true remaining subgoals;
     - stay at the same depth when new ground clauses were discovered.
 
     Important approximations:
@@ -33,18 +32,10 @@ class SATCoPRust(_SATScoreTracker, Strategy):
         clause (``search.rs:163-178``), then returns success without
         attempting the remaining (false/unknown) subgoals. Soundness
         comes from the ground SAT solver, not the tableau proof.
-        ``ClassicalSAT`` always materializes the whole clause as tableau
-        children, so this strategy cannot skip subgoals outright.  It
-        mitigates the gap by:
-
-        - Pre-inserting the extension clause so the model is as current
-          as the Rust's ``sat::Solver::assert`` (which calls ``solve()``
-          after every clause addition, ``sat.rs:154``).
-        - Placing SAT-false promises before unknowns so paper-mode model
-          lemmata close them instantly, matching the Rust's skip for
-          those literals.
-        - SAT-unknown subgoals remain: they must be proved in Python but
-          are skipped entirely in the Rust prover.
+        ``ClassicalSAT`` normally materializes the whole clause as tableau
+        children.  This strategy rewrites the selected extension action so
+        only the connected head and SAT-true remaining promises are kept,
+        which matches the Rust loop as closely as this action API allows.
 
         The Rust SAT solver is a custom WalkSAT/PicoSAT hybrid
         (``sat.rs``) that re-solves incrementally after every clause
@@ -57,38 +48,87 @@ class SATCoPRust(_SATScoreTracker, Strategy):
         self._init_sat_score_tracker()
         if not hasattr(self.env.state, 'sat_literal_value'):
             raise TypeError('SATCoPRust requires the ClassicalSAT calculus')
+        self._enable_rust_start_policy()
         self.env.state.enable_paper_mode(True)
 
-    def _pre_insert_extension_clause(self, action: Extension) -> None:
-        """Insert the extension clause's ground version into the shadow SAT
-        solver and re-solve to update the model.
+    def _enable_rust_start_policy(self) -> None:
+        """Use the closest available approximation to Rust's start clauses.
+
+        The Rust loader starts from conjecture-derived clauses when those are
+        identifiable, otherwise from positive clauses.  MyPyCoP's Prolog
+        translation does not currently preserve per-clause TPTP roles, so the
+        closest local setting is the positive-clause fallback rather than the
+        default ClassicalSAT positive+negative pool.
+        """
+        for owner in (self.env, self.env.state):
+            settings = getattr(owner, 'settings', None)
+            if settings is not None:
+                settings.rust_start_clauses = True
+                settings.positive_start_clauses = True
+
+    def _queue_ground_clause(self, clause, expanded) -> bool:
+        state = self.env.state
+        if clause in state.shadow.ground_clauses:
+            return False
+        state.shadow.expanded_clauses.setdefault(clause, expanded)
+        state.shadow.new_ground_clauses.add(clause)
+        state._iteration_new_ground_clause = True
+        return True
+
+    def _queue_current_tableau_clauses(self) -> bool:
+        inserted = False
+        state = self.env.state
+        tableau_clauses = getattr(state, '_tableau_clauses', None)
+        if not callable(tableau_clauses):
+            return False
+        for clause, expanded in tableau_clauses().items():
+            inserted = self._queue_ground_clause(clause, expanded) or inserted
+        return inserted
+
+    def _sync_if_inserted(self, inserted: bool) -> None:
+        if not inserted:
+            return
+        state = self.env.state
+        state._flush_new_ground_clauses()
+        state._solve_ground_clauses()
+
+    def _pre_insert_current_clauses(self, action: Reduction | Extension) -> None:
+        """Insert the ground clauses Rust would insert after unification.
 
         The Rust prover inserts ground clauses inside ``unify()``
         (``search.rs:216-221``) immediately after every successful
         unification, then calls ``sat::Solver::solve`` (``sat.rs:154``).
-        Doing this before the subgoal-ordering decision gives the SAT
-        model the same information the Rust solver would have at the
-        corresponding point in its recursive search.
+        Doing this before Python refreshes the next tableau goal gives
+        model-based lemmata the closest available SAT model.
 
         Requires: the substitution already includes ``action.sub_updates``.
         """
         state = self.env.state
-        if not action.clause_copy:
-            return
-        try:
-            ground_clause, expanded = state._ground_clause_data(
-                action.clause_copy, apply_substitution = True,
-            )
-        except Exception:
-            return
-        if ground_clause in state.shadow.ground_clauses:
-            return
-        state.shadow.expanded_clauses.setdefault(ground_clause, expanded)
-        state.shadow.new_ground_clauses.add(ground_clause)
-        state._flush_new_ground_clauses()
-        state._solve_ground_clauses()
+        inserted = self._queue_current_tableau_clauses()
 
-    def _extension_with_true_promises_first(self, action: Extension) -> Extension:
+        if isinstance(action, Extension) and action.clause_copy:
+            try:
+                ground_clause, expanded = state._ground_clause_data(
+                    action.clause_copy, apply_substitution = True,
+                )
+            except Exception:
+                ground_clause = None
+            if ground_clause is not None:
+                inserted = self._queue_ground_clause(ground_clause, expanded) or inserted
+
+        self._sync_if_inserted(inserted)
+
+    def _pre_insert_with_action_substitution(self, action: Reduction | Extension) -> None:
+        state = self.env.state
+        if not hasattr(state, 'substitution'):
+            return
+        state.substitution.update(action.sub_updates)
+        try:
+            self._pre_insert_current_clauses(action)
+        finally:
+            state.substitution.backtrack()
+
+    def _extension_with_rust_promises(self, action: Extension) -> Extension:
         state = self.env.state
         if not action.clause_copy or not (0 <= action.lit_idx < len(action.clause_copy)):
             return action
@@ -102,33 +142,21 @@ class SATCoPRust(_SATScoreTracker, Strategy):
 
         state.substitution.update(action.sub_updates)
         try:
-            self._pre_insert_extension_clause(action)
+            self._pre_insert_current_clauses(action)
 
             true_promises = []
-            false_promises = []
-            unknown_promises = []
             for literal in remaining:
-                value = state.sat_literal_value(literal)
-                if value is True:
+                if state.sat_literal_value(literal) is True:
                     true_promises.append(literal)
-                elif value is False:
-                    false_promises.append(literal)
-                else:
-                    unknown_promises.append(literal)
         finally:
             state.substitution.backtrack()
 
-        if not true_promises and not false_promises:
-            return action
-
-        # Rust order (search.rs:163-178): SAT-true promises are proved,
-        # everything else is skipped.  We can't skip, but SAT-false
-        # promises are auto-closed by paper-mode model lemmata, so
-        # placing them before unknowns minimises the residual gap.
-        action.clause_copy = (
-            [head_literal] + true_promises + false_promises + unknown_promises
-        )
+        # Rust order (search.rs:163-178): prove SAT-true promises and skip
+        # the rest.  The connected head remains first and marked proven by
+        # the ClassicalSAT extension action.
+        action.clause_copy = [head_literal] + true_promises
         action.lit_idx = 0
+        action.skip_tableau_clause_recording = True
         return action
 
     def step(self):
@@ -142,16 +170,23 @@ class SATCoPRust(_SATScoreTracker, Strategy):
 
         if action := next((a for a in actions if isinstance(a, Reduction)), None):
             action.cut = True
+            self._pre_insert_with_action_substitution(action)
             return action
 
         if action := next((a for a in actions if isinstance(a, Extension)), None):
             action.cut = True
-            return self._extension_with_true_promises_first(action)
+            return self._extension_with_rust_promises(action)
 
+        discovered_ground_clause = getattr(self.env.state, 'iteration_discovered_ground_clause', None)
+        shadow_still_growing = (
+            discovered_ground_clause()
+            if callable(discovered_ground_clause)
+            else bool(getattr(self.env.state.shadow, 'new_ground_clauses', ()))
+        )
         if (
             self.env.state.goal.parent is None
             and any(isinstance(action, Reset) for action in actions)
-            and self.env.state.shadow.new_ground_clauses
+            and shadow_still_growing
         ):
             return Reset(id = 'rs', depth = self.env.state.max_depth, reason = 'ground shadow still growing')
 

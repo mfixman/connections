@@ -3,39 +3,44 @@
 \usepackage{microtype}
 \usepackage[T1]{fontenc}
 \usepackage[utf8]{inputenc}
+\usepackage{siunitx}
 \usepackage[noabbrev,nameinlink,capitalize,poorman]{cleveref}
 
 \title{SAT Resetmaxxing for Fun and Profit \\ \small (Final Title TBD)}
-\author{Martin S.\ Fixman \and Frederik Rømming \and Sean B.\ Holden}
+\author{Martin S.\ Fixman\inst{1} \and Fredrik Rømming\inst{2} \and Sean B.\ Holden\inst{3}}
 
 \institute{
-	University of Cambridge \\
+	University of Cambridge, \\
 	United Kingdom \\
-	\email{msf43@cl.cam.ac.uk}
+	{}\inst{1}\email{msf43@cl.cam.ac.uk} \qquad\quad {}\inst{2}\email{fr409@cl.cam.ac.uk} \qquad\quad {}\inst{3}\email{sbh11@cl.cam.ac.uk}
 }
 
-\titlerunning{SAT Resetmaxxing for Fun and Profit}
+\titlerunning{SAT Resetmaxxing for Fun and Profit {\tiny (I'll change the title I promise)}}
 \authorrunning{Fixman, Rømming, Holden}
 
 \bibliographystyle{plain}
 
-\newcommand{\todo}[1]{\textcolor{red}{(TODO: #1)}}
-\newcommand{\step}[1]{\textbf{#1}}
+\newcommand{\todo}[1]{\textcolor{red}{{\large [} #1 {\large ]}}}
+\newcommand{\step}[1]{\textsf{#1}}
 
 \begin{document}
 \maketitle{}
 
-\abstract{%
+\begin{abstract}
 	We improve SATCoP performance by resetting the connection tableau often.
 	This causes more and more varied SAT statements to be added to the SAT prover, which causes it to saturate faster.
 	The resulting prover solves problems faster and in fewer steps than SATCoP and the current state-of-the-art tableau provers.
-}
+\end{abstract}
+
+\begin{footnotesize}
+	\tableofcontents{}
+\end{footnotesize}
 
 \section{Introduction}
 
-\section{Preliminaries}
+\todo{Write an introduction that enhances the abstract.}
 
-\todo{Tableau or Tableaux? Bibliography is inconsistent.}
+\section{Preliminaries}
 
 \subsection{Tableau Solving Methods}
 
@@ -50,26 +55,73 @@ The prover builds a tree, where each node corresponds to a particular clause of 
 \end{figure}
 
 leanCoP improves on earlier connection-tableau provers by combining a very small Prolog implementation with aggressive restricted backtracking\cite{ottenLeanCoPLeanConnectionbased2003,ottenLeanCoP20}.
-Successful reduction and extension steps commit with a Prolog \emph{cut} (\texttt{!}), pruning alternative continuations and often reducing search substantially.
+Successful \step{Reduction} and \step{Extension} steps commit with a Prolog \step{cut} \texttt{(!)}, pruning alternative continuations and often reducing search substantially.
 To maximise the variety of substitutions in the tableau the maximum height of the tree is constrained, and each subsequent \step{Start} increases this height.
 A similar technique is later used in SATResetCoP, which is presented in this paper.
 
-meanCoP revisits this design by separating the effects of reduction cuts and extension cuts, and by replacing leanCoP's particularly strong pruning with more selective exclusive cuts\cite{farberCuriouslyEffectiveBacktracking2024}.
+meanCoP revisits this design by separating the effects of \step{Reduction} cuts and \step{Extension} cuts, and by replacing leanCoP's particularly strong pruning with more selective exclusive cuts\cite{farberCuriouslyEffectiveBacktracking2024}.
 In particular, meanCoP commits only when a successful proof step rules out sibling alternatives at the current choice point, and otherwise allows ordinary backtracking to continue\cite{farberCuriouslyEffectiveBacktracking2024}.
 This keeps much of the practical benefit of cut-based control while avoiding some of the unnecessary incompleteness and over-commitment of the original leanCoP strategy\cite{farberCuriouslyEffectiveBacktracking2024}.
 
 The leanCoP line has also been extended in several other directions.
-Functional and machine-learning-guided connection provers refine proof-step ordering and clause selection\cite{farberMachineLearningGuidance2021}, rlCoP and plCoP add Monte Carlo Tree Search and reinforcement-learning-based control to leanCoP-style proof search\cite{Kaliszyk2018RLTP,zomboriPrologTechnologyReinforcement2020a}, and recent work on proof syntax and certification makes connection proofs easier to exchange and verify\cite{farberMachineLearningGuidance2018,ottenSyntaxConnectionProofs2023}.
+Functional and machine-learning-guided connection provers refine proof-step ordering and clause selection\cite{farberMachineLearningGuidance2021}, rlCoP and plCoP add Monte Carlo Tree Search and reinforcement-learning-based control to leanCoP-style proof search\cite{Kaliszyk2018RLTP,zomboriPrologTechnologyReinforcement2020a}, and recent work on proof syntax and certification makes connection proofs easier to exchange and verify\cite{ottenSyntaxConnectionProofs2023}.
 
 \subsection{SATCoP and Similar Methods}
 
+Rawson and Reger integrate a SAT prover into a clausal tableau system based on leanCoP\cite{eliminatingModels}.
+Grounded clauses generated in Tableau extensions are added to a SAT solver.
+The SAT solver resulting in an unsatisfiable set of ground clauses is sufficient to prove that the entire problem is unsatisfiable.
+
+This technique of combining a saturation-style prover with tableau guidance is surprisingly effective at finding solutions before the tableau is closed.
+As noted by Rawson and Reger, there is a wide range of undiscovered improvements to this technique.
+
+\todo{Check that: 1. SATCoP's tableau guidance is based on leanCoP. 2. The SAT prover part counts as a ``saturation prover''.}
+
 \section{Research Vehicle}
 
-Talk about the Connections Prover\cite{connections_2023}.
+\subsection{ResetSATCoP Specification}
+
+We propose implementing a new tableau prover, based on SATCoP, but whose tableau prover attempts to saturate the SAT prover rather than to close the tableau.
+
+Successive experimentation resulted in a simple hypothesis: aggressively resetting the tree when the SAT solver stops growing results in a larger quantity and variety of SAT statements added to the solver, which results in reaching a SAT unsatisfiability proof faster.
+
+ResetSATCoP\footnotemark{} uses the same substitution and SAT prover unsatisfiability technique as SATCoP.
+\footnotetext{\todo{This is \texttt{SATResetAtStaleBacktrack} in the code. I plan to rename this strategy to \texttt{ResetSATCoP}.}}
+However, instead of following leanCoP's tableau guidance strategy, it prioritises resetting the tableau often.
+\begin{enumerate}
+	\item Choose the next action as in SATSolveLiteral. \todo{Elaborate}.
+	\item \step{Cut} \texttt{(!)} reductions and extensions, as in LeanCoP.
+	\item If the next action is a \step{Backtrack}, then \step{Reset} the entire tree from scratch.
+	\begin{enumerate}
+		\item If new SAT clauses were added in this tree, keep its same maximum height.
+		\item Otherwise, attempt to make a deeper tree and increase its maximum height by 1.
+	\end{enumerate}
+\end{enumerate}
+
+\subsection{Python Implementation}
+
+As a testbed for out experiments we use a Python implementation of leanCoP, PyCoP.
+\todo{PyCoP is as of yet unreleased. Is there anything I can cite here?}
+This program implements classical tableau calculus and supports leanCoP-style \textsc{cut}s, different maximum heights, and adding a SAT solver to implement a SATCoP-style prover.
+
+Most importantly, the program allows us to implement different strategies to guide the tableau proof.
+This makes implementing the guidance of ResetSATCoP simple and its code easy to read and evaluate.
+
+The source code for this implementation is present in \url{https://github.com/mfixman/resetsatcop}, and is released under the GNU Lesser General Public Licence\cite{lgpl}.
+
+\subsection{TPTP Benchmarking}
+
+Along with out implementation of ResetSATCoP, PyCoP allows us to reimplement leanCoP and SATCoP in its own backend.
+This provides a fairer baseline for comparison.
+
+We run ResetSATCoP along with our versions of these two connection tableau strategies, along with a strategy that chooses the first possible action as control, on the \num{8344} CNF problems and \num{9091} FOF problems of the Thousands of Problems for Theorem Provers (TPTP) library\cite{tptp}.
+This library provides us with a 
 
 \section{Experimental Evaluation}
 
-\section{Future Results}
+\subsection{Correctness Verification: Problem Satisfiability}
+
+\section{Future Work}
 
 \bibliography{bibliography}
 

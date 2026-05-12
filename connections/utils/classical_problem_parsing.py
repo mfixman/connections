@@ -90,20 +90,33 @@ def _parse_tptp_cnf(
         return Matrix([])
 
     seen.add(path)
-    clauses = []
-    text = re.sub(r'^\s*%.*$', '', path.read_text(), flags=re.MULTILINE)
+    clause_records = []
+    text = _strip_tptp_comments(path.read_text())
 
     for statement in _split_tptp_statements(text):
-        clauses.extend(_parse_statement(statement, path, selected_names, seen))
+        clause_records.extend(_parse_statement(statement, path, selected_names, seen))
 
-    return Matrix(clauses)
+    clauses = [clause for clause, _ in clause_records]
+    goals = [
+        index
+        for index, (_, role) in enumerate(clause_records)
+        if _is_goal_role(role)
+    ]
+    positives = [
+        index
+        for index, (clause, _) in enumerate(clause_records)
+        if all(not literal.neg for literal in clause)
+    ]
+    has_non_goal = any(not _is_goal_role(role) for _, role in clause_records)
+    start_clauses = positives if not goals or not has_non_goal else goals
+    return Matrix(clauses, start_clauses=start_clauses)
 
 def _parse_statement(
     statement: str,
     current_path: Path,
     selected_names: set[str] | None,
     seen: set[Path],
-) -> list[list[Literal]]:
+) -> list[tuple[list[Literal], str]]:
     """Dispatch a single top-level TPTP statement."""
     match statement:
         case s if s.startswith('include('):
@@ -121,15 +134,18 @@ def _parse_statement(
         case _:
             return []
 
-def _parse_include_statement(statement: str, current_path: Path, seen: set[Path]) -> list[list[Literal]]:
+def _parse_include_statement(statement: str, current_path: Path, seen: set[Path]) -> list[tuple[list[Literal], str]]:
     """Load clauses from an included TPTP file."""
     inner = statement[len('include('):-1]
     parts = _split_top_level(inner, ',')
     include_path = _resolve_include(parts[0], current_path)
     include_names = _parse_name_list(parts[1]) if len(parts) > 1 else None
-    return _parse_tptp_cnf(include_path, include_names, seen).clauses
+    return [
+        (clause, 'axiom')
+        for clause in _parse_tptp_cnf(include_path, include_names, seen).clauses
+    ]
 
-def _parse_cnf_statement(statement: str, selected_names: set[str] | None) -> list[list[Literal]]:
+def _parse_cnf_statement(statement: str, selected_names: set[str] | None) -> list[tuple[list[Literal], str]]:
     """Parse one `cnf(...)` declaration into zero or one clauses."""
     inner = statement[len('cnf('):-1]
     parts = _split_top_level(inner, ',')
@@ -140,12 +156,13 @@ def _parse_cnf_statement(statement: str, selected_names: set[str] | None) -> lis
     if selected_names is not None and name not in selected_names:
         return []
 
+    role = parts[1].strip()
     clause = _parse_clause(','.join(parts[2:]))
     if clause is None:
         return []
-    return [clause]
+    return [(clause, role)]
 
-def _parse_tcf_statement(statement: str, selected_names: set[str] | None) -> list[list[Literal]]:
+def _parse_tcf_statement(statement: str, selected_names: set[str] | None) -> list[tuple[list[Literal], str]]:
     """Parse one `tcf(...)` declaration as a typed CNF clause."""
     inner = statement[len('tcf('):-1]
     parts = _split_top_level(inner, ',')
@@ -156,10 +173,14 @@ def _parse_tcf_statement(statement: str, selected_names: set[str] | None) -> lis
     if selected_names is not None and name not in selected_names:
         return []
 
+    role = parts[1].strip()
     clause = _parse_tcf_clause(','.join(parts[2:]))
     if clause is None:
         return []
-    return [clause]
+    return [(clause, role)]
+
+def _is_goal_role(role: str | None) -> bool:
+    return role in {'conjecture', 'negated_conjecture'}
 
 def _parse_tcf_clause(formula_text: str) -> list[Literal] | None:
     """Parse a typed CNF formula, discarding universal type prefixes."""
@@ -273,7 +294,7 @@ def _collect_spc_tags(path: Path, seen: set[Path] | None = None) -> set[str]:
     if not _has_supported_tptp_suffix(path):
         return tags
 
-    for statement in _split_tptp_statements(re.sub(r'^\s*%.*$', '', text, flags = re.MULTILINE)):
+    for statement in _split_tptp_statements(_strip_tptp_comments(text)):
         if not statement.startswith('include('):
             continue
         inner = statement[len('include('):-1]
@@ -287,6 +308,9 @@ def _parse_spc_tags(text: str) -> set[str]:
         match.group(1).strip()
         for match in re.finditer(r'^\s*%\s*SPC\s*:\s*(\S+)\s*$', text, flags = re.MULTILINE)
     }
+
+def _strip_tptp_comments(text: str) -> str:
+    return re.sub(r'%.*$', '', text, flags=re.MULTILINE)
 
 def _repo_root() -> Path:
     """Return the source-tree root for include resolution."""

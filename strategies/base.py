@@ -5,6 +5,8 @@ from importlib import import_module
 PUBLIC_STRATEGY_NAMES = (
     'FirstAction',
     'LeanCopCut',
+    'ResetSATCoP',
+    'SATCoPRust',
     'SATSolve',
     'SATSolveLiteral',
     'SATResetAtStaleAction',

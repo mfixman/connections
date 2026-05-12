@@ -224,6 +224,7 @@ class SATConnectionState:
             solver = self._new_cadical_solver()
 
         self.shadow = ShadowSAT(solver = solver)
+        self._iteration_new_ground_clause = False
         self._seed_ground_with_start_clauses()
         self.reset(self.settings.iterative_deepening_initial_depth)
 
@@ -249,6 +250,7 @@ class SATConnectionState:
         self.info = None
         self.is_terminal = False
         self.proof_sequence = []
+        self._iteration_new_ground_clause = False
 
     def starts(self) -> list[Start]:
         starts: list[Start] = []
@@ -387,7 +389,8 @@ class SATConnectionState:
                 self.goal.children.insert(0, self.goal.children.pop(lit_idx))
                 if cut:
                     self.goal.pending_cut = True
-                self._record_tableau_clauses()
+                if not getattr(action, 'skip_tableau_clause_recording', False):
+                    self._record_tableau_clauses()
 
             case Reduction(cut = cut):
                 self.goal.proven = True
@@ -523,6 +526,7 @@ class SATConnectionState:
         if not self.shadow.new_ground_clauses:
             return
 
+        self._iteration_new_ground_clause = True
         for clause in self._sorted_shadow_clauses(self.shadow.new_ground_clauses):
             self._add_ground_clause(clause)
         self.shadow.new_ground_clauses = set()
@@ -559,7 +563,14 @@ class SATConnectionState:
         for clause, expanded in self._tableau_clauses().items():
             self.shadow.expanded_clauses.setdefault(clause, expanded)
             if clause not in self.shadow.ground_clauses:
+                self._iteration_new_ground_clause = True
                 self.shadow.new_ground_clauses.add(clause)
+
+    def iteration_discovered_ground_clause(self) -> bool:
+        return bool(
+            self._iteration_new_ground_clause
+            or self.shadow.new_ground_clauses
+        )
 
     def _sorted_shadow_clauses(self, clauses: set[SATClause]) -> list[SATClause]:
         return sorted(clauses, key = lambda clause: (-len(clause), clause))
@@ -598,6 +609,9 @@ class SATConnectionState:
         return any(self.sat_literal_value(literal) is False for literal in literals)
 
     def _start_clause_indices(self) -> list[int]:
+        if self.settings.rust_start_clauses and self.matrix.start_clauses is not None:
+            return list(self.matrix.start_clauses)
+
         clause_indices = list(self.matrix.positive_clauses)
         if not self.settings.positive_start_clauses:
             clause_indices += self.matrix.negative_clauses

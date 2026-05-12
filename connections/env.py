@@ -55,6 +55,7 @@ class Settings:
     restricted_backtracking: bool = False
     backtrack_after: int = 2
     random_seed: int = 0
+    rust_start_clauses: bool = False
     logic: Logic = Logic.Classical
     sat_solver: SATSolver = SATSolver.CaDiCaL
     debug: bool = False

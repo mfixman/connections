@@ -13,6 +13,7 @@ from connections.calculi.classicalsat import (
     Start,
 )
 
+from .base import Strategy
 from .sat_solve import SATSolveLiteral
 
 
@@ -517,6 +518,65 @@ class SATResetAtStaleBacktrack(_SATResetBase):
 
         if action := next((candidate for candidate in actions if isinstance(candidate, Backtrack)), None):
             return action
+
+        raise LookupError('expected Backtrack or Reset action')
+
+
+class ResetSATCoP(Strategy):
+    """Standalone version of ``SATResetAtStaleBacktrack``.
+
+    Forward actions are ranked exactly as in ``SATSolveLiteral``. At dead
+    ends, the policy resets at the same depth while the shadow CNF is still
+    growing; otherwise, it deepens immediately.
+    """
+
+    def __init__(self, env):
+        super().__init__(env)
+        if not hasattr(self.env.state, 'sat_literal_value'):
+            raise TypeError('ResetSATCoP requires the ClassicalSAT calculus')
+        self.env.state.enable_paper_mode(True)
+
+    def score(self, action: ConnectionAction):
+        match action:
+            case Start():
+                return 2
+
+            case Reduction(path_lit = path_lit):
+                value = self.env.state.sat_literal_value(path_lit)
+                if value is True:
+                    return 0
+                if value is None:
+                    return 1
+                return 3
+
+            case Extension(clause_copy = clause_copy, lit_idx = lit_idx):
+                value = None
+                if 0 <= lit_idx < len(clause_copy):
+                    value = self.env.state.sat_literal_value(clause_copy[lit_idx])
+                if value is True:
+                    return 0
+                if value is None:
+                    return 1
+                return 3
+
+        return 4
+
+    def step(self):
+        state = self.env.state
+        actions = self.env.legal_actions()
+        action = min(actions, key = self.score, default = None)
+
+        if isinstance(action, (Reduction, Extension)):
+            action.cut = True
+
+        if isinstance(action, (Start, Reduction, Extension)):
+            return action
+
+        if state.shadow.new_ground_clauses:
+            return Reset(id = 'rs', depth = state.max_depth, reason = 'shadow_reset')
+
+        if any(isinstance(candidate, (Backtrack, Reset)) for candidate in actions):
+            return Reset(id = 'rs', depth = state.max_depth + 1, reason = 'stale_deepen')
 
         raise LookupError('expected Backtrack or Reset action')
 

@@ -554,7 +554,7 @@ def test_satcop_rust_reorders_true_promises_first_inside_extension():
     assert action is extension
     assert action.cut is True
     assert action.lit_idx == 0
-    assert [literal.symbol for literal in action.clause_copy] == ['head', 'promising', 'unknown']
+    assert [literal.symbol for literal in action.clause_copy] == ['head', 'promising']
 
 def test_satcop_rust_restarts_same_depth_when_shadow_grows_at_root():
     reset = Reset(id = 'rs', depth = 3)

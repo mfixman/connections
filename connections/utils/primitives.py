@@ -88,11 +88,12 @@ class Literal(Expression):
         )
 
 class Matrix:
-    def __init__(self, clauses, metadata: ProblemMetadata | None = None):
+    def __init__(self, clauses, metadata: ProblemMetadata | None = None, start_clauses: list[int] | None = None):
         self.index = 0
         self.clauses = clauses
         self.num_clauses = len(clauses)
         self.metadata = metadata if metadata is not None else ProblemMetadata()
+        self.start_clauses = list(start_clauses) if start_clauses is not None else None
         self._update_mappings()
 
     def reset(self):
