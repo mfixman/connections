@@ -88,6 +88,7 @@ Successive experimentation resulted in a simple hypothesis: aggressively resetti
 ResetSATCoP\footnotemark{} uses the same substitution and SAT prover unsatisfiability technique as SATCoP.
 \footnotetext{\todo{This is \texttt{SATResetAtStaleBacktrack} in the code. I plan to rename this strategy to \texttt{ResetSATCoP}.}}
 However, instead of following leanCoP's tableau guidance strategy, it prioritises resetting the tableau often.
+\todo{I think some pseudocode would be better than this list.}
 \begin{enumerate}
 	\item Choose the next action as in SATSolveLiteral. \todo{Elaborate}.
 	\item \step{Cut} \texttt{(!)} reductions and extensions, as in LeanCoP.
@@ -97,6 +98,10 @@ However, instead of following leanCoP's tableau guidance strategy, it prioritise
 		\item Otherwise, attempt to make a deeper tree and increase its maximum height by 1.
 	\end{enumerate}
 \end{enumerate}
+
+Just like SATCoP, this approach is sound.
+While it is less complete than SATCoP and other LeanCoP variants, the speed at which it proves unsatisfiability of first-order problems can result in a larger amount of problems solved in a bounded amount of time or steps.
+It might be useful to incorporate ResetSATCoP into the initial steps of a more complete schedule.
 
 \subsection{Python Implementation}
 
@@ -114,8 +119,10 @@ The source code for this implementation is present in \url{https://github.com/mf
 Along with out implementation of ResetSATCoP, PyCoP allows us to reimplement leanCoP and SATCoP in its own backend.
 This provides a fairer baseline for comparison.
 
-We run ResetSATCoP along with our versions of these two connection tableau strategies, along with a strategy that chooses the first possible action as control, on the \num{8344} CNF problems and \num{9091} FOF problems of the Thousands of Problems for Theorem Provers (TPTP) library\cite{tptp}.
-This library provides us with a 
+We run ResetSATCoP along with our versions of these two connection tableau strategies, along with a strategy that chooses the first possible action as control, on the \num{8344} CNF problems and \num{9091} FOF problems of all 50 categories \todo{Categories?} containing at least one of these problems from the Thousands of Problems for Theorem Provers (TPTP) library\cite{tptp}.
+
+The library provides a varied set of problems that's a standard way to prove first-order provers.
+It also provides known satisfiability for these problems, which is a useful way to verify soundness.
 
 \section{Experimental Evaluation}
 
