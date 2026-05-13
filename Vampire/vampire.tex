@@ -4,6 +4,10 @@
 \usepackage[T1]{fontenc}
 \usepackage[utf8]{inputenc}
 \usepackage{siunitx}
+\usepackage{booktabs}
+\usepackage{tabularx}
+% \usepackage{natbib}
+\usepackage{amssymb}
 \usepackage[noabbrev,nameinlink,capitalize,poorman]{cleveref}
 
 \title{SAT Resetmaxxing for Fun and Profit \\ \small (Final Title TBD)}
@@ -19,17 +23,19 @@
 \authorrunning{Fixman, Rømming, Holden}
 
 \bibliographystyle{plain}
+% \bibliographystyle{plainnat}
 
 \newcommand{\todo}[1]{\textcolor{red}{{\large [} #1 {\large ]}}}
 \newcommand{\step}[1]{\textsf{#1}}
+\newcommand{\cop}[1]{\textsf{#1}}
 
 \begin{document}
 \maketitle{}
 
 \begin{abstract}
-	We improve SATCoP performance by resetting the connection tableau often.
+	We improve \cop{SATCoP} performance by resetting the connection tableau often.
 	This causes more and more varied SAT statements to be added to the SAT prover, which causes it to saturate faster.
-	The resulting prover solves problems faster and in fewer steps than SATCoP and the current state-of-the-art tableau provers.
+	The resulting prover solves problems faster and in fewer steps than \cop{SATCoP} and the current state-of-the-art tableau provers.
 \end{abstract}
 
 \begin{footnotesize}
@@ -54,44 +60,42 @@ The prover builds a tree, where each node corresponds to a particular clause of 
 	\caption{Description of the operations of Tableau calculus\cite{farberCuriouslyEffectiveBacktracking2024}.}
 \end{figure}
 
-leanCoP improves on earlier connection-tableau provers by combining a very small Prolog implementation with aggressive restricted backtracking\cite{ottenLeanCoPLeanConnectionbased2003,ottenLeanCoP20}.
+\cop{leanCoP} improves on earlier connection-tableau provers by combining a very small Prolog implementation with aggressive restricted backtracking\cite{ottenLeanCoPLeanConnectionbased2003,ottenLeanCoP20}.
 Successful \step{Reduction} and \step{Extension} steps commit with a Prolog \step{cut} \texttt{(!)}, pruning alternative continuations and often reducing search substantially.
 To maximise the variety of substitutions in the tableau the maximum height of the tree is constrained, and each subsequent \step{Start} increases this height.
-A similar technique is later used in SATResetCoP, which is presented in this paper.
+A similar technique is later used in \cop{SATResetCoP}, which is presented in this paper.
 
-meanCoP revisits this design by separating the effects of \step{Reduction} cuts and \step{Extension} cuts, and by replacing leanCoP's particularly strong pruning with more selective exclusive cuts\cite{farberCuriouslyEffectiveBacktracking2024}.
-In particular, meanCoP commits only when a successful proof step rules out sibling alternatives at the current choice point, and otherwise allows ordinary backtracking to continue\cite{farberCuriouslyEffectiveBacktracking2024}.
-This keeps much of the practical benefit of cut-based control while avoiding some of the unnecessary incompleteness and over-commitment of the original leanCoP strategy\cite{farberCuriouslyEffectiveBacktracking2024}.
+\cop{meanCoP} revisits this design by separating the effects of \step{Reduction} cuts and \step{Extension} cuts, and by replacing \cop{leanCoP}'s particularly strong pruning with more selective exclusive cuts\cite{farberCuriouslyEffectiveBacktracking2024}.
+In particular, \cop{meanCoP} commits only when a successful proof step rules out sibling alternatives at the current choice point, and otherwise allows ordinary backtracking to continue\cite{farberCuriouslyEffectiveBacktracking2024}.
+This keeps much of the practical benefit of cut-based control while avoiding some of the unnecessary incompleteness and over-commitment of the original \cop{leanCoP} strategy\cite{farberCuriouslyEffectiveBacktracking2024}.
 
-The leanCoP line has also been extended in several other directions.
-Functional and machine-learning-guided connection provers refine proof-step ordering and clause selection\cite{farberMachineLearningGuidance2021}, rlCoP and plCoP add Monte Carlo Tree Search and reinforcement-learning-based control to leanCoP-style proof search\cite{Kaliszyk2018RLTP,zomboriPrologTechnologyReinforcement2020a}, and recent work on proof syntax and certification makes connection proofs easier to exchange and verify\cite{ottenSyntaxConnectionProofs2023}.
+The \cop{leanCoP} line has also been extended in several other directions.
+Functional and machine-learning-guided connection provers refine proof-step ordering and clause selection\cite{farberMachineLearningGuidance2021}, \cop{rlCoP} and \cop{plCoP} add Monte Carlo Tree Search and reinforcement-learning-based control to \cop{leanCoP}-style proof search\cite{Kaliszyk2018RLTP,zomboriPrologTechnologyReinforcement2020a}, and recent work on proof syntax and certification makes connection proofs easier to exchange and verify\cite{ottenSyntaxConnectionProofs2023}.
 
 \subsection{SATCoP and Similar Methods}
 
-Rawson and Reger integrate a SAT prover into a clausal tableau system based on leanCoP\cite{eliminatingModels}.
+Rawson and Reger integrate a SAT prover into a clausal tableau system based on \cop{leanCoP}\cite{eliminatingModels}.
 Grounded clauses generated in Tableau extensions are added to a SAT solver.
 The SAT solver resulting in an unsatisfiable set of ground clauses is sufficient to prove that the entire problem is unsatisfiable.
 
-This technique of combining a saturation-style prover with tableau guidance is surprisingly effective at finding solutions before the tableau is closed.
-As noted by Rawson and Reger, there is a wide range of undiscovered improvements to this technique.
-
-\todo{Check that: 1. SATCoP's tableau guidance is based on leanCoP. 2. The SAT prover part counts as a ``saturation prover''.}
+\todo{Fill more information here.}
 
 \section{Research Vehicle}
 
 \subsection{ResetSATCoP Specification}
+\label{satresetcop}
 
-We propose implementing a new tableau prover, based on SATCoP, but whose tableau prover attempts to saturate the SAT prover rather than to close the tableau.
+We propose implementing a new tableau prover, based on \cop{SATCoP}, but whose tableau prover attempts to saturate the SAT prover rather than to close the tableau.
 
 Successive experimentation resulted in a simple hypothesis: aggressively resetting the tree when the SAT solver stops growing results in a larger quantity and variety of SAT statements added to the solver, which results in reaching a SAT unsatisfiability proof faster.
 
-ResetSATCoP\footnotemark{} uses the same substitution and SAT prover unsatisfiability technique as SATCoP.
+\cop{ResetSATCoP}\footnotemark{} uses the same substitution and SAT prover unsatisfiability technique as \cop{SATCoP}.
 \footnotetext{\todo{This is \texttt{SATResetAtStaleBacktrack} in the code. I plan to rename this strategy to \texttt{ResetSATCoP}.}}
-However, instead of following leanCoP's tableau guidance strategy, it prioritises resetting the tableau often.
+However, instead of following \cop{leanCoP}'s tableau guidance strategy, it prioritises resetting the tableau often.
 \todo{I think some pseudocode would be better than this list.}
 \begin{enumerate}
 	\item Choose the next action as in SATSolveLiteral. \todo{Elaborate}.
-	\item \step{Cut} \texttt{(!)} reductions and extensions, as in LeanCoP.
+	\item \step{Cut} \texttt{(!)} reductions and extensions, as in \cop{LeanCoP}.
 	\item If the next action is a \step{Backtrack}, then \step{Reset} the entire tree from scratch.
 	\begin{enumerate}
 		\item If new SAT clauses were added in this tree, keep its same maximum height.
@@ -99,32 +103,61 @@ However, instead of following leanCoP's tableau guidance strategy, it prioritise
 	\end{enumerate}
 \end{enumerate}
 
-Just like SATCoP, this approach is sound.
-While it is less complete than SATCoP and other LeanCoP variants, the speed at which it proves unsatisfiability of first-order problems can result in a larger amount of problems solved in a bounded amount of time or steps.
-It might be useful to incorporate ResetSATCoP into the initial steps of a more complete schedule.
+Just like \cop{SATCoP}, this approach is sound.
+While it is less complete than \cop{SATCoP} and other \cop{LeanCoP} variants, the speed at which it proves unsatisfiability of first-order problems can result in a larger amount of problems solved in a bounded amount of time or steps.
+It might be useful to incorporate \cop{ResetSATCoP} into the initial steps of a more complete schedule.
+
+\subsection{Other things I should add}
+\todo{Explain how I choose statements.}
+\todo{Randomisation of statements.}
 
 \subsection{Python Implementation}
 
-As a testbed for out experiments we use a Python implementation of leanCoP, PyCoP.
-\todo{PyCoP is as of yet unreleased. Is there anything I can cite here?}
-This program implements classical tableau calculus and supports leanCoP-style \textsc{cut}s, different maximum heights, and adding a SAT solver to implement a SATCoP-style prover.
+As a testbed for out experiments we use a Python implementation of \cop{leanCoP}, \cop{PyCoP}.
+\todo{\cop{PyCoP} is as of yet unreleased. Is there anything I can cite here?}
+This program implements classical tableau calculus and supports \cop{leanCoP}-style \textsc{cut}s, different maximum heights, and adding a SAT solver to implement a \cop{SATCoP}-style prover.
 
 Most importantly, the program allows us to implement different strategies to guide the tableau proof.
-This makes implementing the guidance of ResetSATCoP simple and its code easy to read and evaluate.
+This makes implementing the guidance of \cop{ResetSATCoP} simple and its code easy to read and evaluate.
 
 The source code for this implementation is present in \url{https://github.com/mfixman/resetsatcop}, and is released under the GNU Lesser General Public Licence\cite{lgpl}.
 
 \subsection{TPTP Benchmarking}
 
-Along with out implementation of ResetSATCoP, PyCoP allows us to reimplement leanCoP and SATCoP in its own backend.
+Along with out implementation of \cop{ResetSATCoP}, \cop{PyCoP} allows us to reimplement \cop{leanCoP} and \cop{SATCoP} in its own backend.
 This provides a fairer baseline for comparison.
 
-We run ResetSATCoP along with our versions of these two connection tableau strategies, along with a strategy that chooses the first possible action as control, on the \num{8344} CNF problems and \num{9091} FOF problems of all 50 categories \todo{Categories?} containing at least one of these problems from the Thousands of Problems for Theorem Provers (TPTP) library\cite{tptp}.
+We run \cop{ResetSATCoP} along with our versions of these two connection tableau strategies, along with a strategy that chooses the first possible action as control, on the \num{8344} CNF problems and \num{9091} FOF problems of all 50 categories \todo{Categories?} containing at least one of these problems from the Thousands of Problems for Theorem Provers (TPTP) library\cite{tptp}.
 
 The library provides a varied set of problems that's a standard way to prove first-order provers.
 It also provides known satisfiability for these problems, which is a useful way to verify soundness.
 
 \section{Experimental Evaluation}
+
+\subsection{Experiment Design}
+
+In order to equalise comparisons in areas such as problem parsing, we use the same base Python system that parses problems using classical calculus where we implement five strategies, with properties in \cref{cops_table}.
+
+\begin{table}[h]
+	\centering
+	\setlength{\tabcolsep}{4pt}
+	\begin{tabularx}{\textwidth}{>{\sffamily}l X c l p{28ex}}
+		\toprule
+			Model & Explanation & Cut & Unsat proof & Tableau Guidance \\
+		\midrule
+			FirstAction & Simple control policy & & Tableau closure & First forward action \\
+			LeanCoP & Based on \cop{leanCoP}\cite{ottenLeanCoP20}. & \checkmark{} & Tableau closure & First forward action \\
+		\addlinespace[1em]
+			SATCoP & Based on the first implementation of \cop{SATCoP}\cite{eliminatingModels}. & \checkmark{} & UNSAT & First forward action \\
+		\addlinespace[3pt]
+			SATCoP\textsubscript{2} & Enhancements from Section~9.1 of Rawson~and~Reger\cite{eliminatingModels}. & \checkmark{} & UNSAT & SAT-Model Literal Selection \\
+		\addlinespace[1em]
+			SATResetCoP & Elaborated in \cref{satresetcop}. & \checkmark{} & UNSAT & SAT-Model Selection, Reset on Backtrack \\
+		\bottomrule
+	\end{tabularx}
+	\caption{The four control models and the test model used in this experiment.}
+	\label{cops_table}
+\end{table}
 
 \subsection{Correctness Verification: Problem Satisfiability}
 
