@@ -99,7 +99,12 @@ Successive experimentation resulted in a simple hypothesis: aggressively resetti
 However, instead of following \cop{leanCoP}'s tableau guidance strategy, it prioritises resetting the tableau often.
 \todo{I think some pseudocode would be better than this list.}
 \begin{enumerate}
-	\item Choose the next action as in SATSolveLiteral. \todo{Elaborate}.
+	\item Choose the next \step{Reduction} or \step{Extension} depending on the status of the selected literal in the SAT model, in Rawson~and~Reger\cite[\S 9.1]{eliminatingModels}.
+		\begin{enumerate}
+			\item Steps whose selected literal is \texttt{true} in the SAT model.
+			\item Steps whose selected literal is unknown in the SAT model.
+			\item Steps whose selected literal is \texttt{false} in the SAT model.
+		\end{enumerate}
 	\item \step{Cut} \texttt{(!)} reductions and extensions, as in \cop{LeanCoP}.
 	\item If the next action is a \step{Backtrack}, then \step{Reset} the entire tree from scratch.
 	\begin{enumerate}
@@ -136,7 +141,7 @@ This provides a fairer baseline for comparison.
 We run \cop{ResetSATCoP} along with our versions of these two connection tableau strategies, along with a strategy that chooses the first possible action as control, on the \num{8344} CNF problems and \num{9091} FOF problems of all 50 categories \todo{Categories?} containing at least one of these problems from the Thousands of Problems for Theorem Provers (TPTP) library\cite{tptp}.
 
 The library provides a varied set of problems that's a standard way to prove first-order provers.
-It also provides known satisfiability for these problems, which is a useful way to verify soundness.
+It also provides declared statuses for these problems, which are a useful sanity check for false unsatisfiability results.
 
 \section{Experimental Evaluation}
 
@@ -166,7 +171,7 @@ In order to equalise comparisons in areas such as problem parsing, we use the sa
 \end{table}
 
 The TPTP library contains \num{8344} CNF problems and \num{9091} FOF problems separated in 50 categories\cite{tptp}.
-Each problem/model pair is run for a maximum of 120 seconds and 1 million steps, on a single core of the University of Cambridge CSD3 Cluster with \todo{add CPU information} and 3370MiB RAM per core\cite{cambridge_csd3}
+Each problem/model pair is run for a maximum of 120 seconds and 1 million steps, on a single core of the University of Cambridge CSD3 Cluster with \todo{add CPU information} and 3370 MiB RAM per core\cite{cambridge_csd3}.
 
 \todo{Am I supposed to properly cite / acknowledge the use of the Cambridge cluster?}
 
@@ -231,12 +236,12 @@ A comparative result can be seen in \cref{solved_table}.
 		\midrule
 			FirstAction & 205 & 587 \\
 			LeanCoP & 502 & 693 \\
-			SATCoP\textsubscript{2} & 188 & 189 \\
+			SATCoPEnhanced & 188 & 189 \\
 			SATCoP & 184 & 129 \\
 			SATResetCoP & 213 & 228 \\
 		\bottomrule
 	\end{tabular}
-	\caption{Problems solved by any model, not solved by models prior to them. \todo{What's the point of separating CNF and FOF here? Maybe finding interesting TPTP types would be better.}}
+	\caption{Problems solved by each model and not solved by any preceding model in the table. \todo{What's the point of separating CNF and FOF here? Maybe finding interesting TPTP types would be better.}}
 	\label{solved_table}
 \end{table}
 
@@ -260,7 +265,7 @@ The size of the improvement between \cop{SATResetCoP} and the next best model is
 
 The problems in the TPTP library have a helpful specification of the satisfiability of different types of problems\cite{tptp}.
 This is useful as a sanity-check: a sound solver should never ``prove'' unsatisfiability on a satisfiable problem, and their authors should be wary when proving unsatisfiability on an open or unknown problem.
-Note that this is not a way to prove soundness of the solver, but to verify that it's not necessarily unsound.
+Note that this is not a way to prove soundness of the solver, but to check that it does not exhibit false unsatisfiability results on problems declared satisfiable or countersatisfiable.
 
 We make a second run of \cop{SATResetCoP} with a longer 10-minute limit, whose results can be seen in \cref{sat_proof}.
 These results do not show any negative results.
