@@ -97,7 +97,7 @@ def _run_problem(path: str, args) -> dict:
 
 def main():
     args = parse_pycop_args()
-    logging.basicConfig(level = logging.INFO if args.verbose else logging.WARN, format = '[%(relativeCreated)d] %(message)s')
+    logging.basicConfig(level = logging.WARN, format = '[%(relativeCreated)d] %(message)s')
 
     try:
         configure_tptp_root(args.tptp)

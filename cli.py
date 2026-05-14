@@ -208,7 +208,6 @@ def _add_common_prover_arguments(parser: argparse.ArgumentParser, *, max_steps_d
 def _add_pycop_arguments(parser: argparse.ArgumentParser) -> None:
     _add_common_prover_arguments(parser, max_steps_default=10000000)
     parser.add_argument('--print-ratio', '-pr', type=int, default=0, help='Ratio of messages to be printed')
-    parser.add_argument('--verbose', '-v', action='store_true', help='Verbose messages.')
     parser.add_argument('--debug', action='store_true', help='Print extra debug information.')
     parser.add_argument('--strategy', default='PyCoP', choices=Strategy.strategies().keys(), help='Strategy to use')
     add_problem_split_arguments(parser)
