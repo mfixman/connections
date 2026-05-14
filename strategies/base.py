@@ -3,20 +3,11 @@ from __future__ import annotations
 from importlib import import_module
 
 PUBLIC_STRATEGY_NAMES = (
-    'FirstAction',
-    'LeanCopCut',
-    'ResetSATCoP',
-    'SATCoPRust',
-    'SATSolve',
-    'SATSolveLiteral',
-    'SATResetAtStaleAction',
-    'SATResetAtStaleBacktrack',
-    'SATResetAtTwo',
-    'SATResetAtTwoFixedStep',
-    'SATResetNoCut',
-    'SATResetShadow',
-    'SATResetStart',
-    'SATResetStepBudget',
+    'PyCoP',
+    'LeanCoP',
+    'SATCoP_0',
+    'SATCoP',
+    'SATResetCoP',
 )
 
 HIDDEN_STRATEGY_MODULES = (

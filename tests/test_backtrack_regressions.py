@@ -6,7 +6,7 @@ from connections.env import ConnectionEnv, Settings
 from connections.calculi.classicalcut import Extension, Start
 from connections.utils.primitives import Literal
 from connections.utils.tableau import Tableau
-from strategies import FirstAction
+from strategies import PyCoP
 
 
 CAT_AXIOMS = """\
@@ -141,7 +141,7 @@ def _write_cat_problem(tmp_path: Path, filename: str, problem_text: str) -> Path
 
 def _run_steps(problem_path: Path, steps: int = 2000) -> None:
     env = ConnectionEnv(str(problem_path), Settings(logic = "ClassicalCut"))
-    strategy = FirstAction(env)
+    strategy = PyCoP(env)
     env.reset()
     for _ in range(steps):
         action = strategy.step()

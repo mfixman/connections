@@ -14,7 +14,7 @@ from connections.calculi.classicalsat import (
 )
 
 from .base import Strategy
-from .sat_solve import SATSolveLiteral
+from .sat_solve import SATCoP
 
 
 class _BanditTableMixin:
@@ -181,7 +181,7 @@ class _ResetStatsMixin:
         )
 
 
-class _SATResetBase(_ResetStatsMixin, SATSolveLiteral):
+class _SATResetBase(_ResetStatsMixin, SATCoP):
     """Common SAT-reset control loop layered on top of ``SATSolveLiteral``.
 
     All concrete strategies here keep the same forward ranking as
@@ -495,7 +495,7 @@ class SATResetNoCut(_ControlBanditMixin, _SATResetBase):
         return '; '.join(parts) if parts else None
 
 
-class SATResetAtStaleBacktrack(_SATResetBase):
+class SATResetCoP(_SATResetBase):
     """Reset instead of backtracking once the shadow stops growing.
 
     This is the simplest deterministic approximation to the current
@@ -523,7 +523,7 @@ class SATResetAtStaleBacktrack(_SATResetBase):
 
 
 class ResetSATCoP(Strategy):
-    """Standalone version of ``SATResetAtStaleBacktrack``.
+    """Standalone version of ``SATResetCoP``.
 
     Forward actions are ranked exactly as in ``SATSolveLiteral``. At dead
     ends, the policy resets at the same depth while the shadow CNF is still
@@ -581,7 +581,11 @@ class ResetSATCoP(Strategy):
         raise LookupError('expected Backtrack or Reset action')
 
 
-class SATResetAtStaleAction(SATResetAtStaleBacktrack):
+class SATResetAtStaleBacktrack(SATResetCoP):
+    """Backward-compatible hidden name for the old public reset policy."""
+
+
+class SATResetAtStaleAction(SATResetCoP):
     """Deepen after too many actions without new shadow clauses.
 
     This keeps the same deterministic dead-end rule as

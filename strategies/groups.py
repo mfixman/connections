@@ -8,22 +8,15 @@ from strategies.base import Strategy
 
 
 STRATEGY_GROUPS: dict[str, tuple[str, ...]] = {
-    'SATControl': ('FirstAction', 'LeanCopCut'),
+    'SATControl': ('PyCoP', 'LeanCoP'),
 }
 
 
 def _sat_test_strategies() -> tuple[str, ...]:
     ordered_names = (
-        'SATSolve',
-        'SATSolveLiteral',
-        'SATResetAtStaleBacktrack',
-        'SATResetAtStaleAction',
-        'SATResetAtTwo',
-        'SATResetAtTwoFixedStep',
-        'SATResetStart',
-        'SATResetShadow',
-        'SATResetNoCut',
-        'SATResetStepBudget',
+        'SATCoP_0',
+        'SATCoP',
+        'SATResetCoP',
     )
     available = Strategy.strategies()
     return tuple(name for name in ordered_names if name in available)

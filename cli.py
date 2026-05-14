@@ -19,7 +19,7 @@ T = TypeVar('T')
 
 
 def default_logic_for_strategy(strategy_name: str) -> Logic:
-    if strategy_name == 'FirstAction':
+    if strategy_name in {'PyCoP', 'FirstAction'}:
         return Logic.Classical
     strategy = Strategy.strategies().get(strategy_name)
     if strategy is not None and strategy.__module__ == 'strategies.classical':
@@ -221,7 +221,7 @@ def _add_pycop_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument('--print-ratio', '-pr', type=int, default=0, help='Ratio of messages to be printed')
     parser.add_argument('--verbose', '-v', action='store_true', help='Verbose messages.')
     parser.add_argument('--debug', action='store_true', help='Print extra debug information.')
-    parser.add_argument('--strategy', default='FirstAction', choices=Strategy.strategies().keys(), help='Strategy to use')
+    parser.add_argument('--strategy', default='PyCoP', choices=Strategy.strategies().keys(), help='Strategy to use')
     add_problem_split_arguments(parser)
     parser.add_argument(
         'file',
@@ -320,7 +320,7 @@ def _compare_epilog() -> str:
         'examples:\n'
         '  %(prog)s --csv results.csv\n'
         '  %(prog)s tests/cnf_problems --csv results.csv\n'
-        '  %(prog)s tests --strategies FirstAction SATSolveLiteral --csv results.csv\n'
+        '  %(prog)s tests --strategies PyCoP SATCoP --csv results.csv\n'
         '  %(prog)s tests --all-strategies --csv results.csv\n'
         '  %(prog)s tests --no-time --csv results.csv\n'
         '  %(prog)s tests --no-steps --csv results.csv\n'

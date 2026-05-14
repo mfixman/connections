@@ -38,45 +38,49 @@ cnf(clause5,negated_conjecture,
 """
 
 def test_sat_solve_is_registered():
-    assert 'SATCoPRust' in Strategy.strategies()
-    assert 'SATSolve' in Strategy.strategies()
-    assert 'SATSolveGuided' in Strategy.strategies()
-    assert 'SATSolveGuidedProbeConflicts' in Strategy.strategies()
-    assert 'SATSolveGuidedForcedTrue' in Strategy.strategies()
-    assert 'SATSolveGuidedEVSIDS' in Strategy.strategies()
-    assert 'SATSolveGuidedShort' in Strategy.strategies()
-    assert 'SATSolveGuidedFast' in Strategy.strategies()
-    assert 'SATSolveLearnInitial' in Strategy.strategies()
-    assert 'SATSolveLearnTrain' in Strategy.strategies()
-    assert 'SATSolveLearnEval' in Strategy.strategies()
-    assert 'SATResetBandit' in Strategy.strategies()
-    assert 'SATResetAtStaleBacktrack' in Strategy.strategies()
-    assert 'SATResetAtStaleBacktrackTableau' in Strategy.strategies()
-    assert 'SATResetAtStaleAction' in Strategy.strategies()
-    assert 'SATResetAtTwoDepthStep' in Strategy.strategies()
-    assert 'SATResetAtTwoFixedStep' in Strategy.strategies()
-    assert 'SATResetAtTwoTableau' in Strategy.strategies()
-    assert 'SATResetShadow' in Strategy.strategies()
-    assert 'SATResetNoCut' in Strategy.strategies()
-    assert 'SATResetStepBudget' in Strategy.strategies()
-    assert 'SATResetExtensionBudget' in Strategy.strategies()
-    assert 'SATSolveLearnCombined' in Strategy.strategies()
-    assert 'SATSolveLearnSATContext' in Strategy.strategies()
-    assert 'SATSolveLiteral' in Strategy.strategies()
-    assert 'SATSolveLiteralRandomTie' in Strategy.strategies()
-    assert 'SATSolveLiteralShortTie' in Strategy.strategies()
-    assert 'SATSolveLiteralLookaheadTie' in Strategy.strategies()
-    assert 'SATSolveLiteralFrequencyTie' in Strategy.strategies()
-    assert 'SATSolveLiteralFridayStartCut' in Strategy.strategies()
-    assert 'SATSolveLiteralFridayRootReset' in Strategy.strategies()
-    assert 'SATSolveLiteralFridayHybrid' in Strategy.strategies()
-    assert 'SATSolveLiteralLowFrequencyTie' in Strategy.strategies()
-    assert 'SATSolveLiteralOppositeSignedFrequencyTie' in Strategy.strategies()
-    assert 'SATSolveLiteralFirstStart' in Strategy.strategies()
-    assert 'SATSolveLiteralRareStart' in Strategy.strategies()
-    assert 'SATSolveLiteralModelStart' in Strategy.strategies()
-    assert 'SATSolvePropagation' in Strategy.strategies()
-    assert 'SATSolveLiteralPropagation' in Strategy.strategies()
+    public = Strategy.strategies()
+    assert list(public) == ['PyCoP', 'LeanCoP', 'SATCoP_0', 'SATCoP', 'SATResetCoP']
+
+    hidden = Strategy.strategies(include_hidden=True)
+    for name in [
+        'SATCoPRust',
+        'SATSolveGuided',
+        'SATSolveGuidedProbeConflicts',
+        'SATSolveGuidedForcedTrue',
+        'SATSolveGuidedEVSIDS',
+        'SATSolveGuidedShort',
+        'SATSolveGuidedFast',
+        'SATSolveLearnInitial',
+        'SATSolveLearnTrain',
+        'SATSolveLearnEval',
+        'SATResetBandit',
+        'SATResetAtStaleBacktrackTableau',
+        'SATResetAtStaleAction',
+        'SATResetAtTwoDepthStep',
+        'SATResetAtTwoFixedStep',
+        'SATResetAtTwoTableau',
+        'SATResetShadow',
+        'SATResetNoCut',
+        'SATResetStepBudget',
+        'SATResetExtensionBudget',
+        'SATSolveLearnCombined',
+        'SATSolveLearnSATContext',
+        'SATSolveLiteralRandomTie',
+        'SATSolveLiteralShortTie',
+        'SATSolveLiteralLookaheadTie',
+        'SATSolveLiteralFrequencyTie',
+        'SATSolveLiteralFridayStartCut',
+        'SATSolveLiteralFridayRootReset',
+        'SATSolveLiteralFridayHybrid',
+        'SATSolveLiteralLowFrequencyTie',
+        'SATSolveLiteralOppositeSignedFrequencyTie',
+        'SATSolveLiteralFirstStart',
+        'SATSolveLiteralRareStart',
+        'SATSolveLiteralModelStart',
+        'SATSolvePropagation',
+        'SATSolveLiteralPropagation',
+    ]:
+        assert name in hidden
 
 @pytest.mark.skipif(pydical is None, reason = 'pydical is not installed')
 def test_sat_solve_runs_in_classical_cut_env():
@@ -84,7 +88,7 @@ def test_sat_solve_runs_in_classical_cut_env():
         'tests/cnf_problems/SYN081+1.cnf',
         Settings(logic = 'ClassicalSAT'),
     )
-    strategy = Strategy.strategies()['SATSolve'](env)
+    strategy = Strategy.strategies(include_hidden=True)['SATCoP_0'](env)
     env.reset()
 
     for _ in range(20):
@@ -101,7 +105,7 @@ def test_sat_solve_can_backtrack_to_root_without_crashing():
         'tests/cnf_problems/SYN081+1.cnf',
         Settings(logic = 'ClassicalSAT'),
     )
-    strategy = Strategy.strategies()['SATSolve'](env)
+    strategy = Strategy.strategies(include_hidden=True)['SATCoP_0'](env)
     env.reset()
 
     for _ in range(100):
@@ -118,7 +122,7 @@ def test_sat_solve_solves_easy_syn_problem():
         'tests/cnf_problems/SYN081+1.cnf',
         Settings(logic = 'ClassicalSAT'),
     )
-    strategy = Strategy.strategies()['SATSolve'](env)
+    strategy = Strategy.strategies(include_hidden=True)['SATCoP_0'](env)
     env.reset()
 
     done = False
@@ -139,7 +143,7 @@ def test_sat_solve_handles_empty_start_clause_via_sat(tmp_path):
     problem.write_text('cnf(c1,axiom,$false).', encoding = 'utf-8')
 
     env = ConnectionEnv(str(problem), Settings(logic = 'ClassicalSAT'))
-    Strategy.strategies()['SATSolve'](env)
+    Strategy.strategies(include_hidden=True)['SATCoP_0'](env)
     env.reset()
 
     assert env.state.is_terminal is True
@@ -160,7 +164,7 @@ def test_sat_solve_rejects_typed_tptp_syn000_3():
 def test_sat_solve_rejects_degenerate_empty_translation(problem_name):
     path = resolve_problem_path(problem_name)
     env = ConnectionEnv(path, Settings(logic = 'ClassicalSAT'))
-    strategy = Strategy.strategies()['SATSolve'](env)
+    strategy = Strategy.strategies(include_hidden=True)['SATCoP_0'](env)
     env.reset()
 
     done = False
@@ -352,7 +356,7 @@ def test_sat_solve_enables_paper_mode():
         ),
     )
 
-    Strategy.strategies()['SATSolve'](env)
+    Strategy.strategies(include_hidden=True)['SATCoP_0'](env)
 
     assert env.state.paper_mode is True
 
@@ -395,17 +399,17 @@ def test_paper_mode_skips_goal_when_model_assigns_false():
 @pytest.mark.parametrize(
     'strategy_name',
     [
-        'SATSolve',
+        'SATCoP_0',
         'SATSolveGuided',
         'SATSolveLearnInitial',
         'SATResetBandit',
-        'SATResetAtStaleBacktrack',
+        'SATResetCoP',
         'SATResetAtStaleAction',
         'SATResetShadow',
         'SATResetStepBudget',
         'SATResetExtensionBudget',
         'SATSolveLearnCombined',
-        'SATSolveLiteral',
+        'SATCoP',
         'SATSolveLiteralRandomTie',
         'SATSolveLiteralShortTie',
         'SATSolveLiteralLookaheadTie',
@@ -435,7 +439,7 @@ def test_sat_strategies_use_restricted_backtracking_on_forward_steps(strategy_na
             _solve_ground_clauses = lambda: None,
         ),
     )
-    strategy = Strategy.strategies()[strategy_name](env)
+    strategy = Strategy.strategies(include_hidden=True)[strategy_name](env)
     action = strategy.step()
 
     assert action.cut is True
@@ -457,7 +461,7 @@ def test_sat_reset_no_cut_leaves_forward_action_uncut():
             _solve_ground_clauses = lambda: None,
         ),
     )
-    strategy = Strategy.strategies()['SATResetNoCut'](env)
+    strategy = Strategy.strategies(include_hidden=True)['SATResetNoCut'](env)
 
     assert strategy.step() is action
     assert action.cut is False
@@ -481,7 +485,7 @@ def test_sat_solve_uses_first_randomised_forward_action():
         ),
     )
 
-    strategy = Strategy.strategies()['SATSolve'](env)
+    strategy = Strategy.strategies(include_hidden=True)['SATCoP_0'](env)
 
     assert strategy.step() is first
 
@@ -500,7 +504,7 @@ def test_satcop_rust_prefers_start_at_root_and_syncs_shadow():
         enable_paper_mode = lambda enabled = True: setattr(state, 'paper_mode', enabled),
     )
     env = SimpleNamespace(legal_actions = lambda: [start, reset], state = state)
-    strategy = Strategy.strategies()['SATCoPRust'](env)
+    strategy = Strategy.strategies(include_hidden=True)['SATCoPRust'](env)
 
     assert strategy.step() is start
     assert calls == ['flush', 'solve']
@@ -519,7 +523,7 @@ def test_satcop_rust_prefers_reduction_before_extension_with_cut():
         enable_paper_mode = lambda enabled = True: setattr(state, 'paper_mode', enabled),
     )
     env = SimpleNamespace(legal_actions = lambda: [extension, reduction], state = state)
-    strategy = Strategy.strategies()['SATCoPRust'](env)
+    strategy = Strategy.strategies(include_hidden=True)['SATCoPRust'](env)
     action = strategy.step()
 
     assert action is reduction
@@ -547,7 +551,7 @@ def test_satcop_rust_reorders_true_promises_first_inside_extension():
         enable_paper_mode = lambda enabled = True: setattr(state, 'paper_mode', enabled),
     )
     env = SimpleNamespace(legal_actions = lambda: [extension], state = state)
-    strategy = Strategy.strategies()['SATCoPRust'](env)
+    strategy = Strategy.strategies(include_hidden=True)['SATCoPRust'](env)
 
     action = strategy.step()
 
@@ -569,7 +573,7 @@ def test_satcop_rust_restarts_same_depth_when_shadow_grows_at_root():
         enable_paper_mode = lambda enabled = True: setattr(state, 'paper_mode', enabled),
     )
     env = SimpleNamespace(legal_actions = lambda: [reset], state = state)
-    strategy = Strategy.strategies()['SATCoPRust'](env)
+    strategy = Strategy.strategies(include_hidden=True)['SATCoPRust'](env)
 
     action = strategy.step()
 
@@ -615,7 +619,7 @@ def test_sat_solve_guided_chooses_best_scored_extension():
         enable_paper_mode = lambda enabled = True: setattr(state, 'paper_mode', enabled),
     )
     env = SimpleNamespace(legal_actions = lambda: [weak, strong], state = state)
-    strategy = Strategy.strategies()['SATSolveGuided'](env)
+    strategy = Strategy.strategies(include_hidden=True)['SATSolveGuided'](env)
 
     assert strategy.step() is strong
     assert strong.cut is True
@@ -676,7 +680,7 @@ def test_sat_solve_guided_uses_live_assumptions_instead_of_solver_copies(monkeyp
         enable_paper_mode = lambda enabled = True: setattr(state, 'paper_mode', enabled),
     )
     env = SimpleNamespace(legal_actions = lambda: [weak, strong], state = state)
-    strategy = Strategy.strategies()['SATSolveGuided'](env)
+    strategy = Strategy.strategies(include_hidden=True)['SATSolveGuided'](env)
 
     assert strategy.step() is strong
     assert ('assume', -2) in solver.calls
@@ -740,7 +744,7 @@ def test_sat_solve_guided_signal_variants_choose_by_requested_signal(monkeypatch
         enable_paper_mode = lambda enabled = True: setattr(state, 'paper_mode', enabled),
     )
     env = SimpleNamespace(legal_actions = lambda: [probe, forced, evsids], state = state)
-    strategy = Strategy.strategies()[strategy_name](env)
+    strategy = Strategy.strategies(include_hidden=True)[strategy_name](env)
 
     assert strategy.step() is {'probe': probe, 'forced': forced, 'evsids': evsids}[expected]
 
@@ -775,7 +779,7 @@ def test_sat_solve_guided_short_chooses_fewer_remaining_subgoals_without_sat_cal
         enable_paper_mode = lambda enabled = True: setattr(state, 'paper_mode', enabled),
     )
     env = SimpleNamespace(legal_actions = lambda: [long, short], state = state)
-    strategy = Strategy.strategies()['SATSolveGuidedShort'](env)
+    strategy = Strategy.strategies(include_hidden=True)['SATSolveGuidedShort'](env)
 
     assert strategy.step() is short
 
@@ -812,7 +816,7 @@ def test_sat_solve_guided_fast_skips_assumption_probes(monkeypatch):
         enable_paper_mode = lambda enabled = True: setattr(state, 'paper_mode', enabled),
     )
     env = SimpleNamespace(legal_actions = lambda: [weak, strong], state = state)
-    strategy = Strategy.strategies()['SATSolveGuidedFast'](env)
+    strategy = Strategy.strategies(include_hidden=True)['SATSolveGuidedFast'](env)
 
     assert strategy.step() is strong
 
@@ -830,7 +834,7 @@ def test_sat_solve_literal_short_tie_prefers_reduction_before_extension():
         enable_paper_mode = lambda enabled = True: setattr(state, 'paper_mode', enabled),
     )
     env = SimpleNamespace(legal_actions = lambda: [extension, reduction], state = state)
-    strategy = Strategy.strategies()['SATSolveLiteralShortTie'](env)
+    strategy = Strategy.strategies(include_hidden=True)['SATSolveLiteralShortTie'](env)
 
     assert strategy.step() is reduction
 
@@ -861,7 +865,7 @@ def test_sat_solve_literal_lookahead_tie_prefers_lookahead_literal():
         enable_paper_mode = lambda enabled = True: setattr(state, 'paper_mode', enabled),
     )
     env = SimpleNamespace(legal_actions = lambda: [weak, strong], state = state)
-    strategy = Strategy.strategies()['SATSolveLiteralLookaheadTie'](env)
+    strategy = Strategy.strategies(include_hidden=True)['SATSolveLiteralLookaheadTie'](env)
 
     assert strategy.step() is strong
 
@@ -899,7 +903,7 @@ def test_sat_solve_learn_initial_prefers_extension_with_more_model_false_childre
         enable_paper_mode = lambda enabled = True: setattr(state, 'paper_mode', enabled),
     )
     env = SimpleNamespace(legal_actions = lambda: [weak, strong], state = state)
-    strategy = Strategy.strategies()['SATSolveLearnInitial'](env)
+    strategy = Strategy.strategies(include_hidden=True)['SATSolveLearnInitial'](env)
 
     assert strategy.step() is strong
 
@@ -946,7 +950,7 @@ def test_sat_solve_learn_initial_keeps_literal_score_primary():
         enable_paper_mode = lambda enabled = True: setattr(state, 'paper_mode', enabled),
     )
     env = SimpleNamespace(legal_actions = lambda: [unknown_action, true_action], state = state)
-    strategy = Strategy.strategies()['SATSolveLearnInitial'](env)
+    strategy = Strategy.strategies(include_hidden=True)['SATSolveLearnInitial'](env)
 
     assert strategy.step() is true_action
     assert strategy.training_rows() == []
@@ -989,7 +993,7 @@ def test_sat_solve_learn_initial_rewards_ground_progress():
         info = None,
     )
     env = SimpleNamespace(legal_actions = lambda: [weak, strong], state = state)
-    strategy = Strategy.strategies()['SATSolveLearnInitial'](env)
+    strategy = Strategy.strategies(include_hidden=True)['SATSolveLearnInitial'](env)
 
     chosen = strategy.step()
     assert chosen is strong
@@ -1048,7 +1052,7 @@ def test_sat_solve_learn_train_persists_and_eval_reads_store(tmp_path, monkeypat
 
     train_state = make_state()
     train_env = SimpleNamespace(legal_actions = lambda: [weak, strong], state = train_state)
-    train_strategy = Strategy.strategies()['SATSolveLearnTrain'](train_env)
+    train_strategy = Strategy.strategies(include_hidden=True)['SATSolveLearnTrain'](train_env)
 
     chosen = train_strategy.step()
     assert chosen is strong
@@ -1065,7 +1069,7 @@ def test_sat_solve_learn_train_persists_and_eval_reads_store(tmp_path, monkeypat
 
     eval_state = make_state()
     eval_env = SimpleNamespace(legal_actions = lambda: [weak, strong], state = eval_state)
-    eval_strategy = Strategy.strategies()['SATSolveLearnEval'](eval_env)
+    eval_strategy = Strategy.strategies(include_hidden=True)['SATSolveLearnEval'](eval_env)
 
     assert eval_strategy.step() is strong
     assert eval_strategy.training_rows() == []
@@ -1097,7 +1101,7 @@ def test_sat_solve_learn_control_can_prefer_reset():
         ),
     )
     env.state.enable_paper_mode = lambda enabled = True: setattr(env.state, 'paper_mode', enabled)
-    strategy = Strategy.strategies()['SATResetBandit'](env)
+    strategy = Strategy.strategies(include_hidden=True)['SATResetBandit'](env)
 
     for arm in strategy._control_arms:
         strategy._control_pulls['shadow_stagnant'][arm] = 4
@@ -1135,7 +1139,7 @@ def test_sat_solve_learn_control_can_emit_backjump_two():
         ),
     )
     env.state.enable_paper_mode = lambda enabled = True: setattr(env.state, 'paper_mode', enabled)
-    strategy = Strategy.strategies()['SATResetBandit'](env)
+    strategy = Strategy.strategies(include_hidden=True)['SATResetBandit'](env)
 
     for arm in strategy._control_arms:
         strategy._control_pulls['shadow_stagnant'][arm] = 4
@@ -1172,7 +1176,7 @@ def test_sat_reset_shadow_prefers_same_depth_reset_while_shadow_grows():
         ),
     )
     env.state.enable_paper_mode = lambda enabled = True: setattr(env.state, 'paper_mode', enabled)
-    strategy = Strategy.strategies()['SATResetShadow'](env)
+    strategy = Strategy.strategies(include_hidden=True)['SATResetShadow'](env)
 
     action = strategy.step()
     assert isinstance(action, Reset)
@@ -1204,7 +1208,7 @@ def test_sat_reset_at_stale_backtrack_deepens_once_shadow_stalls():
         ),
     )
     env.state.enable_paper_mode = lambda enabled = True: setattr(env.state, 'paper_mode', enabled)
-    strategy = Strategy.strategies()['SATResetAtStaleBacktrack'](env)
+    strategy = Strategy.strategies(include_hidden=True)['SATResetCoP'](env)
 
     action = strategy.step()
     assert isinstance(action, Reset)
@@ -1232,7 +1236,7 @@ def test_sat_reset_at_stale_backtrack_tableau_disables_paper_mode():
     )
     env.state.enable_paper_mode = lambda enabled = True: setattr(env.state, 'paper_mode', enabled)
 
-    Strategy.strategies()['SATResetAtStaleBacktrackTableau'](env)
+    Strategy.strategies(include_hidden=True)['SATResetAtStaleBacktrackTableau'](env)
 
     assert env.state.paper_mode is False
 
@@ -1259,7 +1263,7 @@ def test_sat_reset_at_stale_action_can_proactively_deepen_after_budget():
         ),
     )
     env.state.enable_paper_mode = lambda enabled = True: setattr(env.state, 'paper_mode', enabled)
-    strategy = Strategy.strategies()['SATResetAtStaleAction'](env)
+    strategy = Strategy.strategies(include_hidden=True)['SATResetAtStaleAction'](env)
     strategy._stale_action_count = strategy.stale_action_budget()
 
     reset = strategy.step()
@@ -1290,7 +1294,7 @@ def test_sat_reset_step_budget_can_proactively_reset():
         ),
     )
     env.state.enable_paper_mode = lambda enabled = True: setattr(env.state, 'paper_mode', enabled)
-    strategy = Strategy.strategies()['SATResetStepBudget'](env)
+    strategy = Strategy.strategies(include_hidden=True)['SATResetStepBudget'](env)
     strategy._since_reset_steps = 8
 
     reset = strategy.step()
@@ -1321,7 +1325,7 @@ def test_sat_reset_at_two_fixed_step_can_proactively_reset():
         ),
     )
     env.state.enable_paper_mode = lambda enabled = True: setattr(env.state, 'paper_mode', enabled)
-    strategy = Strategy.strategies()['SATResetAtTwoFixedStep'](env)
+    strategy = Strategy.strategies(include_hidden=True)['SATResetAtTwoFixedStep'](env)
     strategy._since_reset_steps = strategy.step_budget()
 
     reset = strategy.step()
@@ -1352,7 +1356,7 @@ def test_sat_reset_at_two_depth_step_can_proactively_reset():
         ),
     )
     env.state.enable_paper_mode = lambda enabled = True: setattr(env.state, 'paper_mode', enabled)
-    strategy = Strategy.strategies()['SATResetAtTwoDepthStep'](env)
+    strategy = Strategy.strategies(include_hidden=True)['SATResetAtTwoDepthStep'](env)
     strategy._since_reset_steps = strategy.step_budget()
 
     reset = strategy.step()
@@ -1382,7 +1386,7 @@ def test_sat_reset_at_two_tableau_disables_paper_mode():
     )
     env.state.enable_paper_mode = lambda enabled = True: setattr(env.state, 'paper_mode', enabled)
 
-    Strategy.strategies()['SATResetAtTwoTableau'](env)
+    Strategy.strategies(include_hidden=True)['SATResetAtTwoTableau'](env)
 
     assert env.state.paper_mode is False
 
@@ -1409,7 +1413,7 @@ def test_sat_reset_extension_budget_can_proactively_reset():
         ),
     )
     env.state.enable_paper_mode = lambda enabled = True: setattr(env.state, 'paper_mode', enabled)
-    strategy = Strategy.strategies()['SATResetExtensionBudget'](env)
+    strategy = Strategy.strategies(include_hidden=True)['SATResetExtensionBudget'](env)
     strategy._since_reset_extensions = 4
 
     reset = strategy.step()
@@ -1454,7 +1458,7 @@ def test_sat_solve_learn_combined_uses_forward_tie_breaking():
     )
     state.enable_paper_mode = lambda enabled = True: setattr(state, 'paper_mode', enabled)
     env = SimpleNamespace(legal_actions = lambda: [weak, strong], state = state)
-    strategy = Strategy.strategies()['SATSolveLearnCombined'](env)
+    strategy = Strategy.strategies(include_hidden=True)['SATSolveLearnCombined'](env)
 
     assert strategy.step() is strong
     assert len(strategy.training_rows()) == 1
@@ -1485,7 +1489,7 @@ def test_sat_solve_learn_combined_uses_control_bandit():
         ),
     )
     env.state.enable_paper_mode = lambda enabled = True: setattr(env.state, 'paper_mode', enabled)
-    strategy = Strategy.strategies()['SATSolveLearnCombined'](env)
+    strategy = Strategy.strategies(include_hidden=True)['SATSolveLearnCombined'](env)
 
     for arm in strategy._control_arms:
         strategy._control_pulls['shadow_stagnant'][arm] = 4
@@ -1536,7 +1540,7 @@ def test_sat_solve_learn_sat_context_uses_sat_aware_forward_context():
     )
     state.enable_paper_mode = lambda enabled = True: setattr(state, 'paper_mode', enabled)
     env = SimpleNamespace(legal_actions = lambda: [weak, strong], state = state)
-    strategy = Strategy.strategies()['SATSolveLearnSATContext'](env)
+    strategy = Strategy.strategies(include_hidden=True)['SATSolveLearnSATContext'](env)
 
     strategy._forward_explore = False
     for context in strategy._forward_contexts:
@@ -1579,7 +1583,7 @@ def test_sat_solve_learn_sat_context_uses_sat_aware_control_context():
         ),
     )
     env.state.enable_paper_mode = lambda enabled = True: setattr(env.state, 'paper_mode', enabled)
-    strategy = Strategy.strategies()['SATSolveLearnSATContext'](env)
+    strategy = Strategy.strategies(include_hidden=True)['SATSolveLearnSATContext'](env)
     strategy._sat_nonzero_atom_score = 1.0
 
     strategy._control_explore = False if hasattr(strategy, '_control_explore') else False
@@ -1622,7 +1626,7 @@ def test_sat_solve_literal_frequency_tie_prefers_frequent_unknown_atom():
         enable_paper_mode = lambda enabled = True: setattr(state, 'paper_mode', enabled),
     )
     env = SimpleNamespace(legal_actions = lambda: [weak, strong], state = state)
-    strategy = Strategy.strategies()['SATSolveLiteralFrequencyTie'](env)
+    strategy = Strategy.strategies(include_hidden=True)['SATSolveLiteralFrequencyTie'](env)
 
     assert strategy.step() is strong
 
@@ -1658,7 +1662,7 @@ def test_sat_solve_literal_frequency_tie_keeps_model_truth_primary():
         enable_paper_mode = lambda enabled = True: setattr(state, 'paper_mode', enabled),
     )
     env = SimpleNamespace(legal_actions = lambda: [true_action, frequent_unknown], state = state)
-    strategy = Strategy.strategies()['SATSolveLiteralFrequencyTie'](env)
+    strategy = Strategy.strategies(include_hidden=True)['SATSolveLiteralFrequencyTie'](env)
 
     assert strategy.step() is true_action
     assert 'freq=' not in strategy.final_info()
@@ -1688,7 +1692,7 @@ def test_sat_solve_literal_low_frequency_tie_prefers_rare_unknown_atom():
         enable_paper_mode = lambda enabled = True: setattr(state, 'paper_mode', enabled),
     )
     env = SimpleNamespace(legal_actions = lambda: [common, rare], state = state)
-    strategy = Strategy.strategies()['SATSolveLiteralLowFrequencyTie'](env)
+    strategy = Strategy.strategies(include_hidden=True)['SATSolveLiteralLowFrequencyTie'](env)
 
     assert strategy.step() is rare
     info = strategy.final_info()
@@ -1722,7 +1726,7 @@ def test_sat_solve_literal_opposite_signed_frequency_tie_uses_opposite_polarity(
     )
 
     opposite_env = SimpleNamespace(legal_actions = lambda: [positive, negative], state = state)
-    opposite_strategy = Strategy.strategies()['SATSolveLiteralOppositeSignedFrequencyTie'](opposite_env)
+    opposite_strategy = Strategy.strategies(include_hidden=True)['SATSolveLiteralOppositeSignedFrequencyTie'](opposite_env)
     assert opposite_strategy.step() is negative
     assert 'kind:opposite_signed' in opposite_strategy.final_info()
 
@@ -1756,7 +1760,7 @@ def test_sat_solve_literal_rare_start_prefers_clause_with_rare_atom():
         legal_actions = lambda: [common_start, rare_start, Reset(id = 'rs', depth = 2)],
         state = state,
     )
-    strategy = Strategy.strategies()['SATSolveLiteralRareStart'](env)
+    strategy = Strategy.strategies(include_hidden=True)['SATSolveLiteralRareStart'](env)
 
     assert strategy.step() is rare_start
     info = strategy.final_info()
@@ -1792,7 +1796,7 @@ def test_sat_solve_literal_model_start_prefers_model_false_goals():
         enable_paper_mode = lambda enabled = True: setattr(state, 'paper_mode', enabled),
     )
     env = SimpleNamespace(legal_actions = lambda: [rare_start, model_false_start], state = state)
-    strategy = Strategy.strategies()['SATSolveLiteralModelStart'](env)
+    strategy = Strategy.strategies(include_hidden=True)['SATSolveLiteralModelStart'](env)
 
     assert strategy.step() is model_false_start
     info = strategy.final_info()
@@ -1827,7 +1831,7 @@ def test_sat_solve_literal_rare_start_does_not_change_extension_choice():
         enable_paper_mode = lambda enabled = True: setattr(state, 'paper_mode', enabled),
     )
     env = SimpleNamespace(legal_actions = lambda: [common, rare], state = state)
-    strategy = Strategy.strategies()['SATSolveLiteralRareStart'](env)
+    strategy = Strategy.strategies(include_hidden=True)['SATSolveLiteralRareStart'](env)
 
     assert strategy.step() is common
     assert 'start=' not in strategy.final_info()
@@ -1868,7 +1872,7 @@ def test_sat_solve_literal_first_start_guides_only_fresh_root_list():
         return [rare_remaining, Reset(id = 'rs', depth = 2)]
 
     env = SimpleNamespace(legal_actions = legal_actions, state = state)
-    strategy = Strategy.strategies()['SATSolveLiteralFirstStart'](env)
+    strategy = Strategy.strategies(include_hidden=True)['SATSolveLiteralFirstStart'](env)
 
     assert strategy.step() is rare_first
     assert strategy.step() is rare_remaining
@@ -1903,7 +1907,7 @@ def test_sat_solve_literal_first_start_scores_only_bounded_prefix():
         enable_paper_mode = lambda enabled = True: setattr(state, 'paper_mode', enabled),
     )
     env = SimpleNamespace(legal_actions = lambda: starts, state = state)
-    strategy = Strategy.strategies()['SATSolveLiteralFirstStart'](env)
+    strategy = Strategy.strategies(include_hidden=True)['SATSolveLiteralFirstStart'](env)
 
     assert strategy.step() in starts[:32]
     assert 'candidates:32' in strategy.final_info()
@@ -1931,7 +1935,7 @@ def test_sat_solve_literal_friday_start_cut_resets_after_confident_root_choice_f
         enable_paper_mode = lambda enabled = True: setattr(state, 'paper_mode', enabled),
     )
     env = SimpleNamespace(legal_actions = lambda: [weak, strong, Reset(id = 'rs', depth = 2)], state = state)
-    strategy = Strategy.strategies()['SATSolveLiteralFridayStartCut'](env)
+    strategy = Strategy.strategies(include_hidden=True)['SATSolveLiteralFridayStartCut'](env)
 
     assert strategy.step() is strong
 
@@ -1966,7 +1970,7 @@ def test_sat_solve_literal_friday_root_reset_fires_after_stale_root_revisits():
     )
     start = Start(id = 'st0', clause_copy = [Literal('a', [])])
     env = SimpleNamespace(legal_actions = lambda: [start, Reset(id = 'rs', depth = 2)], state = state)
-    strategy = Strategy.strategies()['SATSolveLiteralFridayRootReset'](env)
+    strategy = Strategy.strategies(include_hidden=True)['SATSolveLiteralFridayRootReset'](env)
 
     for _ in range(strategy._friday_root_visit_limit - 1):
         assert strategy.step() is start
@@ -2009,7 +2013,7 @@ def test_sat_solve_literal_friday_hybrid_guides_only_first_fresh_root_then_defau
         return [rare_remaining, Reset(id = 'rs', depth = 2)]
 
     env = SimpleNamespace(legal_actions = legal_actions, state = state)
-    strategy = Strategy.strategies()['SATSolveLiteralFridayHybrid'](env)
+    strategy = Strategy.strategies(include_hidden=True)['SATSolveLiteralFridayHybrid'](env)
 
     assert strategy.step() is rare_first
     assert strategy.step() is rare_remaining
@@ -2058,7 +2062,7 @@ def test_sat_solve_propagation_prefers_failed_assumption(monkeypatch):
         enable_paper_mode = lambda enabled = True: setattr(state, 'paper_mode', enabled),
     )
     env = SimpleNamespace(legal_actions = lambda: [weak, strong], state = state)
-    strategy = Strategy.strategies()['SATSolvePropagation'](env)
+    strategy = Strategy.strategies(include_hidden=True)['SATSolvePropagation'](env)
     monkeypatch.setattr(strategy, '_pysat_propagation', lambda sat_lit: None)
 
     assert strategy.step() is strong
@@ -2106,7 +2110,7 @@ def test_sat_solve_literal_propagation_keeps_literal_value_primary(monkeypatch):
         enable_paper_mode = lambda enabled = True: setattr(state, 'paper_mode', enabled),
     )
     env = SimpleNamespace(legal_actions = lambda: [false_action, true_action], state = state)
-    strategy = Strategy.strategies()['SATSolveLiteralPropagation'](env)
+    strategy = Strategy.strategies(include_hidden=True)['SATSolveLiteralPropagation'](env)
     monkeypatch.setattr(strategy, '_pysat_propagation', lambda sat_lit: None)
 
     assert strategy.step() is true_action
@@ -2131,7 +2135,7 @@ def test_sat_solve_literal_reports_choice_diagnostics():
         enable_paper_mode = lambda enabled = True: setattr(state, 'paper_mode', enabled),
     )
     env = SimpleNamespace(legal_actions = lambda: [mapped, unmapped], state = state)
-    strategy = Strategy.strategies()['SATSolveLiteral'](env)
+    strategy = Strategy.strategies(include_hidden=True)['SATCoP'](env)
 
     assert strategy.step() is mapped
 
@@ -2166,7 +2170,7 @@ def test_sat_solve_records_nonzero_atom_score():
             _solve_ground_clauses = lambda: None,
         ),
     )
-    strategy = Strategy.strategies()['SATSolve'](env)
+    strategy = Strategy.strategies(include_hidden=True)['SATCoP_0'](env)
 
     assert strategy.step() is action
     assert strategy.final_info() == 'score=3.5'
@@ -2175,11 +2179,11 @@ def test_sat_solve_records_nonzero_atom_score():
     'strategy_name',
     [
         'SATResetBandit',
-        'SATSolve',
+        'SATCoP_0',
         'SATSolveGuided',
         'SATSolveLearnInitial',
         'SATSolveLearnCombined',
-        'SATSolveLiteral',
+        'SATCoP',
         'SATSolveLiteralRandomTie',
         'SATSolveLiteralShortTie',
         'SATSolveLiteralLookaheadTie',
@@ -2209,7 +2213,7 @@ def test_sat_strategies_only_reset_at_root_when_shadow_is_still_growing(strategy
             _solve_ground_clauses = lambda: None,
         ),
     )
-    strategy = Strategy.strategies()[strategy_name](env)
+    strategy = Strategy.strategies(include_hidden=True)[strategy_name](env)
 
     assert isinstance(strategy.step(), Backtrack)
 
@@ -2225,14 +2229,14 @@ def test_starts_do_not_duplicate_clause_indices_across_calls():
 
     assert env.matrix.positive_clauses == before
 
-@pytest.mark.parametrize('strategy_name', ['SATSolve', 'SATSolveGuided', 'SATSolveLiteral'])
+@pytest.mark.parametrize('strategy_name', ['SATCoP_0', 'SATSolveGuided', 'SATCoP'])
 @pytest.mark.skipif(pydical is None, reason = 'pydical is not installed')
 def test_sat_strategies_do_not_refute_satisfiable_problem(tmp_path, strategy_name):
     problem = tmp_path / 'SYN344-1.p'
     problem.write_text(SYN344_1, encoding = 'utf-8')
 
     env = ConnectionEnv(str(problem), Settings(logic = 'ClassicalSAT'))
-    strategy = Strategy.strategies()[strategy_name](env)
+    strategy = Strategy.strategies(include_hidden=True)[strategy_name](env)
     env.reset()
 
     done = False

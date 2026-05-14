@@ -54,7 +54,7 @@ class _SATScoreTracker:
         return None
 
 
-class SATSolve(_SATScoreTracker, Strategy):
+class SATCoP_0(_SATScoreTracker, Strategy):
     """Paper-faithful SATCoP control for ``ClassicalSAT``.
 
     This mirrors Rawson and Reger (2021), Algorithm 2:
@@ -68,7 +68,7 @@ class SATSolve(_SATScoreTracker, Strategy):
         super().__init__(env)
         self._init_sat_score_tracker()
         if not hasattr(self.env.state, 'sat_literal_value'):
-            raise TypeError('SATSolve requires the ClassicalSAT calculus')
+            raise TypeError('SATCoP_0 requires the ClassicalSAT calculus')
         self.env.state.enable_paper_mode(True)
 
     def step(self):
@@ -100,7 +100,7 @@ class SATSolve(_SATScoreTracker, Strategy):
         raise LookupError('Expected at least one action to be Start, Reduction, Extension, Backtrack, or Reset.')
 
 
-class SATSolveLiteral(_SATScoreTracker, Strategy):
+class SATCoP(_SATScoreTracker, Strategy):
     """Strict SATCoP with §9.1 literal-selection refinement.
 
     Implements Rawson and Reger (2021), Algorithm 2 with the
@@ -110,7 +110,7 @@ class SATSolveLiteral(_SATScoreTracker, Strategy):
     model would close), falling back to the randomised order from the
     calculus when the model has nothing to say.
 
-    Like ``SATSolve``, this strategy:
+    Like ``SATCoP_0``, this strategy:
     - Enables ``paper_mode`` on the calculus, which gives:
       * initial grounding of start clauses (§4),
       * model-based lemmata that skip goals already assigned false
@@ -123,15 +123,15 @@ class SATSolveLiteral(_SATScoreTracker, Strategy):
       same depth while new ground clauses are being discovered, only
       incrementing when they stop (§5).
 
-    Differences from ``SATSolve``:
+    Differences from ``SATCoP_0``:
     - Forward actions are scored by SAT truth value of their head
       literal, so reductions/extensions the SAT model already believes
       are closest to closing fire first (§9.1 "literal selection").
     - When no SAT information is available for the candidate literals
       (e.g. first iteration, or all literals still non-ground), the
-      behaviour degenerates to ``SATSolve``'s "first shuffled action".
+      behaviour degenerates to ``SATCoP_0``'s "first shuffled action".
 
-    Known differences from the paper that are shared with SATSolve:
+    Known differences from the paper that are shared with SATCoP_0:
     - The SAT backend is CaDiCaL rather than the custom CDCL
       from §4.3.
     - Start clauses are taken from the positive+negative pool rather
@@ -143,7 +143,7 @@ class SATSolveLiteral(_SATScoreTracker, Strategy):
         self._init_sat_score_tracker()
         self._init_literal_choice_diagnostics()
         if not hasattr(self.env.state, 'sat_literal_value'):
-            raise TypeError('SATSolveLiteral requires the ClassicalSAT calculus')
+            raise TypeError('SATCoP requires the ClassicalSAT calculus')
         self.env.state.enable_paper_mode(True)
 
     def score(self, action: ConnectionAction):
@@ -334,3 +334,11 @@ class SATSolveLiteral(_SATScoreTracker, Strategy):
                 f'chosen_extension:{self._literal_chosen_extension}'
             )
         return '; '.join(parts) if parts else None
+
+
+class SATSolve(SATCoP_0):
+    """Backward-compatible hidden name for the old SATCoP baseline."""
+
+
+class SATSolveLiteral(SATCoP):
+    """Backward-compatible hidden name for the old literal-guided SATCoP strategy."""

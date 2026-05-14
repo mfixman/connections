@@ -7,12 +7,12 @@ from connections.calculi.classicalcut import Backtrack, Extension, Reduction, Re
 from .base import Strategy
 
 
-class FirstAction(Strategy):
+class PyCoP(Strategy):
     def step(self):
         return self.env.legal_actions()[0]
 
 
-class LeanCopCut(Strategy):
+class LeanCoP(Strategy):
     """Mirror leanCoP's ``cut`` option for forward proof steps."""
 
     max_cut_height: int = 7
@@ -41,3 +41,11 @@ class LeanCopCut(Strategy):
                 return action
 
         return action
+
+
+class FirstAction(PyCoP):
+    """Backward-compatible hidden name for the old public baseline."""
+
+
+class LeanCopCut(LeanCoP):
+    """Backward-compatible hidden name for the old public leanCoP-cut baseline."""

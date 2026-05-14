@@ -36,15 +36,15 @@ This installs the pinned `pydical` revision used by the `ClassicalSAT` code.
 Run a single strategy on one problem:
 
 ```bash
-python pycop.py tests/cnf_problems/SYN001+1.p --strategy FirstAction
-python pycop.py tests/cnf_problems/SYN001+1.p --strategy LeanCopCut
-python pycop.py tests/cnf_problems/SYN001+1.p --strategy SATSolve
+python pycop.py tests/cnf_problems/SYN001+1.p --strategy PyCoP
+python pycop.py tests/cnf_problems/SYN001+1.p --strategy LeanCoP
+python pycop.py tests/cnf_problems/SYN001+1.p --strategy SATCoP
 ```
 
 Compare several strategies across a directory or TPTP slice:
 
 ```bash
-python compare_strategies.py tests/cnf_problems --strategies FirstAction LeanCopCut --csv results.csv
+python compare_strategies.py tests/cnf_problems --strategies PyCoP LeanCoP --csv results.csv
 python compare_strategies.py tests/cnf_problems --strategies SATControl SATTest --csv results.csv
 ```
 

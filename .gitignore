@@ -260,12 +260,15 @@ TPTP_subset
 *.bbl-SAVE-ERROR
 *.run.xml
 *.out
+*.sed
+*.toc
 
 .jupyter/
 results/old
 partial/*
 llm/*
 debug/*
+prolog/*
 
 .codex
 nohup.out

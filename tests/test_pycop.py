@@ -86,7 +86,7 @@ class TestPycopDebugOutput:
         class FakeStrategyRegistry:
             @staticmethod
             def strategies():
-                return {'FirstAction': FakeStrategy}
+                return {'PyCoP': FakeStrategy}
 
         monkeypatch.setattr(pycop, 'ConnectionEnv', FakeEnv)
         monkeypatch.setattr(pycop, 'Strategy', FakeStrategyRegistry)
@@ -97,7 +97,7 @@ class TestPycopDebugOutput:
                 logic = Logic.Classical,
                 sat_solver = SATSolver.CaDiCaL,
                 debug = True,
-                strategy = 'FirstAction',
+                strategy = 'PyCoP',
                 max_steps = 10,
                 print_ratio = 0,
             ),
@@ -134,7 +134,7 @@ class TestPycopDebugOutput:
         class FakeStrategyRegistry:
             @staticmethod
             def strategies():
-                return {'FirstAction': FakeStrategy}
+                return {'PyCoP': FakeStrategy}
 
         monkeypatch.setattr(pycop, 'ConnectionEnv', FakeEnv)
         monkeypatch.setattr(pycop, 'Strategy', FakeStrategyRegistry)
@@ -145,7 +145,7 @@ class TestPycopDebugOutput:
                 logic = Logic.Classical,
                 sat_solver = SATSolver.CaDiCaL,
                 debug = False,
-                strategy = 'FirstAction',
+                strategy = 'PyCoP',
                 max_steps = 10,
                 print_ratio = 0,
             ),
@@ -156,16 +156,16 @@ class TestPycopDebugOutput:
 
 class TestPycopLogicSelection:
     def test_default_logic_for_strategy_matches_strategy_family(self):
-        assert pycop.default_logic_for_strategy('FirstAction') is Logic.Classical
-        assert pycop.default_logic_for_strategy('LeanCopCut') is Logic.ClassicalCut
-        assert pycop.default_logic_for_strategy('SATSolve') is Logic.ClassicalSAT
-        assert pycop.default_logic_for_strategy('SATSolveLiteral') is Logic.ClassicalSAT
+        assert pycop.default_logic_for_strategy('PyCoP') is Logic.Classical
+        assert pycop.default_logic_for_strategy('LeanCoP') is Logic.ClassicalCut
+        assert pycop.default_logic_for_strategy('SATCoP_0') is Logic.ClassicalSAT
+        assert pycop.default_logic_for_strategy('SATCoP') is Logic.ClassicalSAT
         assert pycop.default_logic_for_strategy('SATResetAtStaleAction') is Logic.ClassicalSAT
         assert pycop.default_logic_for_strategy('SATResetStepBudget') is Logic.ClassicalSAT
 
     def test_resolve_logic_for_strategy_ignores_explicit_override(self):
-        assert pycop.resolve_logic_for_strategy('LeanCopCut', Logic.Classical) is Logic.ClassicalCut
-        assert pycop.resolve_logic_for_strategy('FirstAction', Logic.ClassicalSAT) is Logic.Classical
+        assert pycop.resolve_logic_for_strategy('LeanCoP', Logic.Classical) is Logic.ClassicalCut
+        assert pycop.resolve_logic_for_strategy('PyCoP', Logic.ClassicalSAT) is Logic.Classical
 
     def test_run_problem_uses_strategy_default_logic(self, monkeypatch):
         seen = {}
@@ -188,7 +188,7 @@ class TestPycopLogicSelection:
         class FakeStrategyRegistry:
             @staticmethod
             def strategies():
-                return {'LeanCopCut': FakeStrategy}
+                return {'LeanCoP': FakeStrategy}
 
         monkeypatch.setattr(pycop, 'ConnectionEnv', FakeEnv)
         monkeypatch.setattr(pycop, 'Strategy', FakeStrategyRegistry)
@@ -199,7 +199,7 @@ class TestPycopLogicSelection:
                 logic = None,
                 sat_solver = SATSolver.CaDiCaL,
                 debug = False,
-                strategy = 'LeanCopCut',
+                strategy = 'LeanCoP',
                 max_steps = 10,
                 print_ratio = 0,
             ),
@@ -229,7 +229,7 @@ class TestPycopLogicSelection:
         class FakeStrategyRegistry:
             @staticmethod
             def strategies():
-                return {'LeanCopCut': FakeStrategy}
+                return {'LeanCoP': FakeStrategy}
 
         monkeypatch.setattr(pycop, 'ConnectionEnv', FakeEnv)
         monkeypatch.setattr(pycop, 'Strategy', FakeStrategyRegistry)
@@ -240,7 +240,7 @@ class TestPycopLogicSelection:
                 logic = Logic.Classical,
                 sat_solver = SATSolver.CaDiCaL,
                 debug = False,
-                strategy = 'LeanCopCut',
+                strategy = 'LeanCoP',
                 max_steps = 10,
                 print_ratio = 0,
             ),

@@ -1,7 +1,8 @@
 from .base import Strategy
-from .classical import FirstAction, LeanCopCut
+from .classical import FirstAction, LeanCoP, LeanCopCut, PyCoP
 from .sat_reset import (
     ResetSATCoP,
+    SATResetCoP,
     SATResetAtStaleAction,
     SATResetAtStaleBacktrack,
     SATResetAtTwo,
@@ -11,5 +12,5 @@ from .sat_reset import (
     SATResetStart,
     SATResetStepBudget,
 )
-from .sat_solve import SATSolve, SATSolveLiteral
+from .sat_solve import SATCoP, SATCoP_0, SATSolve, SATSolveLiteral
 from .hidden.sat_solve_rust import SATCoPRust
