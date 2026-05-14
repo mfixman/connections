@@ -7,7 +7,6 @@ from cli import (
     configure_tptp_root,
     default_logic_for_strategy,
     parse_pycop_args,
-    resolve_logic_for_strategy,
     resolved_problem_paths,
     split_problem_paths,
 )
@@ -52,7 +51,7 @@ def _print_result(result: dict, problem: str | None = None) -> None:
     print(info)
 
 def _run_problem(path: str, args) -> dict:
-    logic = resolve_logic_for_strategy(args.strategy, args.logic)
+    logic = default_logic_for_strategy(args.strategy)
     env = ConnectionEnv(
         path,
         Settings(

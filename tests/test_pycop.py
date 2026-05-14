@@ -94,7 +94,6 @@ class TestPycopDebugOutput:
         result = pycop._run_problem(
             'dummy.p',
             SimpleNamespace(
-                logic = Logic.Classical,
                 sat_solver = SATSolver.CaDiCaL,
                 debug = True,
                 strategy = 'PyCoP',
@@ -142,7 +141,6 @@ class TestPycopDebugOutput:
         result = pycop._run_problem(
             'dummy.p',
             SimpleNamespace(
-                logic = Logic.Classical,
                 sat_solver = SATSolver.CaDiCaL,
                 debug = False,
                 strategy = 'PyCoP',
@@ -162,10 +160,6 @@ class TestPycopLogicSelection:
         assert pycop.default_logic_for_strategy('SATCoP') is Logic.ClassicalSAT
         assert pycop.default_logic_for_strategy('SATResetAtStaleAction') is Logic.ClassicalSAT
         assert pycop.default_logic_for_strategy('SATResetStepBudget') is Logic.ClassicalSAT
-
-    def test_resolve_logic_for_strategy_ignores_explicit_override(self):
-        assert pycop.resolve_logic_for_strategy('LeanCoP', Logic.Classical) is Logic.ClassicalCut
-        assert pycop.resolve_logic_for_strategy('PyCoP', Logic.ClassicalSAT) is Logic.Classical
 
     def test_run_problem_uses_strategy_default_logic(self, monkeypatch):
         seen = {}
@@ -196,7 +190,6 @@ class TestPycopLogicSelection:
         result = pycop._run_problem(
             'dummy.p',
             SimpleNamespace(
-                logic = None,
                 sat_solver = SATSolver.CaDiCaL,
                 debug = False,
                 strategy = 'LeanCoP',
@@ -207,48 +200,6 @@ class TestPycopLogicSelection:
 
         assert seen['logic'] is Logic.ClassicalCut
         assert result['info'] == 'Theorem'
-
-    def test_run_problem_ignores_explicit_logic_override(self, monkeypatch):
-        seen = {}
-
-        class FakeEnv:
-            def __init__(self, path, settings):
-                seen['logic'] = settings.logic
-                self.state = SimpleNamespace(
-                    initial_status = lambda: (True, 'Theorem'),
-                    tableau = SimpleNamespace(children = [], literal = None),
-                )
-
-            def reset(self):
-                return None
-
-        class FakeStrategy:
-            def __init__(self, env):
-                self.env = env
-
-        class FakeStrategyRegistry:
-            @staticmethod
-            def strategies():
-                return {'LeanCoP': FakeStrategy}
-
-        monkeypatch.setattr(pycop, 'ConnectionEnv', FakeEnv)
-        monkeypatch.setattr(pycop, 'Strategy', FakeStrategyRegistry)
-
-        result = pycop._run_problem(
-            'dummy.p',
-            SimpleNamespace(
-                logic = Logic.Classical,
-                sat_solver = SATSolver.CaDiCaL,
-                debug = False,
-                strategy = 'LeanCoP',
-                max_steps = 10,
-                print_ratio = 0,
-            ),
-        )
-
-        assert seen['logic'] is Logic.ClassicalCut
-        assert result['info'] == 'Theorem'
-
 class TestPycopPrinting:
     def test_print_result_keeps_single_line_info_inline(self, capsys):
         pycop._print_result({'info': 'Theorem', 'steps': 1})

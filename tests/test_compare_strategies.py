@@ -318,16 +318,6 @@ class TestCompareStrategiesLogicSelection:
             is SATSolver.CaDiCaL
         )
 
-    def test_explicit_logic_override_is_ignored(self):
-        assert (
-            compare_strategies.resolve_logic_for_strategy('SATCoP_0', Logic.ClassicalCut)
-            is Logic.ClassicalSAT
-        )
-        assert (
-            compare_strategies.resolve_logic_for_strategy('PyCoP', Logic.ClassicalSAT)
-            is Logic.Classical
-        )
-
     def test_determine_worker_count_uses_override_instead_of_cpu_detection(self, monkeypatch):
         monkeypatch.setenv('SLURM_CPUS_PER_TASK', '32')
         monkeypatch.setattr(compare_strategies, '_process_cpu_count', lambda: 64)
@@ -394,15 +384,17 @@ class TestCompareStrategiesLogicSelection:
 
         assert excinfo.value.code == 2
 
-    def test_parse_args_accepts_logic_enum(self, monkeypatch):
+    def test_parse_args_rejects_logic_override(self, monkeypatch):
         monkeypatch.setattr(
             sys,
             'argv',
             ['compare_strategies.py', '--logic', 'ClassicalSAT', '--csv', '/tmp/results.csv'],
         )
-        args = compare_strategies.parse_args()
 
-        assert args.logic is Logic.ClassicalSAT
+        with pytest.raises(SystemExit) as excinfo:
+            compare_strategies.parse_args()
+
+        assert excinfo.value.code == 2
 
     def test_parse_args_expands_sat_control_group(self, monkeypatch):
         monkeypatch.setattr(
@@ -608,7 +600,6 @@ class TestCompareStrategiesInitialStatus:
             FakeConn(),
             path,
             'SATCoP_0',
-            Logic.ClassicalSAT,
             SATSolver.CaDiCaL,
             max_steps,
             timeout,
@@ -722,7 +713,6 @@ class TestCompareStrategiesInitialStatus:
             FakeConn(),
             'dummy.p',
             'SATCoP',
-            Logic.ClassicalSAT,
             None,
             100,
             None,

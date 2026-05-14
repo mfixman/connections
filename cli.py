@@ -27,10 +27,6 @@ def default_logic_for_strategy(strategy_name: str) -> Logic:
     return Logic.ClassicalSAT
 
 
-def resolve_logic_for_strategy(strategy_name: str, logic_override: Logic | None) -> Logic:
-    return default_logic_for_strategy(strategy_name)
-
-
 def default_sat_solver_for_strategy(strategy_name: str) -> SATSolver:
     strategy = Strategy.strategies().get(strategy_name)
     if strategy is None:
@@ -194,13 +190,6 @@ def _positive_int(raw: str) -> int:
 
 def _add_common_prover_arguments(parser: argparse.ArgumentParser, *, max_steps_default: int) -> None:
     parser.add_argument(
-        '--logic',
-        default=None,
-        choices=list(Logic),
-        type=Logic,
-        help='deprecated override; effective logic is determined by the selected strategy',
-    )
-    parser.add_argument(
         '--sat-solver',
         default=None,
         choices=list(SATSolver),
@@ -315,7 +304,6 @@ def _compare_epilog() -> str:
     return (
         f'available strategies: {", ".join(available_strategies)}\n'
         f'available strategy groups: {", ".join(strategy_group_names())}\n'
-        f'available logics:     {", ".join(str(logic) for logic in Logic)}\n'
         '\n'
         'examples:\n'
         '  %(prog)s --csv results.csv\n'

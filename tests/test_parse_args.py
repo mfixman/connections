@@ -61,16 +61,17 @@ def test_parse_args_accepts_debug(monkeypatch):
 
     assert args.debug is True
 
-def test_parse_args_defaults_logic_to_none(monkeypatch):
+def test_parse_args_rejects_logic_override(monkeypatch):
     monkeypatch.setattr(
         sys,
         'argv',
-        ['pycop.py', 'tests/cnf_problems/SYN081+1.cnf'],
+        ['pycop.py', '--logic', 'ClassicalSAT', 'tests/cnf_problems/SYN081+1.cnf'],
     )
 
-    args = parse_pycop_args()
+    with pytest.raises(SystemExit) as excinfo:
+        parse_pycop_args()
 
-    assert args.logic is None
+    assert excinfo.value.code == 2
 
 def test_parse_args_accepts_split_and_part(monkeypatch):
     monkeypatch.setattr(

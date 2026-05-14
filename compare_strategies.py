@@ -22,7 +22,6 @@ from cli import (
     default_sat_solver_for_strategy,
     expand_problem_inputs,
     parse_compare_args,
-    resolve_logic_for_strategy,
     resolve_sat_solver_for_strategy,
     split_problem_paths,
 )
@@ -196,7 +195,6 @@ def _run_problem(
     conn: Connection,
     path: str,
     strategy_name: str,
-    logic: Logic,
     sat_solver: Optional[SATSolver],
     max_steps: int,
     timeout: Optional[float] = None,
@@ -207,6 +205,7 @@ def _run_problem(
             with contextlib.redirect_stdout(devnull), contextlib.redirect_stderr(devnull):
                 logging.disable(logging.CRITICAL)
                 try:
+                    logic = default_logic_for_strategy(strategy_name)
                     sat_solver = resolve_sat_solver_for_strategy(strategy_name, sat_solver)
                     env = ConnectionEnv(path, Settings(logic=logic, sat_solver=sat_solver))
                     strategy = Strategy.strategies()[strategy_name](env)
@@ -650,7 +649,6 @@ class ReportWriter:
 def run_tasks(
     problems: list[Path],
     strategies: list[str],
-    logic_override: Optional[Logic],
     sat_solver: Optional[SATSolver],
     max_steps: int,
     timeout: float,
@@ -677,11 +675,10 @@ def run_tasks(
     active: dict[Connection, tuple[Path, str, mp.Process, float]] = {}
 
     def start_task(problem: Path, strategy_name: str) -> None:
-        logic = resolve_logic_for_strategy(strategy_name, logic_override)
         parent_conn, child_conn = mp.Pipe(duplex=False)
         proc = mp.Process(
             target=_run_problem,
-            args=(child_conn, str(problem), strategy_name, logic, sat_solver, max_steps, timeout),
+            args=(child_conn, str(problem), strategy_name, sat_solver, max_steps, timeout),
             daemon=True,
         )
         proc.start()
@@ -862,7 +859,7 @@ def main() -> None:
 
     try:
         results, errors = run_tasks(
-            problems, strategies, args.logic, args.sat_solver, args.max_steps, args.timeout, max_workers,
+            problems, strategies, args.sat_solver, args.max_steps, args.timeout, max_workers,
             args.steps, args.time, reporter, partial_state.results,
         )
 
