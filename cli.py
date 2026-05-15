@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Sequence, TypeVar
 
 from connections.env import Logic, SATSolver
-from connections.utils.classical_problem_parsing import problem_metadata
+from connections.utils.classical_problem_parsing import is_mptp_fof_problem_path, problem_metadata
 from strategies import Strategy
 from strategies.groups import expand_strategy_groups, strategy_choices, strategy_group_names
 
@@ -466,4 +466,4 @@ def _all_tptp_problem_paths() -> list[Path]:
 def _is_supported_tptp_problem_path(path: Path) -> bool:
     if ''.join(path.suffixes) not in {'.p', '.ax'}:
         return False
-    return '+' in path.name or '-' in path.name
+    return '+' in path.name or '-' in path.name or is_mptp_fof_problem_path(path)

@@ -8,18 +8,20 @@ class TestProblemInputsDirectoryFiltering:
     def test_expand_problem_inputs_skips_unsupported_directory_entries(self, tmp_path: Path):
         problems = tmp_path / 'Problems'
         supported = problems / 'AAA001-1.p'
+        mptp_supported = problems / 'compts_1__t10_compts_1.p'
         typed_supported_shape = problems / 'AAA002-1.p'
         unsupported_hat = problems / 'AAA001^1.p'
         unsupported_underscore = problems / 'AAA001_1.p'
         problems.mkdir()
         supported.write_text('% SPC      : CNF_UNS_RFO\nsupported')
+        mptp_supported.write_text('fof(t10_compts_1,conjecture,p).')
         typed_supported_shape.write_text('% SPC      : TCF_SAT_RFO_EQU_NUE\ntyped')
         unsupported_hat.write_text('unsupported')
         unsupported_underscore.write_text('unsupported')
 
         result = problem_inputs.expand_problem_inputs([str(problems)])
 
-        assert result == [supported.resolve()]
+        assert result == [supported.resolve(), mptp_supported.resolve()]
 
 class TestProblemInputSplitting:
     def test_split_problem_paths_keeps_matching_zero_based_indices(self):

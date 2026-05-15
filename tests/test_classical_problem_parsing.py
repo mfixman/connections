@@ -79,6 +79,20 @@ class TestClassicalProblemParsing:
         translate.assert_called_once()
         assert translate.call_args.args[0] == problem
 
+    def test_mptp_problem_filename_uses_tptp_translation(self, tmp_path: Path):
+        problem = tmp_path / 'compts_1__t10_compts_1.p'
+        problem.write_text("fof(t10_compts_1,conjecture,p).")
+
+        sentinel = object()
+        with patch(
+            'connections.utils.classical_problem_parsing._translate_tptp_problem',
+            return_value=sentinel,
+        ) as translate:
+            assert file2cnf(str(problem)) is sentinel
+
+        translate.assert_called_once()
+        assert translate.call_args.args[0] == problem
+
     def test_unsupported_file_warns_and_fails_fast(self, tmp_path: Path):
         problem = tmp_path / 'problem.txt'
         problem.write_text("fof(a,axiom,p).\n")

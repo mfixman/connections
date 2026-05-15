@@ -44,7 +44,7 @@ def _problem_kind(path: Path, text: str) -> str:
     if _is_connections_cnf(text):
         return 'connections'
     if _has_supported_tptp_suffix(path):
-        if '+' in path.name:
+        if '+' in path.name or is_mptp_fof_problem_path(path):
             return 'tptp-fof'
         if '-' in path.name:
             return 'tptp-cnf'
@@ -54,11 +54,24 @@ def _has_supported_tptp_suffix(path: Path) -> bool:
     """Accept only normal top-level TPTP files for raw problem parsing."""
     return ''.join(path.suffixes) in {'.p', '.ax'}
 
+def is_mptp_fof_problem_path(path: Path) -> bool:
+    """Return whether *path* looks like an MPTP FOF problem filename."""
+    if ''.join(path.suffixes) != '.p':
+        return False
+
+    parts = path.stem.split('__', maxsplit=1)
+    if len(parts) != 2:
+        return False
+
+    article, formula = parts
+    return bool(article and formula and '_' in formula)
+
 def _fail_for_unsupported_problem(path: Path) -> None:
     """Warn and fail fast for inputs we do not intentionally support."""
     message = (
         f'unsupported problem file {path}: expected translated connection CNF '
-        f'or a TPTP file with suffix .p/.ax and a "+" or "-" in the filename'
+        f'or a TPTP file with suffix .p/.ax and a "+", "-", or MPTP-style '
+        f'"article__formula_article.p" filename'
     )
     warnings.warn(message, stacklevel=2)
     raise ValueError(message)
