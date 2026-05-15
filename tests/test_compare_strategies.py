@@ -439,7 +439,8 @@ class TestCompareStrategiesLogicSelection:
         captured = capsys.readouterr()
         help_text = ' '.join(captured.out.split())
         assert excinfo.value.code == 0
-        assert 'Non-hidden strategies: PyCoP, LeanCoP, SATCoP_0, SATCoP, SATResetCoP' in help_text
+        assert '--strategies {PyCoP,LeanCoP,SATCoP_0,SATCoP,SATResetCoP,SATControl,SATTest} [...]' in help_text
+        assert 'strategies: PyCoP, LeanCoP, SATCoP_0, SATCoP, SATResetCoP' in help_text
         assert 'directories and/or FOF/CNF problem files/codenames' in help_text
         assert 'DIR_OR_FILE' in help_text
 

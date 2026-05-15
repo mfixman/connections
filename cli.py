@@ -26,6 +26,17 @@ def _public_strategy_help() -> str:
     return ', '.join(_public_strategy_names())
 
 
+def _strategy_choice_metavar(choices: list[str]) -> str:
+    return '{' + ','.join(choices) + '}'
+
+
+class _CompareHelpFormatter(argparse.RawDescriptionHelpFormatter):
+    def _format_args(self, action: argparse.Action, default_metavar: str) -> str:
+        if action.dest == 'strategies' and action.nargs == '+':
+            return f'{self._metavar_formatter(action, default_metavar)(1)[0]} [...]'
+        return super()._format_args(action, default_metavar)
+
+
 def default_logic_for_strategy(strategy_name: str) -> Logic:
     if strategy_name in {'PyCoP', 'FirstAction'}:
         return Logic.Classical
@@ -268,16 +279,13 @@ def _add_compare_arguments(parser: argparse.ArgumentParser) -> None:
     strategy_group = parser.add_mutually_exclusive_group()
     strategy_group.add_argument(
         '--strategies', nargs='+',
-        choices=available_choices, metavar='STRATEGY_OR_GROUP',
-        help=(
-            f'strategies or groups to compare. Non-hidden strategies: {_public_strategy_help()}; '
-            f'groups: {", ".join(strategy_group_names())} '
-            f'(default: {" ".join(default_strategies)})'
-        ),
+        choices=available_choices,
+        metavar=_strategy_choice_metavar(available_choices),
+        help=f'strategies or groups to compare (default: {" ".join(default_strategies)})',
     )
     strategy_group.add_argument(
         '--all-strategies', action='store_true',
-        help='compare all non-hidden strategies',
+        help='compare all strategies',
     )
     _add_common_prover_arguments(parser, max_steps_default=1000000)
     parser.add_argument(
@@ -319,8 +327,8 @@ def _add_compare_arguments(parser: argparse.ArgumentParser) -> None:
 def _compare_epilog() -> str:
     available_strategies = _public_strategy_names()
     return (
-        f'non-hidden strategies: {", ".join(available_strategies)}\n'
-        f'available strategy groups: {", ".join(strategy_group_names())}\n'
+        f'strategies: {", ".join(available_strategies)}\n'
+        f'strategy groups: {", ".join(strategy_group_names())}\n'
         '\n'
         'examples:\n'
         '  %(prog)s --csv results.csv\n'
@@ -344,7 +352,7 @@ def _build_compare_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog='compare_strategies.py',
         description='Compare proof strategies across a set of problems.',
-        formatter_class=argparse.RawDescriptionHelpFormatter,
+        formatter_class=_CompareHelpFormatter,
         epilog=_compare_epilog(),
     )
     _add_compare_arguments(parser)
