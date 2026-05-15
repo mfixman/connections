@@ -359,7 +359,7 @@ class TestCompareStrategiesLogicSelection:
         args = compare_strategies.parse_args()
 
         assert args.max_steps == 1000000
-        assert args.timeout == 90.0
+        assert args.timeout == 120.0
         assert args.num_workers is None
 
     def test_parse_args_accepts_num_workers_override(self, monkeypatch):

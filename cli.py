@@ -289,8 +289,8 @@ def _add_compare_arguments(parser: argparse.ArgumentParser) -> None:
     )
     _add_common_prover_arguments(parser, max_steps_default=1000000)
     parser.add_argument(
-        '--timeout', type=float, default=90.0, metavar='SEC',
-        help='timeout per problem in seconds (default: 90)',
+        '--timeout', type=float, default=120.0, metavar='SEC',
+        help='timeout per problem in seconds (default: 120)',
     )
     parser.add_argument(
         '--num-workers', type=_positive_int, default=None, metavar='N',
