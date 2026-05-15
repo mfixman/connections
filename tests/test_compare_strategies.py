@@ -430,6 +430,19 @@ class TestCompareStrategiesLogicSelection:
 
         assert args.strategies.count('SATCoP_0') == 1
 
+    def test_help_lists_non_hidden_strategies_and_fof_cnf_inputs(self, monkeypatch, capsys):
+        monkeypatch.setattr(sys, 'argv', ['compare_strategies.py', '--help'])
+
+        with pytest.raises(SystemExit) as excinfo:
+            compare_strategies.parse_args()
+
+        captured = capsys.readouterr()
+        help_text = ' '.join(captured.out.split())
+        assert excinfo.value.code == 0
+        assert 'Non-hidden strategies: PyCoP, LeanCoP, SATCoP_0, SATCoP, SATResetCoP' in help_text
+        assert 'directories and/or FOF/CNF problem files/codenames' in help_text
+        assert 'DIR_OR_FILE' in help_text
+
     def test_parse_args_accepts_split_and_part(self, monkeypatch):
         monkeypatch.setattr(
             sys,

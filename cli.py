@@ -18,6 +18,14 @@ from strategies.groups import expand_strategy_groups, strategy_choices, strategy
 T = TypeVar('T')
 
 
+def _public_strategy_names() -> list[str]:
+    return list(Strategy.strategies().keys())
+
+
+def _public_strategy_help() -> str:
+    return ', '.join(_public_strategy_names())
+
+
 def default_logic_for_strategy(strategy_name: str) -> Logic:
     if strategy_name in {'PyCoP', 'FirstAction'}:
         return Logic.Classical
@@ -209,11 +217,17 @@ def _add_pycop_arguments(parser: argparse.ArgumentParser) -> None:
     _add_common_prover_arguments(parser, max_steps_default=10000000)
     parser.add_argument('--print-ratio', '-pr', type=int, default=0, help='Ratio of messages to be printed')
     parser.add_argument('--debug', action='store_true', help='Print extra debug information.')
-    parser.add_argument('--strategy', default='PyCoP', choices=Strategy.strategies().keys(), help='Strategy to use')
+    parser.add_argument(
+        '--strategy',
+        default='PyCoP',
+        choices=Strategy.strategies().keys(),
+        help=f'Strategy to use. Non-hidden strategies: {_public_strategy_help()} (default: PyCoP)',
+    )
     add_problem_split_arguments(parser)
     parser.add_argument(
         'file',
-        help='Problem input: local file, directory of .p files, TPTP codename/path, or raw quoted TPTP text',
+        metavar='DIR_OR_FILE',
+        help='Problem input: local FOF/CNF file, directory of .p files, TPTP codename/path, or raw quoted TPTP text',
     )
 
 
@@ -242,24 +256,28 @@ def _named_csv_file(name: str, inputs: list[str], split: int, part: int) -> str:
 
 
 def _add_compare_arguments(parser: argparse.ArgumentParser) -> None:
-    available_strategies = list(Strategy.strategies().keys())
+    available_strategies = _public_strategy_names()
     default_strategies = [available_strategies[0], available_strategies[-1]]
     available_choices = strategy_choices(available_strategies)
 
     parser.add_argument(
         'inputs', nargs='*', metavar='DIR_OR_FILE',
-        help='directories and/or problem files/codenames (default: all $TPTP/Problems/*/*.p)',
+        help='directories and/or FOF/CNF problem files/codenames (default: all $TPTP/Problems/*/*.p)',
     )
 
     strategy_group = parser.add_mutually_exclusive_group()
     strategy_group.add_argument(
         '--strategies', nargs='+',
         choices=available_choices, metavar='STRATEGY_OR_GROUP',
-        help=f'strategies or groups to compare (default: {" ".join(default_strategies)})',
+        help=(
+            f'strategies or groups to compare. Non-hidden strategies: {_public_strategy_help()}; '
+            f'groups: {", ".join(strategy_group_names())} '
+            f'(default: {" ".join(default_strategies)})'
+        ),
     )
     strategy_group.add_argument(
         '--all-strategies', action='store_true',
-        help='compare all available strategies',
+        help='compare all non-hidden strategies',
     )
     _add_common_prover_arguments(parser, max_steps_default=1000000)
     parser.add_argument(
@@ -299,9 +317,9 @@ def _add_compare_arguments(parser: argparse.ArgumentParser) -> None:
 
 
 def _compare_epilog() -> str:
-    available_strategies = list(Strategy.strategies().keys())
+    available_strategies = _public_strategy_names()
     return (
-        f'available strategies: {", ".join(available_strategies)}\n'
+        f'non-hidden strategies: {", ".join(available_strategies)}\n'
         f'available strategy groups: {", ".join(strategy_group_names())}\n'
         '\n'
         'examples:\n'
@@ -334,7 +352,7 @@ def _build_compare_parser() -> argparse.ArgumentParser:
 
 
 def _finalize_compare_args(args: argparse.Namespace, parser: argparse.ArgumentParser) -> None:
-    available_strategies = list(Strategy.strategies().keys())
+    available_strategies = _public_strategy_names()
     default_strategies = [available_strategies[0], available_strategies[-1]]
 
     if args.all_strategies:

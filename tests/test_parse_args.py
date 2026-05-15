@@ -142,6 +142,19 @@ def test_parse_args_rejects_strategy_groups(monkeypatch):
 
     assert excinfo.value.code == 2
 
+def test_pycop_help_lists_non_hidden_strategies_and_fof_cnf_inputs(monkeypatch, capsys):
+    monkeypatch.setattr(sys, 'argv', ['pycop.py', '--help'])
+
+    with pytest.raises(SystemExit) as excinfo:
+        parse_pycop_args()
+
+    captured = capsys.readouterr()
+    help_text = ' '.join(captured.out.split())
+    assert excinfo.value.code == 0
+    assert 'Non-hidden strategies: PyCoP, LeanCoP, SATCoP_0, SATCoP, SATResetCoP' in help_text
+    assert 'local FOF/CNF file' in help_text
+    assert 'DIR_OR_FILE' in help_text
+
 def test_configure_tptp_root_sets_environment(monkeypatch, tmp_path: Path):
     monkeypatch.delenv('TPTP', raising = False)
 
