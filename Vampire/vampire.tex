@@ -124,7 +124,7 @@ It might be useful to incorporate \cop{SATResetCoP} into the initial steps of a 
 The grounded clauses used by \cop{PySATCoP} and \cop{SATResetCoP} come from the clauses currently present in the tableau, after applying the tableau substitution accumulated so far.
 Ground terms are kept as they are; only tableau variables that remain unassigned need to be replaced by a ground term.
 
-As explained in \cref{satcop}, Rawson~and~Reger follow the technique by Schulz\cite{something} to use the most frequent constant in the conjecture, with a fresh constant as a fallback when the conjecture contains no constants.
+As explained in \cref{satcop}, Rawson~and~Reger follow the technique by Schulz\cite{schulzSATInterpretation} to use the most frequent constant in the conjecture, with a fresh constant as a fallback when the conjecture contains no constants\cite{eliminatingModels}.
 \cop{SATResetCoP} always uses this fallback-style choice, mapping every remaining tableau variable to the same fresh artificial constant.
 This gives a grounding scheme that is simpler than \cop{SATCoP}, while keeping the proof sound: the SAT solver still only receives ground instances of clauses already present in the tableau.
 
