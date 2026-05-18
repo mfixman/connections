@@ -28,7 +28,7 @@
 
 \graphicspath{{figures/}}
 
-\newcommand{\todo}[1]{\noindent\textcolor{red}{{\large [} #1 {\large ]}}}
+\newcommand{\todo}[1]{\noindent\textcolor{red}{{\large [}~#1~{\large ]}}}
 \newcommand{\step}[1]{\textsf{#1}}
 \newcommand{\cop}[1]{\textsf{#1}}
 \newcommand{\todobox}[1]{\fbox{\parbox[c][75pt]{\textwidth}{\centering \todo{#1}}}}
@@ -79,10 +79,12 @@ The \cop{leanCoP} line has also been extended in several other directions.
 Functional and machine-learning-guided connection provers refine proof-step ordering and clause selection\cite{farberMachineLearningGuidance2021}, \cop{rlCoP} and \cop{plCoP} add Monte Carlo Tree Search and reinforcement-learning-based control to \cop{leanCoP}-style proof search\cite{Kaliszyk2018RLTP,zomboriPrologTechnologyReinforcement2020a}, and recent work on proof syntax and certification makes connection proofs easier to exchange and verify\cite{ottenSyntaxConnectionProofs2023}.
 
 \subsection{SATCoP and Similar Methods}
+\label{satcop}
 
 Rawson and Reger integrate a SAT prover into a clausal tableau system based on \cop{leanCoP}\cite{eliminatingModels}.
 Grounded clauses generated in Tableau extensions are added to a SAT solver.
 The SAT solver resulting in an unsatisfiable set of ground clauses is sufficient to prove that the entire problem is unsatisfiable.
+For the remaining tableau variables, their implementation follows Schulz's suggestion of grounding with the most frequent constant in the conjecture, falling back to a fresh constant if the conjecture contains no constants\cite[\S~4.2]{eliminatingModels}.
 
 \todo{Fill more information here.}
 
@@ -99,7 +101,7 @@ Successive experimentation resulted in a simple hypothesis: aggressively resetti
 However, instead of following \cop{leanCoP}'s tableau guidance strategy, it prioritises resetting the tableau often.
 \todo{I think some pseudocode would be better than this list.}
 \begin{enumerate}
-	\item Choose the next \step{Reduction} or \step{Extension} depending on the status of the selected literal in the SAT model, in Rawson~and~Reger\cite[\SS 9.1]{eliminatingModels}.
+	\item Choose the next \step{Reduction} or \step{Extension} depending on the status of the selected literal in the SAT model, in Rawson~and~Reger\cite[\S~9.1]{eliminatingModels}.
 		\begin{enumerate}
 			\item Steps whose selected literal is \texttt{true} in the SAT model.
 			\item Steps whose selected literal is unknown in the SAT model.
@@ -118,6 +120,13 @@ While it is less complete than \cop{PySATCoP} and other \cop{leanCoP} variants, 
 It might be useful to incorporate \cop{SATResetCoP} into the initial steps of a more complete schedule.
 
 \subsection{Other things I should add}
+
+The grounded clauses used by \cop{PySATCoP} and \cop{SATResetCoP} come from the clauses currently present in the tableau, after applying the tableau substitution accumulated so far.
+Ground terms are kept as they are; only tableau variables that remain unassigned need to be replaced by a ground term.
+
+As explained in \cref{satcop}, Rawson~and~Reger follow the technique by Schulz\cite{something} to use the most frequent constant in the conjecture, with a fresh constant as a fallback when the conjecture contains no constants.
+\cop{SATResetCoP} always uses this fallback-style choice, mapping every remaining tableau variable to the same fresh artificial constant.
+This gives a grounding scheme that is simpler than \cop{SATCoP}, while keeping the proof sound: the SAT solver still only receives ground instances of clauses already present in the tableau.
 
 \todo{Explain how I choose statements.}
 \todo{Randomisation of statements.}
@@ -148,7 +157,7 @@ It also provides declared statuses for these problems, which are a useful sanity
 The connections prover provides with \cop{PyCoP}, a simple prover that chooses the first legal non-backtrack action at each point and resets the tree with an increased maximum height saturated.
 
 As a second control policy we use our implementation of \cop{leanCoP}\cite{ottenLeanCoP20}, \cop{PyLeanCoP}.
-This is a Python version of the \cop{leanCoP} Prolog implementation, with the two recommended predicates used in the first step of the schedule by Otten\cite[\SS 5.5]{ottenLeanCoP20}.
+This is a Python version of the \cop{leanCoP} Prolog implementation, with the two recommended predicates used in the first step of the schedule by Otten\cite[\S~5.5]{ottenLeanCoP20}.
 \begin{description}
 	\item[\texttt{cut}] Choose one choice from each extension and reduction and backtrack afterwards, in a similar way to to Prolog's \texttt{!} operator.
 	\item[\texttt{comp(7)}] The prover does iterative deepening of height 1 at a time when the tree is saturated until reaching maximum height 7.
@@ -169,7 +178,7 @@ These kinds of simple policies tend to be very effective in tableau provers\cite
 		\addlinespace[1em]
 			\pysatcopz{} & Based on the initial implementation of \cop{SATCoP}\cite{eliminatingModels}. & \checkmark{} & \checkmark{} & & \\
 		\addlinespace[3pt]
-			\cop{PySATCoP} & Improvements on \cop{SATCoP}\cite[\SS9.1]{eliminatingModels}. & \checkmark{} & \checkmark{} & \checkmark{} & \\
+			\cop{PySATCoP} & Improvements on \cop{SATCoP}\cite[\S~9.1]{eliminatingModels}. & \checkmark{} & \checkmark{} & \checkmark{} & \\
 		\addlinespace[1em]
 			\cop{SATResetCoP} & Novel model, specified in \cref{satresetcop}. & \checkmark{} & \checkmark{} & \checkmark{} & \checkmark{} \\
 		\bottomrule
