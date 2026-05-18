@@ -8,6 +8,7 @@
 \usepackage{tabularx}
 \usepackage{subcaption}
 \usepackage{amssymb}
+\usepackage[font=footnotesize]{caption}
 \usepackage[noabbrev,nameinlink,capitalize,poorman]{cleveref}
 
 \title{SAT Resetmaxxing for Fun and Profit \\ \small (Final Title TBD)}
@@ -31,6 +32,8 @@
 \newcommand{\step}[1]{\textsf{#1}}
 \newcommand{\cop}[1]{\textsf{#1}}
 \newcommand{\todobox}[1]{\fbox{\parbox[c][75pt]{\textwidth}{\centering \todo{#1}}}}
+
+\newcommand{\pysatcopz}{PySATCoP\textsubscript{0}}
 
 \begin{document}
 \maketitle{}
@@ -124,11 +127,9 @@ It might be useful to incorporate \cop{ResetSATCoP} into the initial steps of a 
 
 \subsection{Python Implementation}
 
-As a testbed for out experiments we use a Python implementation of \cop{leanCoP}, \cop{PyCoP}.
-\todo{\cop{PyCoP} is as of yet unreleased. Is there anything I can cite here?}
-This program implements classical tableau calculus and supports \cop{leanCoP}-style \textsc{cut}s, different maximum heights, and adding a SAT solver to implement a \cop{SATCoP}-style prover.
+As a testbed for out experiments we use the Connections Prober by Rømming et.\ al\cite{connections_2023}, which provides an implementation of leanCoP-style provers.
 
-Most importantly, the program allows us to implement different strategies to guide the tableau proof.
+The connections prover makes it easy to implement different strategies to guide the tableau proof.
 This makes implementing the guidance of \cop{ResetSATCoP} simple and its code easy to read and evaluate.
 
 The source code for this implementation is present in \url{https://github.com/mfixman/resetsatcop}, and is released under the GNU Lesser General Public Licence\cite{lgpl}.
@@ -147,33 +148,36 @@ It also provides declared statuses for these problems, which are a useful sanity
 
 \subsection{Experiment Design}
 
+The connections prover provides with \cop{pyCoP}, a simple prover that chooses the first legal non-backtrack action at each point and resets the tree with an increased maximum height saturated.
+
+As a second control policy we use our implementation of \cop{leanCoP}\cite{ottenLeanCoP20}, which runs the equivalent of a Prolog \textsc{cut} \texttt{!} after each extension and reduction so that the tableau prover does not spend time going through unpromising paths.
+These kinds of simple policies tend to be very effective in tableau provers\cite{Otten2023leanCoP20}.
+
 In order to equalise comparisons in areas such as problem parsing, we use the same base Python system that parses problems using classical calculus where we implement five strategies, with properties in \cref{cops_table}.
 
 \begin{table}[h]
 	\centering
-	\setlength{\tabcolsep}{4pt}
-	\begin{tabular}{>{\sffamily}l p{110pt} c l p{100pt}}
+	\small
+	\begin{tabularx}{\textwidth}{>{\sffamily}l X c c c c}
 		\toprule
-			Model & Explanation & Cut & Unsat proof & Tableau Guidance \\
+			Model & Explanation & \scriptsize Cut & \scriptsize UNSAT Proof & \scriptsize SAT Guidance & \scriptsize Reset on Backtrack \\
 		\midrule
-			FirstAction & Simple control policy & & Tableau closure & First forward action \\
-			LeanCoP & Based on \cop{leanCoP}\cite{ottenLeanCoP20}. & \checkmark{} & Tableau closure & First forward action \\
+			PyCoP & Simple control policy & & & & \\
+			LeanCoP & Based on \cop{leanCoP}\cite{ottenLeanCoP20}. & \checkmark{} & & \\
 		\addlinespace[1em]
-			SATCoP & Initial implementation of \cop{SATCoP}\cite{eliminatingModels}. & \checkmark{} & UNSAT & Random forward action \\
+			\pysatcopz & Based on the initial implementation of \cop{SATCoP}\cite{eliminatingModels}. & \checkmark{} & \checkmark{} & & \\
 		\addlinespace[3pt]
-			SATCoPEnhanced & Inspired by \S9.1~of Rawson and Reger\cite{eliminatingModels}. & \checkmark{} & UNSAT & SAT-Model Selection \\
+			PySATCoP & Improvements from \S9.1~of Rawson and Reger\cite{eliminatingModels}. & \checkmark{} & \checkmark{} & \checkmark{} & \\
 		\addlinespace[1em]
-			SATResetCoP & Elaborated in \cref{satresetcop}. & \checkmark{} & UNSAT & SAT-Model Selection, Reset on Backtrack \\
+			SATResetCoP & Novel model, specified in \cref{satresetcop}. & \checkmark{} & \checkmark{} & \checkmark{} & \checkmark{} \\
 		\bottomrule
-	\end{tabular}
+	\end{tabularx}
 	\caption{The four control models and the test model used in this experiment.}
 	\label{cops_table}
 \end{table}
 
 The TPTP library contains \num{8344} CNF problems and \num{9091} FOF problems separated in 50 categories\cite{tptp}.
 Each problem/model pair is run for a maximum of 120 seconds and 1 million steps, on a single core of the University of Cambridge CSD3 Cluster with \todo{add CPU information} and 3370 MiB RAM per core\cite{cambridge_csd3}.
-
-\todo{Am I supposed to properly cite / acknowledge the use of the Cambridge cluster?}
 
 \subsection{Results}
 
@@ -184,6 +188,7 @@ This is mostly caused by the SAT solved reaching unsatisfiability in fewer time 
 
 \begin{table}[h]
 	\centering
+	\small
 	\begin{tabular}{>{\sffamily}l r r r}
 		\toprule
 			Model & CNF & FOF & Total \\
@@ -230,6 +235,7 @@ A comparative result can be seen in \cref{solved_table}.
 
 \begin{table}
 	\centering
+	\small
 	\begin{tabular}{>{\sffamily}l r r}
 		\toprule
 			Model & CNF & FOF \\
