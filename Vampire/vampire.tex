@@ -8,6 +8,7 @@
 \usepackage{tabularx}
 \usepackage{subcaption}
 \usepackage{amssymb}
+\usepackage{listings}
 \usepackage[font=footnotesize]{caption}
 \usepackage[noabbrev,nameinlink,capitalize,poorman]{cleveref}
 
@@ -27,6 +28,30 @@
 % \bibliographystyle{plainnat}
 
 \graphicspath{{figures/}}
+
+\lstdefinestyle{pseudocode}{
+	basicstyle=\ttfamily\footnotesize,
+	keywordstyle=\bfseries,
+	commentstyle=\itshape\color{black!55},
+	columns=fullflexible,
+	keepspaces=true,
+	showstringspaces=false,
+	backgroundcolor=\color{black!4},
+	frame=single,
+	rulecolor=\color{black!22},
+	framerule=0.25pt,
+	framesep=5pt,
+	xleftmargin=1.25em,
+	xrightmargin=1.25em,
+	framexleftmargin=0.4em,
+	framexrightmargin=0.4em,
+	framextopmargin=0.25em,
+	framexbottommargin=0.25em,
+	aboveskip=0.75\baselineskip,
+	belowskip=0.75\baselineskip,
+	morekeywords={while,if,else,return,continue,restart,step}
+}
+\lstset{style=pseudocode}
 
 \newcommand{\todo}[1]{\noindent\textcolor{red}{{\large [}~#1~{\large ]}}}
 \newcommand{\step}[1]{\textsf{#1}}
@@ -99,21 +124,28 @@ Successive experimentation resulted in a simple hypothesis: aggressively resetti
 
 \cop{SATResetCoP} uses the same substitution and SAT prover unsatisfiability technique as \cop{PySATCoP}.
 However, instead of following \cop{leanCoP}'s tableau guidance strategy, it prioritises resetting the tableau often.
-\todo{I think some pseudocode would be better than this list.}
-\begin{enumerate}
-	\item Choose the next \step{Reduction} or \step{Extension} depending on the status of the selected literal in the SAT model, in Rawson~and~Reger\cite[\S~9.1]{eliminatingModels}.
-		\begin{enumerate}
-			\item Steps whose selected literal is \texttt{true} in the SAT model.
-			\item Steps whose selected literal is unknown in the SAT model.
-			\item Steps whose selected literal is \texttt{false} in the SAT model.
-		\end{enumerate}
-	\item \step{Cut} \texttt{(!)} reductions and extensions, as in \cop{leanCoP}.
-	\item If the next action is a \step{Backtrack}, then \step{Reset} the entire tree from scratch.
-	\begin{enumerate}
-		\item If new SAT clauses were added in this tree, keep its same maximum height.
-		\item Otherwise, attempt to make a deeper tree and increase its maximum height by 1.
-	\end{enumerate}
-\end{enumerate}
+The policy is sketched below; the ordering of forward actions follows the SAT-model literal selection idea of Rawson~and~Reger\cite[\S~9.1]{eliminatingModels}.
+
+\todo{Make this listing float-like and add a caption. Improve the pseudocode names. Clarify how entries are added to the SAT calculus, whether they are removed at reset, and how the tableau is built. Do not assume the reader knows what forward actions are.}
+\begin{lstlisting}
+while SAT.solve(GroundClauses) != UNSAT:
+    F := legal_actions(tableau)
+
+    model_rank(lit) :=
+        0 if SAT_model_value(lit) = true
+        1 if SAT_model_value(lit) = unassigned
+        2 if SAT_model_value(lit) = false
+
+    if F != empty:
+        a := argmin(a in F, model_rank(selected_literal(a)))
+        step(a)
+        continue
+
+    if new_ground_clauses:
+        restart(depth)
+    else:
+        restart(depth + 1)
+\end{lstlisting}
 
 Just like \cop{PySATCoP}, this approach is sound.
 While it is less complete than \cop{PySATCoP} and other \cop{leanCoP} variants, the speed at which it proves unsatisfiability of first-order problems can result in a larger amount of problems solved in a bounded amount of time or steps.
