@@ -39,16 +39,14 @@
 \maketitle{}
 
 \begin{abstract}
-	We improve \cop{SATCoP} performance by resetting the connection tableau often.
+	We improve \cop{PySATCoP} performance by resetting the connection tableau often.
 	This causes more and more varied SAT statements to be added to the SAT prover, which causes it to saturate faster.
-	The resulting prover solves problems faster and in fewer steps than \cop{SATCoP} and the current state-of-the-art tableau provers.
+	The resulting prover solves problems faster and in fewer steps than \cop{PySATCoP} and the current state-of-the-art tableau provers.
 \end{abstract}
 
 \begin{footnotesize}
 	\tableofcontents{}
 \end{footnotesize}
-
-\todo{\cop{SATResetCoP} or \cop{ResetSATCoP}? Be consistent.}
 
 \section{Introduction}
 
@@ -90,25 +88,24 @@ The SAT solver resulting in an unsatisfiable set of ground clauses is sufficient
 
 \section{Research Vehicle}
 
-\subsection{ResetSATCoP Specification}
+\subsection{\cop{SATResetCoP} Specification}
 \label{satresetcop}
 
 We propose implementing a new tableau prover, based on \cop{SATCoP}, but whose tableau prover attempts to saturate the SAT prover rather than to close the tableau.
 
 Successive experimentation resulted in a simple hypothesis: aggressively resetting the tree when the SAT solver stops growing results in a larger quantity and variety of SAT statements added to the solver, which results in reaching a SAT unsatisfiability proof faster.
 
-\cop{ResetSATCoP}\footnotemark{} uses the same substitution and SAT prover unsatisfiability technique as \cop{SATCoP}.
-\footnotetext{\todo{This is \texttt{SATResetAtStaleBacktrack} in the code. I plan to rename this strategy to \texttt{ResetSATCoP}.}}
+\cop{SATResetCoP} uses the same substitution and SAT prover unsatisfiability technique as \cop{PySATCoP}.
 However, instead of following \cop{leanCoP}'s tableau guidance strategy, it prioritises resetting the tableau often.
 \todo{I think some pseudocode would be better than this list.}
 \begin{enumerate}
-	\item Choose the next \step{Reduction} or \step{Extension} depending on the status of the selected literal in the SAT model, in Rawson~and~Reger\cite[\S 9.1]{eliminatingModels}.
+	\item Choose the next \step{Reduction} or \step{Extension} depending on the status of the selected literal in the SAT model, in Rawson~and~Reger\cite[\SS 9.1]{eliminatingModels}.
 		\begin{enumerate}
 			\item Steps whose selected literal is \texttt{true} in the SAT model.
 			\item Steps whose selected literal is unknown in the SAT model.
 			\item Steps whose selected literal is \texttt{false} in the SAT model.
 		\end{enumerate}
-	\item \step{Cut} \texttt{(!)} reductions and extensions, as in \cop{LeanCoP}.
+	\item \step{Cut} \texttt{(!)} reductions and extensions, as in \cop{leanCoP}.
 	\item If the next action is a \step{Backtrack}, then \step{Reset} the entire tree from scratch.
 	\begin{enumerate}
 		\item If new SAT clauses were added in this tree, keep its same maximum height.
@@ -116,9 +113,9 @@ However, instead of following \cop{leanCoP}'s tableau guidance strategy, it prio
 	\end{enumerate}
 \end{enumerate}
 
-Just like \cop{SATCoP}, this approach is sound.
-While it is less complete than \cop{SATCoP} and other \cop{LeanCoP} variants, the speed at which it proves unsatisfiability of first-order problems can result in a larger amount of problems solved in a bounded amount of time or steps.
-It might be useful to incorporate \cop{ResetSATCoP} into the initial steps of a more complete schedule.
+Just like \cop{PySATCoP}, this approach is sound.
+While it is less complete than \cop{PySATCoP} and other \cop{leanCoP} variants, the speed at which it proves unsatisfiability of first-order problems can result in a larger amount of problems solved in a bounded amount of time or steps.
+It might be useful to incorporate \cop{SATResetCoP} into the initial steps of a more complete schedule.
 
 \subsection{Other things I should add}
 
@@ -130,16 +127,16 @@ It might be useful to incorporate \cop{ResetSATCoP} into the initial steps of a 
 As a testbed for out experiments we use the Connections Prober by Rømming et.\ al\cite{connections_2023}, which provides an implementation of leanCoP-style provers.
 
 The connections prover makes it easy to implement different strategies to guide the tableau proof.
-This makes implementing the guidance of \cop{ResetSATCoP} simple and its code easy to read and evaluate.
+This makes implementing the guidance of \cop{SATResetCoP} simple and its code easy to read and evaluate.
 
 The source code for this implementation is present in \url{https://github.com/mfixman/resetsatcop}, and is released under the GNU Lesser General Public Licence\cite{lgpl}.
 
 \subsection{TPTP Benchmarking}
 
-Along with out implementation of \cop{ResetSATCoP}, \cop{PyCoP} allows us to reimplement \cop{leanCoP} and \cop{SATCoP} in its own backend.
+Along with out implementation of \cop{SATResetCoP}, \cop{PyCoP} allows us to reimplement \cop{PyLeanCoP} and \cop{PySATCoP} in its own backend.
 This provides a fairer baseline for comparison.
 
-We run \cop{ResetSATCoP} along with our versions of these two connection tableau strategies, along with a strategy that chooses the first possible action as control, on the \num{8344} CNF problems and \num{9091} FOF problems of all 50 categories \todo{Categories?} containing at least one of these problems from the Thousands of Problems for Theorem Provers (TPTP) library\cite{tptp}.
+We run \cop{SATResetCoP} along with our versions of these two connection tableau strategies, along with a strategy that chooses the first possible action as control, on the \num{8344} CNF problems and \num{9091} FOF problems of all 50 categories \todo{Categories?} containing at least one of these problems from the Thousands of Problems for Theorem Provers (TPTP) library\cite{tptp}.
 
 The library provides a varied set of problems that's a standard way to prove first-order provers.
 It also provides declared statuses for these problems, which are a useful sanity check for false unsatisfiability results.
@@ -148,10 +145,10 @@ It also provides declared statuses for these problems, which are a useful sanity
 
 \subsection{Experiment Design}
 
-The connections prover provides with \cop{pyCoP}, a simple prover that chooses the first legal non-backtrack action at each point and resets the tree with an increased maximum height saturated.
+The connections prover provides with \cop{PyCoP}, a simple prover that chooses the first legal non-backtrack action at each point and resets the tree with an increased maximum height saturated.
 
-As a second control policy we use our implementation of \cop{leanCoP}\cite{ottenLeanCoP20}, \cop{pyLeanCoP}.
-This is a Python version of the \cop{leanCoP} Prolog implementation, with the two recommended predicates used in the first step of the schedule by Otten\cite[\S 5.5]{ottenLeanCoP20}.
+As a second control policy we use our implementation of \cop{leanCoP}\cite{ottenLeanCoP20}, \cop{PyLeanCoP}.
+This is a Python version of the \cop{leanCoP} Prolog implementation, with the two recommended predicates used in the first step of the schedule by Otten\cite[\SS 5.5]{ottenLeanCoP20}.
 \begin{description}
 	\item[\texttt{cut}] Choose one choice from each extension and reduction and backtrack afterwards, in a similar way to to Prolog's \texttt{!} operator.
 	\item[\texttt{comp(7)}] The prover does iterative deepening of height 1 at a time when the tree is saturated until reaching maximum height 7.
@@ -167,14 +164,14 @@ These kinds of simple policies tend to be very effective in tableau provers\cite
 		\toprule
 			Model & Explanation & \scriptsize Cut & \scriptsize UNSAT Proof & \scriptsize SAT Guidance & \scriptsize Reset on Backtrack \\
 		\midrule
-			PyCoP & Simple control policy & & & & \\
-			PyLeanCoP & \cop{leanCoP} with initial set of predicates. & \checkmark{} & & \\
+			\cop{PyCoP} & Simple control policy & & & & \\
+			\cop{PyLeanCoP} & \cop{leanCoP} with initial set of predicates. & \checkmark{} & & \\
 		\addlinespace[1em]
-			\pysatcopz & Based on the initial implementation of \cop{SATCoP}\cite{eliminatingModels}. & \checkmark{} & \checkmark{} & & \\
+			\pysatcopz{} & Based on the initial implementation of \cop{SATCoP}\cite{eliminatingModels}. & \checkmark{} & \checkmark{} & & \\
 		\addlinespace[3pt]
-			PySATCoP & Improvements from \S9.1~of Rawson and Reger\cite{eliminatingModels}. & \checkmark{} & \checkmark{} & \checkmark{} & \\
+			\cop{PySATCoP} & Improvements on \cop{SATCoP}\cite[\SS9.1]{eliminatingModels}. & \checkmark{} & \checkmark{} & \checkmark{} & \\
 		\addlinespace[1em]
-			SATResetCoP & Novel model, specified in \cref{satresetcop}. & \checkmark{} & \checkmark{} & \checkmark{} & \checkmark{} \\
+			\cop{SATResetCoP} & Novel model, specified in \cref{satresetcop}. & \checkmark{} & \checkmark{} & \checkmark{} & \checkmark{} \\
 		\bottomrule
 	\end{tabularx}
 	\caption{The four control models and the test model used in this experiment.}
@@ -188,7 +185,7 @@ Each problem/model pair is run for a maximum of 120 seconds and 1 million steps,
 
 \subsubsection{Individual Results}
 
-SATResetCoP considerably improves the amount of problems solved by both \cop{SATCoP} models under the 120 second time limit, as shown in \cref{problems_solved}.
+\cop{SATResetCoP} considerably improves the amount of problems solved by both \pysatcopz{} and \cop{PySATCoP} under the 120 second time limit, as shown in \cref{problems_solved}.
 This is mostly caused by the SAT solved reaching unsatisfiability in fewer time and steps than in previous models, as seen in \cref{strategy_solved_time,strategy_solved_steps}.
 
 \begin{table}[h]
@@ -198,11 +195,11 @@ This is mostly caused by the SAT solved reaching unsatisfiability in fewer time 
 		\toprule
 			Model & CNF & FOF & Total \\
 		\midrule
-			FirstAction & 205 & 587 & 792 \\
-			LeanCopCut & 701 & 1155 & 1856 \\
-			SATCoP & 787 & 1042 & 1829 \\
-			SATCoPEnhanced & 1027 & 1396 & 2423 \\
-			SATResetCoP & 1227 & 1634 & 2861 \\
+			\cop{PyCoP} & 205 & 587 & 792 \\
+			\cop{PyLeanCoP} & 701 & 1155 & 1856 \\
+			\pysatcopz{} & 787 & 1042 & 1829 \\
+			\cop{PySATCoP} & 1027 & 1396 & 2423 \\
+			\cop{SATResetCoP} & 1227 & 1634 & 2861 \\
 		\bottomrule
 	\end{tabular}
 	\caption{Amount of CNF and FOF problems solved within the time constraint by each model.}
@@ -221,7 +218,7 @@ This is mostly caused by the SAT solved reaching unsatisfiability in fewer time 
 		\caption{Problem solved, stacked by amount of steps. SAT models can solve a problem in 0 steps if the initial grounding produces is SAT-unsatisfiable.}
 		\label{strategy_solved_steps}
 	\end{subfigure}
-	\caption{Results of running the models on all problems solved in a 120 second and 1 million step limit. \todo{Rename the cops to the newer names.}}
+	\caption{Results of running the models on all problems solved in a 120 second and 1 million step limit.}
 \end{figure}
 
 The \num{1000000} step limit is rarely reached, and most unsolved problems hit the 120 second limit instead.
@@ -229,13 +226,13 @@ The \num{1000000} step limit is rarely reached, and most unsolved problems hit t
 \todo{Maximum solved time is slightly less than 90s. Is this on purpose? Probably; check the actual experiment.}
 
 \begin{figure}[h]
-	\todobox{Time comparison / violinplot of different TPTP problem types for SATResetCoP}
-	\caption{Time taken by SATResetCoP to solve each problem within each TPTP problem type. We can probably find some conclusion in here.}
+	\todobox{Time comparison / violinplot of different TPTP problem types for \cop{SATResetCoP}}
+	\caption{Time taken by \cop{SATResetCoP} to solve each problem within each TPTP problem type. We can probably find some conclusion in here.}
 \end{figure}
 
 \subsubsection{Comparative Results}
 
-The SAT guidance in \cop{SATResetCoP} causes it to solve several problems that are unsolved by either models which do not have the same SAT saturation prover, and even by \cop{SATCoP} models that do not have similar efficient guidance.
+The SAT guidance in \cop{SATResetCoP} causes it to solve several problems that are unsolved by either models which do not have the same SAT saturation prover, and even by \pysatcopz{} and \cop{PySATCoP}, which do not have similar efficient guidance.
 A comparative result can be seen in \cref{solved_table}.
 
 \begin{table}
@@ -245,19 +242,19 @@ A comparative result can be seen in \cref{solved_table}.
 		\toprule
 			Model & CNF & FOF \\
 		\midrule
-			FirstAction & 205 & 587 \\
-			LeanCoP & 502 & 693 \\
-			SATCoPEnhanced & 188 & 189 \\
-			SATCoP & 184 & 129 \\
-			SATResetCoP & 213 & 228 \\
+			\cop{PyCoP} & 205 & 587 \\
+			\cop{PyLeanCoP} & 502 & 693 \\
+			\pysatcopz{} & 184 & 129 \\
+			\cop{PySATCoP} & 188 & 189 \\
+			\cop{SATResetCoP} & 213 & 228 \\
 		\bottomrule
 	\end{tabular}
 	\caption{Problems solved by each model and not solved by any preceding model in the table. \todo{What's the point of separating CNF and FOF here? Maybe finding interesting TPTP types would be better.}}
 	\label{solved_table}
 \end{table}
 
-\cop{ResetSATCoP} is specially strong in problems which can be solved by small unsat cores.
-However, even more than \cop{SATCoP}, it's worse than previous models on problems which require a large amount of substitutions to produce the atoms of an unsatisfiable core.
+\cop{SATResetCoP} is specially strong in problems which can be solved by small unsat cores.
+However, even more than \cop{PySATCoP}, it's worse than previous models on problems which require a large amount of substitutions to produce the atoms of an unsatisfiable core.
 \Cref{solved_heatmap} shows the amount of problems solved one of the models that's not solved by another one.
 
 \todo{There is a lot of interesting data on size of unsat cores and TPTP categories. Investigate further.}
@@ -302,7 +299,7 @@ These results do not show any negative results.
 			Theorem             & 4426 & 1823 & 0    & 0    \\
 		\bottomrule
 	\end{tabular}
-	\caption{Amount of problems solved and unsolved by \cop{ResetSATCoP}, grouped by TPTP declared status. No satisfiable or countersatisfiable problem was incorrectly proven to be unsatisfiable.}
+	\caption{Amount of problems solved and unsolved by \cop{SATResetCoP}, grouped by TPTP declared status. No satisfiable or countersatisfiable problem was incorrectly proven to be unsatisfiable.}
 	\label{sat_proof}
 \end{table}
 
