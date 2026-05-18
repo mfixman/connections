@@ -33,7 +33,7 @@
 \newcommand{\cop}[1]{\textsf{#1}}
 \newcommand{\todobox}[1]{\fbox{\parbox[c][75pt]{\textwidth}{\centering \todo{#1}}}}
 
-\newcommand{\pysatcopz}{PySATCoP\textsubscript{0}}
+\newcommand{\pysatcopz}{\cop{PySATCoP\textsubscript{0}}}
 
 \begin{document}
 \maketitle{}
@@ -150,10 +150,15 @@ It also provides declared statuses for these problems, which are a useful sanity
 
 The connections prover provides with \cop{pyCoP}, a simple prover that chooses the first legal non-backtrack action at each point and resets the tree with an increased maximum height saturated.
 
-As a second control policy we use our implementation of \cop{leanCoP}\cite{ottenLeanCoP20}, which runs the equivalent of a Prolog \textsc{cut} \texttt{!} after each extension and reduction so that the tableau prover does not spend time going through unpromising paths.
-These kinds of simple policies tend to be very effective in tableau provers\cite{Otten2023leanCoP20}.
+As a second control policy we use our implementation of \cop{leanCoP}\cite{ottenLeanCoP20}, \cop{pyLeanCoP}.
+This is a Python version of the \cop{leanCoP} Prolog implementation, with the two recommended predicates used in the first step of the schedule by Otten\cite[\S 5.5]{ottenLeanCoP20}.
+\begin{description}
+	\item[\texttt{cut}] Choose one choice from each extension and reduction and backtrack afterwards, in a similar way to to Prolog's \texttt{!} operator.
+	\item[\texttt{comp(7)}] The prover does iterative deepening of height 1 at a time when the tree is saturated until reaching maximum height 7.
+		Afterwards limits on height are restricted.
+\end{description}
 
-In order to equalise comparisons in areas such as problem parsing, we use the same base Python system that parses problems using classical calculus where we implement five strategies, with properties in \cref{cops_table}.
+These kinds of simple policies tend to be very effective in tableau provers\cite{Otten2023leanCoP20}.
 
 \begin{table}[h]
 	\centering
@@ -163,7 +168,7 @@ In order to equalise comparisons in areas such as problem parsing, we use the sa
 			Model & Explanation & \scriptsize Cut & \scriptsize UNSAT Proof & \scriptsize SAT Guidance & \scriptsize Reset on Backtrack \\
 		\midrule
 			PyCoP & Simple control policy & & & & \\
-			LeanCoP & Based on \cop{leanCoP}\cite{ottenLeanCoP20}. & \checkmark{} & & \\
+			PyLeanCoP & \cop{leanCoP} with initial set of predicates. & \checkmark{} & & \\
 		\addlinespace[1em]
 			\pysatcopz & Based on the initial implementation of \cop{SATCoP}\cite{eliminatingModels}. & \checkmark{} & \checkmark{} & & \\
 		\addlinespace[3pt]
@@ -216,7 +221,7 @@ This is mostly caused by the SAT solved reaching unsatisfiability in fewer time 
 		\caption{Problem solved, stacked by amount of steps. SAT models can solve a problem in 0 steps if the initial grounding produces is SAT-unsatisfiable.}
 		\label{strategy_solved_steps}
 	\end{subfigure}
-	\caption{Results of running the models on all problems solved in a 120 second and 1 million step limit.}
+	\caption{Results of running the models on all problems solved in a 120 second and 1 million step limit. \todo{Rename the cops to the newer names.}}
 \end{figure}
 
 The \num{1000000} step limit is rarely reached, and most unsolved problems hit the 120 second limit instead.
@@ -259,7 +264,7 @@ However, even more than \cop{SATCoP}, it's worse than previous models on problem
 
 \begin{figure}
 	\centering\includegraphics[width=.50\textwidth]{solved_heatmap}
-	\caption{Pairwise comparison of model results: the cell in (\cop{column}, \cop{row}) shows the amount of problems solved by the model on \cop{column}, but not the model in \cop{row}.}
+	\caption{Pairwise comparison of model results: the cell in column \cop{y} and row \cop{x} shows the amount of problems solved by the model on \cop{y}, but not the model in \cop{x}. For example, \cop{SATResetCoP} solved 1056 TPTP problems that \pysatcopz{} did not. \todo{Remake this figure with new names.}}
 	\label{solved_heatmap}
 \end{figure}
 
