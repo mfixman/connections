@@ -35,6 +35,7 @@
 	commentstyle=\itshape\color{black!55},
 	columns=fullflexible,
 	keepspaces=true,
+	tabsize=2,
 	showstringspaces=false,
 	backgroundcolor=\color{black!4},
 	frame=single,
@@ -47,6 +48,7 @@
 	framexrightmargin=0.4em,
 	framextopmargin=0.25em,
 	framexbottommargin=0.25em,
+	captionpos=b,
 	aboveskip=0.75\baselineskip,
 	belowskip=0.75\baselineskip,
 	morekeywords={while,if,else,return,continue,restart,step}
@@ -126,25 +128,35 @@ Successive experimentation resulted in a simple hypothesis: aggressively resetti
 However, instead of following \cop{leanCoP}'s tableau guidance strategy, it prioritises resetting the tableau often.
 The policy is sketched below; the ordering of forward actions follows the SAT-model literal selection idea of Rawson~and~Reger\cite[\S~9.1]{eliminatingModels}.
 
-\todo{Make this listing float-like and add a caption. Improve the pseudocode names. Clarify how entries are added to the SAT calculus, whether they are removed at reset, and how the tableau is built. Do not assume the reader knows what forward actions are.}
-\begin{lstlisting}
-while SAT.solve(GroundClauses) != UNSAT:
-    F := legal_actions(tableau)
+\todo{Check this.}
+\begin{lstlisting}[caption={Sketch of the \cop{SATResetCoP} control policy. Ground clauses are retained across resets; only the tableau is rebuilt.},label={lst:satresetcop}]
+def solve_tableau(start_clauses):
+	clauses := ground(start_clauses)
 
-    model_rank(lit) :=
-        0 if SAT_model_value(lit) = true
-        1 if SAT_model_value(lit) = unassigned
-        2 if SAT_model_value(lit) = false
+	max_depth := 1
+	tableau := empty_tableau(max_depth)
 
-    if F != empty:
-        a := argmin(a in F, model_rank(selected_literal(a)))
-        step(a)
-        continue
+	while solve_sat(clauses) != UNSAT:
+		Actions := legal_actions(tableau)  // may include Backtrack
 
-    if new_ground_clauses:
-        restart(depth)
-    else:
-        restart(depth + 1)
+		model_rank(lit) :=
+			0 if ground(lit) is true in SAT(clauses)
+			1 if ground(lit) is unassigned in SAT(clauses)
+			2 if ground(lit) is false in SAT(clauses)
+			3 if lit = Backtrack
+
+		a := argmin(a in Actions, model_rank(selected_literal_or_backtrack(a)))
+
+		if a != Backtrack:
+			step(a)
+			clauses.add(ground(tableau))
+			continue
+
+		if ground(tableau) adds a new clause:
+			tableau := empty_tableau(max_depth)
+		else:
+			tableau := empty_tableau(max_depth + 1)
+			max_depth := max_depth + 1
 \end{lstlisting}
 
 Just like \cop{PySATCoP}, this approach is sound.
@@ -295,7 +307,25 @@ A comparative result can be seen in \cref{solved_table}.
 \end{table}
 
 \cop{SATResetCoP} is specially strong in problems which can be solved by small unsat cores.
-However, even more than \cop{PySATCoP}, it's worse than previous models on problems which require a large amount of substitutions to produce the atoms of an unsatisfiable core.
+For example, \cref{diagram_syn052_1} shows the solution to the TPTP problem \cop{SYN052-1}, which is Pelletier Problem 22\cite{Pelletier86}.
+
+\begin{figure}[h]
+	\centering
+	\begin{equation*}
+		\large
+		\left( p \vee \neg F(X) \right) \wedge
+		\left( F(X) \vee \neg p \right) \wedge
+		\left( F(Y) \vee p \right) \wedge
+		\left( \neg p \vee \neg F(a) \right) \wedge
+		\left( F(Y) \vee \neg F(a) \right)
+	\end{equation*}
+	\caption{The unsatisfiability proof to the TPTP problem \cop{SYN052-1}\cite{Pelletier86} coming from three provers: \cop{PyLeanCoP}, \cop{PySATCoP}, and \cop{SATResetCoP}.}
+	\label{diagram_syn052_1}
+\end{figure}
+
+
+% However, even more than \cop{PySATCoP}, it's worse than previous models on problems which require a large amount of substitutions to produce the atoms of an unsatisfiable core.
+
 \Cref{solved_heatmap} shows the amount of problems solved one of the models that's not solved by another one.
 
 \todo{There is a lot of interesting data on size of unsat cores and TPTP categories. Investigate further.}
