@@ -1,0 +1,51 @@
+\begin{tikzpicture}[
+  attempt/.style = {
+    every node/.style = {
+      draw,
+      rounded corners=1pt,
+      inner xsep=3pt,
+      inner ysep=2pt,
+      font=\scriptsize
+    },
+    level distance=8mm,
+    sibling distance=22mm,
+    level 2/.style={sibling distance=16mm},
+    edge from parent/.style={draw, -}
+  },
+  start/.style={},
+  core/.style={fill=black!6},
+  bt/.style={edge from parent/.style={draw, dash pattern=on 2pt off 1pt on .5pt off 1pt}},
+  label/.style={draw=none, font=\scriptsize\itshape}
+]
+\useasboundingbox (-32mm,-40mm) rectangle (158mm,8mm);
+
+\begin{scope}[attempt]
+  \node[start, core] {$\neg F(g) \vee p$}
+    child[bt] { node {$F(x_1) \vee \neg p$} };
+\end{scope}
+
+\begin{scope}[xshift=54mm, attempt,
+  level 1/.style={sibling distance=28mm},
+  level 2/.style={sibling distance=18mm}
+]
+  \node[start, core] {$F(g) \vee p$}
+    child { node[core] {$\neg p \vee \neg F(a)$} }
+    child { node {$F(x_2) \vee \neg p$} }
+    child { node {$\neg p \vee \neg F(a)$}
+      child { node[core] {$\neg p \vee F(a)$} }
+    };
+\end{scope}
+
+\begin{scope}[xshift=112mm, attempt,
+  level 1/.style={sibling distance=24mm},
+  level 2/.style={sibling distance=16mm}
+]
+  \node[start] {$\neg p \vee \neg F(a)$}
+    child { node {$p \vee F(y_1)$}
+      child { node {$\neg F(a) \vee \neg p$} }
+    };
+\end{scope}
+
+\node[label, align=center] at (63mm,-35mm)
+  {UNSAT core:\\$\{\neg F(g) \vee p,\ F(g) \vee p,\ \neg p \vee \neg F(a),\ \neg p \vee F(a)\}$};
+\end{tikzpicture}

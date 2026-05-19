@@ -1,0 +1,57 @@
+\begin{tikzpicture}[
+  attempt/.style = {
+    every node/.style = {
+      draw,
+      rounded corners=1pt,
+      inner xsep=3pt,
+      inner ysep=2pt,
+      font=\scriptsize
+    },
+    level distance=8mm,
+    sibling distance=22mm,
+    edge from parent/.style={draw, -}
+  },
+  start/.style={},
+  core/.style={fill=black!6},
+  bt/.style={edge from parent/.style={draw, dash pattern=on 2pt off 1pt on .5pt off 1pt}},
+  label/.style={draw=none, font=\scriptsize\itshape}
+]
+\useasboundingbox (-37mm,-50mm) rectangle (153mm,8mm);
+
+\begin{scope}[attempt]
+  \node[start] {$\neg F(x_0) \vee p$}
+    child[bt] { node {$F(x_1) \vee \neg p$} }
+    child[bt] { node {$p \vee F(y_0)$} }
+    child[bt] { node {$F(y_1) \vee \neg F(a)$} };
+\end{scope}
+
+\begin{scope}[xshift=58mm, attempt]
+  \node[start, core] {$p \vee F(g)$}
+    child[bt] { node {$\neg p \vee F(x_2)$} }
+    child[bt] { node[core] {$\neg F(a) \vee \neg p$} };
+\end{scope}
+
+\begin{scope}[xshift=116mm, attempt]
+  \node[start] {$\neg F(a) \vee \neg p$}
+    child[bt] { node {$p \vee F(y_3)$} }
+    child[bt] { node {$F(y_4) \vee \neg F(a)$} }
+    child[bt] { node[core] {$\neg p \vee F(a)$} };
+\end{scope}
+
+\begin{scope}[xshift=19mm, yshift=-22mm, attempt]
+  \node[start] {$F(x_3) \vee \neg p$}
+    child[bt] { node[core] {$\neg F(g) \vee p$} }
+    child[bt] { node {$\neg F(a) \vee \neg p$} }
+    child[bt] { node {$\neg F(a) \vee F(y_5)$} };
+\end{scope}
+
+\begin{scope}[xshift=97mm, yshift=-22mm, attempt]
+  \node[start] {$\neg F(a) \vee F(y_6)$}
+    child[bt] { node {$F(y_7) \vee p$} }
+    child[bt] { node {$\neg p \vee F(x_4)$} }
+    child[bt] { node {$F(y_8) \vee \neg F(a)$} };
+\end{scope}
+
+\node[label, align=center] at (58mm,-45mm)
+  {UNSAT core:\\$\{p \vee F(g),\ \neg F(a) \vee \neg p,\ \neg p \vee F(a),\ \neg F(g) \vee p\}$};
+\end{tikzpicture}

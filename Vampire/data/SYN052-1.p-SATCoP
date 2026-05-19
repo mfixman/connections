@@ -1,0 +1,35 @@
+Start st1: [-big_f(X2), p]
+Extension ex0: -big_f(X2) -> [big_f(X6), -p] [cut]
+Backtrack
+Extension ex1: -big_f(X2) -> [p, big_f(Y10)] [cut]
+Backtrack
+Extension ex2: -big_f(X2) -> [big_f(Y14), -big_f(a)] [cut]
+Backtrack
+Start st0: [p, big_f(Y18)]
+Extension ex0: p -> [-p, big_f(X23)] [cut]
+Backtrack
+Extension ex1: p -> [-big_f(a), -p] [cut]
+Backtrack
+Start st3: [-big_f(a), -p]
+Extension ex1: -big_f(a) -> [p, big_f(Y35)] [cut]
+Backtrack
+Extension ex2: -big_f(a) -> [big_f(Y39), -big_f(a)] [cut]
+Backtrack
+Extension ex0: -big_f(a) -> [-p, big_f(X40)] [cut]
+Backtrack
+Start st2: [big_f(X48), -p]
+Extension ex0: big_f(X48) -> [-big_f(X51), p] [cut]
+Backtrack
+Extension ex1: big_f(X48) -> [-big_f(a), -p] [cut]
+Backtrack
+Extension ex2: big_f(X48) -> [-big_f(a), big_f(Y59)] [cut]
+Backtrack
+Start st4: [-big_f(a), big_f(Y67)]
+Extension ex1: -big_f(a) -> [big_f(Y69), p] [cut]
+Backtrack
+Extension ex0: -big_f(a) -> [-p, big_f(X71)] [cut]
+Backtrack
+Extension ex2: -big_f(a) -> [big_f(Y76), -big_f(a)] [cut]
+Backtrack
+Reset 1
+{'info': 'Theorem (SAT); (-p, -big_f(a)); (-p, big_f(a)); (-big_f(__ground__), p); (big_f(__ground__), p)', 'steps': 34}

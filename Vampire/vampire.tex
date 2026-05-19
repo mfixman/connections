@@ -6,9 +6,10 @@
 \usepackage{siunitx}
 \usepackage{booktabs}
 \usepackage{tabularx}
-\usepackage{subcaption}
 \usepackage{amssymb}
+\usepackage{tikz}
 \usepackage{listings}
+\usepackage{subcaption}
 \usepackage[font=footnotesize]{caption}
 \usepackage[noabbrev,nameinlink,capitalize,poorman]{cleveref}
 
@@ -309,16 +310,38 @@ A comparative result can be seen in \cref{solved_table}.
 \cop{SATResetCoP} is specially strong in problems which can be solved by small unsat cores.
 For example, \cref{diagram_syn052_1} shows the solution to the TPTP problem \cop{SYN052-1}, which is Pelletier Problem 22\cite{Pelletier86}.
 
-\begin{figure}[h]
+\begin{figure}[p]
+	\newcommand{\diagrambox}[1]{\resizebox{\linewidth}{!}{\fbox{\input{#1}}}}
 	\centering
-	\begin{equation*}
-		\large
-		\left( p \vee \neg F(X) \right) \wedge
-		\left( F(X) \vee \neg p \right) \wedge
-		\left( F(Y) \vee p \right) \wedge
-		\left( \neg p \vee \neg F(a) \right) \wedge
-		\left( F(Y) \vee \neg F(a) \right)
-	\end{equation*}
+	\begin{subfigure}{\linewidth}
+		\small
+		\begin{gather*}
+			p \vee \neg F(X) \qquad
+			F(X) \vee \neg p \\
+			F(Y) \vee p \qquad
+			\neg p \vee \neg F(a) \qquad
+			F(Y) \vee \neg F(a)
+		\end{gather*}
+		\caption{Problem \cop{SYN052-1.p}\cite{Pelletier86}, adapted from \url{https://tptp.org/TPTP/Problems/SYN/SYN052-1.p}.}
+	\end{subfigure} \vfill{}
+	\begin{subfigure}{\linewidth}
+		\centering
+		\tiny
+		\diagrambox{diagrams/syn052_leancop.tikz}
+		\caption{Solution found by \cop{PyLeanCoP} in 43 steps.}
+	\end{subfigure} \vfill{}
+	\begin{subfigure}{\linewidth}
+		\centering
+		\tiny
+		\diagrambox{diagrams/syn052_satcop.tikz}
+		\caption{Solution found by \cop{SATCoP} in 34 steps.}
+	\end{subfigure} \vfill{}
+	\begin{subfigure}{\linewidth}
+		\centering
+		\tiny
+		\diagrambox{diagrams/syn052_satresetcop.tikz}
+		\caption{Solution found by \cop{SATResetCoP} in 11 steps.}
+	\end{subfigure}
 	\caption{The unsatisfiability proof to the TPTP problem \cop{SYN052-1}\cite{Pelletier86} coming from three provers: \cop{PyLeanCoP}, \cop{PySATCoP}, and \cop{SATResetCoP}.}
 	\label{diagram_syn052_1}
 \end{figure}

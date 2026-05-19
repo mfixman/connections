@@ -1,0 +1,12 @@
+Start st1: [-big_f(X2), p]
+Extension ex0: -big_f(X2) -> [big_f(X6), -p] [cut]
+Reset 2
+Start st0: [big_f(Y9), p]
+Extension ex1: big_f(Y9) -> [-p, -big_f(a)] [cut]
+Extension ex1: p -> [-p, -big_f(a)] [cut]
+Extension ex0: -big_f(a) -> [big_f(X19), -p] [cut]
+Start st3: [-p, -big_f(a)]
+Extension ex1: -big_f(a) -> [p, big_f(Y23)] [cut]
+Extension ex1: p -> [-big_f(a), -p] [cut]
+Reset 2
+{'info': 'Theorem (SAT); (-p, -big_f(a)); (-p, big_f(a)); (-big_f(__ground__), p); (big_f(__ground__), p)', 'steps': 11}

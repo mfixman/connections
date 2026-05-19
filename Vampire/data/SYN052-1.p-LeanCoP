@@ -1,0 +1,55 @@
+Start st0: [big_f(Y1), p]
+Extension ex0: big_f(Y1) -> [p, -big_f(X6)] [cut]
+Backtrack
+Extension ex1: big_f(Y1) -> [-p, -big_f(a)] [cut]
+Backtrack
+Extension ex2: big_f(Y1) -> [big_f(Y14), -big_f(a)] [cut]
+Backtrack
+Start st1: [p, -big_f(X19)]
+Extension ex0: p -> [big_f(X23), -p] [cut]
+Backtrack
+Extension ex1: p -> [-p, -big_f(a)] [cut]
+Backtrack
+Start st2: [big_f(X31), -p]
+Extension ex0: big_f(X31) -> [p, -big_f(X34)] [cut]
+Backtrack
+Extension ex1: big_f(X31) -> [-p, -big_f(a)] [cut]
+Backtrack
+Extension ex2: big_f(X31) -> [big_f(Y42), -big_f(a)] [cut]
+Backtrack
+Start st3: [-p, -big_f(a)]
+Extension ex0: -p -> [p, -big_f(X51)] [cut]
+Backtrack
+Extension ex1: -p -> [big_f(Y54), p] [cut]
+Backtrack
+Start st4: [big_f(Y61), -big_f(a)]
+Extension ex0: big_f(Y61) -> [p, -big_f(X62)] [cut]
+Backtrack
+Extension ex1: big_f(Y61) -> [-p, -big_f(a)] [cut]
+Backtrack
+Extension ex2: big_f(Y61) -> [big_f(Y70), -big_f(a)] [cut]
+Backtrack
+Reset 2
+Start st0: [big_f(Y79), p]
+Extension ex0: big_f(Y79) -> [p, -big_f(X84)] [cut]
+Extension ex0: p -> [big_f(X87), -p] [cut]
+Backtrack
+Extension ex1: p -> [-p, -big_f(a)] [cut]
+Reduction re0: -big_f(a) <- big_f(Y79) [cut]
+Extension ex0: p -> [big_f(X91), -p] [cut]
+Extension ex0: big_f(X91) -> [p, -big_f(X93)] [cut]
+Backtrack
+Extension ex1: big_f(X91) -> [-p, -big_f(a)] [cut]
+Reduction re0: -p <- p [cut]
+{'steps': 43}
+Theorem
+└── big_f(Y79)
+    └── -big_f(X84)
+    └── p
+        └── -p
+        └── -big_f(a)
+└── p
+    └── -p
+    └── big_f(X91)
+        └── -big_f(a)
+        └── -p
