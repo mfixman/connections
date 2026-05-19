@@ -1,0 +1,45 @@
+Start st0: [big_f(f(X1)), big_f(X1)]
+Extension ex0: big_f(f(X1)) -> [-big_f(X4), -big_f(f(X4))] [cut]
+Backtrack
+Extension ex1: big_f(f(X1)) -> [-big_f(X8), -big_f(f(X8))] [cut]
+Backtrack
+Extension ex2: big_f(f(X1)) -> [-big_f(X12), big_f(f(X12))] [cut]
+Backtrack
+Start st1: [-big_f(X17), -big_f(f(X17))]
+Extension ex0: -big_f(X17) -> [big_f(f(X19)), big_f(X19)] [cut]
+Backtrack
+Extension ex1: -big_f(X17) -> [big_f(f(X23)), big_f(X23)] [cut]
+Backtrack
+Extension ex2: -big_f(X17) -> [-big_f(X27), big_f(f(X27))] [cut]
+Backtrack
+Start st2: [-big_f(X33), big_f(f(X33))]
+Extension ex0: -big_f(X33) -> [big_f(f(X34)), big_f(X34)] [cut]
+Backtrack
+Extension ex1: -big_f(X33) -> [big_f(f(X38)), big_f(X38)] [cut]
+Backtrack
+Extension ex2: -big_f(X33) -> [-big_f(X42), big_f(f(X42))] [cut]
+Backtrack
+Reset 2
+Start st0: [big_f(f(X49)), big_f(X49)]
+Extension ex0: big_f(f(X49)) -> [-big_f(X52), -big_f(f(X52))] [cut]
+Extension ex0: -big_f(f(X52)) -> [big_f(f(X55)), big_f(X55)] [cut]
+Backtrack
+Extension ex1: -big_f(f(X52)) -> [big_f(f(X59)), big_f(X59)] [cut]
+Backtrack
+Extension ex2: -big_f(f(X52)) -> [-big_f(X63), big_f(f(X63))] [cut]
+Reduction re0: -big_f(X63) <- big_f(f(X49)) [cut]
+Extension ex0: big_f(X49) -> [-big_f(X64), -big_f(f(X64))] [cut]
+Extension ex2: -big_f(f(X64)) -> [-big_f(X69), big_f(f(X69))] [cut]
+Reduction re0: -big_f(X69) <- big_f(X49) [cut]
+{'steps': 33}
+Theorem
+└── big_f(f(X49))
+    └── -big_f(X52)
+    └── -big_f(f(X52))
+        └── big_f(f(X63))
+        └── -big_f(X63)
+└── big_f(X49)
+    └── -big_f(X64)
+    └── -big_f(f(X64))
+        └── big_f(f(X69))
+        └── -big_f(X69)

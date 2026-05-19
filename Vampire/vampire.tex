@@ -346,6 +346,39 @@ For example, \cref{diagram_syn052_1} shows the solution to the TPTP problem \cop
 	\label{diagram_syn052_1}
 \end{figure}
 
+\begin{figure}[p]
+	\newcommand{\diagrambox}[1]{\resizebox{\linewidth}{!}{\fbox{\input{#1}}}}
+	\centering
+	\begin{subfigure}{\linewidth}
+		\footnotesize
+		\begin{gather*}
+			\neg F(X) \vee \neg F(f(x)) \qquad F(f(X)) \vee F(x) \\
+			\neg F(X) \vee F(f(X))
+		\end{gather*}
+		\caption{Problem \cop{SYN081-1.p}\cite{Pelletier86}, adapted from \url{https://tptp.org/TPTP/Problems/SYN/SYN081-1.p}.}
+	\end{subfigure} \vfill{}
+	\begin{subfigure}{\linewidth}
+		\centering
+		\tiny
+		\diagrambox{diagrams/syn081_leancop.tikz}
+		\caption{Solution found by \cop{PyLeanCoP} in 43 steps.}
+	\end{subfigure} \vfill{}
+	\begin{subfigure}{\linewidth}
+		\centering
+		\tiny
+		\diagrambox{diagrams/syn081_satcop.tikz}
+		\caption{Solution found by \cop{SATCoP} in 34 steps.}
+	\end{subfigure} \vfill{}
+	\begin{subfigure}{\linewidth}
+		\centering
+		\tiny
+		\diagrambox{diagrams/syn081_satresetcop.tikz}
+		\caption{Solution found by \cop{SATResetCoP} in 11 steps.}
+	\end{subfigure}
+	\caption{The unsatisfiability proof to the TPTP problem \cop{SYN081-1}\cite{Pelletier86} coming from three provers: \cop{PyLeanCoP}, \cop{PySATCoP}, and \cop{SATResetCoP}.}
+	\label{diagram_syn081_1}
+\end{figure}
+
 
 % However, even more than \cop{PySATCoP}, it's worse than previous models on problems which require a large amount of substitutions to produce the atoms of an unsatisfiable core.
 

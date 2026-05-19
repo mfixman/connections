@@ -1,0 +1,6 @@
+Start st2: [-big_f(X3), big_f(f(X3))]
+Extension ex2: -big_f(X3) -> [big_f(f(X6)), -big_f(X6)] [cut]
+Reset 2
+Start st1: [-big_f(X8), -big_f(f(X8))]
+Extension ex0: -big_f(X8) -> [big_f(f(X10)), big_f(X10)] [cut]
+{'info': 'Theorem (SAT); (-big_f(f(__ground__)), -big_f(f(f(__ground__)))); (-big_f(f(__ground__)), big_f(f(f(__ground__)))); (big_f(f(__ground__)), -big_f(__ground__)); (big_f(f(__ground__)), big_f(__ground__))', 'steps': 5}

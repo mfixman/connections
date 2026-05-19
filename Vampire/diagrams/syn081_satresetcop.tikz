@@ -1,0 +1,34 @@
+\begin{tikzpicture}[
+  attempt/.style = {
+    every node/.style = {
+      draw,
+      rounded corners=1pt,
+      inner xsep=3pt,
+      inner ysep=2pt,
+      font=\scriptsize
+    },
+    level distance=8mm,
+    sibling distance=18mm,
+    level 2/.style={sibling distance=14mm},
+    edge from parent/.style={draw, -}
+  },
+  start/.style={},
+  core/.style={fill=black!6},
+  bt/.style={draw, dash pattern=on 2pt off 1pt on .5pt off 1pt},
+  label/.style={draw=none, font=\scriptsize\itshape}
+]
+\useasboundingbox (-48mm,-38mm) rectangle (164mm,8mm);
+
+\begin{scope}[xshift=24mm, attempt]
+  \node[start, core] {$\neg F(f(g)) \vee F(f(f(g)))$}
+    child { node[core] {$F(f(g)) \vee \neg F(g)$} };
+\end{scope}
+
+\begin{scope}[xshift=100mm, attempt]
+  \node[start, core] {$\neg F(f(g)) \vee \neg F(f(f(g)))$}
+    child { node[core] {$F(f(g)) \vee F(g)$} };
+\end{scope}
+
+\node[label, align=center] at (63mm,-31mm)
+  {UNSAT core:\\$\{\neg F(f(g)) \vee F(f(f(g))),\ F(f(g)) \vee \neg F(g),\ \neg F(f(g)) \vee \neg F(f(f(g))),\ F(f(g)) \vee F(g)\}$};
+\end{tikzpicture}

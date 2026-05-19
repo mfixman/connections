@@ -1,0 +1,25 @@
+Start st2: [-big_f(X3), big_f(f(X3))]
+Extension ex2: -big_f(X3) -> [big_f(f(X6)), -big_f(X6)] [cut]
+Backtrack
+Extension ex1: -big_f(X3) -> [big_f(f(X8)), big_f(X8)] [cut]
+Backtrack
+Extension ex0: -big_f(X3) -> [big_f(f(X10)), big_f(X10)] [cut]
+Backtrack
+Start st0: [big_f(X16), big_f(f(X16))]
+Extension ex2: big_f(X16) -> [-big_f(X21), big_f(f(X21))] [cut]
+Backtrack
+Extension ex1: big_f(X16) -> [-big_f(f(X23)), -big_f(X23)] [cut]
+Backtrack
+Extension ex0: big_f(X16) -> [-big_f(X25), -big_f(f(X25))] [cut]
+Backtrack
+Start st1: [-big_f(f(X32)), -big_f(X32)]
+Extension ex2: -big_f(f(X32)) -> [big_f(f(X36)), -big_f(X36)] [cut]
+Backtrack
+Extension ex0: -big_f(f(X32)) -> [big_f(X37), big_f(f(X37))] [cut]
+Backtrack
+Extension ex1: -big_f(f(X32)) -> [big_f(X41), big_f(f(X41))] [cut]
+Backtrack
+Reset 2
+Start st0: [big_f(f(X49)), big_f(X49)]
+Extension ex0: big_f(f(X49)) -> [-big_f(f(X52)), -big_f(X52)] [cut]
+{'info': 'Theorem (SAT); (-big_f(f(__ground__)), -big_f(f(f(__ground__)))); (-big_f(f(__ground__)), big_f(f(f(__ground__)))); (big_f(f(__ground__)), -big_f(__ground__)); (big_f(f(__ground__)), big_f(__ground__))', 'steps': 24}
