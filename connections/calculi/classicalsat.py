@@ -391,12 +391,16 @@ class SATConnectionState:
                     self.goal.pending_cut = True
                 if not getattr(action, 'skip_tableau_clause_recording', False):
                     self._record_tableau_clauses()
+                    if self.paper_mode and self._sync_shadow_and_accept():
+                        return
 
             case Reduction(cut = cut):
                 self.goal.proven = True
                 if cut:
                     self.goal.cut_committed = True
                 self._record_tableau_clauses()
+                if self.paper_mode and self._sync_shadow_and_accept():
+                    return
 
         self.theorem_or_next()
 
@@ -440,12 +444,16 @@ class SATConnectionState:
             return
 
     def _finish_iteration(self) -> None:
+        self._sync_shadow_and_accept()
+
+    def _sync_shadow_and_accept(self) -> bool:
         self._flush_new_ground_clauses()
         self._solve_ground_clauses()
         done, info = self.initial_status()
         if done:
             self.info = info
             self.is_terminal = True
+        return done
 
     def _solve_ground_clauses(self) -> None:
         if not self.shadow.ground_clauses:

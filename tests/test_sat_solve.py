@@ -151,6 +151,42 @@ def test_sat_solve_handles_empty_start_clause_via_sat(tmp_path):
     assert env.state.info.startswith('Theorem (SAT)')
 
 @pytest.mark.skipif(pydical is None, reason = 'pydical is not installed')
+@pytest.mark.parametrize('strategy_name', ['SATCoP', 'SATResetCoP'])
+def test_sat_strategies_stop_when_recorded_clause_makes_shadow_unsat(tmp_path, strategy_name):
+    problem = tmp_path / 'SYN052-1.p'
+    problem.write_text(
+        '\n'.join([
+            'cnf(c1,negated_conjecture,( p | ~ big_f(X) )).',
+            'cnf(c2,negated_conjecture,( big_f(X) | ~ p )).',
+            'cnf(c3,negated_conjecture,( big_f(Y) | p )).',
+            'cnf(c4,negated_conjecture,( ~ p | ~ big_f(a) )).',
+            'cnf(c5,negated_conjecture,( big_f(Y) | ~ big_f(a) )).',
+        ]),
+        encoding = 'utf-8',
+    )
+
+    env = ConnectionEnv(
+        str(problem),
+        Settings(logic = 'ClassicalSAT', debug = True),
+    )
+    strategy = Strategy.strategies()[strategy_name](env)
+    env.reset()
+
+    done, info = env.state.initial_status()
+    actions = []
+    for _ in range(50):
+        if done:
+            break
+        action = strategy.step()
+        actions.append(action)
+        _, _, done, info = env.step(action)
+
+    assert done is True
+    assert isinstance(info, str)
+    assert info.startswith('Theorem (SAT)')
+    assert isinstance(actions[-1], Extension)
+
+@pytest.mark.skipif(pydical is None, reason = 'pydical is not installed')
 @pytest.mark.skipif(os.getenv('TPTP') is None, reason = 'TPTP is not set')
 def test_sat_solve_rejects_typed_tptp_syn000_3():
     path = resolve_problem_path('SYN000-3.p')
