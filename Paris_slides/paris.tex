@@ -38,13 +38,13 @@
     \endgroup
 }
 
-\newcommand{\foottextcite}[1]{\citeauthor{#1}\plainfootnotetext{\fullcite{#1}}}
+\newcommand{\foottextcite}[1]{(\citeauthor{#1}~\citeyear{#1})\plainfootnotetext{\fullcite{#1}}}
 \newcommand{\cop}[1]{\textsf{#1}}
 \newcommand{\diagrambox}[2][50pt]{\fbox{\begin{minipage}[c][#1][c]{\linewidth}\resizebox{\linewidth}{!}{\input{#2}}\end{minipage}}}
 
 \begin{document}
 \begin{frame}{Previous Work}
-    \cop{SATCoP} improves over \cop{LeanCoP} by using a SAT solver as unsat proof.
+    \cop{SATCoP}~\foottextcite{eliminatingModels} improves over \cop{LeanCoP} by using a SAT solver as unsat proof.
 
     \scriptsize
     % Example problem: \cop{SYN052-1.p}
@@ -56,6 +56,8 @@
         \neg p \vee \neg F(a) \qquad
         F(Y) \vee \neg F(a)
     \end{gather*}\vspace{-1em}
+
+    \small
     \begin{columns}[T]
         \column{.5\textwidth}
         \diagrambox[80pt]{diagrams/syn052_leancop.tikz} \\[1em]
@@ -66,4 +68,23 @@
         \cop{SATCoP}: unsat proof in \textbf{17 steps} by saturating the SAT core.
     \end{columns}
 \end{frame}
+
+\begin{frame}{SATResetCoP}
+    Backtracking dominates proof search in connection tableau~\foottextcite{farberCuriouslyEffectiveBacktracking2024} \\[1ex]
+    What if we run \cop{Reset} every time instead of \cop{Backtrack} to saturate the UNSAT core faster?
+
+    \vfill{}
+
+    \small
+    \begin{columns}[T]
+        \column{.5\textwidth}
+        \diagrambox[80pt]{diagrams/syn052_satcop.tikz} \\[1em]
+        \cop{SATCoP}: unsat proof in \textbf{17~steps} by saturating the SAT core.
+        \column{.5\textwidth}
+        \diagrambox[80pt]{diagrams/syn052_satresetcop.tikz} \\[1em]
+        \cop{SATResetCoP}: unsat proof in \textbf{6~steps} by saturating the SAT core.
+
+    \end{columns}
+\end{frame}
+
 \end{document}

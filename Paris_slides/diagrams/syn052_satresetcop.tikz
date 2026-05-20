@@ -5,9 +5,9 @@
       rounded corners=1pt,
       inner xsep=3pt,
       inner ysep=2pt,
-      font=\large
+      font=\Large
     },
-    level distance=8mm,
+    level distance=11mm,
     sibling distance=30mm,
     level 2/.style={sibling distance=22mm},
     edge from parent/.style={draw, -}
@@ -15,9 +15,9 @@
   start/.style={},
   core/.style={fill=black!6},
   bt/.style={draw, -},
-  label/.style={draw=none, font=\large\itshape}
+  label/.style={draw=none, font=\Large\itshape}
 ]
-\useasboundingbox (-12mm,-36mm) rectangle (147mm,8mm);
+\useasboundingbox (-12mm,-43mm) rectangle (147mm,8mm);
 
 \begin{scope}[xshift=30mm, attempt]
   \node[start, core] {$\neg F(g) \vee p$}
@@ -33,6 +33,6 @@
     };
 \end{scope}
 
-\node[label, align=center] at (67.5mm,-31mm)
+\node[label, align=center] at (67.5mm, -54mm)
   {UNSAT core:\\$\{\neg F(g) \vee p,\ F(g) \vee p,\ \neg p \vee \neg F(a),\ F(a) \vee \neg p\}$};
 \end{tikzpicture}
