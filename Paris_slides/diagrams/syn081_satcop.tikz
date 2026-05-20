@@ -1,0 +1,51 @@
+\begin{tikzpicture}[
+  attempt/.style = {
+    every node/.style = {
+      draw,
+      rounded corners=1pt,
+      inner xsep=3pt,
+      inner ysep=2pt,
+      font=\scriptsize,
+      align=center
+    },
+    level distance=8mm,
+    sibling distance=34mm,
+    level 2/.style={sibling distance=24mm},
+    edge from parent/.style={draw, -}
+  },
+  start/.style={},
+  core/.style={fill=black!6},
+  bt/.style={draw, dash pattern=on 2pt off 1pt on .5pt off 1pt},
+  label/.style={draw=none, font=\scriptsize\itshape}
+]
+\useasboundingbox (-48mm,-68mm) rectangle (164mm,8mm);
+
+\begin{scope}[xshift=0mm, attempt]
+  \node[start, core] {$\neg F(f(g)) \vee F(f(f(g)))$}
+    child { node[core] {$F(f(g)) \vee \neg F(g)$} edge from parent[bt] }
+    child { node {$F(f(x_0)) \vee F(x_0)$} edge from parent[bt] }
+    child { node {$F(f(x_1)) \vee F(x_1)$} edge from parent[bt] };
+\end{scope}
+
+\begin{scope}[xshift=106mm, attempt]
+  \node[start] {$F(x_2) \vee F(f(x_2))$}
+    child { node {$\neg F(x_3) \vee F(f(x_3))$} edge from parent[bt] }
+    child { node {$\neg F(f(x_4)) \vee \neg F(x_4)$} edge from parent[bt] }
+    child { node {$\neg F(x_5) \vee \neg F(f(x_5))$} edge from parent[bt] };
+\end{scope}
+
+\begin{scope}[xshift=0mm, yshift=-32mm, attempt]
+  \node[start] {$\neg F(f(x_6)) \vee \neg F(x_6)$}
+    child { node {$F(f(x_7)) \vee \neg F(x_7)$} edge from parent[bt] }
+    child { node {$F(x_8) \vee F(f(x_8))$} edge from parent[bt] }
+    child { node {$F(x_9) \vee F(f(x_9))$} edge from parent[bt] };
+\end{scope}
+
+\begin{scope}[xshift=106mm, yshift=-32mm, attempt]
+  \node[start, core] {$F(f(g)) \vee F(g)$}
+    child { node[core] {$\neg F(f(g)) \vee \neg F(f(f(g)))$} };
+\end{scope}
+
+\node[label, align=center] at (58mm,-61mm)
+  {UNSAT core:\\$\{\neg F(f(g)) \vee F(f(f(g))),\ F(f(g)) \vee \neg F(g),\ F(f(g)) \vee F(g),\ \neg F(f(g)) \vee \neg F(f(f(g)))\}$};
+\end{tikzpicture}

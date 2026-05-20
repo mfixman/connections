@@ -1,0 +1,38 @@
+\begin{tikzpicture}[
+  attempt/.style = {
+    every node/.style = {
+      draw,
+      rounded corners=1pt,
+      inner xsep=3pt,
+      inner ysep=2pt,
+      font=\large
+    },
+    level distance=8mm,
+    sibling distance=30mm,
+    level 2/.style={sibling distance=22mm},
+    edge from parent/.style={draw, -}
+  },
+  start/.style={},
+  core/.style={fill=black!6},
+  bt/.style={draw, -},
+  label/.style={draw=none, font=\large\itshape}
+]
+\useasboundingbox (-12mm,-36mm) rectangle (147mm,8mm);
+
+\begin{scope}[xshift=30mm, attempt]
+  \node[start, core] {$\neg F(g) \vee p$}
+    child { node {$F(x_0) \vee \neg p$}
+      child { node {$F(x_1) \vee \neg p$} }
+    };
+\end{scope}
+
+\begin{scope}[xshift=105mm, attempt]
+  \node[start, core] {$p \vee \neg F(g)$}
+    child { node[core] {$\neg p \vee \neg F(a)$}
+      child { node[core] {$F(a) \vee \neg p$} }
+    };
+\end{scope}
+
+\node[label, align=center] at (67.5mm,-31mm)
+  {UNSAT core:\\$\{\neg F(g) \vee p,\ F(g) \vee p,\ \neg p \vee \neg F(a),\ F(a) \vee \neg p\}$};
+\end{tikzpicture}
