@@ -13,7 +13,7 @@
 \usepackage[font=footnotesize]{caption}
 \usepackage[noabbrev,nameinlink,capitalize,poorman]{cleveref}
 
-\title{SAT Resetmaxxing for Fun and Profit \\ \small (Final Title TBD)}
+\title{Reset Early, Reset Often, Saturate the SAT Core}
 \author{Martin S.\ Fixman\inst{1} \and Fredrik Rømming\inst{2} \and Sean B.\ Holden\inst{3}}
 
 \institute{
@@ -22,7 +22,7 @@
 	{}\inst{1}\email{msf43@cl.cam.ac.uk} \qquad\quad {}\inst{2}\email{fr409@cl.cam.ac.uk} \qquad\quad {}\inst{3}\email{sbh11@cl.cam.ac.uk}
 }
 
-\titlerunning{SAT Resetmaxxing for Fun and Profit {\tiny (I'll change the title I promise)}}
+\titlerunning{Reset Early, Reset Often, Saturate the SAT Core}
 \authorrunning{Fixman, Rømming, Holden}
 
 \bibliographystyle{plain}
@@ -69,7 +69,8 @@
 \begin{abstract}
 	We improve \cop{PySATCoP} performance by resetting the connection tableau often.
 	This causes more and more varied SAT statements to be added to the SAT prover, which causes it to saturate faster.
-	The resulting prover solves problems faster and in fewer steps than \cop{PySATCoP} and the current state-of-the-art tableau provers.
+	The resulting prover solves problems faster and in significantly fewer steps than \cop{SATCoP} and other state-of-the-art tableau provers.
+	\todo{Add actual numbers here.}
 \end{abstract}
 
 \begin{footnotesize}
@@ -129,8 +130,7 @@ Successive experimentation resulted in a simple hypothesis: aggressively resetti
 However, instead of following \cop{leanCoP}'s tableau guidance strategy, it prioritises resetting the tableau often.
 The policy is sketched below; the ordering of forward actions follows the SAT-model literal selection idea of Rawson~and~Reger\cite[\S~9.1]{eliminatingModels}.
 
-\todo{Check this.}
-\begin{lstlisting}[caption={Sketch of the \cop{SATResetCoP} control policy. Ground clauses are retained across resets; only the tableau is rebuilt.},label={lst:satresetcop}]
+\begin{lstlisting}[caption={Sketch of the \cop{SATResetCoP} control policy.},label={lst:satresetcop}]
 def solve_tableau(start_clauses):
 	clauses := ground(start_clauses)
 
@@ -164,7 +164,7 @@ Just like \cop{PySATCoP}, this approach is sound.
 While it is less complete than \cop{PySATCoP} and other \cop{leanCoP} variants, the speed at which it proves unsatisfiability of first-order problems can result in a larger amount of problems solved in a bounded amount of time or steps.
 It might be useful to incorporate \cop{SATResetCoP} into the initial steps of a more complete schedule.
 
-\subsection{Other things I should add}
+\subsection{Implementation Details}
 
 The grounded clauses used by \cop{PySATCoP} and \cop{SATResetCoP} come from the clauses currently present in the tableau, after applying the tableau substitution accumulated so far.
 Ground terms are kept as they are; only tableau variables that remain unassigned need to be replaced by a ground term.
@@ -173,7 +173,6 @@ As explained in \cref{satcop}, Rawson~and~Reger follow the technique by Schulz\c
 \cop{SATResetCoP} always uses this fallback-style choice, mapping every remaining tableau variable to the same fresh artificial constant.
 This gives a grounding scheme that is simpler than \cop{SATCoP}, while keeping the proof sound: the SAT solver still only receives ground instances of clauses already present in the tableau.
 
-\todo{Explain how I choose statements.}
 \todo{Randomisation of statements.}
 
 \subsection{Python Implementation}
@@ -233,13 +232,13 @@ These kinds of simple policies tend to be very effective in tableau provers\cite
 \end{table}
 
 The TPTP library contains \num{8344} CNF problems and \num{9091} FOF problems separated in 50 categories\cite{tptp}.
-Each problem/model pair is run for a maximum of 120 seconds and 1 million steps, on a single core of the University of Cambridge CSD3 Cluster with \todo{add CPU information} and 3370 MiB RAM per core\cite{cambridge_csd3}.
+Each problem/model pair is run for a maximum of 90 seconds and 1 million steps, on a single core of the University of Cambridge CSD3 Cluster with \todo{add CPU information} and 3370 MiB RAM per core\cite{cambridge_csd3}.
 
 \subsection{Results}
 
 \subsubsection{Individual Results}
 
-\cop{SATResetCoP} considerably improves the amount of problems solved by both \pysatcopz{} and \cop{PySATCoP} under the 120 second time limit, as shown in \cref{problems_solved}.
+\cop{SATResetCoP} considerably improves the amount of problems solved by both \pysatcopz{} and \cop{PySATCoP} under the 90 second time limit, as shown in \cref{problems_solved}.
 This is mostly caused by the SAT solved reaching unsatisfiability in fewer time and steps than in previous models, as seen in \cref{strategy_solved_time,strategy_solved_steps}.
 
 \begin{table}[h]
@@ -272,12 +271,10 @@ This is mostly caused by the SAT solved reaching unsatisfiability in fewer time 
 		\caption{Problem solved, stacked by amount of steps. SAT models can solve a problem in 0 steps if the initial grounding produces is SAT-unsatisfiable.}
 		\label{strategy_solved_steps}
 	\end{subfigure}
-	\caption{Results of running the models on all problems solved in a 120 second and 1 million step limit.}
+	\caption{Results of running the models on all problems solved in a 90 second and 1 million step limit.}
 \end{figure}
 
-The \num{1000000} step limit is rarely reached, and most unsolved problems hit the 120 second limit instead.
-
-\todo{Maximum solved time is slightly less than 90s. Is this on purpose? Probably; check the actual experiment.}
+The \num{1000000} step limit is rarely reached, and most unsolved problems hit the 90 second limit instead.
 
 \begin{figure}[h]
 	\todobox{Time comparison / violinplot of different TPTP problem types for \cop{SATResetCoP}}
@@ -308,7 +305,7 @@ A comparative result can be seen in \cref{solved_table}.
 \end{table}
 
 \cop{SATResetCoP} is specially strong in problems which can be solved by small unsat cores.
-For example, \cref{diagram_syn052_1} shows the solution to the TPTP problem \cop{SYN052-1}, which is Pelletier Problem 22\cite{Pelletier86}.
+For example, \cref{diagram_syn052_1} shows the solution to the TPTP problem \cop{SYN052-1}\cite{Pelletier86}.
 
 \newcommand{\sepspace}{1em}
 \begin{figure}[p]
@@ -384,9 +381,7 @@ For example, \cref{diagram_syn052_1} shows the solution to the TPTP problem \cop
 
 % However, even more than \cop{PySATCoP}, it's worse than previous models on problems which require a large amount of substitutions to produce the atoms of an unsatisfiable core.
 
-\Cref{solved_heatmap} shows the amount of problems solved one of the models that's not solved by another one.
-
-\todo{There is a lot of interesting data on size of unsat cores and TPTP categories. Investigate further.}
+\Cref{solved_heatmap} shows the amount of problems solved one of the models and not a previous one.
 
 \begin{figure}
 	\centering\includegraphics[width=.50\textwidth]{solved_heatmap}
@@ -396,7 +391,7 @@ For example, \cref{diagram_syn052_1} shows the solution to the TPTP problem \cop
 
 The size of the improvement between \cop{SATResetCoP} and the next best model is notable.
 
-\todo{Add more analysis here.}
+\todo{Add more analysis here, including size of unsat cores}
 
 \subsubsection{Soundness Verification: Problem Satisfiability}
 
