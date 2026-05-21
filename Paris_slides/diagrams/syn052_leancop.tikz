@@ -13,7 +13,7 @@
     edge from parent/.style={draw, -}
   },
   start/.style={},
-  success/.style={fill=black!6},
+  success/.style={fill=black!40},
   bt/.style={edge from parent/.style={draw, -}},
   label/.style={draw=none, font=\footnotesize\itshape}
 ]

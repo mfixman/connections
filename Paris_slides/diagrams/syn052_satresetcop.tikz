@@ -13,7 +13,7 @@
     edge from parent/.style={draw, -}
   },
   start/.style={},
-  core/.style={fill=black!6},
+  core/.style={fill=black!40},
   bt/.style={draw, -},
   label/.style={draw=none, font=\Large\itshape}
 ]
