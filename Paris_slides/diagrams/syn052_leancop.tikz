@@ -58,11 +58,11 @@
   level 1/.style={sibling distance=38mm},
   level 2/.style={sibling distance=22mm}
 ]
-  \node[start, success] {$F(y_6) \vee p$}
-    child { node[success] {$p \vee \neg F(x_7)$}
+  \node[start, success] {$F(a) \vee p$}
+    child { node[success] {$p \vee \neg F(a)$}
 	  child[bt] { node[success] {$\neg p \vee \neg F(a)$} }
     }
-    child { node[success] {$F(x_8) \vee \neg p$}
+    child { node[success] {$F(a) \vee \neg p$}
       child { node[success] {$\neg p \vee \neg F(a)$} }
     };
 \end{scope}
