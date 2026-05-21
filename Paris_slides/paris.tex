@@ -43,13 +43,11 @@
 \newcommand{\cop}[1]{\textsf{#1}}
 \newcommand{\diagrambox}[2][50pt]{\fbox{\begin{minipage}[c][#1][c]{\columnwidth}\resizebox{\columnwidth}{!}{\input{#2}}\end{minipage}}}
 
-\newcommand{\negw}{-17pt}
+\newcommand{\negw}{-11pt}
 
 \begin{document}
 \begin{frame}{Previous Work}
-	\cop{SATCoP}\plainfootnotetext{\fullcite{eliminatingModels}} improves over \cop{LeanCoP} by using a SAT solver as unsat proof.
-
-	\vfill{}
+	\cop{SATCoP}\plainfootnotetext{\fullcite{eliminatingModels}} improves over \cop{LeanCoP} by using a SAT solver as unsat proof. \\[5pt]
 
     % Example problem: \cop{SYN052-1.p}
 	\footnotesize
@@ -57,7 +55,7 @@
     \begin{gather*}
         \text{\cop{SYN052-1.p}} \\
         p \vee \neg F(X) \qquad
-        F(X) \vee \neg p \\
+        F(X) \vee \neg p \qquad
         F(Y) \vee p \qquad
         \neg p \vee \neg F(a) \qquad
         F(Y) \vee \neg F(a)
@@ -67,18 +65,18 @@
     \begin{columns}[T]
         \column{.45\textwidth}
         \diagrambox[80pt]{diagrams/syn052_leancop.tikz} \\[1em]
-        \cop{LeanCoP}: unsat proof in \textbf{43 steps} by closing the Tableau.
+        \cop{LeanCoP}: unsat proof in \textbf{43 steps} by closing the Tableau. \\
 		Only 4~steps are important.
         \hfill
         \column{.45\textwidth}
         \diagrambox[80pt]{diagrams/syn052_satcop.tikz} \\[1em]
-        \cop{SATCoP}: unsat proof in \textbf{17 steps} by saturating the SAT core.
-		The 4 important steps are found faster.
+        \cop{SATCoP}: unsat proof in \textbf{17 steps} by saturating the SAT core. \\
+		The same 4 important steps are found faster.
     \end{columns}
 \end{frame}
 
 \begin{frame}{SATResetCoP}
-    Backtracking dominates proof search in connection tableau~\foottextcite{farberCuriouslyEffectiveBacktracking2024} \\[1ex]
+	Backtracking dominates proof search in connection tableau \foottextcite{farberCuriouslyEffectiveBacktracking2024} \\[1ex]
     What if we run \cop{Reset} every time instead of \cop{Backtrack} to saturate the UNSAT core faster?
 
     \vfill{}
@@ -91,8 +89,8 @@
         \hfill
         \column{.45\textwidth}
         \diagrambox[80pt]{diagrams/syn052_satresetcop.tikz} \\[1em]
-        \cop{SATResetCoP}: unsat proof in \textbf{6~steps} by saturating the SAT core.
-		We \cop{Reset} instead of \cop{Backtrack} to find important steps faster.
+        \cop{SATResetCoP}: unsat proof in \textbf{6~steps} by saturating the SAT core. \\
+		The prover \cop{Reset}s to find the important steps faster.
     \end{columns}
 \end{frame}
 
