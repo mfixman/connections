@@ -6,6 +6,8 @@
       inner xsep=3pt,
       inner ysep=2pt,
       font=\Large,
+	  % minimum width=25mm,
+      align=center,
     },
     level distance=13mm,
     sibling distance=31mm,
@@ -20,10 +22,10 @@
 % \useasboundingbox  rectangle (135mm,0mm);
 
 \begin{scope}[attempt]
-  \node[start] {$F(y_0) \vee p$}
+  \node[start,xshift=-1mm] {$F(y_0) \vee p$}
     child[bt] { node {$p \vee \neg F(x_0)$} }
-    child[bt] { node {$\neg p \vee \neg F(a)$} }
-    child[bt] { node {$F(y_1) \vee \neg F(a)$} };
+    child[bt,xshift=-3.2mm] { node {$\neg p \vee \neg F(a)$} }
+    child[bt,xshift=-3mm] { node {$F(y_1) \vee \neg F(a)$} };
 \end{scope}
 
 \begin{scope}[xshift=80mm, attempt]
@@ -35,21 +37,21 @@
 \begin{scope}[yshift=-24mm, attempt]
   \node[start] {$F(x_3) \vee \neg p$}
     child[bt] { node {$p \vee \neg F(x_4)$} }
-    child[bt] { node {$\neg p \vee \neg F(a)$} }
-    child[bt] { node {$F(y_2) \vee \neg F(a)$} };
+    child[bt,xshift=-3.2mm] { node {$\neg p \vee \neg F(a)$} }
+    child[bt,xshift=-3mm] { node {$F(y_2) \vee \neg F(a)$} };
 \end{scope}
 
 \begin{scope}[xshift=80mm, yshift=-24mm, attempt]
-  \node[start] {$\neg p \vee \neg F(a)$}
+  \node[start,xshift=-1mm] {$\neg p \vee \neg F(a)$}
     child[bt] { node {$p \vee \neg F(x_5)$} }
     child[bt] { node {$F(y_3) \vee p$} };
 \end{scope}
 
 \begin{scope}[yshift=-48mm, attempt]
-  \node[start] {$F(y_4) \vee \neg F(a)$}
+  \node[start,xshift=-1mm] {$F(y_4) \vee \neg F(a)$}
     child[bt] { node {$p \vee \neg F(x_6)$} }
-    child[bt] { node {$\neg p \vee \neg F(a)$} }
-    child[bt] { node {$F(y_5) \vee \neg F(a)$} };
+    child[bt,xshift=-3.2mm] { node {$\neg p \vee \neg F(a)$} }
+    child[bt,xshift=-3mm] { node {$F(y_5) \vee \neg F(a)$} };
 \end{scope}
 
 \begin{scope}[xshift=80mm, yshift=-48mm, attempt,
@@ -58,7 +60,7 @@
 ]
   \node[start, success] {$F(y_6) \vee p$}
     child { node[success] {$p \vee \neg F(x_7)$}
-      child[bt] { node {$\neg p \vee \neg F(a)$} }
+	  child[bt] { node[success] {$\neg p \vee \neg F(a)$} }
     }
     child { node[success] {$F(x_8) \vee \neg p$}
       child { node[success] {$\neg p \vee \neg F(a)$} }
