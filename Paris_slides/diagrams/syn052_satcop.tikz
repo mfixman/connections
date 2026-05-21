@@ -5,19 +5,19 @@
       rounded corners=1pt,
       inner xsep=3pt,
       inner ysep=2pt,
-      font=\Large
+      font=\huge
     },
-    level distance=11mm,
-    sibling distance=36mm,
-    level 2/.style={sibling distance=36mm},
+    level distance=15mm,
+    sibling distance=50mm,
+    level 2/.style={sibling distance=45mm},
     edge from parent/.style={draw, -}
   },
   start/.style={},
   core/.style={fill=black!40},
   bt/.style={edge from parent/.style={draw, -}},
-  label/.style={draw=none, font=\Large\itshape}
+  label/.style={draw=none, font=\huge}
 ]
-\useasboundingbox (-12mm,-79mm) rectangle (147mm,8mm);
+\useasboundingbox (-12mm,-79mm) rectangle (147mm,0mm);
 
 \begin{scope}[xshift=30mm, attempt]
   \node[start, core] {$\neg F(g) \vee p$}
@@ -33,13 +33,13 @@
     child[bt] { node {$\neg F(a) \vee \neg p$} };
 \end{scope}
 
-\begin{scope}[xshift=68mm, yshift=-36mm, attempt]
+\begin{scope}[xshift=68mm, yshift=-44mm, attempt]
   \node[start] {$\neg F(a) \vee \neg p$}
     child[bt] { node {$p \vee F(y_0)$} }
     child[bt] { node {$F(y_1) \vee \neg F(a)$} }
     child { node[core] {$\neg p \vee F(a)$} };
 \end{scope}
 
-\node[label, align=center] at (67.5mm,-72mm)
+\node[label, align=center] at (67.5mm,-78mm)
   {UNSAT core:\\$\{\neg F(g) \vee p,\ p \vee F(g),\ \neg F(a) \vee \neg p,\ \neg p \vee F(a)\}$};
 \end{tikzpicture}

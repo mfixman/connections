@@ -5,10 +5,10 @@
       rounded corners=1pt,
       inner xsep=3pt,
       inner ysep=2pt,
-      font=\large
+      font=\Large,
     },
-    level distance=8mm,
-    sibling distance=30mm,
+    level distance=13mm,
+    sibling distance=31mm,
     level 2/.style={sibling distance=22mm},
     edge from parent/.style={draw, -}
   },
@@ -17,42 +17,42 @@
   bt/.style={edge from parent/.style={draw, -}},
   label/.style={draw=none, font=\footnotesize\itshape}
 ]
-\useasboundingbox (-18mm,-68mm) rectangle (141mm,8mm);
+% \useasboundingbox  rectangle (135mm,0mm);
 
-\begin{scope}[xshift=30mm, attempt]
+\begin{scope}[attempt]
   \node[start] {$F(y_0) \vee p$}
     child[bt] { node {$p \vee \neg F(x_0)$} }
     child[bt] { node {$\neg p \vee \neg F(a)$} }
     child[bt] { node {$F(y_1) \vee \neg F(a)$} };
 \end{scope}
 
-\begin{scope}[xshift=105mm, attempt]
+\begin{scope}[xshift=80mm, attempt]
   \node[start] {$p \vee \neg F(x_1)$}
     child[bt] { node {$F(x_2) \vee \neg p$} }
     child[bt] { node {$\neg p \vee \neg F(a)$} };
 \end{scope}
 
-\begin{scope}[xshift=30mm, yshift=-24mm, attempt]
+\begin{scope}[yshift=-24mm, attempt]
   \node[start] {$F(x_3) \vee \neg p$}
     child[bt] { node {$p \vee \neg F(x_4)$} }
     child[bt] { node {$\neg p \vee \neg F(a)$} }
     child[bt] { node {$F(y_2) \vee \neg F(a)$} };
 \end{scope}
 
-\begin{scope}[xshift=105mm, yshift=-24mm, attempt]
+\begin{scope}[xshift=80mm, yshift=-24mm, attempt]
   \node[start] {$\neg p \vee \neg F(a)$}
     child[bt] { node {$p \vee \neg F(x_5)$} }
     child[bt] { node {$F(y_3) \vee p$} };
 \end{scope}
 
-\begin{scope}[xshift=30mm, yshift=-48mm, attempt]
+\begin{scope}[yshift=-48mm, attempt]
   \node[start] {$F(y_4) \vee \neg F(a)$}
     child[bt] { node {$p \vee \neg F(x_6)$} }
     child[bt] { node {$\neg p \vee \neg F(a)$} }
     child[bt] { node {$F(y_5) \vee \neg F(a)$} };
 \end{scope}
 
-\begin{scope}[xshift=105mm, yshift=-48mm, attempt,
+\begin{scope}[xshift=80mm, yshift=-48mm, attempt,
   level 1/.style={sibling distance=38mm},
   level 2/.style={sibling distance=22mm}
 ]
