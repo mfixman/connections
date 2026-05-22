@@ -1,0 +1,57 @@
+\begin{tikzpicture}[
+  attempt/.style = {
+    every node/.style = {
+      draw,
+      rounded corners=1pt,
+      inner xsep=3pt,
+      inner ysep=2pt,
+      font=\footnotesize
+    },
+    level distance=14mm,
+    sibling distance=24mm,
+    level 2/.style={sibling distance=22mm},
+    edge from parent/.style={draw, -}
+  },
+  start/.style={},
+  goal/.style={fill=black!40},
+  bt/.style={edge from parent/.style={draw, dash pattern=on 2pt off 1pt on .5pt off 1pt}},
+  title/.style={draw=none, font=\normalsize\bfseries},
+  edgelabel/.style={draw=none, fill=none, font=\scriptsize}
+]
+\useasboundingbox (-30mm,-43mm) rectangle (143mm,4mm);
+
+\begin{scope}[attempt]
+  \node[title] {\step{Start}};
+	\node[start] at (0mm, -10mm) {$F(Y) \vee p$};
+\end{scope}
+
+\begin{scope}[xshift=36mm, attempt]
+  \node[title] {\step{Extension}};
+	\node[start] at (0mm, -10mm) {$F(Y) \vee p$}
+	child[xshift=-5mm] { 
+		node {$ \neg F(X) \vee p $}
+		edge from parent node[edgelabel, left] {$ \sigma_0 = \{ X \leftarrow Y \} $};
+	}
+\end{scope}
+
+\begin{scope}[xshift=72mm, attempt]
+  \node[title] {\step{Extension}};
+	\node[start] at (0mm, -10mm) {$F(Y) \vee p$}
+		child[xshift=-5mm] { node {$ \neg F(X) \vee p $}
+		child { 
+			node {$\neg p \vee \neg F(a)$} 
+			edge from parent node[edgelabel, left] {$ \sigma_1 = \left\{ \begin{gathered} X \leftarrow Y \\ Y \leftarrow a \end{gathered} \right\} $};
+		} 
+		edge from parent node[edgelabel, left] {$ \sigma_0 = \{ X \leftarrow Y \} $};
+	};
+\end{scope}
+
+\begin{scope}[xshift=108mm, attempt]
+  \node[title] {\step{Reduction}};
+	\node[start,label={[edgelabel,font=\tiny]35:$ \sigma = \left\{ \begin{gathered} X \leftarrow Y \\ Y \leftarrow a \end{gathered} \right\} $}] at (0mm, -10mm) {$F(Y) \vee p$}
+		child[xshift=-5mm] { node[goal] {$ \neg F(Y) \vee p $}
+		child { node[goal] {$\neg p \vee \neg F(a)$} } 
+	};
+\end{scope}
+
+\end{tikzpicture}

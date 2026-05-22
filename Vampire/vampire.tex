@@ -83,24 +83,26 @@
 
 \section{Preliminaries}
 
-\subsection{Tableau Solving Methods}
+\subsection{Connection Calculus and Tableau Solving Methods}
 
 Connection tableaux and model elimination give a goal-directed alternative to the saturation style used by provers such as \cop{Vampire}\cite{riazanovDesignImplementationVAMPIRE2002}.
-Saturation provers repeatedly derive clauses from a global clause set until a contradiction is found or the search space saturates\cite{bachmairResolutionTheoremProving2001,schulzPerformanceClauseSelection2016}.
-Connection calculi instead try to close a tableau branch by repeatedly connecting the current goal literal to a complementary literal, either on the current path or in a fresh copy of an input clause\cite{letzModelEliminationConnection2001,ottenAdvancesConnectionBasedAutomated2017}.
-This is the point of the method that matters for the rest of this paper: a connection prover does not mainly ask which generated clause should be selected next, but which local proof step should be tried next, when to backtrack from it, and when to abandon the current bounded search.
+Instead of deriving clauses by proving repeatedly derive clauses from a global clause set until a contradiction is found or the search space saturates\cite{bachmairResolutionTheoremProving2001,schulzPerformanceClauseSelection2016}, connection calculi instead try to close a tableau by repeatedly connecting the goal literals to complementary literals, either on the current path or in a fresh copy of an input clause\cite{letzModelEliminationConnection2001,ottenAdvancesConnectionBasedAutomated2017}.
 
-The standard clausal connection tableau has three proof-building inferences\cite{letzModelEliminationConnection2001,farberMachineLearningGuidance2021}.
-A \step{Start} step chooses an input clause and makes its literals open goals.
-A \step{Reduction} step closes the current goal against a complementary literal already on the branch.
-An \step{Extension} step chooses a fresh input clause containing a complementary literal, closes that literal against the current goal, and adds the remaining literals as new subgoals.
-The calculus is sound and complete with backtracking and iterative deepening, but it is not confluent: a locally valid connection can bind variables in a way that prevents later branches from closing\cite{ottenLeanCoP20,farberCuriouslyEffectiveBacktracking2024,rawsonConstraintLearningNonconfluent2026}.
-Consequently, proof-search control is not an implementation detail in connection tableaux.
-It is often the main algorithmic question.
+The standard clausal connection tableau has three proof-building inferences\cite{letzModelEliminationConnection2001,ottenSyntaxConnectionProofs2023}.
+\begin{description}
+	\item[\cop{Start}] Choose an input clause and make its literals open goals.
+	\item[\cop{Extension}] Open a branch on a clause containing a complementary literal, and add the remaining literals as new subgoals.
+		This might require a substitution of variables with predicates.
+	\item[\cop{Reduction}] Closes the current goal against a complementary literal on the branch.
+		Like the previous step, this might require adding a substitution.
+\end{description}
+
+The calculus is sound and complete with backtracking and iterative deepening, but it is not confluent: a locally valid connection can bind variables in a way that prevents later branches from closing\cite{rawsonConstraintLearningNonconfluent2026}.
 
 \begin{figure}[h]
-	\todobox{Add a diagram and/or a description.}
-	\caption{Description of the operations of Tableau calculus\cite{farberCuriouslyEffectiveBacktracking2024}.}
+	\centering
+	\framebox[\linewidth][c]{\input{diagrams/connection_calculus_steps.tikz}}
+	\caption{The three proof-building steps of a clausal connection tableau, taken from the tableau closure of \cop{SYN052-1.p}\cite{Pelletier86}. The two \step{Extension} steps add an extra clause to the tableau; the \step{Reduction} step closes the nodes that were proven unsat. A full solution can be found in \cref{diagram_syn052_1}.}
 \end{figure}
 
 This control problem is what made the ``lean'' Prolog line of tableau provers influential.
