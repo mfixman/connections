@@ -105,47 +105,42 @@ The calculus is sound and complete with backtracking and iterative deepening, bu
 	\caption{The three proof-building steps of a clausal connection tableau, taken from the tableau closure of \cop{SYN052-1.p}\cite{Pelletier86}. The two \step{Extension} steps add an extra clause to the tableau; the \step{Reduction} step closes the nodes that were proven unsat. A full solution can be found in \cref{diagram_syn052_1}.}
 \end{figure}
 
-This control problem is what made the ``lean'' Prolog line of tableau provers influential.
-\cop{leanTAP} showed that a competitive free-variable tableau prover could be implemented very compactly in Prolog\cite{beckertLeanTAPLeanTableaubased1995}.
-\cop{leanCoP} adapted this style to connection tableaux and became the base of a large family of provers for classical and non-classical logics\cite{ottenLeanCoPLeanConnectionbased2003,Otten2023leanCoP20}.
-The important engineering lesson from \cop{leanCoP} is that a tiny change to backtracking can dominate performance.
-The \texttt{cut} option commits after successful \step{Reduction} and \step{Extension} steps using Prolog's \texttt{!}, removing many alternative local continuations\cite{ottenLeanCoP20}.
-Since this restricted backtracking is incomplete, \cop{leanCoP} combines it with iterative-deepening schedules such as \texttt{comp(7)}, where the prover searches with cut up to a depth bound and then restarts without the cut restriction if necessary\cite{ottenLeanCoP20,Otten2023leanCoP20}.
-In a bounded run, these choices are not merely optimisations; they decide which parts of the proof space are even explored.
+Many different types of connection tableau provers were created around the years.
+\cop{leanCoP} adapted this style of connection tableau provers to Prolog and became the base of a large family of provers for classical and non-classical logics\cite{ottenLeanCoPLeanConnectionbased2003,Otten2023leanCoP20}.
 
-Several later systems can be read as attempts to make this local control less crude.
+\cop{leanCoP} comes with many optional predicate options.
+Most critical, \cop{cut} commits a Prolog cut \texttt{(!)} after every successful \step{Reduction} and \step{Extension}.
+This removes many alternative local continuations and makes the base prover incomplete, but it also converges to a solution considerably faster\cite{ottenLeanCoP20}.
+Additionally, \cop{leanCoP} iteratively deepens the maximum size of the tree when the options are saturated.
+
+To keep the prover complete, the \cop{comp(I)} option removes the maximum height restrictions and the \cop{cut} when starting a tree that would have had maximum height \cop{I}.
+
+Later systems can be read as attempts to make this local control less crude.
 \cop{meanCoP} separates cut on reductions from cut on extensions and introduces exclusive cuts, which preserve more alternatives than the inclusive cuts used by \cop{leanCoP}\cite{farberCuriouslyEffectiveBacktracking2024}.
-Rawson, Eisenhofer, and Kovacs take the opposite route: instead of deliberately throwing away alternatives, they learn constraints explaining why a search state is stuck, thereby reducing repeated backtracking while preserving completeness at a fixed iterative-deepening level\cite{rawsonConstraintLearningNonconfluent2026}.
-Functional connection provers and the \cop{mlCoP}/\cop{monteCoP} line reorder proof steps using learned information or Monte Carlo Tree Search\cite{farberMachineLearningGuidance2021}.
+\cop{hopCoP} takes the opposite route: instead of deliberately throwing away alternatives, they learn constraints explaining why a search state is stuck, thereby reducing repeated backtracking while preserving completeness at a fixed iterative-deepening level\cite{rawsonConstraintLearningNonconfluent2026}.
+
+Functional connection provers and the \cop{mlCoP} and \cop{monteCoP} line reorder proof steps using learned information or Monte Carlo Tree Search\cite{farberMachineLearningGuidance2021}.
 \cop{rlCoP} and \cop{plCoP} make this more explicit by treating proof search as a learning-guided control process over \cop{leanCoP}-style actions\cite{Kaliszyk2018RLTP,zomboriPrologTechnologyReinforcement2020a,zomboriRoleEntropyGuiding2021}.
 The common theme is the one we use below: connection-tableau proving is naturally viewed as a sequence of small control decisions over proof actions, cuts, backtracking, and restarts.
 
-\subsection{SATCoP and Similar Methods}
+\subsection{\cop{SATCoP} and Methods that use SAT Saturation in a Tableau}
 \label{satcop}
 
-The other line of work relevant to this paper adds a second, ground-level proof search underneath the tableau search.
-SAT and SMT solvers have long been used to support first-order reasoning, for example in finite model finding, instance generation, and splitting architectures such as \cop{AVATAR}\cite{eliminatingModels,schulzSATInterpretation}.
-For a connection prover, the useful observation is especially simple.
-Every clause that appears in a tableau is an instance of an input clause.
+SAT and SMT solvers have long been used to support first-order reasoning, for example in finite model finding, instance generation, and splitting architectures\cite{eliminatingModels,schulzSATInterpretation}.
+For a connection prover, the useful observation is simple: every clause that appears in a tableau is an instance of an input clause.
 If we ground these tableau clauses and collect them in a propositional SAT solver, then a SAT refutation of the collected ground clauses is a sound refutation of the original first-order problem\cite{eliminatingModels}.
 
 Rawson and Reger implement this idea in \cop{SATCoP}, a clausal connection-tableau prover based on \cop{leanCoP}\cite{eliminatingModels}.
+
 During backtracking search, clauses present in the tableau are heuristically grounded and added to an incremental SAT solver.
 If the SAT solver reports that the accumulated ground clauses are unsatisfiable, proof search can stop even if the first-order tableau itself has not been closed\cite{eliminatingModels}.
 The remaining tableau variables must be mapped to ground terms before a clause is sent to SAT.
 Their implementation follows a Schulz-style heuristic: use the most frequent constant in the conjecture, and fall back to a fresh constant if no conjecture constant is available\cite[\S~4.2]{eliminatingModels,schulzSATInterpretation}.
 
-\cop{SATCoP} also uses the SAT solver for control.
-First, the accumulated ground clauses are kept across tableau backtracking, so failed first-order search leaves useful propositional information behind\cite{eliminatingModels}.
-Second, iterative deepening is modified: when a bounded search pass discovers new ground clauses, the prover can restart at the same depth rather than immediately increasing the depth bound\cite[\S~5]{eliminatingModels}.
-Third, the current SAT model gives model-based lemmata: if a ground literal on the current path is already false in the SAT model, refuting that branch would not eliminate the current model and the tableau branch can be skipped\cite[\S~6]{eliminatingModels}.
+Later modifications to \cop{SATCoP} gave it control of the tableau using results from the SAT solver.
 In a later note included in the same paper, Rawson and Reger also describe a literal-selection refinement: prefer extension choices whose selected literal is true in the current SAT model\cite[\S~9.1]{eliminatingModels}.
 
-This paper keeps the same basic soundness argument as \cop{SATCoP} but changes the emphasis.
-\cop{leanCoP}, \cop{meanCoP}, and learned connection provers mainly try to close the tableau faster.
-\cop{SATCoP} shows that the tableau can instead be used to generate a growing stream of useful ground clauses.
-Our strategy, \cop{SATResetCoP}, pushes this second view further: when the current tableau search stops producing new SAT clauses, we reset it early in order to generate different ground instances and saturate the SAT core faster.
-Thus the relevant historical thread is not just ``tableau prover plus SAT solver'', but a gradual movement from tableau closure as the only objective towards explicit control of what information the tableau search should produce.
+The strategy used in this paper, \cop{SATResetCoP}, pushes the ideas from \cop{SATcoP} further by resetting trees as soon as the SAT model stops growing.
 
 \section{Research Vehicle}
 
@@ -160,7 +155,7 @@ Successive experimentation resulted in a simple hypothesis: aggressively resetti
 However, instead of following \cop{leanCoP}'s tableau guidance strategy, it prioritises resetting the tableau often.
 The policy is sketched below; the ordering of forward actions follows the SAT-model literal selection idea of Rawson~and~Reger\cite[\S~9.1]{eliminatingModels}.
 
-\begin{lstlisting}[caption={Sketch of the \cop{SATResetCoP} control policy.},label={lst:satresetcop}]
+\begin{lstlisting}[float,caption={Pseudocode of the \cop{SATResetCoP} control policy.},label={lst:satresetcop}]
 def solve_tableau(start_clauses):
 	clauses := ground(start_clauses)
 
