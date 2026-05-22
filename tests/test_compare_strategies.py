@@ -567,6 +567,9 @@ class TestCompareStrategiesInitialStatus:
         max_steps = 100,
         timeout = None,
     ):
+        class Start:
+            pass
+
         sent = {}
 
         class FakeConn:
@@ -597,7 +600,7 @@ class TestCompareStrategiesInitialStatus:
                 self.env = env
 
             def step(self):
-                return object()
+                return Start()
 
             def final_info(self):
                 return strategy_info
@@ -684,6 +687,72 @@ class TestCompareStrategiesInitialStatus:
 
         assert sent['result'] == 'Theorem'
         assert 'WARNING: declared status=Satisfiable but prover found Theorem' in sent['info']
+
+    def test_run_problem_step_limit_counts_only_tableau_inferences(self, monkeypatch):
+        class Backtrack:
+            pass
+
+        class Reset:
+            pass
+
+        class Start:
+            pass
+
+        sent = {}
+        emitted = []
+        actions = iter([Backtrack(), Reset(), Start(), Start()])
+
+        class FakeConn:
+            def send(self, result):
+                sent.update(result)
+
+            def close(self):
+                pass
+
+        class FakeEnv:
+            def __init__(self, path, settings):
+                self.state = type(
+                    'State',
+                    (),
+                    {
+                        'initial_status': lambda self: (False, None),
+                    },
+                )()
+
+            def reset(self):
+                return None
+
+            def step(self, action):
+                emitted.append(action.__class__.__name__)
+                return self.state, 0, False, None
+
+        class FakeStrategy:
+            def __init__(self, env):
+                self.env = env
+
+            def step(self):
+                return next(actions)
+
+        class FakeStrategyRegistry:
+            @staticmethod
+            def strategies():
+                return {'SATCoP_0': FakeStrategy}
+
+        monkeypatch.setattr(compare_strategies, 'ConnectionEnv', FakeEnv)
+        monkeypatch.setattr(compare_strategies, 'Strategy', FakeStrategyRegistry)
+
+        compare_strategies._run_problem(
+            FakeConn(),
+            'dummy.p',
+            'SATCoP_0',
+            SATSolver.CaDiCaL,
+            1,
+            None,
+        )
+
+        assert emitted == ['Backtrack', 'Reset', 'Start']
+        assert sent['status'] == 'max_steps'
+        assert sent['steps'] == 1
 
     def test_run_problem_infers_sat_solver_when_none_is_selected(self, monkeypatch):
         captured = {}

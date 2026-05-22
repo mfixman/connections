@@ -14,6 +14,11 @@ from connections.env import ConnectionEnv, Logic, Settings
 from connections.calculi.classicalsat import SATSolver
 from strategies import Strategy
 
+_COUNTED_STEP_ACTIONS = {'Start', 'Reduction', 'Extension'}
+
+def _counts_as_step(action) -> bool:
+    return action.__class__.__name__ in _COUNTED_STEP_ACTIONS
+
 def _final_closed_tableau(state) -> str | None:
     tableau = getattr(state, 'tableau', None)
     if tableau is None:
@@ -82,9 +87,12 @@ def _run_problem(path: str, args) -> dict:
             observation, reward, done, info = env.step(action)
         except RecursionError:
             logging.error('Recursion error.')
-            steps = args.max_steps - 1
+            steps = args.max_steps
+            info = {'Solution': 'Unknown'}
+            break
 
-        steps += 1
+        if _counts_as_step(action):
+            steps += 1
 
     info = _format_debug_info(env.state, info, args.debug)
 

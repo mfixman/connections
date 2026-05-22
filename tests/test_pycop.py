@@ -59,6 +59,9 @@ class TestPycopProblemResolution:
 
 class TestPycopDebugOutput:
     def test_run_problem_shows_closed_tree_for_theorem_when_debug_enabled(self, monkeypatch):
+        class Start:
+            pass
+
         class FakeNode:
             def __str__(self):
                 return '└── p(a)'
@@ -81,7 +84,7 @@ class TestPycopDebugOutput:
                 self.env = env
 
             def step(self):
-                return 'stub-action'
+                return Start()
 
         class FakeStrategyRegistry:
             @staticmethod
@@ -106,6 +109,9 @@ class TestPycopDebugOutput:
         assert result['steps'] == 1
 
     def test_run_problem_keeps_plain_theorem_without_debug(self, monkeypatch):
+        class Start:
+            pass
+
         class FakeNode:
             def __str__(self):
                 return '└── p(a)'
@@ -128,7 +134,7 @@ class TestPycopDebugOutput:
                 self.env = env
 
             def step(self):
-                return 'stub-action'
+                return Start()
 
         class FakeStrategyRegistry:
             @staticmethod
@@ -151,6 +157,63 @@ class TestPycopDebugOutput:
 
         assert result['info'] == 'Theorem'
         assert result['steps'] == 1
+
+    def test_run_problem_step_limit_counts_only_tableau_inferences(self, monkeypatch):
+        class Backtrack:
+            pass
+
+        class Reset:
+            pass
+
+        class Start:
+            pass
+
+        emitted = []
+        actions = iter([Backtrack(), Reset(), Start(), Start()])
+
+        class FakeEnv:
+            def __init__(self, path, settings):
+                self.state = SimpleNamespace(
+                    initial_status = lambda: (False, None),
+                    tableau = SimpleNamespace(children = [], literal = None),
+                )
+
+            def reset(self):
+                return None
+
+            def step(self, action):
+                emitted.append(action.__class__.__name__)
+                return None, 0, False, None
+
+        class FakeStrategy:
+            def __init__(self, env):
+                self.env = env
+
+            def step(self):
+                return next(actions)
+
+        class FakeStrategyRegistry:
+            @staticmethod
+            def strategies():
+                return {'PyCoP': FakeStrategy}
+
+        monkeypatch.setattr(pycop, 'ConnectionEnv', FakeEnv)
+        monkeypatch.setattr(pycop, 'Strategy', FakeStrategyRegistry)
+
+        result = pycop._run_problem(
+            'dummy.p',
+            SimpleNamespace(
+                sat_solver = SATSolver.CaDiCaL,
+                debug = False,
+                strategy = 'PyCoP',
+                max_steps = 1,
+                print_ratio = 0,
+            ),
+        )
+
+        assert emitted == ['Backtrack', 'Reset', 'Start']
+        assert result['steps'] == 1
+        assert result['Solution'] == 'Unknown'
 
 class TestPycopLogicSelection:
     def test_default_logic_for_strategy_matches_strategy_family(self):

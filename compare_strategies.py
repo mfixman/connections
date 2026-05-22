@@ -32,6 +32,10 @@ from strategies import Strategy
 _ANSI = re.compile(r'\033\[[0-9;]*m')
 _PARTIAL_RESULT_PREFIX = 'RESULT_JSON\t'
 _INLINE_PARTIAL_SEPARATOR = '  |  '
+_COUNTED_STEP_ACTIONS = {'Start', 'Reduction', 'Extension'}
+
+def _counts_as_step(action) -> bool:
+    return action.__class__.__name__ in _COUNTED_STEP_ACTIONS
 
 def _colour(code: str, s: str, enabled: bool = True) -> str:
     if not enabled:
@@ -228,8 +232,11 @@ def _run_problem(
                         try:
                             _, _, done, info = env.step(action)
                         except RecursionError:
-                            steps = max_steps - 1
-                        steps += 1
+                            steps = max_steps
+                            hit_max_steps = True
+                            break
+                        if _counts_as_step(action):
+                            steps += 1
 
                     elapsed = time.perf_counter() - start
 
