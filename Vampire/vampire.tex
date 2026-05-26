@@ -10,7 +10,7 @@
 \usepackage{tikz}
 \usepackage{listings}
 \usepackage{subcaption}
-\usepackage[font=footnotesize]{caption}
+\usepackage[font=footnotesize,labelfont=bf]{caption}
 \usepackage[noabbrev,nameinlink,capitalize,poorman]{cleveref}
 
 \title{Reset Early, Reset Often, Saturate the SAT Core}
@@ -210,11 +210,12 @@ It might be useful to incorporate \cop{SATResetCoP} into the initial steps of a 
 The grounded clauses used by \cop{PySATCoP} and \cop{SATResetCoP} come from the clauses currently present in the tableau, after applying the tableau substitution accumulated so far.
 Ground terms are kept as they are; only tableau variables that remain unassigned need to be replaced by a ground term.
 
-As explained in \cref{satcop}, Rawson~and~Reger follow the technique by Schulz\cite{schulzSATInterpretation} to use the most frequent constant in the conjecture, with a fresh constant as a fallback when the conjecture contains no constants\cite{eliminatingModels}.
+As in the implementation of \cref{SATCoP}, Rawson~and~Reger follow the technique by Schulz\cite{schulzSATInterpretation} to use the most frequent constant in the conjecture, with a fresh constant as a fallback when the conjecture contains no constants\cite{eliminatingModels}.
 \cop{SATResetCoP} always uses this fallback-style choice, mapping every remaining tableau variable to the same fresh artificial constant.
 This gives a grounding scheme that is simpler than \cop{SATCoP}, while keeping the proof sound: the SAT solver still only receives ground instances of clauses already present in the tableau.
 
-\todo{Randomisation of statements.}
+\cop{SATResetCoP} also follows the \cop{SATCoP} in the randomisation of \step{Start} and \step{Extension} steps.
+When starting a new tree a random start is chosen, and when several extensions are possible from the leftmost node then a random one is chosen.
 
 \subsection{Python Implementation}
 
@@ -230,7 +231,7 @@ The source code for this implementation is present in \url{https://github.com/mf
 Along with out implementation of \cop{SATResetCoP}, \cop{PyCoP} allows us to reimplement \cop{PyLeanCoP} and \cop{PySATCoP} in its own backend.
 This provides a fairer baseline for comparison.
 
-We run \cop{SATResetCoP} along with our versions of these two connection tableau strategies, along with a strategy that chooses the first possible action as control, on the \num{8344} CNF problems and \num{9091} FOF problems of all 50 categories \todo{Categories?} containing at least one of these problems from the Thousands of Problems for Theorem Provers (TPTP) library\cite{tptp}.
+We run \cop{SATResetCoP} along with our versions of these two connection tableau strategies, along with a strategy that chooses the first possible action as control, on the \num{8344} CNF problems and \num{9091} FOF problems of all 50 categories containing at least one of these problems from the Thousands of Problems for Theorem Provers (TPTP) library\cite{tptp}.
 
 The library provides a varied set of problems that's a standard way to prove first-order provers.
 It also provides declared statuses for these problems, which are a useful sanity check for false unsatisfiability results.
@@ -318,8 +319,13 @@ This is mostly caused by the SAT solved reaching unsatisfiability in fewer time 
 The \num{1000000} step limit is rarely reached, and most unsolved problems hit the 90 second limit instead.
 
 \begin{figure}[h]
-	\todobox{Time comparison / violinplot of different TPTP problem types for \cop{SATResetCoP}}
-	\caption{Time taken by \cop{SATResetCoP} to solve each problem within each TPTP problem type. We can probably find some conclusion in here.}
+	\includegraphics[width=\textwidth]{violinplot_all_problems.png}
+	\caption{Steps taken by \cop{SATResetCoP} to solve each problem within each TPTP problem type. }
+\end{figure}
+
+\begin{figure}[h]
+	\includegraphics[width=\textwidth]{violinplots.png}
+	\caption{Density of problems solved at a certain amount of steps by \cop{PySATCoP} and \cop{SATResetCoP} to on categories \cop{SYN}, \cop{SWC}, \cop{SWV}, \cop{GEO}, and \cop{NUM} of TPTP. The area of each violinplot is the same, and the plot shows how, besides solving more problems in each of these category, \cop{PySATCoP} solves a significant amount in fewer steps. Unsolved problems are accumulated the $\geq 10k$ category on the right.}
 \end{figure}
 
 \subsubsection{Comparative Results}
