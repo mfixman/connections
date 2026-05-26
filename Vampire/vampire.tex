@@ -120,7 +120,7 @@ The calculus is sound and complete with backtracking and iterative deepening, bu
 \begin{figure}[h]
 	\centering
 	\framebox[\linewidth][c]{\input{diagrams/connection_calculus_steps.tikz}}
-	\caption{The three proof-building steps of a clausal connection tableau, taken from the tableau closure of \cop{SYN052-1.p}\cite{Pelletier86}. The two \step{Extension} steps add an extra clause to the tableau; the \step{Reduction} step closes the nodes that were proven unsat. A full solution can be found in \cref{diagram_syn052_1}. \todo{Write one of these explaining a Reset step for \cref{implementation_details}.}}
+	\caption{The three proof-building steps of a clausal connection tableau, taken from the tableau closure of \cop{SYN052-1.p}\cite{Pelletier86}. The two \step{Extension} steps add an extra clause to the tableau; the \step{Reduction} step closes the nodes that were proven unsat. A full solution can, in several different strategies, be found in \cref{diagram_syn052_1}. \todo{Write one of these explaining a Reset step for \cref{implementation_details}.}}
 \end{figure}
 
 Many different types of connection tableau provers were created around the years.
@@ -187,6 +187,15 @@ Ground clauses accumulated in earlier tableau attempts remain available in later
 The SAT state is implemented using \cop{CaDiCaL}\cite{cadical20}.
 A new virtual operation, \step{Reset}, clears the tableau, the current substitution, and the proof sequence, and starts a new tableau attempt with a specified depth bound.
 It does not clear the persistent SAT solver: every reset starts from an empty tree, while the SAT solver keeps the ground information produced by earlier attempts.
+An example of how this operation works can be seen in \cref{reset_example}.
+
+\begin{figure}[h]
+	\centering
+	\framebox[\linewidth][c]{\input{diagrams/satresetcop_calculus_steps.tikz}}
+	\caption{Example of the first few steps of \cop{SATResetCoP} in \step{SYN052-1.p}. \cop{SATCoP} and previous provers would backtrack after closing the branch with $F(x_1) \vee \not p$; instead, \cop{SATRestCoP} resets into a new tree.}
+	\label{reset_example}
+\end{figure}
+
 
 The grounded clauses used by \cop{PySATCoP} and \cop{SATResetCoP} come from clauses that have appeared in the tableau, after applying the tableau substitution accumulated so far.
 Start clauses are added to the SAT state when the run is initialised.
