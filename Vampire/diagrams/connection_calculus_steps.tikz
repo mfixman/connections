@@ -31,7 +31,7 @@
 	child[xshift=-14pt] {
 		node {$ \neg F(X) \vee p $}
 		edge from parent node[edgelabel, left] {$ \sigma_0 = \{ X \leftarrow Y \} $};
-	}
+	};
 \end{scope}
 
 \begin{scope}[xshift=205pt, attempt]
