@@ -87,7 +87,7 @@ The cost is that the prover has to make many local control decisions: which clau
 
 These choices matter because connection proof search is not confluent.
 A locally valid connection can bind variables in a way that makes another branch impossible to close later.
-\cop{leanCoP}'s cut option shows that even a crude restriction on backtracking can make a large practical difference, although it loses completeness unless it is used inside a complete schedule\cite{ottenLeanCoP20}.
+\cop{leanCoP}'s \texttt{cut} option shows that even a crude restriction on backtracking can make a large practical difference, although it loses completeness unless it is used inside a complete schedule\cite{ottenLeanCoP20}.
 
 \cop{SATCoP} changes the objective slightly.
 Instead of using the tableau only as a proof object that must eventually close, it also uses the tableau as a source of ground clauses for an incremental SAT solver\cite{eliminatingModels}.
@@ -110,7 +110,7 @@ The standard clausal connection tableau has three proof-building inferences\cite
 \begin{description}
 	\item[\cop{Start}] Choose an input clause and make its literals open goals.
 	\item[\cop{Extension}] Open a branch on a clause containing a complementary literal, and add the remaining literals as new subgoals.
-		This might require a substitution of variables with predicates.
+		This might require a substitution of variables with terms.
 	\item[\cop{Reduction}] Closes the current goal against a complementary literal on the branch.
 		Like the previous step, this might require adding a substitution.
 \end{description}
@@ -120,18 +120,18 @@ The calculus is sound and complete with backtracking and iterative deepening, bu
 \begin{figure}[h]
 	\centering
 	\framebox[\linewidth][c]{\input{diagrams/connection_calculus_steps.tikz}}
-	\caption{The three proof-building steps of a clausal connection tableau, taken from the tableau closure of \cop{SYN052-1.p}\cite{Pelletier86}. The two \step{Extension} steps add an extra clause to the tableau; the \step{Reduction} step closes the nodes that were proven unsat. A full solution can, in several different strategies, be found in \cref{diagram_syn052_1}. \todo{Write one of these explaining a Reset step for \cref{implementation_details}.}}
+	\caption{The three proof-building steps of a clausal connection tableau, taken from the tableau closure of \cop{SYN052-1.p}\cite{Pelletier86}. The two \step{Extension} steps add an extra clause to the tableau; the \step{Reduction} step closes the nodes against a complementary literal already on the path. A full solution can, in several different strategies, be found in \cref{diagram_syn052_1}.}
 \end{figure}
 
 Many different types of connection tableau provers were created around the years.
 \cop{leanCoP} adapted this style of connection tableau provers to Prolog and became the base of a large family of provers for classical and non-classical logics\cite{ottenLeanCoPLeanConnectionbased2003,Otten2023leanCoP20}.
 
 \cop{leanCoP} comes with many optional predicate options.
-Most critical, \cop{cut} commits a Prolog cut \texttt{(!)} after every successful \step{Reduction} and \step{Extension}.
+Most critical, \texttt{cut} commits a Prolog cut \texttt{(!)} after every successful \step{Reduction} and \step{Extension}.
 This removes many alternative local continuations and makes the base prover incomplete, but it also converges to a solution considerably faster\cite{ottenLeanCoP20}.
 Additionally, \cop{leanCoP} iteratively deepens the maximum size of the tree when the options are saturated.
 
-To keep the prover complete, the \cop{comp(I)} option removes the maximum height restrictions and the \cop{cut} when starting a tree that would have had maximum height \cop{I}.
+To keep the prover complete, the \texttt{comp(I)} option removes the maximum height restrictions and the \texttt{cut} when starting a tree that would have had maximum height \texttt{I}.
 
 Later systems can be read as attempts to make this local control less crude.
 \cop{meanCoP} separates cut on reductions from cut on extensions and introduces exclusive cuts, which preserve more alternatives than the inclusive cuts used by \cop{leanCoP}\cite{farberCuriouslyEffectiveBacktracking2024}.
@@ -192,7 +192,7 @@ An example of how this operation works can be seen in \cref{reset_example}.
 \begin{figure}[h]
 	\centering
 	\framebox[\linewidth][c]{\resizebox{\linewidth}{!}{\input{diagrams/satresetcop_calculus_steps.tikz}}}
-	\caption{Example of of \cop{SATResetCoP} in \step{SYN052-1.p}. \cop{SATCoP} and previous provers would backtrack after closing the branch with $F(x_1) \vee \neg p$; instead, \cop{SATRestCoP} resets into a new tree. This fills up the UNSAT core (shown at the bottom) faster than in \cop{SATCoP}, which makes it reach an unsatisfiable state faster. Substitutions were obviated for simplicity.}
+	\caption{Example of of \cop{SATResetCoP} in \step{SYN052-1.p}. \cop{SATCoP} and previous provers would backtrack after closing the branch with $F(x_1) \vee \neg p$; instead, \cop{SATResetCoP} resets into a new tree. This fills up the UNSAT core (shown at the bottom) faster than in \cop{SATCoP}, which makes it reach an unsatisfiable state faster. Substitutions were obviated for simplicity.}
 	\label{reset_example}
 \end{figure}
 
@@ -296,7 +296,7 @@ These kinds of simple policies tend to be very effective in tableau provers\cite
 
 \begin{table}[h]
 	\centering
-	\small
+	\footnotesize
 	\begin{tabularx}{\textwidth}{>{\sffamily}l X c c c c}
 		\toprule
 			Model & Explanation & Cut & UNSAT Proof & SAT Guidance & Reset on Backtrack \\
@@ -324,10 +324,11 @@ Each problem/model pair is run for a maximum of 120 seconds and 1 million steps,
 
 \cop{SATResetCoP} considerably improves the amount of problems solved by both \pysatcopz{} and \cop{PySATCoP} under the 120 second time limit, as shown in \cref{problems_solved}.
 This is mostly caused by the SAT solved reaching unsatisfiability in fewer time and steps than in previous models, as seen in \cref{strategy_solved_time,strategy_solved_steps}.
+The \num{1000000} step limit is rarely reached, and most unsolved problems hit the 120 second limit instead.
 
 \begin{table}[h]
 	\centering
-	\small
+	\footnotesize
 	\begin{tabular}{>{\sffamily}l r r r r r r}
 		\toprule
 			& \multicolumn{2}{c}{CNF} & \multicolumn{2}{c}{FOF} & \multicolumn{2}{c}{Total} \\
@@ -362,8 +363,6 @@ This is mostly caused by the SAT solved reaching unsatisfiability in fewer time 
 	\caption{Results of running the models on all problems solved in a 120 second and 1 million step limit.}
 \end{figure}
 
-The \num{1000000} step limit is rarely reached, and most unsolved problems hit the 120 second limit instead.
-
 \subsubsection{Comparative Results}
 
 The SAT guidance in \cop{SATResetCoP} causes it to solve several problems that are unsolved by either models which do not have the same SAT saturation prover, and even by \pysatcopz{} and \cop{PySATCoP}, which do not have similar efficient guidance.
@@ -371,7 +370,7 @@ A comparison of newly solved and newly unsolved problems can be seen in \cref{ne
 
 \begin{table}
 	\centering
-	\small
+	\footnotesize
 	\begin{tabular}{>{\sffamily}l r r r}
 		\toprule
 			Model & Newly Solved & Newly Unsolved & Total Solved \\
@@ -400,7 +399,7 @@ As expected, this strategy also solves problems in fewer steps, as can be seen i
 
 \begin{table}
 	\centering
-	\small
+	\footnotesize
 	\begin{tabular}{l @{\hspace{1em}} r r r r r r @{\hspace{1em}} r}
 		\toprule
 			Model & SYN & SWC & SWV & GEO & NUM & Rest & Total \\
@@ -422,7 +421,7 @@ This is an example of the kind of problem on which the \cop{SATResetCoP} strateg
 
 \begin{figure}[h]
 	\includegraphics[width=\textwidth]{violinplots.png}
-	\caption{Density of problems solved at a certain amount of steps by \cop{PySATCoP} and \cop{SATResetCoP} to on categories \cop{SYN}, \cop{SWC}, \cop{SWV}, \cop{GEO}, and \cop{NUM} of TPTP. The area of each violinplot is the same, and the plot shows how, besides solving more problems in each of these category, \cop{PySATCoP} solves a significant amount in fewer steps. Unsolved problems are accumulated the $\geq 10k$ category on the right.}
+	\caption{Density of problems solved at a certain amount of steps by \cop{PySATCoP} and \cop{SATResetCoP} to on categories \cop{SYN}, \cop{SWC}, \cop{SWV}, \cop{GEO}, and \cop{NUM} of TPTP. The area of each violinplot is the same, and the plot shows how, besides solving more problems in each of these category, \cop{SATResetCoP} solves a significant amount of problems in fewer steps. Unsolved problems are accumulated the $\geq 10k$ category on the right.}
 	\label{violinplots}
 \end{figure}
 
@@ -451,7 +450,7 @@ This is an example of the kind of problem on which the \cop{SATResetCoP} strateg
 		\centering
 		\tiny
 		\diagrambox{diagrams/syn052_satcop.tikz}
-		\caption{Solution found by \cop{SATCoP} in 34 steps.}
+		\caption{Solution found by \cop{PySATCoP} in 34 steps.}
 	\end{subfigure} \vspace{\sepspace}
 	\begin{subfigure}{\linewidth}
 		\centering
@@ -474,7 +473,7 @@ It also does not solve any unknown or open problems; while this is not the best 
 
 \begin{table}
 	\centering
-	\small
+	\footnotesize
 	\begin{tabular}{lrrrr}
 		\toprule
 			& \multicolumn{2}{c}{FOF} & \multicolumn{2}{c}{CNF} \\
@@ -499,7 +498,7 @@ It also does not solve any unknown or open problems; while this is not the best 
 
 \section{Future Work}
 
-\subsection{Schedule}
+% \subsection{Schedule}
 
 \cop{SATResetCoP} still struggles with a signifiant amount of problems, as seen in \cref{newly_solved_table}.
 It would be worth experimenting with adding this strategy to a schedule, following the examples of Otten and Mangla\cite{ottenLeanCoP20,mangla2022a}, and possibly run a different strategy or solver if no solution was found after an amount of time or number of steps.
