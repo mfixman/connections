@@ -432,7 +432,7 @@ For example, \cref{diagram_syn052_1} shows the solution to the TPTP problem \cop
 
 \begin{figure}
 	\centering\includegraphics[width=.50\textwidth]{solved_heatmap}
-	\caption{Pairwise comparison of model results: the cell in column \cop{y} and row \cop{x} shows the amount of problems solved by the model on \cop{y}, but not the model in \cop{x}. For example, \cop{SATResetCoP} solved 1056 TPTP problems that \pysatcopz{} did not. \todo{Remake this figure with new names.}}
+	\caption{Pairwise comparison of model results: the cell in column \cop{y} and row \cop{x} shows the amount of problems solved by the model on \cop{y}, but not the model in \cop{x}. For example, \cop{SATResetCoP} solved 1056 TPTP problems that \pysatcopz{} did not.}
 	\label{solved_heatmap}
 \end{figure}
 
@@ -472,6 +472,23 @@ These results do not show any negative results.
 	\end{tabular}
 	\caption{Amount of problems solved and unsolved by \cop{SATResetCoP}, grouped by TPTP declared status. No satisfiable or countersatisfiable problem was incorrectly proven to be unsatisfiable.}
 	\label{sat_proof}
+\end{table}
+
+\begin{table}
+	\centering
+	\small
+	\begin{tabular}{>{\bfseries}l @{\hspace{1em}} r r r r r r @{\hspace{1em}} r}
+		\toprule
+			Model & SYN & SWC & SWV & GEO & NUM & Rest & Total \\
+		\midrule
+			\cop{PyCoP}       & 231 & 30 & 129 & 28  & 9   & 368  & 795  \\
+			\cop{PyLeanCoP}   & 486 & 14 & 163 & 216 & 86  & 958  & 1923 \\
+			\pysatcopz{}      & 459 & 2  & 161 & 177 & 90  & 982  & 1871 \\
+			\cop{PySATCoP}    & 549 & 11 & 173 & 260 & 151 & 1365 & 2509 \\
+			\cop{SATResetCoP} & 672 & 64 & 215 & 293 & 179 & 1548 & 2971 \\
+		\bottomrule
+	\end{tabular}
+	\caption{Amount of problems solved, per category, for each model.}
 \end{table}
 
 \section{Future Work}
