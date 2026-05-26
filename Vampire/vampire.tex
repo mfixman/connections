@@ -283,6 +283,7 @@ It also provides declared statuses for these problems, which are a useful sanity
 \subsection{Experiment Design}
 
 The connections prover provides with \cop{PyCoP}, a simple prover that chooses the first legal non-backtrack action at each point and resets the tree with an increased maximum height saturated.
+This can be used as a simple control policy and sanity check.
 
 As a second control policy we use our implementation of \cop{leanCoP}\cite{ottenLeanCoP20}, \cop{PyLeanCoP}.
 This is a Python version of the \cop{leanCoP} Prolog implementation, with the two recommended predicates used in the first step of the schedule by Otten\cite[\S~5.5]{ottenLeanCoP20}.
@@ -326,6 +327,10 @@ Each problem/model pair is run for a maximum of 120 seconds and 1 million steps,
 This is mostly caused by the SAT solved reaching unsatisfiability in fewer time and steps than in previous models, as seen in \cref{strategy_solved_time,strategy_solved_steps}.
 The \num{1000000} step limit is rarely reached, and most unsolved problems hit the 120 second limit instead.
 
+The improvement is visible in both problem formats.
+\cop{SATResetCoP} solves \num{462} more problems than \cop{PySATCoP}, with \num{206} additional CNF problems and \num{256} additional FOF problems.
+Compared with \pysatcopz{}, it solves \num{1100} more problems, an increase of \num{58.8}\%, and compared with \cop{PyLeanCoP} it solves \num{1048} more problems, an increase of \num{54.5}\%.
+
 \begin{table}[h]
 	\centering
 	\footnotesize
@@ -344,7 +349,7 @@ The \num{1000000} step limit is rarely reached, and most unsolved problems hit t
 			\cop{SATResetCoP} & 1273 & 16.3 & 1698 & 19.3 & 2971 & 17.9 \\
 		\bottomrule
 	\end{tabular}
-	\caption{Amount and percentage of CNF and FOF problems solved within the time constraint by each model.}
+	\caption{Amount and percentage of CNF and FOF problems solved within the time constraint by each model. There is a significant improvement on both CNF and FOF problems for each new property added to each strategy.}
 	\label{problems_solved}
 \end{table}
 

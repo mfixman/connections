@@ -1,5 +1,5 @@
 \newcommand{\satdistance}{-130pt}
-\newcommand{\dist}{60pt}
+\newcommand{\dist}{67pt}
 \newcommand{\bet}{15pt}
 
 \begin{tikzpicture}[
@@ -29,9 +29,9 @@
   \node[start] at (0pt, -28pt) {$\neg F(g) \vee p$};
 
   \node[label, align=center, anchor=north] at (0pt, \satdistance) {$
-    \left\{ \begin{gathered}
+    \left\{ \begin{aligned}
       \neg F(g) \vee p
-    \end{gathered} \right\}
+    \end{aligned} \right\}
   $};
 \end{scope}
 
@@ -43,10 +43,10 @@
     };
 
   \node[label, align=center, anchor=north] at (0pt, \satdistance) {$
-    \left\{ \begin{gathered}
-      \neg F(g) \vee p \\
-      F(x_0) \vee \neg p
-    \end{gathered} \right\}
+    \left\{ \begin{aligned}
+      \neg F(g) &\vee p \\
+      F(x_0) &\vee \neg p
+    \end{aligned} \right\}
   $};
 \end{scope}
 
@@ -61,11 +61,11 @@
     };
 
   \node[label, align=center, anchor=north] at (0pt, \satdistance) {$
-    \left\{ \begin{gathered}
-      \neg F(g) \vee p \\
-      F(x_0) \vee \neg p \\
-      F(x_1) \vee \neg p
-    \end{gathered} \right\}
+    \left\{ \begin{aligned}
+      \neg F(g) &\vee p \\
+      F(x_0) &\vee \neg p \\
+      F(x_1) &\vee \neg p
+    \end{aligned} \right\}
   $};
 \end{scope}
 
@@ -80,11 +80,11 @@
     };
 
   \node[label, align=center, anchor=north] at (0pt, \satdistance) {$
-    \left\{ \begin{gathered}
-      \neg F(g) \vee p \\
-      F(x_0) \vee \neg p \\
-      F(x_1) \vee \neg p
-    \end{gathered} \right\}
+    \left\{ \begin{aligned}
+      \neg F(g) &\vee p \\
+      F(x_0) &\vee \neg p \\
+      F(x_1) &\vee \neg p
+    \end{aligned} \right\}
   $};
 \end{scope}
 
@@ -96,12 +96,12 @@
   \node[start] at (0pt, -28pt) {$p \vee F(g)$};
 
   \node[label, align=center, anchor=north] at (0pt, \satdistance) {$
-    \left\{ \begin{gathered}
-      \neg F(g) \vee p \\
-      F(x_0) \vee \neg p \\
-      F(x_1) \vee \neg p \\
-      p \vee F(g)
-    \end{gathered} \right\}
+    \left\{ \begin{aligned}
+      \neg F(g) &\vee p \\
+      F(x_0) &\vee \neg p \\
+      F(x_1) &\vee \neg p \\
+      p &\vee F(g)
+    \end{aligned} \right\}
   $};
 \end{scope}
 
@@ -113,13 +113,13 @@
     };
 
   \node[label, align=center, anchor=north] at (0pt, \satdistance) {$
-    \left\{ \begin{gathered}
-      \neg F(g) \vee p \\
-      F(x_0) \vee \neg p \\
-      F(x_1) \vee \neg p \\
-      p \vee F(g) \\
-      \neg p \vee \neg F(a)
-    \end{gathered} \right\}
+    \left\{ \begin{aligned}
+      \neg F(g) &\vee p \\
+      F(x_0) &\vee \neg p \\
+      F(x_1) &\vee \neg p \\
+      p &\vee F(g) \\
+      \neg p &\vee \neg F(a)
+    \end{aligned} \right\}
   $};
 \end{scope}
 
@@ -134,14 +134,14 @@
     };
 
   \node[label, align=center, anchor=north] at (0pt, \satdistance) {$
-    \left\{ \begin{gathered}
-      \neg F(g) \vee p \\
-      F(x_0) \vee \neg p \\
-      F(x_1) \vee \neg p \\
-      p \vee F(g) \\
-      \neg p \vee \neg F(a) \\
-      F(a) \vee \neg p
-    \end{gathered} \right\}
+    \left\{ \begin{aligned}
+      \neg F(g) &\vee p \\
+      F(x_0) &\vee \neg p \\
+      F(x_1) &\vee \neg p \\
+      p &\vee F(g) \\
+      \neg p &\vee \neg F(a) \\
+      F(a) &\vee \neg p
+    \end{aligned} \right\}
   $};
 \end{scope}
 
