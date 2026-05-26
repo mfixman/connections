@@ -67,10 +67,12 @@
 \maketitle{}
 
 \begin{abstract}
-	We improve \cop{PySATCoP} performance by resetting the connection tableau often.
-	This causes more and more varied SAT statements to be added to the SAT prover, which causes it to saturate faster.
-	The resulting prover solves problems faster and in significantly fewer steps than \cop{SATCoP} and other state-of-the-art tableau provers.
-	\todo{Add actual numbers here.}
+	Connection tableau provers usually try to close one tableau before moving on to another branch of the search.
+	We introduce \cop{SATResetCoP}, a variant of \cop{SATCoP} that instead treats the accumulated SAT abstraction as the main search object: it repeatedly resets the active tableau and uses the new ground clauses produced by these attempts to drive the SAT abstraction toward contradiction.
+
+	We compare this against implementations of \cop{leanCoP} and \cop{SATCoP} in the same backend framework.
+	\cop{SATResetCoP} solves \num{2971} problems with a 120 second and 1 million step limit, an improvement of 54\% from our implementation of \cop{leanCoP} and of 18\% from our improved implementation of \cop{SATCoP}.
+	These results suggest that SAT saturation is useful as tableau search guidance.
 \end{abstract}
 
 \begin{footnotesize}
@@ -118,7 +120,7 @@ The calculus is sound and complete with backtracking and iterative deepening, bu
 \begin{figure}[h]
 	\centering
 	\framebox[\linewidth][c]{\input{diagrams/connection_calculus_steps.tikz}}
-	\caption{The three proof-building steps of a clausal connection tableau, taken from the tableau closure of \cop{SYN052-1.p}\cite{Pelletier86}. The two \step{Extension} steps add an extra clause to the tableau; the \step{Reduction} step closes the nodes that were proven unsat. A full solution can be found in \cref{diagram_syn052_1}.}
+	\caption{The three proof-building steps of a clausal connection tableau, taken from the tableau closure of \cop{SYN052-1.p}\cite{Pelletier86}. The two \step{Extension} steps add an extra clause to the tableau; the \step{Reduction} step closes the nodes that were proven unsat. A full solution can be found in \cref{diagram_syn052_1}. \todo{Write one of these explaining a Reset step for \cref{implementation_details}.}}
 \end{figure}
 
 Many different types of connection tableau provers were created around the years.
@@ -142,9 +144,9 @@ The common theme is the one we use below: connection-tableau proving is naturall
 \subsection{\cop{SATCoP} and Methods that use SAT Saturation in a Tableau}
 \label{satcop}
 
-SAT and SMT solvers have long been used to support first-order reasoning, for example in finite model finding, instance generation, and splitting architectures\cite{eliminatingModels,schulzSATInterpretation}.
+SAT and SMT solvers have long been used to support first-order reasoning\cite{eliminatingModels,schulzSATInterpretation}.
 For a connection prover, the useful observation is simple: every clause that appears in a tableau is an instance of an input clause.
-If we ground these tableau clauses and collect them in a propositional SAT solver, then a SAT refutation of the collected ground clauses is a sound refutation of the original first-order problem\cite{eliminatingModels}.
+If we ground these tableau clauses and collect them in a propositional SAT solver, then a SAT refutation of the collected ground clauses is a sound refutation of the original first-order problem.
 
 Rawson and Reger implement this idea in \cop{SATCoP}, a clausal connection-tableau prover based on \cop{leanCoP}\cite{eliminatingModels}.
 
@@ -176,20 +178,19 @@ It might be useful to incorporate \cop{SATResetCoP} into the initial steps of a 
 A real-world example of how \cop{PyLeanCoP}, \cop{PySATCop}, and \cop{SATResetCoP} handle a real-world problem, \cop{SYN052-1.p}, can be found in \cref{diagram_syn052_1}.
 
 \subsection{Implementation Details}
+\label{implementation_details}
 
 Like \cop{SATCoP}, the implementation keeps a persistent SAT solver alongside the active tableau search.
 The SAT state is not recreated during ordinary proof search.
 Ground clauses accumulated in earlier tableau attempts remain available in later attempts, and new clauses are added incrementally to the same solver instance.
 
 The SAT state is implemented using \cop{CaDiCaL}\cite{cadical20}.
-A new operation, \step{Reset}, clears the tableau, the current substitution, and the proof sequence, and starts a new tableau attempt with a specified depth bound.
-It does not clear the persistent SAT solver.
-This means that every reset starts from an empty tree, while the SAT solver keeps the ground information produced by earlier attempts.
+A new virtual operation, \step{Reset}, clears the tableau, the current substitution, and the proof sequence, and starts a new tableau attempt with a specified depth bound.
+It does not clear the persistent SAT solver: every reset starts from an empty tree, while the SAT solver keeps the ground information produced by earlier attempts.
 
 The grounded clauses used by \cop{PySATCoP} and \cop{SATResetCoP} come from clauses that have appeared in the tableau, after applying the tableau substitution accumulated so far.
 Start clauses are added to the SAT state when the run is initialised.
-After successful \step{Extension} and \step{Reduction} steps, the implementation grounds the clauses currently present in the tableau and records the genuinely new ones.
-These new clauses are then flushed to the SAT solver at reset points.
+After successful \step{Extension} and \step{Reduction} steps, the implementation grounds the clauses currently present in the tableau and records the genuinely new ones, and their clauses are flushed to the SAT solver.
 
 The grounding scheme follows the soundness argument of \cref{satcop}: the SAT solver receives only ground instances of clauses generated by the tableau.
 Ground terms are kept as they are, and variables assigned by the current tableau substitution are replaced by their assigned terms.
@@ -366,14 +367,14 @@ A comparison of newly solved and newly unsolved problems can be seen in \cref{ne
 		\toprule
 			Model & Newly Solved & Newly Unsolved & Total Solved \\
 		\midrule
-			\cop{PyCoP}       & 795  & {-} & 795  \\
+			\cop{PyCoP}       &      &  & 795  \\
 			\cop{PyLeanCoP}   & 1246 & 118 & 1923 \\
 			\pysatcopz{}      & 307  & 379 & 1871 \\
 			\cop{PySATCoP}    & 402  & 23  & 2509 \\
 			\cop{SATResetCoP} & 478  & 136 & 2971 \\
 		\bottomrule
 	\end{tabular}
-	\caption{Newly solved, newly unsolved, and total solved problems for each model. Newly solved counts problems solved by the model but by no preceding model in the table; newly unsolved counts problems solved by the previous model but not by the current one.}
+	\caption{Newly solved, newly unsolved, and total solved problems for each model.}
 	\label{newly_solved_table}
 \end{table}
 
@@ -385,8 +386,8 @@ A comparison of newly solved and newly unsolved problems can be seen in \cref{ne
 	\label{solved_heatmap}
 \end{figure}
 
-The size of the improvements between \cop{SATResetCoP} and the best previous model, \cop{SATCoP}, is notable visible in many TPTP categoriesthat have quickly reachable propositional contradictions in the accumulated ground abstraction, such as \step{SYN}, \step{SWC}, and \step{SWV}.
-As expected, this strategy also solves problems fewer steps, as can be seen in \cref{violinplots}.
+The size of the improvements between \cop{SATResetCoP} and the best previous experimental model, our \cop{PySATCoP} implementation of \cop{SATCoP}, is notable in many TPTP categories that have quickly reachable propositional contradictions in the accumulated ground abstraction, such as \step{SYN}, \step{SWC}, and \step{SWV}.
+As expected, this strategy also solves problems in fewer steps, as can be seen in \cref{violinplots}.
 
 \begin{table}
 	\centering
@@ -488,6 +489,11 @@ These results do not show any negative results.
 \end{table}
 
 \section{Future Work}
+
+\subsection{Schedule}
+
+\cop{SATResetCoP} still struggles with a signifiant amount of problems, as seen in \cref{newly_solved_table}.
+It would be worth experimenting with adding this strategy to a schedule, following the examples of Otten and Mangla\cite{ottenLeanCoP20,mangla2022a}, and possibly run a different strategy or solver if no solution was found after an amount of time or number of steps.
 
 \section{Acknowledgements}
 
