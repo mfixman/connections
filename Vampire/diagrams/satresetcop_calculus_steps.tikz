@@ -1,6 +1,6 @@
 \newcommand{\satdistance}{-130pt}
 \newcommand{\dist}{60pt}
-\newcommand{\bet}{5pt}
+\newcommand{\bet}{15pt}
 
 \begin{tikzpicture}[
   attempt/.style = {
@@ -88,23 +88,26 @@
   $};
 \end{scope}
 
+\draw (3.5*\dist+0.5*\bet, 3pt) -- (3.5*\dist+0.5*\bet, .90\satdistance)
+	node[midway, fill = white, inner sep=2pt, rotate = 90] {\footnotesize \step{Reset}};
+
 \begin{scope}[xshift={4*\dist+\bet}, attempt]
   \node[title] {\step{Start}};
-  \node[start] at (0pt, -28pt) {$p \vee \neg F(g)$};
+  \node[start] at (0pt, -28pt) {$p \vee F(g)$};
 
   \node[label, align=center, anchor=north] at (0pt, \satdistance) {$
     \left\{ \begin{gathered}
       \neg F(g) \vee p \\
       F(x_0) \vee \neg p \\
       F(x_1) \vee \neg p \\
-      p \vee \neg F(g)
+      p \vee F(g)
     \end{gathered} \right\}
   $};
 \end{scope}
 
 \begin{scope}[xshift={5*\dist+\bet}, attempt]
   \node[title] {\step{Extension}};
-  \node[start] at (0pt, -28pt) {$p \vee \neg F(g)$}
+  \node[start] at (0pt, -28pt) {$p \vee F(g)$}
     child {
       node {$\neg p \vee \neg F(a)$}
     };
@@ -114,7 +117,7 @@
       \neg F(g) \vee p \\
       F(x_0) \vee \neg p \\
       F(x_1) \vee \neg p \\
-      p \vee \neg F(g) \\
+      p \vee F(g) \\
       \neg p \vee \neg F(a)
     \end{gathered} \right\}
   $};
@@ -122,7 +125,7 @@
 
 \begin{scope}[xshift={6*\dist+\bet}, attempt]
   \node[title] {\step{Extension}};
-  \node[start] at (0pt, -28pt) {$p \vee \neg F(g)$}
+  \node[start] at (0pt, -28pt) {$p \vee F(g)$}
     child {
       node {$\neg p \vee \neg F(a)$}
       child {
@@ -135,7 +138,7 @@
       \neg F(g) \vee p \\
       F(x_0) \vee \neg p \\
       F(x_1) \vee \neg p \\
-      p \vee \neg F(g) \\
+      p \vee F(g) \\
       \neg p \vee \neg F(a) \\
       F(a) \vee \neg p
     \end{gathered} \right\}
