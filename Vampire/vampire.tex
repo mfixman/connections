@@ -191,8 +191,8 @@ An example of how this operation works can be seen in \cref{reset_example}.
 
 \begin{figure}[h]
 	\centering
-	\framebox[\linewidth][c]{\input{diagrams/satresetcop_calculus_steps.tikz}}
-	\caption{Example of the first few steps of \cop{SATResetCoP} in \step{SYN052-1.p}. \cop{SATCoP} and previous provers would backtrack after closing the branch with $F(x_1) \vee \not p$; instead, \cop{SATRestCoP} resets into a new tree.}
+	\framebox[\linewidth][c]{\resizebox{\linewidth}{!}{\input{diagrams/satresetcop_calculus_steps.tikz}}}
+	\caption{Example of of \cop{SATResetCoP} in \step{SYN052-1.p}. \cop{SATCoP} and previous provers would backtrack after closing the branch with $F(x_1) \vee \neg p$; instead, \cop{SATRestCoP} resets into a new tree. This fills up the UNSAT core (shown at the bottom) faster than in \cop{SATCoP}, which makes it reach an unsatisfiable state faster. Substitutions were obviated for simplicity.}
 	\label{reset_example}
 \end{figure}
 
@@ -466,11 +466,11 @@ This is an example of the kind of problem on which the \cop{SATResetCoP} strateg
 \subsubsection{Soundness Verification: Problem Satisfiability}
 
 The problems in the TPTP library have a helpful specification of the satisfiability of different types of problems\cite{tptp}.
-This is useful as a sanity-check: a sound solver should never ``prove'' unsatisfiability on a satisfiable problem, and their authors should be wary when proving unsatisfiability on an open or unknown problem.
 While this does not demonstrate soundness, it's a check to ensure the strategy didn't become unsound by mistake.
 
 We make a second run of \cop{SATResetCoP} with a longer 10-minute limit, whose results can be seen in \cref{sat_proof}.
-These results do not show any negative results.
+The results are consistent with what we would expect if the prover were sound, as it does not find unsatisfiability (``Solved'') in any problem marked satisfiable or countersatisfiable.
+It also does not solve any unknown or open problems; while this is not the best result, we would need to check these solutions closely to ensure that they are not caused by an incorrect prover.
 
 \begin{table}
 	\centering
