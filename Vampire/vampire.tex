@@ -215,32 +215,38 @@ Pseudocode for this implementation can be found in \cref{satresetcop_code}.
 
 \begin{lstlisting}[float,floatplacement=h,caption={Pseudocode of the \cop{SATResetCoP} control policy.},label={satresetcop_code}]
 def solve_tableau(start_clauses):
-	clauses := ground(start_clauses)
+	solver := incremental_sat_solver()
+	solver.add(ground(start_clauses))
+	pending := empty_set
 
 	max_depth := 1
 	tableau := empty_tableau(max_depth)
 
-	while solve_sat(clauses) != UNSAT:
-		Actions := legal_actions(tableau)  // may include Backtrack
+	while solve_sat(solver) != UNSAT:
+		model := current_model(solver)
+		actions := legal_actions(tableau)
 
-		model_rank(lit) :=
-			0 if ground(lit) is true in SAT(clauses)
-			1 if ground(lit) is unassigned in SAT(clauses)
-			2 if ground(lit) is false in SAT(clauses)
-			3 if lit = Backtrack
+		if any Start, Extension, Reduction in actions:
+			model_rank(a) :=
+				2 if a is Start
+				0 if selected_literal(a) in is true in model
+				1 if selected_literal(a) is unknown in model
+				3 if selected_literal(a) is false in model
 
-		a := argmin(a in Actions, model_rank(selected_literal_or_backtrack(a)))
+			next_action = argmin(actions, key = model_rank)
+			tableau_step(next_action)
 
-		if a != Backtrack:
-			step(a)
-			clauses.add(ground(tableau))
-			continue
+			if next_action is Reduction or Extension:
+				pending.add(ground(tableau))
 
-		if ground(tableau) adds a new clause:
-			tableau := empty_tableau(max_depth)
 		else:
-			tableau := empty_tableau(max_depth + 1)
-			max_depth := max_depth + 1
+			if pending is not empty:
+				solver.add_all(pending)
+				pending := empty_set
+				tableau := empty_tableau(max_depth)
+			else:
+				max_depth := max_depth + 1
+				tableau := empty_tableau(max_depth)
 \end{lstlisting}
 
 \subsection{Python Implementation}
