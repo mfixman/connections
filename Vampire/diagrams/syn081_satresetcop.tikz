@@ -7,9 +7,9 @@
       inner ysep=2pt,
       font=\scriptsize
     },
-    level distance=8mm,
-    sibling distance=18mm,
-    level 2/.style={sibling distance=14mm},
+    level distance=23pt,
+    sibling distance=51pt,
+    level 2/.style={sibling distance=40pt},
     edge from parent/.style={draw, -}
   },
   start/.style={},
@@ -17,18 +17,18 @@
   bt/.style={draw, dash pattern=on 2pt off 1pt on .5pt off 1pt},
   label/.style={draw=none, font=\scriptsize\itshape}
 ]
-\useasboundingbox (-48mm,-38mm) rectangle (164mm,8mm);
+\useasboundingbox (-137pt,-108pt) rectangle (467pt,23pt);
 
-\begin{scope}[xshift=24mm, attempt]
+\begin{scope}[xshift=68pt, attempt]
   \node[start, core] {$\neg F(f(g)) \vee F(f(f(g)))$}
     child { node[core] {$F(f(g)) \vee \neg F(g)$} };
 \end{scope}
 
-\begin{scope}[xshift=100mm, attempt]
+\begin{scope}[xshift=285pt, attempt]
   \node[start, core] {$\neg F(f(g)) \vee \neg F(f(f(g)))$}
     child { node[core] {$F(f(g)) \vee F(g)$} };
 \end{scope}
 
-\node[label, align=center] at (63mm,-31mm)
+\node[label, align=center] at (179pt,-88pt)
   {UNSAT core:\\$\{\neg F(f(g)) \vee F(f(f(g))),\ F(f(g)) \vee \neg F(g),\ \neg F(f(g)) \vee \neg F(f(f(g))),\ F(f(g)) \vee F(g)\}$};
 \end{tikzpicture}

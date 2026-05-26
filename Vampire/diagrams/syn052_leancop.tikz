@@ -7,9 +7,9 @@
       inner ysep=2pt,
       font=\scriptsize
     },
-    level distance=8mm,
-    sibling distance=22mm,
-    level 2/.style={sibling distance=16mm},
+    level distance=23pt,
+    sibling distance=63pt,
+    level 2/.style={sibling distance=46pt},
     edge from parent/.style={draw, -}
   },
   start/.style={},
@@ -17,48 +17,48 @@
   bt/.style={edge from parent/.style={draw, dash pattern=on 2pt off 1pt on .5pt off 1pt}},
   label/.style={draw=none, font=\scriptsize\itshape}
 ]
-\useasboundingbox (-37mm,-50mm) rectangle (153mm,8mm);
+\useasboundingbox (-105pt,-142pt) rectangle (435pt,23pt);
 
 \begin{scope}[attempt]
   \node[start] {$F(y_0) \vee p$}
-    child[bt] { node {$p \vee \neg F(x_0)$} }
-    child[bt] { node {$\neg p \vee \neg F(a)$} }
-    child[bt] { node {$F(y_1) \vee \neg F(a)$} };
+    child { node {$p \vee \neg F(x_0)$} }
+    child { node {$\neg p \vee \neg F(a)$} }
+    child { node {$F(y_1) \vee \neg F(a)$} };
 \end{scope}
 
-\begin{scope}[xshift=58mm, attempt]
+\begin{scope}[xshift=165pt, attempt]
   \node[start] {$p \vee \neg F(x_1)$}
-    child[bt] { node {$F(x_2) \vee \neg p$} }
-    child[bt] { node {$\neg p \vee \neg F(a)$} };
+    child { node {$F(x_2) \vee \neg p$} }
+    child { node {$\neg p \vee \neg F(a)$} };
 \end{scope}
 
-\begin{scope}[xshift=116mm, attempt]
+\begin{scope}[xshift=330pt, attempt]
   \node[start] {$F(x_3) \vee \neg p$}
-    child[bt] { node {$p \vee \neg F(x_4)$} }
-    child[bt] { node {$\neg p \vee \neg F(a)$} }
-    child[bt] { node {$F(y_2) \vee \neg F(a)$} };
+    child { node {$p \vee \neg F(x_4)$} }
+    child { node {$\neg p \vee \neg F(a)$} }
+    child { node {$F(y_2) \vee \neg F(a)$} };
 \end{scope}
 
-\begin{scope}[xshift=0mm, yshift=-22mm, attempt]
+\begin{scope}[xshift=0pt, yshift=-63pt, attempt]
   \node[start] {$\neg p \vee \neg F(a)$}
-    child[bt] { node {$p \vee \neg F(x_5)$} }
-    child[bt] { node {$F(y_3) \vee p$} };
+    child { node {$p \vee \neg F(x_5)$} }
+    child { node {$F(y_3) \vee p$} };
 \end{scope}
 
-\begin{scope}[xshift=58mm, yshift=-22mm, attempt]
+\begin{scope}[xshift=165pt, yshift=-63pt, attempt]
   \node[start] {$F(y_4) \vee \neg F(a)$}
-    child[bt] { node {$p \vee \neg F(x_6)$} }
-    child[bt] { node {$\neg p \vee \neg F(a)$} }
-    child[bt] { node {$F(y_5) \vee \neg F(a)$} };
+    child { node {$p \vee \neg F(x_6)$} }
+    child { node {$\neg p \vee \neg F(a)$} }
+    child { node {$F(y_5) \vee \neg F(a)$} };
 \end{scope}
 
-\begin{scope}[yshift=-22mm, xshift=116mm, attempt,
-  level 1/.style={sibling distance=32mm},
-  level 2/.style={sibling distance=18mm}
+\begin{scope}[yshift=-63pt, xshift=330pt, attempt,
+  level 1/.style={sibling distance=91pt},
+  level 2/.style={sibling distance=51pt}
 ]
   \node[start, success] {$F(y_6) \vee p$}
     child { node[success] {$p \vee \neg F(x_7)$}
-      child[bt] { node {$\neg p \vee \neg F(a)$} }
+      child { node {$\neg p \vee \neg F(a)$} }
     }
     child { node[success] {$F(x_8) \vee \neg p$}
       child { node[success] {$\neg p \vee \neg F(a)$} }

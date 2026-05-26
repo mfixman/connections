@@ -263,7 +263,7 @@ The source code for this implementation is present in \url{https://github.com/mf
 Along with out implementation of \cop{SATResetCoP}, \cop{PyCoP} allows us to reimplement \cop{PyLeanCoP} and \cop{PySATCoP} in its own backend.
 This provides a fairer baseline for comparison.
 
-We run \cop{SATResetCoP} along with our versions of these two connection tableau strategies, along with a strategy that chooses the first possible action as control, on the \num{8344} CNF problems and \num{9091} FOF problems of all 50 categories containing at least one of these problems from the Thousands of Problems for Theorem Provers (TPTP) library\cite{tptp}.
+We run \cop{SATResetCoP} along with our versions of these two connection tableau strategies, along with a strategy that chooses the first possible action as control, on the \num{7815} CNF problems and \num{8779} FOF problems of all 50 categories containing at least one of these problems from the Thousands of Problems for Theorem Provers (TPTP) library\cite{tptp}.
 
 The library provides a varied set of problems that's a standard way to prove first-order provers.
 It also provides declared statuses for these problems, which are a useful sanity check for false unsatisfiability results.
@@ -289,7 +289,7 @@ These kinds of simple policies tend to be very effective in tableau provers\cite
 	\small
 	\begin{tabularx}{\textwidth}{>{\sffamily}l X c c c c}
 		\toprule
-			Model & Explanation & \scriptsize Cut & \scriptsize UNSAT Proof & \scriptsize SAT Guidance & \scriptsize Reset on Backtrack \\
+			Model & Explanation & Cut & UNSAT Proof & SAT Guidance & Reset on Backtrack \\
 		\midrule
 			\cop{PyCoP} & Simple control policy & & & & \\
 			\cop{PyLeanCoP} & \cop{leanCoP} with initial set of predicates. & \checkmark{} & & \\
@@ -305,90 +305,120 @@ These kinds of simple policies tend to be very effective in tableau provers\cite
 	\label{cops_table}
 \end{table}
 
-The TPTP library contains \num{8344} CNF problems and \num{9091} FOF problems separated in 50 categories\cite{tptp}.
-Each problem/model pair is run for a maximum of 90 seconds and 1 million steps, on a single core of the University of Cambridge CSD3 Cluster with \todo{add CPU information} and 3370 MiB RAM per core\cite{cambridge_csd3}.
+The benchmark set contains \num{7815} CNF problems and \num{8779} FOF problems separated in 50 categories\cite{tptp}.
+Each problem/model pair is run for a maximum of 120 seconds and 1 million steps, on a single core of the University of Cambridge CSD3 Cluster with \todo{add CPU information} and 3370 MiB RAM per core\cite{cambridge_csd3}.
 
 \subsection{Results}
 
 \subsubsection{Individual Results}
 
-\cop{SATResetCoP} considerably improves the amount of problems solved by both \pysatcopz{} and \cop{PySATCoP} under the 90 second time limit, as shown in \cref{problems_solved}.
+\cop{SATResetCoP} considerably improves the amount of problems solved by both \pysatcopz{} and \cop{PySATCoP} under the 120 second time limit, as shown in \cref{problems_solved}.
 This is mostly caused by the SAT solved reaching unsatisfiability in fewer time and steps than in previous models, as seen in \cref{strategy_solved_time,strategy_solved_steps}.
 
 \begin{table}[h]
 	\centering
 	\small
-	\begin{tabular}{>{\sffamily}l r r r}
+	\begin{tabular}{>{\sffamily}l r r r r r r}
 		\toprule
-			Model & CNF & FOF & Total \\
+			& \multicolumn{2}{c}{CNF} & \multicolumn{2}{c}{FOF} & \multicolumn{2}{c}{Total} \\
+		\cmidrule(lr){2-3}
+		\cmidrule(lr){4-5}
+		\cmidrule(lr){6-7}
+			Model & Number & \% & Number & \% & Number & \% \\
 		\midrule
-			\cop{PyCoP} & 205 & 587 & 792 \\
-			\cop{PyLeanCoP} & 701 & 1155 & 1856 \\
-			\pysatcopz{} & 787 & 1042 & 1829 \\
-			\cop{PySATCoP} & 1027 & 1396 & 2423 \\
-			\cop{SATResetCoP} & 1227 & 1634 & 2861 \\
+			\cop{PyCoP}       & 208  & 2.7  & 587  & 6.7  & 795  & 4.8  \\
+			\cop{PyLeanCoP}   & 723  & 9.3  & 1200 & 13.7 & 1923 & 11.6 \\
+			\pysatcopz{}      & 804  & 10.3 & 1067 & 12.2 & 1871 & 11.3 \\
+			\cop{PySATCoP}    & 1067 & 13.7 & 1442 & 16.4 & 2509 & 15.1 \\
+			\cop{SATResetCoP} & 1273 & 16.3 & 1698 & 19.3 & 2971 & 17.9 \\
 		\bottomrule
 	\end{tabular}
-	\caption{Amount of CNF and FOF problems solved within the time constraint by each model.}
+	\caption{Amount and percentage of CNF and FOF problems solved within the time constraint by each model.}
 	\label{problems_solved}
 \end{table}
 
 \begin{figure}[h]
 	\centering
 	\begin{subfigure}[t]{.33\textwidth}
-		\includegraphics[height=250pt]{strategy_solved_time_plot.png}
+		\includegraphics[height=220pt]{strategy_solved_time_plot.png}
 		\caption{Problems solved, stacked by time in seconds.}
 		\label{strategy_solved_time}
 	\end{subfigure} \hspace{40pt}
 	\begin{subfigure}[t]{.33\textwidth}
-		\includegraphics[height=250pt]{strategy_solved_steps_plot.png}
+		\includegraphics[height=220pt]{strategy_solved_steps_plot.png}
 		\caption{Problem solved, stacked by amount of steps. SAT models can solve a problem in 0 steps if the initial grounding produces is SAT-unsatisfiable.}
 		\label{strategy_solved_steps}
 	\end{subfigure}
-	\caption{Results of running the models on all problems solved in a 90 second and 1 million step limit.}
+	\caption{Results of running the models on all problems solved in a 120 second and 1 million step limit.}
 \end{figure}
 
-The \num{1000000} step limit is rarely reached, and most unsolved problems hit the 90 second limit instead.
-
-\begin{figure}[h]
-	\includegraphics[width=\textwidth]{violinplot_all_problems.png}
-	\caption{Steps taken by \cop{SATResetCoP} to solve each problem within each TPTP problem type. }
-\end{figure}
-
-\begin{figure}[h]
-	\includegraphics[width=\textwidth]{violinplots.png}
-	\caption{Density of problems solved at a certain amount of steps by \cop{PySATCoP} and \cop{SATResetCoP} to on categories \cop{SYN}, \cop{SWC}, \cop{SWV}, \cop{GEO}, and \cop{NUM} of TPTP. The area of each violinplot is the same, and the plot shows how, besides solving more problems in each of these category, \cop{PySATCoP} solves a significant amount in fewer steps. Unsolved problems are accumulated the $\geq 10k$ category on the right.}
-\end{figure}
+The \num{1000000} step limit is rarely reached, and most unsolved problems hit the 120 second limit instead.
 
 \subsubsection{Comparative Results}
 
 The SAT guidance in \cop{SATResetCoP} causes it to solve several problems that are unsolved by either models which do not have the same SAT saturation prover, and even by \pysatcopz{} and \cop{PySATCoP}, which do not have similar efficient guidance.
-A comparative result can be seen in \cref{solved_table}.
+A comparison of newly solved and newly unsolved problems can be seen in \cref{newly_solved_table}.
 
 \begin{table}
 	\centering
 	\small
-	\begin{tabular}{>{\sffamily}l r r}
+	\begin{tabular}{>{\sffamily}l r r r}
 		\toprule
-			Model & CNF & FOF \\
+			Model & Newly Solved & Newly Unsolved & Total Solved \\
 		\midrule
-			\cop{PyCoP} & 205 & 587 \\
-			\cop{PyLeanCoP} & 502 & 693 \\
-			\pysatcopz{} & 184 & 129 \\
-			\cop{PySATCoP} & 188 & 189 \\
-			\cop{SATResetCoP} & 213 & 228 \\
+			\cop{PyCoP}       & 795  & {-} & 795  \\
+			\cop{PyLeanCoP}   & 1246 & 118 & 1923 \\
+			\pysatcopz{}      & 307  & 379 & 1871 \\
+			\cop{PySATCoP}    & 402  & 23  & 2509 \\
+			\cop{SATResetCoP} & 478  & 136 & 2971 \\
 		\bottomrule
 	\end{tabular}
-	\caption{Problems solved by each model and not solved by any preceding model in the table. \todo{What's the point of separating CNF and FOF here? Maybe finding interesting TPTP types would be better.}}
-	\label{solved_table}
+	\caption{Newly solved, newly unsolved, and total solved problems for each model. Newly solved counts problems solved by the model but by no preceding model in the table; newly unsolved counts problems solved by the previous model but not by the current one.}
+	\label{newly_solved_table}
 \end{table}
 
-\cop{SATResetCoP} is specially strong in problems which can be solved by small unsat cores.
-For example, \cref{diagram_syn052_1} shows the solution to the TPTP problem \cop{SYN052-1}\cite{Pelletier86}.
+\Cref{solved_heatmap} shows the amount of problems solved one of the models and not a previous one.
 
-\newcommand{\sepspace}{1em}
+\begin{figure}
+	\centering\includegraphics[width=.50\textwidth]{solved_heatmap}
+	\caption{Pairwise comparison of model results: the cell in column \cop{y} and row \cop{x} shows the amount of problems solved by the model on \cop{y}, but not the model in \cop{x}. For example, \cop{SATResetCoP} solved 1123 TPTP problems that \pysatcopz{} did not.}
+	\label{solved_heatmap}
+\end{figure}
+
+The size of the improvements between \cop{SATResetCoP} and the best previous model, \cop{SATCoP}, is notable visible in many TPTP categoriesthat have quickly reachable propositional contradictions in the accumulated ground abstraction, such as \step{SYN}, \step{SWC}, and \step{SWV}.
+As expected, this strategy also solves problems fewer steps, as can be seen in \cref{violinplots}.
+
+\begin{table}
+	\centering
+	\small
+	\begin{tabular}{l @{\hspace{1em}} r r r r r r @{\hspace{1em}} r}
+		\toprule
+			Model & SYN & SWC & SWV & GEO & NUM & Rest & Total \\
+		\midrule
+			\cop{PyCoP}       & 231 & 30 & 129 & 28  & 9   & 368  & 795  \\
+			\cop{PyLeanCoP}   & 486 & 14 & 163 & 216 & 86  & 958  & 1923 \\
+			\pysatcopz{}      & 459 & 2  & 161 & 177 & 90  & 982  & 1871 \\
+			\cop{PySATCoP}    & 549 & 11 & 173 & 260 & 151 & 1365 & 2509 \\
+			\cop{SATResetCoP} & 672 & 64 & 215 & 293 & 179 & 1548 & 2971 \\
+		\bottomrule
+	\end{tabular}
+	\caption{Amount of problems solved, per category, for each model.}
+	\label{problems_solved_categories}
+\end{table}
+
+
+\Cref{diagram_syn052_1} shows the solution to the TPTP problem \cop{SYN052-1}\cite{Pelletier86} in three different strategies.
+This is an example of the kind of problem on which the \cop{SATResetCoP} strategy is the best, as it can be solved with a relatively small UNSAT core.
+
+\begin{figure}[h]
+	\includegraphics[width=\textwidth]{violinplots.png}
+	\caption{Density of problems solved at a certain amount of steps by \cop{PySATCoP} and \cop{SATResetCoP} to on categories \cop{SYN}, \cop{SWC}, \cop{SWV}, \cop{GEO}, and \cop{NUM} of TPTP. The area of each violinplot is the same, and the plot shows how, besides solving more problems in each of these category, \cop{PySATCoP} solves a significant amount in fewer steps. Unsolved problems are accumulated the $\geq 10k$ category on the right.}
+	\label{violinplots}
+\end{figure}
+
 \begin{figure}[p]
 	\newcommand{\diagrambox}[1]{\resizebox{\linewidth}{!}{\fbox{\input{#1}}}}
+	\newcommand{\sepspace}{1em}
 	\centering
 	\begin{subfigure}{\linewidth}
 		\small
@@ -423,60 +453,11 @@ For example, \cref{diagram_syn052_1} shows the solution to the TPTP problem \cop
 	\label{diagram_syn052_1}
 \end{figure}
 
-% \begin{figure}[p]
-% 	\newcommand{\diagrambox}[1]{\resizebox{\linewidth}{!}{\fbox{\input{#1}}}}
-% 	\centering
-% 	\begin{subfigure}{\linewidth}
-% 		\footnotesize
-% 		\begin{gather*}
-% 			\neg F(X) \vee \neg F(f(x)) \qquad
-% 			F(f(X)) \vee F(x) \\
-% 			\neg F(X) \vee F(f(X))
-% 		\end{gather*}
-% 		\caption{Problem \cop{SYN081-1.p}\cite{Pelletier86}, adapted from \url{https://tptp.org/TPTP/Problems/SYN/SYN081-1.p}.}
-% 	\end{subfigure} \par\vspace{\sepspace}
-% 	\begin{subfigure}{\linewidth}
-% 		\centering
-% 		\tiny
-% 		\diagrambox{diagrams/syn081_leancop.tikz}
-% 		\caption{Solution found by \cop{PyLeanCoP} in 43 steps.}
-% 	\end{subfigure} \vspace{\sepspace}
-% 	\begin{subfigure}{\linewidth}
-% 		\centering
-% 		\tiny
-% 		\diagrambox{diagrams/syn081_satcop.tikz}
-% 		\caption{Solution found by \cop{SATCoP} in 34 steps.}
-% 	\end{subfigure} \vspace{\sepspace}
-% 	\begin{subfigure}{\linewidth}
-% 		\centering
-% 		\tiny
-% 		\diagrambox{diagrams/syn081_satresetcop.tikz}
-% 		\caption{Solution found by \cop{SATResetCoP} in 11 steps.}
-% 	\end{subfigure}
-% 	\caption{The unsatisfiability proof to the TPTP problem \cop{SYN081-1}\cite{Pelletier86} coming from three provers: \cop{PyLeanCoP}, \cop{PySATCoP}, and \cop{SATResetCoP}.}
-% 	\label{diagram_syn081_1}
-% \end{figure}
-
-
-% However, even more than \cop{PySATCoP}, it's worse than previous models on problems which require a large amount of substitutions to produce the atoms of an unsatisfiable core.
-
-\Cref{solved_heatmap} shows the amount of problems solved one of the models and not a previous one.
-
-\begin{figure}
-	\centering\includegraphics[width=.50\textwidth]{solved_heatmap}
-	\caption{Pairwise comparison of model results: the cell in column \cop{y} and row \cop{x} shows the amount of problems solved by the model on \cop{y}, but not the model in \cop{x}. For example, \cop{SATResetCoP} solved 1056 TPTP problems that \pysatcopz{} did not.}
-	\label{solved_heatmap}
-\end{figure}
-
-The size of the improvement between \cop{SATResetCoP} and the next best model is notable.
-
-\todo{Add more analysis here, including size of unsat cores}
-
 \subsubsection{Soundness Verification: Problem Satisfiability}
 
 The problems in the TPTP library have a helpful specification of the satisfiability of different types of problems\cite{tptp}.
 This is useful as a sanity-check: a sound solver should never ``prove'' unsatisfiability on a satisfiable problem, and their authors should be wary when proving unsatisfiability on an open or unknown problem.
-Note that this is not a way to prove soundness of the solver, but to check that it does not exhibit false unsatisfiability results on problems declared satisfiable or countersatisfiable.
+While this does not demonstrate soundness, it's a check to ensure the strategy didn't become unsound by mistake.
 
 We make a second run of \cop{SATResetCoP} with a longer 10-minute limit, whose results can be seen in \cref{sat_proof}.
 These results do not show any negative results.
@@ -504,23 +485,6 @@ These results do not show any negative results.
 	\end{tabular}
 	\caption{Amount of problems solved and unsolved by \cop{SATResetCoP}, grouped by TPTP declared status. No satisfiable or countersatisfiable problem was incorrectly proven to be unsatisfiable.}
 	\label{sat_proof}
-\end{table}
-
-\begin{table}
-	\centering
-	\small
-	\begin{tabular}{>{\bfseries}l @{\hspace{1em}} r r r r r r @{\hspace{1em}} r}
-		\toprule
-			Model & SYN & SWC & SWV & GEO & NUM & Rest & Total \\
-		\midrule
-			\cop{PyCoP}       & 231 & 30 & 129 & 28  & 9   & 368  & 795  \\
-			\cop{PyLeanCoP}   & 486 & 14 & 163 & 216 & 86  & 958  & 1923 \\
-			\pysatcopz{}      & 459 & 2  & 161 & 177 & 90  & 982  & 1871 \\
-			\cop{PySATCoP}    & 549 & 11 & 173 & 260 & 151 & 1365 & 2509 \\
-			\cop{SATResetCoP} & 672 & 64 & 215 & 293 & 179 & 1548 & 2971 \\
-		\bottomrule
-	\end{tabular}
-	\caption{Amount of problems solved, per category, for each model.}
 \end{table}
 
 \section{Future Work}

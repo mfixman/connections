@@ -8,9 +8,9 @@
       font=\scriptsize,
       align=center
     },
-    level distance=8mm,
-    sibling distance=34mm,
-    level 2/.style={sibling distance=28mm},
+    level distance=23pt,
+    sibling distance=97pt,
+    level 2/.style={sibling distance=80pt},
     edge from parent/.style={draw, -}
   },
   start/.style={},
@@ -18,32 +18,32 @@
   bt/.style={draw, dash pattern=on 2pt off 1pt on .5pt off 1pt},
   label/.style={draw=none, font=\scriptsize\itshape}
 ]
-\useasboundingbox (-48mm,-74mm) rectangle (164mm,8mm);
+\useasboundingbox (-137pt,-211pt) rectangle (467pt,23pt);
 
-\begin{scope}[xshift=0mm, attempt]
+\begin{scope}[xshift=0pt, attempt]
   \node[start] {$F(f(x_0)) \vee F(x_0)$}
     child { node {$\neg F(x_1) \vee \neg F(f(x_1))$} edge from parent[bt] }
     child { node {$\neg F(x_2) \vee \neg F(f(x_2))$} edge from parent[bt] }
     child { node {$\neg F(x_3) \vee F(f(x_3))$} edge from parent[bt] };
 \end{scope}
 
-\begin{scope}[xshift=106mm, attempt]
+\begin{scope}[xshift=302pt, attempt]
   \node[start] {$\neg F(x_4) \vee \neg F(f(x_4))$}
     child { node {$F(f(x_5)) \vee F(x_5)$} edge from parent[bt] }
     child { node {$F(f(x_6)) \vee F(x_6)$} edge from parent[bt] }
     child { node {$\neg F(x_7) \vee F(f(x_7))$} edge from parent[bt] };
 \end{scope}
 
-\begin{scope}[xshift=0mm, yshift=-38mm, attempt]
+\begin{scope}[xshift=0pt, yshift=-108pt, attempt]
   \node[start] {$\neg F(x_8) \vee F(f(x_8))$}
     child { node {$F(f(x_9)) \vee F(x_9)$} edge from parent[bt] }
     child { node {$F(f(x_{10})) \vee F(x_{10})$} edge from parent[bt] }
     child { node {$\neg F(x_{11}) \vee F(f(x_{11}))$} edge from parent[bt] };
 \end{scope}
 
-\begin{scope}[xshift=104mm, yshift=-38mm, attempt,
-  level 1/.style={sibling distance=78mm},
-  level 2/.style={sibling distance=34mm}
+\begin{scope}[xshift=296pt, yshift=-108pt, attempt,
+  level 1/.style={sibling distance=222pt},
+  level 2/.style={sibling distance=97pt}
 ]
   \node[start, success] {$F(f(x_{12})) \vee F(x_{12})$}
     child { node[success] {$\neg F(x_{13}) \vee \neg F(f(x_{13}))$}
