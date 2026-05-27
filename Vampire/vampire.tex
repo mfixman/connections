@@ -166,7 +166,7 @@ The remaining tableau variables must be mapped to ground terms before a clause i
 Their implementation follows a Schulz-style heuristic: use the most frequent constant in the conjecture, and fall back to a fresh constant if no conjecture constant is available\cite[\S~4.2]{eliminatingModels,schulzSATInterpretation}.
 
 Later modifications to \cop{SATCoP} gave it control of the tableau using results from the SAT solver.
-In a later note included in the same paper, Rawson and Reger also describe a literal-selection refinement: prefer extension choices whose selected literal is true in the current SAT model\cite[\S~9.1]{eliminatingModels}.
+In a later note included in the same paper, Rawson and Reger also describe a literal-selection refinement: prefer extension choices whose selected literal is assigned true by the current SAT solver assignment\cite[\S~9.1]{eliminatingModels}.
 
 The strategy used in this paper, \cop{SATResetCoP}, pushes the ideas from \cop{SATCoP} further by resetting trees as soon as the ground SAT clause set stops growing.
 
@@ -379,8 +379,8 @@ Compared with \pysatcopz{}, it solves \num{1100} more problems, an increase of \
 		\label{strategy_solved_time}
 	\end{subfigure} \hspace{40pt}
 	\begin{subfigure}[t]{.33\textwidth}
-			\includegraphics[height=220pt]{strategy_solved_steps_plot.png}
-			\caption{Problems solved, stacked by number of steps. SAT-based strategies can solve a problem in 0 steps if the initial ground SAT clause set is already unsatisfiable.}
+		\includegraphics[height=220pt]{strategy_solved_steps_plot.png}
+		\caption{Problems solved, stacked by number of steps. SAT-based strategies can solve a problem in 0 steps if the initial ground SAT clause set is already unsatisfiable.}
 		\label{strategy_solved_steps}
 	\end{subfigure}
 	\caption{Results of running the strategies on all problems under limits of 120 seconds and 1 million steps.}
@@ -518,20 +518,20 @@ This work was performed using resources provided by the Cambridge Service for Da
 	\begin{subfigure}{\linewidth}
 		\centering
 		\tiny
-			\diagrambox{diagrams/syn052_leancop.tikz}
-			\caption{Solution found by \cop{PyLeanCoP} in 27 steps.}
+		\diagrambox{diagrams/syn052_leancop.tikz}
+		\caption{Solution found by \cop{PyLeanCoP} in 27 steps.}
 	\end{subfigure} \vspace{\sepspace}
 	\begin{subfigure}{\linewidth}
 		\centering
 		\tiny
-			\diagrambox{diagrams/syn052_satcop.tikz}
-			\caption{Solution found by \cop{PySATCoP} in 19 steps.}
+		\diagrambox{diagrams/syn052_satcop.tikz}
+		\caption{Solution found by \cop{PySATCoP} in 19 steps.}
 	\end{subfigure} \vspace{\sepspace}
 	\begin{subfigure}{\linewidth}
 		\centering
 		\tiny
-			\diagrambox{diagrams/syn052_satresetcop.tikz}
-			\caption{Solution found by \cop{SATResetCoP} in 9 steps.}
+		\diagrambox{diagrams/syn052_satresetcop.tikz}
+		\caption{Solution found by \cop{SATResetCoP} in 9 steps.}
 	\end{subfigure}
 	\caption{Unsatisfiability proofs for the TPTP problem \cop{SYN052-1}\cite{Pelletier86} produced by three provers: \cop{PyLeanCoP}, \cop{PySATCoP}, and \cop{SATResetCoP}.}
 \end{figure}
