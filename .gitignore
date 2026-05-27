@@ -261,6 +261,7 @@ TPTP_subset
 *.run.xml
 *.out
 *.sed
+*.synctex.gz
 *.toc
 
 .jupyter/

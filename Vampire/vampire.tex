@@ -57,6 +57,15 @@
 \lstset{style=pseudocode}
 
 \newcommand{\todo}[1]{\noindent\textcolor{red}{{\large [}~#1~{\large ]}}}
+\newcommand{\fredrik}[1]{%
+	\par\smallskip
+	\noindent\fcolorbox{blue!60!black}{blue!5}{%
+		\parbox{\dimexpr\linewidth-2\fboxsep-2\fboxrule\relax}{%
+			\textcolor{blue!60!black}{\textbf{Fredrik:}} #1%
+		}%
+	}%
+	\par\smallskip
+}
 \newcommand{\step}[1]{\textsf{#1}}
 \newcommand{\cop}[1]{\textsf{#1}}
 \newcommand{\todobox}[1]{\fbox{\parbox[c][75pt]{\textwidth}{\centering \todo{#1}}}}
@@ -69,21 +78,29 @@
 \begin{abstract}
 	Connection tableau provers usually try to close one tableau before moving on to another branch of the search.
 	We introduce \cop{SATResetCoP}, a variant of \cop{SATCoP} that instead treats the accumulated SAT abstraction as the main search object: it repeatedly resets the active tableau and uses the new ground clauses produced by these attempts to drive the SAT abstraction toward contradiction.
-
-	We compare this against implementations of \cop{leanCoP} and \cop{SATCoP} in the same backend framework.
+  \
+  \fredrik{What is the difference between this and resolution based theorem proving? It seems we are moving SATCoP more towards the saturation domain. Especially relevant for a Vampire workshop.}
+	
+  We compare this against implementations of \cop{leanCoP} and \cop{SATCoP} in the same backend framework.
 	\cop{SATResetCoP} solves \num{2971} problems under limits of 120 seconds and 1 million steps, an improvement of 54\% over our implementation of \cop{leanCoP} and 18\% over our improved implementation of \cop{SATCoP}.
+\fredrik{I would stick to percentage improvements on benchmarks (TPTP,M2k,MPTP) and save seconds and steps to when we can define what steps are}
 	These results suggest that SAT saturation is useful as tableau search guidance.
+  \fredrik{This was the claim of SATCoP, what are the claims we add to that?}  
 \end{abstract}
 
 \begin{footnotesize}
 	\tableofcontents{}
 \end{footnotesize}
 
+\fredrik{Are ToCs standard in the Vampire workshop? If not I would remove.}
+
 \section{Introduction}
 
 Connection tableau provers are attractive because the core proof search is small and goal-directed.
+\fredrik{proof search is small?}
 This is especially visible in \cop{leanCoP}, where a competitive first-order prover can be implemented with very little machinery\cite{ottenLeanCoPLeanConnectionbased2003,Otten2023leanCoP20}.
 The cost is that the prover has to make many local control decisions: which clause to start from, which connection to try next, when to backtrack, and when to restart.
+\fredrik{There is a lot of machinery behind Prolog which leanCoP takes advantage of. This hardcoded SLD-resolution style search is perhaps what we want to aleviate with the reseting}
 
 These choices matter because connection proof search is not confluent.
 A locally valid connection can bind variables in a way that makes another branch impossible to close later.
@@ -94,9 +111,11 @@ Instead of using the tableau only as a proof object that must eventually close, 
 Once the accumulated ground clauses are propositionally unsatisfiable, the prover can stop even if the current first-order tableau has not closed.
 This suggests a different view of tableau control: a good run is not only one that closes the tableau quickly, but one that generates useful ground instances quickly.
 
+\fredrik{Good paragraph. We may want to specify that our prover works in positive representation, so that we are making the sat solver find a valid core rather than an unsat core (polarities flipped). Though this may just add confusion.} 
+
 This paper explores that view by resetting the tableau aggressively.
 If the current bounded search stops adding new ground information to the SAT solver, we abandon it and start another search.
-This is incomplete as a standalone proof procedure, but useful when the goal is to saturate the SAT core fast.
+This is incomplete as a standalone proof procedure, but useful when the goal is to saturate the SAT core fast. \fredrik{UNSAT core?}
 The rest of the paper describes the resulting prover, \cop{SATResetCoP}, and compares it against \cop{leanCoP}-style and \cop{SATCoP}-style baselines on TPTP problems.
 
 \section{Preliminaries}
@@ -116,6 +135,7 @@ The standard clausal connection tableau has three proof-building inferences\cite
 \end{description}
 
 The calculus is sound and complete with backtracking and iterative deepening, but it is not confluent: a locally valid connection can bind variables in a way that prevents later branches from closing\cite{rawsonConstraintLearningNonconfluent2026}.
+\fredrik{I would cite \cite{letzModelEliminationConnection2001} for proof confluence. Sections 2.3 and 2.4 of that goes over this in detail.}
 
 \begin{figure}[h]
 	\centering
@@ -172,11 +192,12 @@ This adds a broader set of ground clauses to the solver in less time, allowing t
 
 \cop{SATResetCoP} uses many of the properties of \cop{SATCoP} described in the original paper and in its ``Future Research'' section\cite[\S~9.1]{eliminatingModels}, but changes the tableau guidance to prioritise aggressive resets.
 
-Just like \cop{PySATCoP}, this approach is sound.
-While it is less complete than \cop{PySATCoP} and other \cop{leanCoP} variants, the speed at which it proves unsatisfiability can increase the number of problems solved within fixed time and step limits.
+Just like \cop{PySATCoP}, this approach is sound. While it is less complete than \cop{PySATCoP} and other \cop{leanCoP} variants, the speed at which it proves unsatisfiability can increase the number of problems solved within fixed time and step limits.
 It might be useful to incorporate \cop{SATResetCoP} into the initial steps of a more complete schedule.
 
 A concrete example of how \cop{PyLeanCoP}, \cop{PySATCoP}, and \cop{SATResetCoP} handle \cop{SYN052-1.p} can be found in \cref{diagram_syn052_1}.
+
+\fredrik{I don't believe \cop{PySATCoP} and \cop{PyLeanCoP} have been introduced. I think in general there should be a reshuffling of the order in which things are introduced and detailed in sections 3 and 4.}
 
 \subsection{Implementation Details}
 \label{implementation_details}
@@ -265,6 +286,8 @@ def solve_tableau(start_clauses):
 As a testbed for our experiments we use the Connections Prover by Rømming et.\ al\cite{connections_2023}, which provides an implementation of leanCoP-style provers.
 The base prover can be found in \url{https://github.com/fredrrom/connections}.
 
+\fredrik{.." we use the \cop{Connections} library by Rømming et.\ al\cite{connections_2023}, which provides primitives for the implementation of connection tableau provers.."}
+
 The connections prover makes it easy to implement different strategies for guiding the tableau proof.
 This keeps the \cop{SATResetCoP} implementation simple, readable, and easy to evaluate.
 
@@ -274,6 +297,8 @@ The source code for this implementation is available at \url{https://github.com/
 
 Along with our implementation of \cop{SATResetCoP}, \cop{PyCoP} allows us to reimplement \cop{PyLeanCoP} and \cop{PySATCoP} in the same backend.
 This provides a fairer baseline for comparison.
+
+\fredrik{"\cop{Connections} allows us to reimplement stepwise equivalent veersions of \cop{LeanCoP} and \cop{SATCoP} in the same backend."} 
 
 We run \cop{SATResetCoP}, our two connection-tableau baselines, and a simple strategy that chooses the first possible action on \num{7815} CNF problems and \num{8779} FOF problems from the Thousands of Problems for Theorem Provers (TPTP) library\cite{tptp}.
 These problems cover all 50 TPTP categories containing at least one CNF or FOF problem.
@@ -287,7 +312,7 @@ It also provides declared statuses for these problems, which are a useful sanity
 
 The connections prover includes \cop{PyCoP}, a simple control policy that chooses the first legal non-backtrack action at each point and resets the tree with an increased maximum height when the current tree saturates.
 This serves as a baseline and sanity check.
-
+\fredrik{I would avoid referencing pyCoP and focus on the fact that we have stepwise equivalent versions of leanCoP and SATCoP in the same tableau constructor backend} 
 As a second control policy we use our implementation of \cop{leanCoP}\cite{ottenLeanCoP20}, \cop{PyLeanCoP}.
 This is a Python version of the \cop{leanCoP} Prolog implementation, with the two recommended predicates used in the first step of the schedule by Otten\cite[\S~5.5]{ottenLeanCoP20}.
 \begin{description}
