@@ -9,6 +9,7 @@
 \usepackage{amssymb}
 \usepackage{tikz}
 \usepackage{listings}
+\usepackage[toc,page]{appendix}
 \usepackage{subcaption}
 \usepackage[font=footnotesize,labelfont=bf]{caption}
 \usepackage[noabbrev,nameinlink,capitalize,poorman]{cleveref}
@@ -62,6 +63,9 @@
 \newcommand{\todobox}[1]{\fbox{\parbox[c][75pt]{\textwidth}{\centering \todo{#1}}}}
 
 \newcommand{\pysatcopz}{\cop{PySATCoP\textsubscript{0}}}
+
+\crefname{appendix}{Appendix}{Appendices}
+\Crefname{appendix}{Appendix}{Appendices}
 
 \begin{document}
 \maketitle{}
@@ -442,43 +446,6 @@ This is an example of the kind of problem on which \cop{SATResetCoP} performs be
 	\label{violinplots}
 \end{figure}
 
-\begin{figure}[p]
-	\newcommand{\diagrambox}[1]{\resizebox{\linewidth}{!}{\fbox{\input{#1}}}}
-	\newcommand{\sepspace}{1em}
-	\centering
-	\begin{subfigure}{\linewidth}
-		\small
-		\begin{gather*}
-			p \vee \neg F(X) \qquad
-			F(X) \vee \neg p \\
-			F(Y) \vee p \qquad
-			\neg p \vee \neg F(a) \qquad
-			F(Y) \vee \neg F(a)
-		\end{gather*}
-		\caption{Problem \cop{SYN052-1.p}\cite{Pelletier86}, adapted from \url{https://tptp.org/TPTP/Problems/SYN/SYN052-1.p}.}
-	\end{subfigure} \par\vspace{\sepspace}
-	\begin{subfigure}{\linewidth}
-		\centering
-		\tiny
-		\diagrambox{diagrams/syn052_leancop.tikz}
-		\caption{Solution found by \cop{PyLeanCoP} in 43 steps.}
-	\end{subfigure} \vspace{\sepspace}
-	\begin{subfigure}{\linewidth}
-		\centering
-		\tiny
-		\diagrambox{diagrams/syn052_satcop.tikz}
-		\caption{Solution found by \cop{PySATCoP} in 34 steps.}
-	\end{subfigure} \vspace{\sepspace}
-	\begin{subfigure}{\linewidth}
-		\centering
-		\tiny
-		\diagrambox{diagrams/syn052_satresetcop.tikz}
-		\caption{Solution found by \cop{SATResetCoP} in 11 steps.}
-	\end{subfigure}
-	\caption{Unsatisfiability proofs for the TPTP problem \cop{SYN052-1}\cite{Pelletier86} produced by three provers: \cop{PyLeanCoP}, \cop{PySATCoP}, and \cop{SATResetCoP}. \todo{Should this be in an appendix?}}
-	\label{diagram_syn052_1}
-\end{figure}
-
 \subsubsection{Soundness Verification: Problem Satisfiability}
 
 The TPTP library includes declared statuses for its problems\cite{tptp}.
@@ -523,6 +490,51 @@ It would be worth experimenting with adding this strategy to a schedule, followi
 \section{Acknowledgements}
 
 This work was performed using resources provided by the Cambridge Service for Data Driven Discovery (CSD3) operated by the University of Cambridge Research Computing Service (\url{www.csd3.cam.ac.uk}), provided by Dell EMC and Intel using Tier-2 funding from the Engineering and Physical Sciences Research Council (capital grant EP/T022159/1), and DiRAC funding from the Science and Technology Facilities Council (\url{www.dirac.ac.uk}).
+
+\clearpage{}
+
+\appendix
+
+\section{Solving example}
+\label[appendix]{diagram_syn052_1}
+
+\begin{figure}[h]
+	\newcommand{\diagrambox}[1]{\resizebox{\linewidth}{!}{\fbox{\input{#1}}}}
+	\newcommand{\sepspace}{1em}
+	\centering
+	\begin{subfigure}{\linewidth}
+		\small
+		\begin{gather*}
+			p \vee \neg F(X) \qquad
+			F(X) \vee \neg p \\
+			F(Y) \vee p \qquad
+			\neg p \vee \neg F(a) \qquad
+			F(Y) \vee \neg F(a)
+		\end{gather*}
+		\caption{Problem \cop{SYN052-1.p}\cite{Pelletier86}, adapted from \url{https://tptp.org/TPTP/Problems/SYN/SYN052-1.p}.}
+	\end{subfigure} \par\vspace{\sepspace}
+	\begin{subfigure}{\linewidth}
+		\centering
+		\tiny
+		\diagrambox{diagrams/syn052_leancop.tikz}
+		\caption{Solution found by \cop{PyLeanCoP} in 43 steps.}
+	\end{subfigure} \vspace{\sepspace}
+	\begin{subfigure}{\linewidth}
+		\centering
+		\tiny
+		\diagrambox{diagrams/syn052_satcop.tikz}
+		\caption{Solution found by \cop{PySATCoP} in 34 steps.}
+	\end{subfigure} \vspace{\sepspace}
+	\begin{subfigure}{\linewidth}
+		\centering
+		\tiny
+		\diagrambox{diagrams/syn052_satresetcop.tikz}
+		\caption{Solution found by \cop{SATResetCoP} in 11 steps.}
+	\end{subfigure}
+	\caption{Unsatisfiability proofs for the TPTP problem \cop{SYN052-1}\cite{Pelletier86} produced by three provers: \cop{PyLeanCoP}, \cop{PySATCoP}, and \cop{SATResetCoP}.}
+\end{figure}
+
+\clearpage{}
 
 \bibliography{bibliography}
 
