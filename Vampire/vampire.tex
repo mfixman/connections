@@ -99,6 +99,10 @@ If the current bounded search stops adding new ground information to the SAT sol
 This is incomplete as a standalone proof procedure, but useful when the goal is to saturate the SAT core fast.
 The rest of the paper describes the resulting prover, \cop{SATResetCoP}, and compares it against \cop{leanCoP}-style and \cop{SATCoP}-style baselines on TPTP problems.
 
+Although the implementation studied here is not an extension of \cop{Vampire}, the question is closely aligned with the themes of the \cop{Vampire} workshop.
+The method studies how a first-order prover can combine goal-directed proof search with a persistent SAT abstraction, and how search-control choices affect the rate at which useful ground instances are produced.
+The experiments are therefore intended as a small, controlled study of prover strategy design and SAT-assisted first-order reasoning, rather than as a replacement for saturation-based systems such as \cop{Vampire}.
+
 \section{Preliminaries}
 
 \subsection{Connection Calculus and Tableau Solving Methods}
@@ -208,6 +212,11 @@ Only tableau variables that remain unassigned need to be replaced by a ground te
 Rawson~and~Reger follow the technique by Schulz\cite{schulzSATInterpretation} and use the most frequent constant in the conjecture, with a fresh constant as a fallback when the conjecture contains no constants\cite[\S~4.2]{eliminatingModels}.
 \cop{SATResetCoP} always uses this fallback-style choice, mapping every remaining tableau variable to the same fresh artificial constant.
 This gives a grounding scheme that is simpler than \cop{SATCoP}, while keeping the same soundness condition.
+
+The reset policy does not affect the soundness of the SAT stopping condition.
+Every clause added to the SAT solver is a ground instance of an input clause, after applying the current tableau substitution and replacing any remaining tableau variables by the grounding constant.
+Therefore, if the accumulated propositional clauses are unsatisfiable, the original first-order clause set is unsatisfiable.
+The cuts and resets only affect which ground instances are discovered, and hence the completeness and performance of the search, not the soundness of a SAT refutation once found.
 
 The reset policy is the main implementation difference between \cop{SATResetCoP} and \cop{PySATCoP}.
 At a dead end, the prover first asks whether the current tableau attempt produced any new ground clauses that have not yet been added to the SAT solver.
