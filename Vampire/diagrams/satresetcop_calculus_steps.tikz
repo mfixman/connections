@@ -1,6 +1,8 @@
-\newcommand{\satdistance}{-130pt}
+\newcommand{\satdistance}{-160pt}
 \newcommand{\dist}{67pt}
 \newcommand{\bet}{15pt}
+
+\renewcommand{\arraycolsep}{1pt}
 
 \begin{tikzpicture}[
   attempt/.style = {
@@ -22,16 +24,16 @@
   title/.style={draw=none, font=\normalsize\bfseries},
   label/.style={draw=none, font=\scriptsize}
 ]
-% \useasboundingbox (-85pt,-122pt) rectangle (400pt,11pt);
+% \useasboundingbox (-85pt,-122pt) rectangle (400pt,11pt)% ;
 
 \begin{scope}[attempt]
   \node[title] {\step{Start}};
-  \node[start] at (0pt, -28pt) {$\neg F(g) \vee p$};
+	\node[start] at (0pt, -28pt) {$\neg F(g) \vee p$};
 
-  \node[label, align=center, anchor=north] at (0pt, \satdistance) {$
-    \left\{ \begin{aligned}
+  \node[label, align=center] at (0pt, \satdistance) {$
+     \begin{Bmatrix}
       \neg F(g) \vee p
-    \end{aligned} \right\}
+    \end{Bmatrix}
   $};
 \end{scope}
 
@@ -42,11 +44,11 @@
       node {$F(x_0) \vee \neg p$}
     };
 
-  \node[label, align=center, anchor=north] at (0pt, \satdistance) {$
-    \left\{ \begin{aligned}
-      \neg F(g) &\vee p \\
-      F(x_0) &\vee \neg p
-    \end{aligned} \right\}
+  \node[label, align=center] at (0pt, \satdistance) {$
+     \begin{Bmatrix}
+      \neg F(g) &\vee &p \\
+      F(x_0) &\vee &\neg p
+    \end{Bmatrix}
   $};
 \end{scope}
 
@@ -60,12 +62,12 @@
       }
     };
 
-  \node[label, align=center, anchor=north] at (0pt, \satdistance) {$
-    \left\{ \begin{aligned}
-      \neg F(g) &\vee p \\
-      F(x_0) &\vee \neg p \\
-      F(x_1) &\vee \neg p
-    \end{aligned} \right\}
+  \node[label, align=center] at (0pt, \satdistance) {$
+     \begin{Bmatrix}
+      \neg F(g) &\vee &p \\
+      F(x_0) &\vee &\neg p \\
+      F(x_1) &\vee &\neg p
+    \end{Bmatrix}
   $};
 \end{scope}
 
@@ -79,12 +81,12 @@
       }
     };
 
-  \node[label, align=center, anchor=north] at (0pt, \satdistance) {$
-    \left\{ \begin{aligned}
-      \neg F(g) &\vee p \\
-      F(x_0) &\vee \neg p \\
-      F(x_1) &\vee \neg p
-    \end{aligned} \right\}
+  \node[label, align=center] at (0pt, \satdistance) {$
+     \begin{Bmatrix}
+      \neg F(g) &\vee &p \\
+      F(x_0) &\vee &\neg p \\
+      F(x_1) &\vee &\neg p
+    \end{Bmatrix}
   $};
 \end{scope}
 
@@ -95,13 +97,13 @@
   \node[title] {\step{Start}};
   \node[start] at (0pt, -28pt) {$p \vee F(g)$};
 
-  \node[label, align=center, anchor=north] at (0pt, \satdistance) {$
-    \left\{ \begin{aligned}
-      \neg F(g) &\vee p \\
-      F(x_0) &\vee \neg p \\
-      F(x_1) &\vee \neg p \\
-      p &\vee F(g)
-    \end{aligned} \right\}
+  \node[label, align=center] at (0pt, \satdistance) {$
+     \begin{Bmatrix}
+      \neg F(g) &\vee &p \\
+      F(x_0) &\vee &\neg p \\
+      F(x_1) &\vee &\neg p \\
+      p &\vee &F(g)
+    \end{Bmatrix}
   $};
 \end{scope}
 
@@ -112,14 +114,14 @@
       node {$\neg p \vee \neg F(a)$}
     };
 
-  \node[label, align=center, anchor=north] at (0pt, \satdistance) {$
-    \left\{ \begin{aligned}
-      \neg F(g) &\vee p \\
-      F(x_0) &\vee \neg p \\
-      F(x_1) &\vee \neg p \\
-      p &\vee F(g) \\
-      \neg p &\vee \neg F(a)
-    \end{aligned} \right\}
+  \node[label, align=center] at (0pt, \satdistance) {$
+     \begin{Bmatrix}
+      \neg F(g) &\vee &p \\
+      F(x_0) &\vee &\neg p \\
+      F(x_1) &\vee &\neg p \\
+      p &\vee &F(g) \\
+      \neg p &\vee &\neg F(a)
+    \end{Bmatrix}
   $};
 \end{scope}
 
@@ -133,15 +135,15 @@
       }
     };
 
-  \node[label, align=center, anchor=north] at (0pt, \satdistance) {$
-    \left\{ \begin{aligned}
-      \neg F(g) &\vee p \\
-      F(x_0) &\vee \neg p \\
-      F(x_1) &\vee \neg p \\
-      p &\vee F(g) \\
-      \neg p &\vee \neg F(a) \\
-      F(a) &\vee \neg p
-    \end{aligned} \right\}
+  \node[label, align=center] at (0pt, \satdistance) {$
+     \begin{Bmatrix}
+      \neg F(g) &\vee &p \\
+      F(x_0) &\vee &\neg p \\
+      F(x_1) &\vee &\neg p \\
+      p &\vee &F(g) \\
+      \neg p &\vee &\neg F(a) \\
+      F(a) &\vee &\neg p
+    \end{Bmatrix}
   $};
 \end{scope}
 

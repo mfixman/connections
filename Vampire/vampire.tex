@@ -9,6 +9,7 @@
 \usepackage{amssymb}
 \usepackage{tikz}
 \usepackage{listings}
+\usepackage[toc,page]{appendix}
 \usepackage{subcaption}
 \usepackage[font=footnotesize,labelfont=bf]{caption}
 \usepackage[noabbrev,nameinlink,capitalize,poorman]{cleveref}
@@ -72,6 +73,9 @@
 
 \newcommand{\pysatcopz}{\cop{PySATCoP\textsubscript{0}}}
 
+\crefname{appendix}{Appendix}{Appendices}
+\Crefname{appendix}{Appendix}{Appendices}
+
 \begin{document}
 \maketitle{}
 
@@ -88,9 +92,9 @@
   \fredrik{This was the claim of SATCoP, what are the claims we add to that?}  
 \end{abstract}
 
-\begin{footnotesize}
-	\tableofcontents{}
-\end{footnotesize}
+% \begin{footnotesize}
+% 	\tableofcontents{}
+% \end{footnotesize}
 
 \fredrik{Are ToCs standard in the Vampire workshop? If not I would remove.}
 
@@ -118,6 +122,10 @@ If the current bounded search stops adding new ground information to the SAT sol
 This is incomplete as a standalone proof procedure, but useful when the goal is to saturate the SAT core fast. \fredrik{UNSAT core?}
 The rest of the paper describes the resulting prover, \cop{SATResetCoP}, and compares it against \cop{leanCoP}-style and \cop{SATCoP}-style baselines on TPTP problems.
 
+Although the implementation studied here is not an extension of \cop{Vampire}, the question is closely aligned with the themes of the \cop{Vampire} workshop.
+The method studies how a first-order prover can combine goal-directed proof search with a persistent SAT abstraction, and how search-control choices affect the rate at which useful ground instances are produced.
+The experiments are therefore intended as a small, controlled study of prover strategy design and SAT-assisted first-order reasoning, rather than as a replacement for saturation-based systems such as \cop{Vampire}.
+
 \section{Preliminaries}
 
 \subsection{Connection Calculus and Tableau Solving Methods}
@@ -135,7 +143,11 @@ The standard clausal connection tableau has three proof-building inferences\cite
 \end{description}
 
 The calculus is sound and complete with backtracking and iterative deepening, but it is not confluent: a locally valid connection can bind variables in a way that prevents later branches from closing\cite{rawsonConstraintLearningNonconfluent2026}.
+
 \fredrik{I would cite \cite{letzModelEliminationConnection2001} for proof confluence. Sections 2.3 and 2.4 of that goes over this in detail.}
+
+Following the usual accounting for connection-tableau provers, we use \emph{step} to mean one of the three proof-building inferences above.
+Control operations such as backtracking, cuts, and resets affect which proof-building inferences are attempted, but are not themselves counted as steps.
 
 \begin{figure}[h]
 	\centering
@@ -176,9 +188,9 @@ The remaining tableau variables must be mapped to ground terms before a clause i
 Their implementation follows a Schulz-style heuristic: use the most frequent constant in the conjecture, and fall back to a fresh constant if no conjecture constant is available\cite[\S~4.2]{eliminatingModels,schulzSATInterpretation}.
 
 Later modifications to \cop{SATCoP} gave it control of the tableau using results from the SAT solver.
-In a later note included in the same paper, Rawson and Reger also describe a literal-selection refinement: prefer extension choices whose selected literal is true in the current SAT model\cite[\S~9.1]{eliminatingModels}.
+In a later note included in the same paper, Rawson and Reger also describe a literal-selection refinement: prefer extension choices whose selected literal is assigned true by the current SAT solver assignment\cite[\S~9.1]{eliminatingModels}.
 
-The strategy used in this paper, \cop{SATResetCoP}, pushes the ideas from \cop{SATCoP} further by resetting trees as soon as the SAT model stops growing.
+The strategy used in this paper, \cop{SATResetCoP}, pushes the ideas from \cop{SATCoP} further by resetting trees as soon as the ground SAT clause set stops growing.
 
 \section{Research Vehicle}
 
@@ -227,13 +239,18 @@ The grounding scheme follows the soundness argument of \cref{satcop}: the SAT so
 Ground terms are kept as they are, and variables assigned by the current tableau substitution are replaced by their assigned terms.
 Only tableau variables that remain unassigned need to be replaced by a ground term.
 Rawson~and~Reger follow the technique by Schulz\cite{schulzSATInterpretation} and use the most frequent constant in the conjecture, with a fresh constant as a fallback when the conjecture contains no constants\cite[\S~4.2]{eliminatingModels}.
-\cop{SATResetCoP} always uses this fallback-style choice, mapping every remaining tableau variable to the same fresh artificial constant.
-This gives a grounding scheme that is simpler than \cop{SATCoP}, while keeping the same soundness condition.
+Our Python \cop{SATCoP}-style variants use the simpler fallback-style choice throughout, mapping every remaining tableau variable to the same fresh artificial constant.
+Thus \pysatcopz{}, \cop{PySATCoP}, and \cop{SATResetCoP} all use a simpler grounding scheme than the original \cop{SATCoP} implementation, while keeping the same soundness condition.
+
+The reset policy does not affect the soundness of the SAT stopping condition.
+Every clause added to the SAT solver is a ground instance of an input clause, after applying the current tableau substitution and replacing any remaining tableau variables by the grounding constant.
+Therefore, if the accumulated propositional clauses are unsatisfiable, the original first-order clause set is unsatisfiable.
+The cuts and resets only affect which ground instances are discovered, and hence the completeness and performance of the search, not the soundness of a SAT refutation once found.
 
 The reset policy is the main implementation difference between \cop{SATResetCoP} and \cop{PySATCoP}.
 At a dead end, the prover first asks whether the current tableau attempt produced any new ground clauses that have not yet been added to the SAT solver.
 If it did, those clauses are flushed to the SAT solver and the prover resets at the same depth.
-This gives the next tableau attempt the same height bound, but a larger SAT state and a fresh randomised ordering of choices.
+This gives the next tableau attempt the same depth bound, but a larger SAT state and a fresh randomised ordering of choices.
 If the attempt did not produce any new ground clauses, the prover treats the current depth as exhausted and resets at the next depth instead of spending more steps on local backtracking.
 The process stops as soon as the accumulated ground clauses become propositionally unsatisfiable.
 
@@ -261,7 +278,7 @@ def solve_tableau(start_clauses):
 		if any Start, Extension, Reduction in actions:
 			model_rank(a) :=
 				2 if a is Start
-					0 if selected_literal(a) is true in model
+				0 if selected_literal(a) is true in model
 				1 if selected_literal(a) is unknown in model
 				3 if selected_literal(a) is false in model
 
@@ -328,7 +345,7 @@ These simple policies tend to be very effective in tableau provers\cite{Otten202
 	\footnotesize
 	\begin{tabularx}{\textwidth}{>{\sffamily}l X c c c c}
 		\toprule
-			Model & Explanation & Cut & UNSAT Proof & SAT Guidance & Reset on Backtrack \\
+			Strategy & Explanation & Cut & SAT Refutation & SAT Guidance & Reset on Backtrack \\
 		\midrule
 			\cop{PyCoP} & Simple control policy & & & & \\
 			\cop{PyLeanCoP} & \cop{leanCoP} with initial set of predicates. & \checkmark{} & & \\
@@ -337,23 +354,23 @@ These simple policies tend to be very effective in tableau provers\cite{Otten202
 		\addlinespace[3pt]
 			\cop{PySATCoP} & Improvements on \cop{SATCoP}\cite[\S~9.1]{eliminatingModels}. & \checkmark{} & \checkmark{} & \checkmark{} & \\
 		\addlinespace[1em]
-			\cop{SATResetCoP} & Novel model, specified in \cref{satresetcop}. & \checkmark{} & \checkmark{} & \checkmark{} & \checkmark{} \\
+			\cop{SATResetCoP} & Novel strategy, specified in \cref{satresetcop}. & \checkmark{} & \checkmark{} & \checkmark{} & \checkmark{} \\
 		\bottomrule
 	\end{tabularx}
-	\caption{The four control models and the test model used in this experiment.}
+	\caption{The four control strategies and the test strategy used in this experiment.}
 	\label{cops_table}
 \end{table}
 
 The benchmark set contains \num{7815} CNF problems and \num{8779} FOF problems spread across 50 categories\cite{tptp}.
-Each problem-model pair is run for at most 120 seconds and 1 million steps, on a single core of the University of Cambridge CSD3 Cluster with \todo{add CPU information} and 3370 MiB RAM per core\cite{cambridge_csd3}.
+Each problem-strategy pair is run for at most 120 seconds and 1 million steps, on a single core of the University of Cambridge CSD3 Cluster with \todo{add CPU information} and 3370 MiB RAM per core\cite{cambridge_csd3}.
 
 \subsection{Results}
 
 \subsubsection{Individual Results}
 
 \cop{SATResetCoP} considerably increases the number of problems solved by both \pysatcopz{} and \cop{PySATCoP} under the 120-second time limit, as shown in \cref{problems_solved}.
-The main driver is that the SAT solver reaches unsatisfiability in less time and fewer steps than in the previous models, as seen in \cref{strategy_solved_time,strategy_solved_steps}.
-The \num{1000000} step limit is rarely reached, and most unsolved problems hit the 120 second limit instead.
+The main driver is that the SAT solver reaches unsatisfiability in less time and fewer steps than in the previous strategies, as seen in \cref{strategy_solved_time,strategy_solved_steps}.
+For the SAT-based variants, the \num{1000000} step limit is rarely reached, and most unsolved problems hit the 120 second limit instead.
 
 The improvement is visible in both problem formats.
 \cop{SATResetCoP} solves \num{462} more problems than \cop{PySATCoP}, with \num{206} additional CNF problems and \num{256} additional FOF problems.
@@ -368,7 +385,7 @@ Compared with \pysatcopz{}, it solves \num{1100} more problems, an increase of \
 		\cmidrule(lr){2-3}
 		\cmidrule(lr){4-5}
 		\cmidrule(lr){6-7}
-			Model & Number & \% & Number & \% & Number & \% \\
+			strategy & Number & \% & Number & \% & Number & \% \\
 		\midrule
 			\cop{PyCoP}       & 208  & 2.7  & 587  & 6.7  & 795  & 4.8  \\
 			\cop{PyLeanCoP}   & 723  & 9.3  & 1200 & 13.7 & 1923 & 11.6 \\
@@ -377,7 +394,7 @@ Compared with \pysatcopz{}, it solves \num{1100} more problems, an increase of \
 			\cop{SATResetCoP} & 1273 & 16.3 & 1698 & 19.3 & 2971 & 17.9 \\
 		\bottomrule
 	\end{tabular}
-	\caption{Number and percentage of CNF and FOF problems solved within the time limit by each model. Each added strategy component improves results on both CNF and FOF problems.}
+	\caption{Number and percentage of CNF and FOF problems solved within the time limit by each strategy. Each strategy component, other than \pysatcopz{} the original version of \cop{SATCoP} improves results on both CNF and FOF problems.}
 	\label{problems_solved}
 \end{table}
 
@@ -390,15 +407,15 @@ Compared with \pysatcopz{}, it solves \num{1100} more problems, an increase of \
 	\end{subfigure} \hspace{40pt}
 	\begin{subfigure}[t]{.33\textwidth}
 		\includegraphics[height=220pt]{strategy_solved_steps_plot.png}
-		\caption{Problems solved, stacked by number of steps. SAT models can solve a problem in 0 steps if the initial grounding is already SAT-unsatisfiable.}
+		\caption{Problems solved, stacked by number of steps. SAT-based strategies can solve a problem in 0 steps if the initial ground SAT clause set is already unsatisfiable.}
 		\label{strategy_solved_steps}
 	\end{subfigure}
-	\caption{Results of running the models on all problems under limits of 120 seconds and 1 million steps.}
+	\caption{Results of running the strategies on all problems under limits of 120 seconds and 1 million steps.}
 \end{figure}
 
 \subsubsection{Comparative Results}
 
-The SAT guidance in \cop{SATResetCoP} allows it to solve several problems left unsolved by models without the same SAT saturation mechanism, and even by \pysatcopz{} and \cop{PySATCoP}, which use less aggressive guidance.
+The SAT guidance in \cop{SATResetCoP} allows it to solve several problems left unsolved by strategies without the same SAT saturation mechanism, and even by \pysatcopz{} and \cop{PySATCoP}, which use less aggressive guidance.
 A comparison of newly solved and newly unsolved problems can be seen in \cref{newly_solved_table}.
 
 \begin{table}
@@ -406,28 +423,28 @@ A comparison of newly solved and newly unsolved problems can be seen in \cref{ne
 	\footnotesize
 	\begin{tabular}{>{\sffamily}l r r r}
 		\toprule
-			Model & Newly Solved & Newly Unsolved & Total Solved \\
-		\midrule
-			\cop{PyCoP}       &      &  & 795  \\
-			\cop{PyLeanCoP}   & 1246 & 118 & 1923 \\
-			\pysatcopz{}      & 307  & 379 & 1871 \\
-			\cop{PySATCoP}    & 402  & 23  & 2509 \\
-			\cop{SATResetCoP} & 478  & 136 & 2971 \\
-		\bottomrule
-	\end{tabular}
-	\caption{Newly solved, newly unsolved, and total solved problems for each model.}
-	\label{newly_solved_table}
-\end{table}
+			Strategy & Newly Solved & Newly Unsolved & Total Solved \\
+			\midrule
+				\cop{PyCoP}       &      &  & 795  \\
+				\cop{PyLeanCoP}   & 1246 & 118 & 1923 \\
+				\pysatcopz{}      & 327  & 379 & 1871 \\
+				\cop{PySATCoP}    & 661  & 23  & 2509 \\
+				\cop{SATResetCoP} & 598  & 136 & 2971 \\
+			\bottomrule
+		\end{tabular}
+		\caption{Problems newly solved and newly unsolved by each strategy compared with the previous strategy in the table, together with the total number of solved problems.}
+		\label{newly_solved_table}
+	\end{table}
 
-\Cref{solved_heatmap} shows the number of problems solved by one model but not by another.
+\Cref{solved_heatmap} shows the number of problems solved by one strategy but not by another.
 
 \begin{figure}
 	\centering\includegraphics[width=.50\textwidth]{solved_heatmap}
-	\caption{Pairwise comparison of model results: the cell in column \cop{y} and row \cop{x} shows the number of problems solved by model \cop{y}, but not by model \cop{x}. For example, \cop{SATResetCoP} solved 1123 TPTP problems that \pysatcopz{} did not.}
+	\caption{Pairwise comparison of strategy results: the cell in column \cop{y} and row \cop{x} shows the number of problems solved by strategy \cop{y}, but not by strategy \cop{x}. For example, \cop{SATResetCoP} solved 1123 TPTP problems that \pysatcopz{} did not.}
 	\label{solved_heatmap}
 \end{figure}
 
-The improvement between \cop{SATResetCoP} and the best previous experimental model, our \cop{PySATCoP} implementation of \cop{SATCoP}, is especially visible in TPTP categories where propositional contradictions are reached quickly in the accumulated ground abstraction, such as \step{SYN}, \step{SWC}, and \step{SWV}.
+The improvement between \cop{SATResetCoP} and the best previous experimental strategy, our \cop{PySATCoP} implementation of \cop{SATCoP}, is especially visible in TPTP categories where propositional contradictions are reached quickly in the accumulated ground abstraction, such as \step{SYN}, \step{SWC}, and \step{SWV}.
 As expected, this strategy also solves problems in fewer steps, as can be seen in \cref{violinplots}.
 
 \begin{table}
@@ -435,7 +452,7 @@ As expected, this strategy also solves problems in fewer steps, as can be seen i
 	\footnotesize
 	\begin{tabular}{l @{\hspace{1em}} r r r r r r @{\hspace{1em}} r}
 		\toprule
-			Model & SYN & SWC & SWV & GEO & NUM & Rest & Total \\
+			Strategy & SYN & SWC & SWV & GEO & NUM & Rest & Total \\
 		\midrule
 			\cop{PyCoP}       & 231 & 30 & 129 & 28  & 9   & 368  & 795  \\
 			\cop{PyLeanCoP}   & 486 & 14 & 163 & 216 & 86  & 958  & 1923 \\
@@ -444,7 +461,7 @@ As expected, this strategy also solves problems in fewer steps, as can be seen i
 			\cop{SATResetCoP} & 672 & 64 & 215 & 293 & 179 & 1548 & 2971 \\
 		\bottomrule
 	\end{tabular}
-	\caption{Number of problems solved, per category, for each model.}
+	\caption{Number of problems solved, per category, for each strategy.}
 	\label{problems_solved_categories}
 \end{table}
 
@@ -456,43 +473,6 @@ This is an example of the kind of problem on which \cop{SATResetCoP} performs be
 	\includegraphics[width=\textwidth]{violinplots.png}
 	\caption{Density of problems solved at each step count by \cop{PySATCoP} and \cop{SATResetCoP} on the TPTP categories \cop{SYN}, \cop{SWC}, \cop{SWV}, \cop{GEO}, and \cop{NUM}. The area of each violinplot is the same; besides solving more problems in each category, \cop{SATResetCoP} solves many problems in fewer steps. Unsolved problems are collected in the $\geq 10k$ category on the right.}
 	\label{violinplots}
-\end{figure}
-
-\begin{figure}[p]
-	\newcommand{\diagrambox}[1]{\resizebox{\linewidth}{!}{\fbox{\input{#1}}}}
-	\newcommand{\sepspace}{1em}
-	\centering
-	\begin{subfigure}{\linewidth}
-		\small
-		\begin{gather*}
-			p \vee \neg F(X) \qquad
-			F(X) \vee \neg p \\
-			F(Y) \vee p \qquad
-			\neg p \vee \neg F(a) \qquad
-			F(Y) \vee \neg F(a)
-		\end{gather*}
-		\caption{Problem \cop{SYN052-1.p}\cite{Pelletier86}, adapted from \url{https://tptp.org/TPTP/Problems/SYN/SYN052-1.p}.}
-	\end{subfigure} \par\vspace{\sepspace}
-	\begin{subfigure}{\linewidth}
-		\centering
-		\tiny
-		\diagrambox{diagrams/syn052_leancop.tikz}
-		\caption{Solution found by \cop{PyLeanCoP} in 43 steps.}
-	\end{subfigure} \vspace{\sepspace}
-	\begin{subfigure}{\linewidth}
-		\centering
-		\tiny
-		\diagrambox{diagrams/syn052_satcop.tikz}
-		\caption{Solution found by \cop{PySATCoP} in 34 steps.}
-	\end{subfigure} \vspace{\sepspace}
-	\begin{subfigure}{\linewidth}
-		\centering
-		\tiny
-		\diagrambox{diagrams/syn052_satresetcop.tikz}
-		\caption{Solution found by \cop{SATResetCoP} in 11 steps.}
-	\end{subfigure}
-	\caption{Unsatisfiability proofs for the TPTP problem \cop{SYN052-1}\cite{Pelletier86} produced by three provers: \cop{PyLeanCoP}, \cop{PySATCoP}, and \cop{SATResetCoP}. \todo{Should this be in an appendix?}}
-	\label{diagram_syn052_1}
 \end{figure}
 
 \subsubsection{Soundness Verification: Problem Satisfiability}
@@ -539,6 +519,51 @@ It would be worth experimenting with adding this strategy to a schedule, followi
 \section{Acknowledgements}
 
 This work was performed using resources provided by the Cambridge Service for Data Driven Discovery (CSD3) operated by the University of Cambridge Research Computing Service (\url{www.csd3.cam.ac.uk}), provided by Dell EMC and Intel using Tier-2 funding from the Engineering and Physical Sciences Research Council (capital grant EP/T022159/1), and DiRAC funding from the Science and Technology Facilities Council (\url{www.dirac.ac.uk}).
+
+\clearpage{}
+
+\appendix
+
+\section{Solving example}
+\label[appendix]{diagram_syn052_1}
+
+\begin{figure}[h]
+	\newcommand{\diagrambox}[1]{\resizebox{\linewidth}{!}{\fbox{\input{#1}}}}
+	\newcommand{\sepspace}{1em}
+	\centering
+	\begin{subfigure}{\linewidth}
+		\small
+		\begin{gather*}
+			p \vee \neg F(X) \qquad
+			F(X) \vee \neg p \\
+			F(Y) \vee p \qquad
+			\neg p \vee \neg F(a) \qquad
+			F(Y) \vee \neg F(a)
+		\end{gather*}
+		\caption{Problem \cop{SYN052-1.p}\cite{Pelletier86}, adapted from \url{https://tptp.org/TPTP/Problems/SYN/SYN052-1.p}.}
+	\end{subfigure} \par\vspace{\sepspace}
+	\begin{subfigure}{\linewidth}
+		\centering
+		\tiny
+		\diagrambox{diagrams/syn052_leancop.tikz}
+		\caption{Solution found by \cop{PyLeanCoP} in 27 steps.}
+	\end{subfigure} \vspace{\sepspace}
+	\begin{subfigure}{\linewidth}
+		\centering
+		\tiny
+		\diagrambox{diagrams/syn052_satcop.tikz}
+		\caption{Solution found by \cop{PySATCoP} in 19 steps.}
+	\end{subfigure} \vspace{\sepspace}
+	\begin{subfigure}{\linewidth}
+		\centering
+		\tiny
+		\diagrambox{diagrams/syn052_satresetcop.tikz}
+		\caption{Solution found by \cop{SATResetCoP} in 9 steps.}
+	\end{subfigure}
+	\caption{Unsatisfiability proofs for the TPTP problem \cop{SYN052-1}\cite{Pelletier86} produced by three provers: \cop{PyLeanCoP}, \cop{PySATCoP}, and \cop{SATResetCoP}.}
+\end{figure}
+
+\clearpage{}
 
 \bibliography{bibliography}
 
