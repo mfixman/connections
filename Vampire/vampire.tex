@@ -68,6 +68,8 @@
 	\par\smallskip
 }
 \newcommand{\fredriksolved}[1]{\fredrik{\textbf{(Solved)} #1}}
+\newcommand{\fredrikcomment}[2]{\fredrik{#1 \textbf{Martin:} #2}}
+\newcommand{\fredriksolvedcomment}[2]{\fredrik{\textbf{(Solved)}#1 \textbf{Martin:} #2}}
 
 \newcommand{\step}[1]{\textsf{#1}}
 \newcommand{\cop}[1]{\textsf{#1}}
@@ -116,11 +118,11 @@ Instead of using the tableau only as a proof object that must eventually close, 
 Once the accumulated ground clauses are propositionally unsatisfiable, the prover can stop even if the current first-order tableau has not closed.
 This suggests a different view of tableau control: a good run is not only one that closes the tableau quickly, but one that generates useful ground instances quickly.
 
-\fredrik{Good paragraph. We may want to specify that our prover works in positive representation, so that we are making the sat solver find a valid core rather than an unsat core (polarities flipped). Though this may just add confusion. \textbf{Martin:} No? We are just looking for the UNSAT core.} 
+\fredrikcomment{Good paragraph. We may want to specify that our prover works in positive representation, so that we are making the sat solver find a valid core rather than an unsat core (polarities flipped). Though this may just add confusion.}{No? We are just looking for the UNSAT core.} 
 
 This paper explores that view by resetting the tableau aggressively.
 If the current bounded search stops adding new ground information to the SAT solver, we abandon it and start another search.
-This is incomplete as a standalone proof procedure, but useful when the goal is to saturate the ground SAT clause set fast. \fredriksolved{UNSAT core? \textbf{Martin:} Agree that terminology is inconsistent. Will call it ``SAT clause set''.}
+This is incomplete as a standalone proof procedure, but useful when the goal is to saturate the ground SAT clause set fast. \fredriksolvedcomment{UNSAT core?}{}{Agree that terminology is inconsistent. Will call it ``SAT clause set''.}
 The rest of the paper describes the resulting prover, \cop{SATResetCoP}, and compares it against \cop{leanCoP}-style and \cop{SATCoP}-style baselines on TPTP problems.
 
 Although the implementation studied here is not an extension of \cop{Vampire}, the question is closely aligned with the themes of the \cop{Vampire} workshop.
@@ -210,7 +212,7 @@ It might be useful to incorporate \cop{SATResetCoP} into the initial steps of a 
 
 A concrete example of how \cop{PyLeanCoP}, \cop{PySATCoP}, and \cop{SATResetCoP} handle \cop{SYN052-1.p} can be found in \cref{diagram_syn052_1}.
 
-\fredrik{I don't believe \cop{PySATCoP} and \cop{PyLeanCoP} have been introduced. I think in general there should be a reshuffling of the order in which things are introduced and detailed in sections 3 and 4. \textbf{Martin:} Good shout. Will introduce them later.}
+\fredrikcomment{I don't believe \cop{PySATCoP} and \cop{PyLeanCoP} have been introduced. I think in general there should be a reshuffling of the order in which things are introduced and detailed in sections 3 and 4.}{Good shout. Will introduce them later.}
 
 \subsection{Implementation Details}
 \label{implementation_details}
@@ -330,7 +332,7 @@ It also provides declared statuses for these problems, which are a useful sanity
 
 The connections prover includes \cop{PyCoP}, a simple control policy that chooses the first legal non-backtrack action at each point and resets the tree with an increased maximum height when the current tree saturates.
 This serves as a baseline and sanity check.
-\fredrik{I would avoid referencing pyCoP and focus on the fact that we have stepwise equivalent versions of leanCoP and SATCoP in the same tableau constructor backend. \textbf{Martin:} \cop{PyCoP} is useful as a control. I would keep it, but let's figure this out later.}
+\fredrikcomment{I would avoid referencing pyCoP and focus on the fact that we have stepwise equivalent versions of leanCoP and SATCoP in the same tableau constructor backend.}{\cop{PyCoP} is useful as a control. I would keep it, but let's figure this out later.}
 As a second control policy we use our implementation of \cop{leanCoP}\cite{ottenLeanCoP20}, \cop{PyLeanCoP}.
 This is a Python version of the \cop{leanCoP} Prolog implementation, with the two recommended predicates used in the first step of the schedule by Otten\cite[\S~5.5]{ottenLeanCoP20}.
 \begin{description}
