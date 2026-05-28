@@ -5,146 +5,146 @@
 \renewcommand{\arraycolsep}{1pt}
 
 \begin{tikzpicture}[
-  attempt/.style = {
-    every node/.style = {
-      draw,
-      rounded corners=1pt,
-      inner xsep=3pt,
-      inner ysep=2pt,
-      font=\footnotesize
-    },
-    level distance=40pt,
-    sibling distance=68pt,
-    level 2/.style={sibling distance=63pt},
-    edge from parent/.style={draw, -}
-  },
-  start/.style={},
-  goal/.style={fill=black!40},
-  bt/.style={edge from parent/.style={draw, dash pattern=on 2pt off 1pt on .5pt off 1pt}},
-  title/.style={draw=none, font=\normalsize\bfseries},
-  label/.style={draw=none, font=\scriptsize}
-]
+		attempt/.style = {
+			every node/.style = {
+				draw,
+				rounded corners=1pt,
+				inner xsep=3pt,
+				inner ysep=2pt,
+				font=\large
+			},
+			level distance=40pt,
+			sibling distance=68pt,
+			level 2/.style={sibling distance=63pt},
+			edge from parent/.style={draw, -}
+		},
+		start/.style={},
+		goal/.style={fill=black!40},
+		bt/.style={edge from parent/.style={draw, dash pattern=on 2pt off 1pt on .5pt off 1pt}},
+		title/.style={draw=none, font=\normalsize\bfseries},
+		label/.style={draw=none, font=\footnotesize}
+		]
 % \useasboundingbox (-85pt,-122pt) rectangle (400pt,11pt)% ;
 
 \begin{scope}[attempt]
-  \node[title] {\step{Start}};
+	\node[title] {\step{Start}};
 	\node[start] at (0pt, -28pt) {$\neg F(g) \vee  p$};
 
-  \node[label, align=center] at (0pt, \satdistance) {$
-     \begin{Bmatrix}
-      \neg F(g) \vee \phantom{\neg} p
-    \end{Bmatrix}
-  $};
+	\node[label, align=center] at (0pt, \satdistance) {$
+	\begin{Bmatrix}
+		\neg F(g) \vee \phantom{\neg} p
+	\end{Bmatrix}
+	$};
 \end{scope}
 
 \begin{scope}[xshift={1*\dist}, attempt]
-  \node[title] {\step{Extension}};
-  \node[start] at (0pt, -28pt) {$\neg F(g) \vee  p$}
-    child {
-      node {$ F(x_0) \vee \neg p$}
-    };
+	\node[title] {\step{Extension}};
+	\node[start] at (0pt, -28pt) {$\neg F(g) \vee  p$}
+	child {
+		node {$ F(x_0) \vee \neg p$}
+	};
 
-  \node[label, align=center] at (0pt, \satdistance) {$
-     \begin{Bmatrix}
-      \neg F(g) &\vee &\phantom{\neg} p \\
-      \phantom{\neg} F(x_0) &\vee &\neg p
-    \end{Bmatrix}
-  $};
+	\node[label, align=center] at (0pt, \satdistance) {$
+	\begin{Bmatrix}
+		\neg F(g) &\vee &\phantom{\neg} p \\
+		\phantom{\neg} F(x_0) &\vee &\neg p
+	\end{Bmatrix}
+	$};
 \end{scope}
 
 \begin{scope}[xshift={2*\dist}, attempt]
-  \node[title] {\step{Extension}};
-  \node[start] at (0pt, -28pt) {$\neg F(g) \vee  p$}
-    child {
-      node {$ F(x_0) \vee \neg p$}
-      child {
-        node {$ F(x_1) \vee \neg p$}
-      }
-    };
+	\node[title] {\step{Extension}};
+	\node[start] at (0pt, -28pt) {$\neg F(g) \vee  p$}
+	child {
+		node {$ F(x_0) \vee \neg p$}
+		child {
+			node {$ F(x_1) \vee \neg p$}
+		}
+	};
 
-  \node[label, align=center] at (0pt, \satdistance) {$
-     \begin{Bmatrix}
-      \neg F(g) &\vee &\phantom{\neg} p \\
-      \phantom{\neg} F(x_0) &\vee &\neg p \\
-      \phantom{\neg} F(x_1) &\vee &\neg p
-    \end{Bmatrix}
-  $};
+	\node[label, align=center] at (0pt, \satdistance) {$
+	\begin{Bmatrix}
+		\neg F(g) &\vee &\phantom{\neg} p \\
+		\phantom{\neg} F(x_0) &\vee &\neg p \\
+		\phantom{\neg} F(x_1) &\vee &\neg p
+	\end{Bmatrix}
+	$};
 \end{scope}
 
 \begin{scope}[xshift={3*\dist}, attempt]
-  \node[title] {\step{Reduction}};
-  \node[start] at (0pt, -28pt) {$\neg F(g) \vee  p$}
-    child {
-      node[goal] {$ F(x_0) \vee \neg p$}
-      child {
-        node[goal] {$ F(x_1) \vee \neg p$}
-      }
-    };
+	\node[title] {\step{Reduction}};
+	\node[start] at (0pt, -28pt) {$\neg F(g) \vee  p$}
+	child {
+		node[goal] {$ F(x_0) \vee \neg p$}
+		child {
+			node[goal] {$ F(x_1) \vee \neg p$}
+		}
+	};
 
-  \node[label, align=center] at (0pt, \satdistance) {$
-     \begin{Bmatrix}
-      \neg F(g) &\vee &\phantom{\neg} p \\
-      \phantom{\neg} F(x_0) &\vee &\neg p \\
-      \phantom{\neg} F(x_1) &\vee &\neg p
-    \end{Bmatrix}
-  $};
+	\node[label, align=center] at (0pt, \satdistance) {$
+	\begin{Bmatrix}
+		\neg F(g) &\vee &\phantom{\neg} p \\
+		\phantom{\neg} F(x_0) &\vee &\neg p \\
+		\phantom{\neg} F(x_1) &\vee &\neg p
+	\end{Bmatrix}
+	$};
 \end{scope}
 
 \draw (3.5*\dist+0.5*\bet, 3pt) -- (3.5*\dist+0.5*\bet, .90\satdistance)
-	node[midway, fill = white, inner sep=2pt, rotate = 90] {\footnotesize \step{Reset}};
+node[midway, fill = white, inner sep=2pt, rotate = 90] {\footnotesize \step{Reset}};
 
 \begin{scope}[xshift={4*\dist+\bet}, attempt]
-  \node[title] {\step{Start}};
-  \node[start] at (0pt, -28pt) {$ p \vee  F(g)$};
+	\node[title] {\step{Start}};
+	\node[start] at (0pt, -28pt) {$ p \vee  F(g)$};
 
-  \node[label, align=center] at (0pt, \satdistance) {$
-     \begin{Bmatrix}
-      \neg F(g) &\vee &\phantom{\neg} p \\
-      \phantom{\neg} F(x_0) &\vee &\neg p \\
-      \phantom{\neg} F(x_1) &\vee &\neg p \\
-      \phantom{\neg} p &\vee &\phantom{\neg} F(g)
-    \end{Bmatrix}
-  $};
+	\node[label, align=center] at (0pt, \satdistance) {$
+	\begin{Bmatrix}
+		\neg F(g) &\vee &\phantom{\neg} p \\
+		\phantom{\neg} F(x_0) &\vee &\neg p \\
+		\phantom{\neg} F(x_1) &\vee &\neg p \\
+		\phantom{\neg} p &\vee &\phantom{\neg} F(g)
+	\end{Bmatrix}
+	$};
 \end{scope}
 
 \begin{scope}[xshift={5*\dist+\bet}, attempt]
-  \node[title] {\step{Extension}};
-  \node[start] at (0pt, -28pt) {$ p \vee  F(g)$}
-    child {
-      node {$\neg p \vee \neg F(a)$}
-    };
+	\node[title] {\step{Extension}};
+	\node[start] at (0pt, -28pt) {$ p \vee  F(g)$}
+	child {
+		node {$\neg p \vee \neg F(a)$}
+	};
 
-  \node[label, align=center] at (0pt, \satdistance) {$
-     \begin{Bmatrix}
-      \neg F(g) &\vee &\phantom{\neg} p \\
-      \phantom{\neg} F(x_0) &\vee &\neg p \\
-      \phantom{\neg} F(x_1) &\vee &\neg p \\
-      \phantom{\neg} p &\vee &\phantom{\neg} F(g) \\
-      \neg p &\vee &\neg F(a)
-    \end{Bmatrix}
-  $};
+	\node[label, align=center] at (0pt, \satdistance) {$
+	\begin{Bmatrix}
+		\hspace{-2pt}\neg F(g) &\vee &\phantom{\neg} p \hspace{-2pt} \\
+		\hspace{-2pt}\phantom{\neg} F(x_0) &\vee &\neg p \hspace{-2pt} \\
+		\hspace{-2pt}\phantom{\neg} F(x_1) &\vee &\neg p \hspace{-2pt} \\
+		\hspace{-2pt}\phantom{\neg} p &\vee &\phantom{\neg} F(g) \hspace{-2pt} \\
+		\hspace{-2pt}\neg p &\vee &\neg F(a) \hspace{-2pt}
+	\end{Bmatrix}
+	$};
 \end{scope}
 
 \begin{scope}[xshift={6*\dist+\bet}, attempt]
-  \node[title] {\step{Extension}};
-  \node[start] at (0pt, -28pt) {$ p \vee  F(g)$}
-    child {
-      node {$\neg p \vee \neg F(a)$}
-      child {
-        node {$ F(a) \vee \neg p$}
-      }
-    };
+	\node[title] {\step{Extension}};
+	\node[start] at (0pt, -28pt) {$ p \vee  F(g)$}
+	child {
+		node {$\neg p \vee \neg F(a)$}
+		child {
+			node {$ F(a) \vee \neg p$}
+		}
+	};
 
-  \node[label, align=center] at (0pt, \satdistance) {$
-     \begin{Bmatrix}
-      \neg F(g) &\vee &\phantom{\neg} p \\
-      \phantom{\neg} F(x_0) &\vee &\neg p \\
-      \phantom{\neg} F(x_1) &\vee &\neg p \\
-      \phantom{\neg} p &\vee &\phantom{\neg} F(g) \\
-      \neg p &\vee &\neg F(a) \\
-      \phantom{\neg} F(a) &\vee &\neg p
-    \end{Bmatrix}
-  $};
+	\node[label, align=center] at (0pt, \satdistance) {$
+	\begin{Bmatrix}
+		\hspace{-2pt}\neg F(g) &\vee &\phantom{\neg} p \hspace{-2pt} \\
+		\hspace{-2pt}\phantom{\neg} F(x_0) &\vee &\neg p \hspace{-2pt} \\
+		\hspace{-2pt}\phantom{\neg} F(x_1) &\vee &\neg p \hspace{-2pt} \\
+		\hspace{-2pt}\phantom{\neg} p &\vee &\phantom{\neg} F(g) \hspace{-2pt} \\
+		\hspace{-2pt}\neg p &\vee &\neg F(a) \hspace{-2pt} \\
+		\hspace{-2pt}\phantom{\neg} F(a) &\vee &\neg p \hspace{-2pt}
+	\end{Bmatrix}
+	$};
 \end{scope}
 
 \end{tikzpicture}

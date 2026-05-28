@@ -191,18 +191,19 @@ The strategy used in this paper, \cop{SATResetCoP}, pushes the ideas from \cop{S
 \subsection{\cop{SATResetCoP} Specification}
 \label{satresetcop}
 
-We propose a new tableau prover based on \cop{SATCoP}, but guided by the goal of saturating the SAT solver rather than closing the current tableau.
+We propose a new tableau prover based on \cop{SATCoP}, but guided by the goal of saturating the SAT solver rather than using the LeanCoP heuristics that attempt to close the current tableau.
 
 Successive experimentation led to a simple strategy for achieving this: aggressively reset the tree when the SAT solver stops receiving new ground clauses.
 This adds a broader set of ground clauses to the solver in less time, allowing the SAT solver to reach unsatisfiability earlier.
 
 \cop{SATResetCoP} uses many of the properties of \cop{SATCoP} described in the original paper and in its ``Future Research'' section\cite[\S~9.1]{satcop}, but changes the tableau guidance to prioritise aggressive resets.
 
-Just like \cop{PySATCoP}, this approach is sound. While it is less complete than \cop{PySATCoP} and other \cop{leanCoP} variants, the speed at which it proves unsatisfiability can increase the number of problems solved within fixed time and step limits.
-It might be useful to incorporate \cop{SATResetCoP} into the initial steps of a more complete schedule.
+Just like \cop{SATCoP} and other provers, this approach is sound but incomplete.
+However, we expect the speed at which it proves unsatisfiability can increase the number of problems solved within fixed time and step limits.
 
-A concrete example of how \cop{PyLeanCoP}, \cop{PySATCoP}, and \cop{SATResetCoP} handle \cop{SYN052-1.p} can be found in \cref{diagram_syn052_1}.
+% A concrete example of how \cop{PyLeanCoP}, \cop{PySATCoP}, and \cop{SATResetCoP} handle \cop{SYN052-1.p} can be found in \cref{diagram_syn052_1}.
 
+It might be useful to incorporate \cop{SATResetCoP} into the initial steps of a more complete schedule; this is explored in \cref{schedule}.
 
 \subsection{Implementation Details}
 \label{implementation_details}
@@ -501,7 +502,8 @@ It also does not solve any unknown or open problems; while this limits the numbe
 
 \section{Future Work}
 
-% \subsection{Schedule}
+\subsection{Schedule}
+\label{schedule}
 
 \cop{SATResetCoP} still struggles with a significant number of problems, as seen in \cref{newly_solved_table}.
 It would be worth experimenting with adding this strategy to a schedule, following the examples of Otten and Mangla\cite{leancopcut,mangla2022a}, and possibly running a different strategy or solver if no solution is found after a fixed amount of time or number of steps.
