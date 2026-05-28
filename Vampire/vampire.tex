@@ -150,23 +150,22 @@ The calculus is sound and complete when adding backtracking, but it is not confl
 	\caption{The three proof-building steps of a clausal connection tableau, taken from the tableau closure of \cop{SYN052-1.p}\cite{Pelletier86}. The two \step{Extension} steps add an extra clause to the tableau; the \step{Reduction} step closes the nodes against a complementary literal already on the path. A full solution can, in several different strategies, be found in \cref{diagram_syn052_1}.}
 \end{figure}
 
-Many different connection tableau provers have been developed over the years.
-\cop{leanCoP} adapted this style of connection tableau proving to Prolog and became the basis of a large family of provers for classical and non-classical logics\cite{leancop,leancopoverview}.
+\subsection{Backtracking on Backtracking}
 
-\cop{leanCoP} comes with several optional predicates.
-Most importantly, \texttt{cut} commits a Prolog cut \texttt{(!)} after every successful \step{Reduction} and \step{Extension}.
-This removes many alternative local continuations and makes the base prover incomplete, but it also converges to a solution considerably faster\cite{leancopcut}.
-Additionally, \cop{leanCoP} iteratively increases the maximum tableau depth when the current options are saturated.
+The main source of slowness on connection provers is \step{Backtracking}, since it tends to produce a set of steps that's similar to the one before the backtrack.
+Subsequent improvements to this technique have focused on restricting the amount of backtracking done before a new tree is created.
 
-To keep the prover complete, the \texttt{comp(I)} option removes the maximum height restrictions and the \texttt{cut} when starting a tree that would have had maximum height \texttt{I}.
+\cop{leanCoP 2.0}, which adapted this style of connection tableau proving to Prolog and became the basis of a large family of provers for classical and non-classical logics\cite{leancopoverview}, added restricted backtracking as a Prolog \texttt{cut} to only run a single \step{Extension} and \step{Reduction} on each node, and backtrack immediately during each \step{Backtrack}.
 
-Later systems can be read as attempts to make this local control less crude.
+It also introduced the concept of iterative deepening, where the height of each tree is capped to prioritise finding simpler solutions.
+This maximum height is increased by 1 at a time each time the tree gets saturated.
+
+This approach is sound, but incomplete.
+The default implementation of \cop{leanCoP 2.0} comes with a schedule which, by default, disables cuts and maximum height after the iterative deepening saturates all trees of size 7.
+
+Later systems kept finding ways to prevent backtracking.
 \cop{meanCoP} separates cut on reductions from cut on extensions and introduces exclusive cuts, which preserve more alternatives than the inclusive cuts used by \cop{leanCoP}\cite{meancop}.
 \cop{hopCoP} takes the opposite route: instead of deliberately throwing away alternatives, it learns constraints explaining why a search state is stuck, thereby reducing repeated backtracking while preserving completeness at a fixed iterative-deepening level\cite{rawsonConstraintLearningNonconfluent2026}.
-
-Functional connection provers, \cop{mlCoP}, and \cop{monteCoP} reorder proof steps using learned information or Monte Carlo Tree Search\cite{farberMachineLearningGuidance2021}.
-\cop{rlCoP} and \cop{plCoP} make this more explicit by treating proof search as a learning-guided control process over \cop{leanCoP}-style actions\cite{Kaliszyk2018RLTP,zomboriPrologTechnologyReinforcement2020a,zomboriRoleEntropyGuiding2021}.
-The common theme is the one we use below: connection-tableau proving is naturally viewed as a sequence of small control decisions over proof actions, cuts, backtracking, and restarts.
 
 \subsection{\cop{SATCoP} and Methods that use SAT Saturation in a Tableau}
 \label{satcop}
@@ -175,12 +174,12 @@ SAT and SMT solvers have long been used to support first-order reasoning\cite{sa
 For a connection prover, the useful observation is simple: every clause that appears in a tableau is an instance of an input clause.
 If we ground these tableau clauses and collect them in a propositional SAT solver, then a SAT refutation of the collected ground clauses is a sound refutation of the original first-order problem.
 
-Rawson and Reger implement this idea in \cop{SATCoP}, a clausal connection-tableau prover based on \cop{leanCoP}\cite{satcop}.
+Rawson and Reger implement this idea in \cop{SATCoP\textsubscript{0}}, a clausal connection-tableau prover based on \cop{leanCoP}\cite{satcop}.
 
-During backtracking search, clauses present in the tableau are heuristically grounded and added to an incremental SAT solver.
+While constructing the tableau, clauses present in the tableau are heuristically grounded and added to an incremental SAT solver.
 If the SAT solver reports that the accumulated ground clauses are unsatisfiable, proof search can stop even if the first-order tableau itself has not been closed\cite{satcop}.
 The remaining tableau variables must be mapped to ground terms before a clause is sent to SAT.
-Their implementation follows a Schulz-style heuristic: use the most frequent constant in the conjecture, and fall back to a fresh constant if no conjecture constant is available\cite[\S~4.2]{satcop,schulzSATInterpretation}.
+Variables get substituted using a heuristic created by Schulz: the most frequent constant in the conjecture is used, with a fallback to a fresh constant if no conjecture constant is available\cite{schulzSATInterpretation}.
 
 Later modifications to \cop{SATCoP} gave it control of the tableau using results from the SAT solver.
 In a later note included in the same paper, Rawson and Reger also describe a literal-selection refinement: prefer extension choices whose selected literal is assigned true by the current SAT solver assignment\cite[\S~9.1]{satcop}.

@@ -35,7 +35,7 @@
 	\node[start] at (0pt, -28pt) {$F(Y) \vee p$}
 	child[xshift={-\lat}] {
 		node {$ \neg F(X) \vee p $}
-		edge from parent node[edgelabel, left] {$ \sigma_0 = \{ X \leftarrow Y \} $}
+		edge from parent node[edgelabel, right] {$ \sigma_0 = \{ X \leftarrow Y \} $}
 	};
 \end{scope}
 
@@ -45,9 +45,9 @@
 		child[xshift={-\lat}] { node {$ \neg F(X) \vee p $}
 		child {
 			node {$\neg p \vee \neg F(a)$}
-			edge from parent node[edgelabel, left] {$ \sigma_1 = \sigma_0 $}
+			edge from parent node[edgelabel, right] {$ \sigma_1 = \sigma_0 $}
 		}
-		edge from parent node[edgelabel, left] {$ \sigma_0 = \{ X \leftarrow Y \} $}
+		edge from parent node[edgelabel, right] {$ \sigma_0 = \{ X \leftarrow Y \} $}
 	};
 \end{scope}
 
@@ -59,7 +59,7 @@
 	};
 \end{scope}
 
-\begin{scope}[xshift={4.5*\dist}, attempt]
+\begin{scope}[xshift={4.25*\dist}, attempt]
   \node[title] {\step{Extension}};
 	\node[start,label={[edgelabel,font=\tiny,xshift=10pt]300:$ \sigma_2 = \left\{ \begin{gathered} X \leftarrow a \\ Y \leftarrow a \end{gathered} \right\} $}] at (0pt, -28pt) {$F(a) \vee p$}
 		child[xshift={-\lat}] {
