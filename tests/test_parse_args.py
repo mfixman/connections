@@ -61,6 +61,30 @@ def test_parse_args_accepts_debug(monkeypatch):
 
     assert args.debug is True
 
+def test_parse_args_defaults_print_trace_to_false(monkeypatch):
+    monkeypatch.setattr(
+        sys,
+        'argv',
+        ['pycop.py', 'tests/cnf_problems/SYN081+1.cnf'],
+    )
+
+    args = parse_pycop_args()
+
+    assert args.print_trace is False
+    assert args.print_ratio == 0
+
+def test_parse_args_print_trace_sets_print_ratio_to_one(monkeypatch):
+    monkeypatch.setattr(
+        sys,
+        'argv',
+        ['pycop.py', '--print-trace', 'tests/cnf_problems/SYN081+1.cnf'],
+    )
+
+    args = parse_pycop_args()
+
+    assert args.print_trace is True
+    assert args.print_ratio == 1
+
 def test_parse_args_rejects_logic_override(monkeypatch):
     monkeypatch.setattr(
         sys,

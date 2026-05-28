@@ -227,6 +227,7 @@ def _add_common_prover_arguments(parser: argparse.ArgumentParser, *, max_steps_d
 def _add_pycop_arguments(parser: argparse.ArgumentParser) -> None:
     _add_common_prover_arguments(parser, max_steps_default=10000000)
     parser.add_argument('--print-ratio', '-pr', type=int, default=0, help='Ratio of messages to be printed')
+    parser.add_argument('--print-trace', action='store_true', help='Print every action trace message.')
     parser.add_argument('--debug', action='store_true', help='Print extra debug information.')
     parser.add_argument(
         '--strategy',
@@ -386,6 +387,8 @@ def parse_pycop_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = _build_pycop_parser()
     args = parser.parse_args(argv)
     validate_problem_split_arguments(args, parser)
+    if args.print_trace:
+        args.print_ratio = 1
     if args.sat_solver is None:
         args.sat_solver = default_sat_solver_for_strategy(args.strategy)
     return args
