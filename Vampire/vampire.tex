@@ -527,11 +527,31 @@ The most promising direction is therefore not a single fixed reset policy, but a
 
 \section{Future Work}
 
-\subsection{Schedule}
+\subsection{Schedule with different provers}
 \label{schedule}
 
 \cop{SATResetCoP} still struggles with a significant number of problems, as seen in \cref{newly_solved_table}.
 It would be worth experimenting with adding this strategy to a schedule, following the examples of Otten and Mangla\cite{leancopcut,mangla2022a}, and possibly running a different strategy or solver if no solution is found after a fixed amount of time or number of steps.
+
+\subsection{Further Experiments}
+
+The current implementation uses \cop{CaDiCaL} as its incremental SAT solver.
+Future experiments should test whether the results are stable under different SAT solvers, solver restart policies, and incremental interfaces.
+This matters because \cop{SATResetCoP} relies on the solver not only for the final unsatisfiability result, but also for the model information used to guide tableau extensions.
+
+It would also be useful to vary the reset policy itself.
+The present policy resets aggressively when the current tableau stops producing new ground clauses, but the newly unsolved problems suggest that some domains need longer tableau branches before the useful ground instances appear.
+A broader experiment could compare fixed reset budgets, category-specific schedules, and policies that delay resets when recent SAT models still give useful literal guidance.
+
+\subsection{CASC Submission}
+
+\cop{SATResetCoP} will also be packaged as a CASC entrant.
+This will test whether the improvements seen here survive the standard competition setting, including the official hardware, time limits, problem selection, and input requirements.
+It will also make the comparison with earlier connection-tableau systems more direct, since both \cop{leanCoP} and \cop{SATCoP} have been evaluated through CASC.
+
+Preparing a CASC version requires more than submitting the current research prototype.
+The prover should expose a stable command-line interface, handle TPTP input robustly, report SZS statuses consistently, and include a reproducible installation path for the SAT backend.
+This would turn the current experimental result into a system that can be compared against the broader ATP ecosystem.
 
 \section{Acknowledgements}
 
