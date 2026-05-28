@@ -106,34 +106,23 @@
 
 \section{Introduction}
 
-Connection tableau provers are attractive because the core proof search is simple and goal-directed.
+Connection tableau provers are an attractive way to solve first-order problems since its the core proof search is simple and goal-directed.
 
 They originated from semantic tableau refutation models proposed by Evert~Beth and developed by Raymond~Smullyan\cite{semantictableaux}, which later added goal-directed guidance by Loveland\cite{modelelimination}.
 
-Beckert and Posegga introduces first Prolog implementation of this model, \cop{leanTAP}\cite{leantap}, which showed how these models could be implemented in small and swift programs that would make experimentation easier.
-This was the baseline used by Otten and Bibel to develop the first version of \cop{leanCoP}
+Beckert and Posegga introduced \cop{leanTAP}\cite{leantap}, which showed how tableau methods could be implemented in small and swift Prolog programs that make experimentation easier.
+This was the baseline used by Otten and Bibel to develop the first version of \cop{leanCoP}\cite{leancop}, which implemented a clausal connection calculus where proof search is driven by complementary literal connections.
+This was later improved in \cop{leanCoP 2.0}\cite{leancopcut}, which added backtracking cuts, iterative deepening, and various other improvements. The system competed at \cop{CASC-21} on 2007\cite{casc21} and was the strongest connection-tableau style prover in the FOF division, althrough it remainder behind the leading saturation and instantiation based systems such as \cop{Vampire}.
 
-This is especially visible in \cop{leanCoP}, where a competitive first-order prover can be implemented with very little machinery\cite{leancop,leancopoverview}.
-The cost is that the prover has to make many local control decisions: which clause to start from, which connection to try next, when to backtrack, and when to restart.
+Later tableau methods were based on \cop{leanCoP} and focused on improving the tableau guidance.
+\cop{rlCoP} added a reinforcement learning component\cite{zomboriPrologTechnologyReinforcement2020a}, which can provide more expressive tableau guidance at the cost of extra work per step, while \cop{meanCoP} reduced unnecessary backtracking by separating cuts on reductions from cuts on extensions and introducing exclusive cuts\cite{meancop}.
 
-These choices matter because connection proof search is not confluent.
-A locally valid connection can bind variables in a way that makes another branch impossible to close later.
-\cop{leanCoP}'s \texttt{cut} option shows that even a crude restriction on backtracking can make a large practical difference, although it loses completeness unless it is used inside a complete schedule\cite{leancopcut}.
+Not all improvements to tableau methods come from restricting backtracking.
+Rawson and Reger integrated a SAT solver into clausal connection-tableau systems for classical first-order logic\cite{satcop}, where the solution to the tableau does not come from tableau closure but from finding an unsatisfiable set of ground clauses at any point of the SAT solver.
+This technique is very effective, and later improvements to \cop{SATCoP\textsubscript{0}} added tableau guidance from this SAT solver and put it was an effective entrant to CASC-28\cite{casc28} on 2021.
 
-\cop{SATCoP} changes the objective slightly.
-Instead of using the tableau only as a proof object that must eventually close, it also uses the tableau as a source of ground clauses for an incremental SAT solver\cite{satcop}.
-Once the accumulated ground clauses are propositionally unsatisfiable, the prover can stop even if the current first-order tableau has not closed.
-This suggests a different view of tableau control: a good run is not only one that closes the tableau quickly, but one that generates useful ground instances quickly.
-
-
-This paper explores that view by resetting the tableau aggressively.
-If the current bounded search stops adding new ground information to the SAT solver, we abandon it and start another search.
-This is incomplete as a standalone proof procedure, but useful when the goal is to saturate the ground SAT clause set fast.
-The rest of the paper describes the resulting prover, \cop{SATResetCoP}, and compares it against \cop{leanCoP}-style and \cop{SATCoP}-style baselines on TPTP problems.
-
-Although the implementation studied here is not an extension of \cop{Vampire}, the question is closely aligned with the themes of the \cop{Vampire} workshop.
-The method studies how a first-order prover can combine goal-directed proof search with a persistent SAT abstraction, and how search-control choices affect the rate at which useful ground instances are produced.
-The experiments are therefore intended as a small, controlled study of prover strategy design and SAT-assisted first-order reasoning, rather than as a replacement for saturation-based systems such as \cop{Vampire}.
+This paper explores the idea of further improving the tableau guidance with the objective of saturating the SAT core by aggressively resetting the tableau in order to maximise the amount of grounded entries added to the SAT core, with the objective of saturating it faster.
+Just like the improvements in \cop{leanCoP}, \cop{meanCoP}, and \cop{SATCoP}, the improvements from this model come from further restricting backtracking.
 
 \section{Preliminaries}
 
