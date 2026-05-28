@@ -510,8 +510,20 @@ It also does not solve any unknown or open problems; while this limits the numbe
 
 The experiments on \cop{SATResetCoP} show that the extreme of \emph{backtracking on backtracking}, which is preventing backtracking at all and resetting the search trees instead, is a valid way to improve tableau provers.
 
-\Cref{comparative_results} shows that, on a 1 million step and 120 second time limit, \cop{SATResetCoP} solves an extra 598 problems compared to \cop{SATCoP}, a 18\% increase.
-It also shows 1139 were solved by \cop{SATResetCoP} but not \cop{PyLeanCoP}, a 54\% improvement.
+\Cref{comparative_results} shows that, on a 1 million step and 120 second time limit, \cop{SATResetCoP} solves \num{2971} problems.
+This is \num{462} more problems than \cop{PySATCoP}, an 18\% increase, and \num{1048} more problems than \cop{PyLeanCoP}, a 54\% increase.
+Pairwise, \cop{SATResetCoP} solves \num{598} problems that \cop{PySATCoP} does not, and \num{1139} problems that \cop{PyLeanCoP} does not.
+
+The improvement is not uniform across TPTP.
+It is strongest in categories where useful ground clauses accumulate quickly: \cop{SATResetCoP} solves \num{672} \step{SYN} problems, \num{64} \step{SWC} problems, and \num{215} \step{SWV} problems, compared with \num{549}, \num{11}, and \num{173} for \cop{PySATCoP}.
+It also improves on \step{GEO} and \step{NUM}, solving \num{293} and \num{179} problems respectively.
+
+The newly unsolved problems show the other side of this tradeoff.
+\cop{SATResetCoP} loses \num{136} problems solved by \cop{PySATCoP}, mostly in set theory, number theory, logic calculi, and common-sense reasoning.
+These are cases where the SAT abstraction does not become contradictory quickly enough, and the aggressive reset policy can discard tableau branches that a less aggressive prover eventually closes.
+
+This suggests that SAT saturation is a useful objective for connection tableaux, but not a replacement for all tableau control.
+The most promising direction is therefore not a single fixed reset policy, but a schedule or controller that can use aggressive resets when ground instances are informative and fall back to ordinary connection search when they are not.
 
 \section{Future Work}
 
