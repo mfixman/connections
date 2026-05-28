@@ -140,11 +140,9 @@ The standard clausal connection tableau has three proof-building inferences\cite
 		Like the previous step, this might require adding a substitution.
 \end{description}
 
-The calculus is sound and complete with backtracking and iterative deepening, but it is not confluent: a locally valid connection can bind variables in a way that prevents later branches from closing\cite{connectiontableaux}.
+The calculus is sound and complete when adding backtracking, but it is not confluent: a locally valid connection can bind variables in a way that prevents later branches from closing\cite{connectiontableaux}.
 
-
-Following the usual accounting for connection-tableau provers, we use \emph{step} to mean one of the three proof-building inferences above.
-Control operations such as backtracking, cuts, and resets affect which proof-building inferences are attempted, but are not themselves counted as steps.
+% Control operations such as backtracking, cuts, and resets affect which proof-building inferences are attempted, but are not themselves counted as steps.
 
 \begin{figure}[h]
 	\centering
