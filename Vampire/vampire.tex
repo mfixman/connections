@@ -393,10 +393,14 @@ Compared with \satcopzc{}, it solves \num{1395} more problems, an increase of \n
 The SAT guidance in \cop{SATResetCoP} allows it to solve several problems left unsolved by strategies without the same mechanism for accumulating ground clauses, and even by \satcopzc{} and \satcopc{}, which use less aggressive guidance.
 A comparison of newly solved and newly unsolved problems can be seen in \cref{newly_solved_table}.
 
+This comparison is useful because the total number of solved problems hides changes in which problems are solved.
+On TPTP, \cop{SATResetCoP} solves \num{598} problems that \satcopc{} does not, but loses \num{136} problems solved by \satcopc{}.
+The reset policy is therefore changing the search distribution rather than just speeding up the same proof attempts.
+
 \begin{table}[h]
 	\centering
 	\footnotesize
-	\begin{tabular}{>{\sffamily}l r r r}
+	\begin{tabular}{l r r r}
 		\toprule
 			Strategy & Newly Solved & Newly Unsolved & Total Solved \\
 			\midrule
@@ -410,15 +414,25 @@ A comparison of newly solved and newly unsolved problems can be seen in \cref{ne
 		\label{newly_solved_table}
 \end{table}
 
+The same tradeoff appears on the bushy \cop{MPTP2078} benchmark.
+\cop{SATResetCoP} solves \num{111} MPTP2078 problems that \satcopc{} does not, while \satcopc{} solves \num{44} problems missed by \cop{SATResetCoP}.
+The resulting net gain of \num{67} problems is smaller than on TPTP, but the pattern is similar.
+Resets help when useful ground instances appear quickly, and hurt when the useful branch requires longer local tableau search.
+
+This is the expected behaviour for a policy that treats the tableau mainly as a source of ground clauses.
+When the early branches already expose the clauses needed by the SAT solver, resetting avoids spending many steps on similar local backtracking.
+When the useful clauses only appear after a longer sequence of tableau choices, the same reset policy can discard the partial search state too early.
+
 \Cref{solved_heatmap} shows the number of problems solved by one strategy but not by another.
 
 \begin{figure}[h]
-	\centering\includegraphics[width=.50\textwidth]{solved_heatmap}
+	\centering\includegraphics[width=.45\textwidth]{solved_heatmap}
 	\caption{Pairwise comparison of strategy results: the cell in column \cop{y} and row \cop{x} shows the number of problems solved by strategy \cop{y}, but not by strategy \cop{x}. For example, \cop{SATResetCoP} solved 1123 TPTP problems that \satcopzc{} did not.}
 	\label{solved_heatmap}
 \end{figure}
 
 The improvement between \cop{SATResetCoP} and the best previous experimental strategy, our \satcopc{} implementation of \cop{SATCoP}, is especially visible in TPTP categories where the accumulated ground clauses become propositionally unsatisfiable quickly, such as \step{SYN}, \step{SWC}, and \step{SWV}.
+
 As expected, this strategy also solves problems in fewer steps, as can be seen in \cref{violinplots} for TPTP problems and in \cref{violinplot_mizar} for Mizar.
 
 \begin{table}[h]
@@ -438,13 +452,13 @@ As expected, this strategy also solves problems in fewer steps, as can be seen i
 	\label{problems_solved_categories}
 \end{table}
 
+
 \begin{figure}[h]
+	\centering
 	\includegraphics[width=\textwidth]{violinplots.png}
 	\caption{Density of problems solved at each step count by \satcopc{} and \cop{SATResetCoP} on the TPTP categories \cop{SYN}, \cop{SWC}, \cop{SWV}, \cop{GEO}, and \cop{NUM}. The area of each violinplot is the same; besides solving more problems in each category, \cop{SATResetCoP} solves many problems in fewer steps. Unsolved problems are collected in the $\geq 10k$ category on the right.}
 	\label{violinplots}
-
-	\vspace{2em}
-
+	\vspace{10pt}%
 	\includegraphics[width=\textwidth]{violinplot_mizar.png}
 	\caption{Density of problems solved at each step count by \satcopc{} and \cop{SATResetCoP} on the Mizar Bushy MPTP2078 dataset. Just like in TPTP, \cop{SATResetCoP} solves more problems in fewer steps. Unsolved problems are collected in the $\geq 10k$ category on the right.}
 	\label{violinplot_mizar}
