@@ -445,7 +445,7 @@ As expected, this strategy also solves problems in fewer steps, as can be seen i
 The TPTP library includes declared statuses for its problems\cite{tptp}.
 While this does not demonstrate soundness, it provides a useful check that the strategy has not become unsound by mistake.
 
-We make a second run of \cop{SATResetCoP} with a longer 10-minute limit, whose results can be seen in \cref{sat_proof}.
+As a sanity check, we group the \cop{SATResetCoP} results by TPTP declared status in \cref{sat_proof}.
 The results are consistent with what we would expect if the prover were sound, as it does not find unsatisfiability (``Solved'') in any problem marked satisfiable or countersatisfiable.
 It also does not solve any unknown or open problems; while this limits the number of new discoveries, any such solutions would need to be checked closely to ensure that they were not caused by an incorrect prover.
 
@@ -459,15 +459,15 @@ It also does not solve any unknown or open problems; while this limits the numbe
 		\cmidrule(lr){4-5}
 			Declared status & Unsolved & Solved & Unsolved & Solved \\
 		\midrule
-			Satisfiable         & 350  & 0    & 1094 & 0    \\
-			CounterSatisfiable  & 732  & 0    & 0    & 0    \\
+			Satisfiable         & 358  & 0    & 1095 & 0    \\
+			CounterSatisfiable  & 746  & 0    & 0    & 0    \\
 		\addlinespace[1ex]
-			Unknown             & 94   & 0    & 745  & 0    \\
+			Unknown             & 139  & 0    & 745  & 0    \\
 			Open                & 4    & 0    & 28   & 0    \\
 		\addlinespace[1ex]
-			Unsatisfiable       & 100  & 72   & 4496 & 1433 \\
-			ContradictoryAxioms & 204  & 39   & 0    & 0    \\
-			Theorem             & 4426 & 1823 & 0    & 0    \\
+			Unsatisfiable       & 110  & 66   & 4674 & 1273 \\
+			ContradictoryAxioms & 493  & 36   & 0    & 0    \\
+			Theorem             & 5231 & 1596 & 0    & 0    \\
 		\bottomrule
 	\end{tabular}
 	\caption{Number of problems solved and unsolved by \cop{SATResetCoP}, grouped by TPTP declared status. No satisfiable or countersatisfiable problem was incorrectly proven to be unsatisfiable.}
