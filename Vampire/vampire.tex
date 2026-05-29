@@ -412,7 +412,7 @@ A comparison of newly solved and newly unsolved problems can be seen in \cref{ne
 				\cop{SATResetCoP} & 598  & 136 & 2971 \\
 			\bottomrule
 		\end{tabular}
-		\caption{Problems newly solved and newly unsolved by each strategy compared with the previous strategy in the table, together with the total number of solved problems. This is consistent with previous data that shows \cop{SATResetCoP} solving hard problems faster. The 136 problems solved by \satcopc{} but not by \cop{SATResetCoP} correspond mostly to propositional cases where the SAT abstraction does not become contradictory quickly, so aggressive resetting interrupts the tableau branches that can be closed by \satcopc{}.}
+		\caption{Problems newly solved and newly unsolved by each strategy compared with the previous strategy in the table, together with the total number of solved problems. This is consistent with previous data that shows \cop{SATResetCoP} solving hard problems faster. The 136 problems solved by \satcopc{} but not by \cop{SATResetCoP} correspond mostly to propositional cases where the accumulated ground clauses do not become propositionally unsatisfiable quickly, so aggressive resetting interrupts the tableau branches that can be closed by \satcopc{}.}
 		\label{newly_solved_table}
 \end{table}
 
@@ -424,7 +424,7 @@ A comparison of newly solved and newly unsolved problems can be seen in \cref{ne
 	\label{solved_heatmap}
 \end{figure}
 
-The improvement between \cop{SATResetCoP} and the best previous experimental strategy, our \satcopc{} implementation of \cop{SATCoP}, is especially visible in TPTP categories where propositional contradictions are reached quickly in the accumulated ground abstraction, such as \step{SYN}, \step{SWC}, and \step{SWV}.
+The improvement between \cop{SATResetCoP} and the best previous experimental strategy, our \satcopc{} implementation of \cop{SATCoP}, is especially visible in TPTP categories where the accumulated ground clauses become propositionally unsatisfiable quickly, such as \step{SYN}, \step{SWC}, and \step{SWV}.
 As expected, this strategy also solves problems in fewer steps, as can be seen in \cref{violinplots}.
 
 \begin{table}[h]
@@ -498,7 +498,7 @@ It also improves on \step{GEO} and \step{NUM}, solving \num{293} and \num{179} p
 
 The newly unsolved problems show the other side of this tradeoff.
 \cop{SATResetCoP} loses \num{136} problems solved by \satcopc{}, mostly in set theory, number theory, logic calculi, and common-sense reasoning.
-These are cases where the SAT abstraction does not become contradictory quickly enough, and the aggressive reset policy can discard tableau branches that a less aggressive prover eventually closes.
+These are cases where the accumulated ground clauses do not become propositionally unsatisfiable quickly enough, and the aggressive reset policy can discard tableau branches that a less aggressive prover eventually closes.
 
 This suggests that accumulating ground clauses is a useful objective for connection tableaux, but not a replacement for all tableau control.
 The most promising direction is therefore not a single fixed reset policy, but a schedule or controller that can use aggressive resets when ground instances are informative and fall back to ordinary connection search when they are not.
