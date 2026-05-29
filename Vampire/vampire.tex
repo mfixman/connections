@@ -190,11 +190,12 @@ This adds a broader set of ground clauses to the solver in less time, allowing t
 Just like \cop{SATCoP} and other provers, this approach is sound but incomplete.
 However, we expect the speed at which it proves unsatisfiability can increase the number of problems solved within fixed time and step limits.
 
-% A concrete example of how \leancopc{}, \satcopc{}, and \cop{SATResetCoP} handle \cop{SYN052-1.p} can be found in \cref{diagram_syn052_1}.
-
 Like \cop{SATCoP}, the implementation keeps a persistent SAT solver alongside the active tableau search.
-% The SAT state is not recreated during ordinary proof search.
 Ground clauses accumulated in earlier tableau attempts remain available in later attempts, and new clauses are added incrementally to the same solver instance.
+
+\cop{SATResetCoP} randomises the \step{Start} and \step{Extension} steps in the same way as \cop{SATCoP}.
+When starting a new tree, the implementation shuffles the possible starts and the literals inside each start clause.
+When several extensions are possible from the leftmost open node, it shuffles the extension choices and the literal order inside the copied extension clause.
 
 A new virtual operation, \step{Reset}, clears the tableau, the current substitution, and the proof sequence, and starts a new tableau attempt with a specified depth bound.
 It does not clear the persistent SAT solver: every reset starts from an empty tree, while the SAT solver keeps the ground information produced by earlier attempts.
@@ -206,7 +207,6 @@ An example of how this operation works can be seen in \cref{reset_example}.
 	\caption{Example of \cop{SATResetCoP} on \step{SYN052-1.p}. \cop{SATCoP} and previous provers would backtrack after closing the branch with $F(x_1) \vee \neg p$; instead, \cop{SATResetCoP} resets into a new tree. This accumulates the ground clauses that form the UNSAT core shown at the bottom faster than in \cop{SATCoP}, allowing the SAT solver to reach unsatisfiability earlier. Substitutions are omitted for simplicity. At the end of the last extension, the accumulated ground clauses are unsatisfiable and the entire tableau prover can report UNSAT.}
 	\label{reset_example}
 \end{figure}
-
 
 The grounded clauses used by \cop{SATResetCoP} come from clauses that have appeared in the tableau, after applying the tableau substitution accumulated so far.
 Start clauses are added to the SAT state when the run is initialised.
@@ -224,13 +224,9 @@ Cuts and resets only affect which ground instances are discovered, and hence the
 The aggressive reset-on-backtrack policy is the main implementation difference between \cop{SATResetCoP} and \cop{SATCoP}.
 At a dead end, the prover first asks whether the current tableau attempt produced any new ground clauses that have not yet been added to the SAT solver.
 If it did, those clauses are flushed to the SAT solver and the prover resets at the same depth.
-This gives the next tableau attempt the same depth bound, but a larger SAT state and a fresh randomised ordering of choices.
+This gives the next tableau attempt the same depth bound, but a larger SAT state and a fresh set of grounded clauses.
 If the attempt did not produce any new ground clauses, the prover treats the current depth as exhausted and resets at the next depth instead of spending more steps on local backtracking.
 The process stops as soon as the accumulated ground clauses become propositionally unsatisfiable.
-
-\cop{SATResetCoP} randomises the \step{Start} and \step{Extension} steps in the same way as \cop{SATCoP}.
-When starting a new tree, the implementation shuffles the possible starts and the literals inside each start clause.
-When several extensions are possible from the leftmost open node, it shuffles the extension choices and the literal order inside the copied extension clause.
 
 Since \cop{SATResetCoP} resets the tree aggressively, it only increases the depth bound when the accumulated ground clauses have not been updated since the last \step{Reset}.
 This prevents trees from growing out of control, while still trying to maximise the set of accumulated ground clauses.
@@ -307,7 +303,7 @@ This is a Python version of the \cop{leanCoP} Prolog implementation, with the tw
 These simple policies tend to be very effective in tableau provers\cite{leancopoverview}.
 
 We add Python implementations in the connection prover of the two versions of \cop{SATCoP} presented by Rawson and Reger\cite{satcop}: \satcopzc{}, corresponding to \cop{SATCoP\textsubscript{0}}, and \satcopc{}, corresponding to the version of \cop{SATCoP} with the improvements in the ``Future Research'' section that was submitted to CASC.
-These implementations use similar techniques to the original provers, and since they are in the same backend than \cop{SATResetCoP} allow for a fairer comparison.
+These implementations use similar techniques to the original provers, and since they are in the same backend than \cop{SATResetCoP} allow for a fair comparison.
 
 An overview of these strategies is shown in \cref{cops_table}.
 
@@ -331,16 +327,15 @@ An overview of these strategies is shown in \cref{cops_table}.
 	\label{cops_table}
 \end{table}
 
-Each problem-strategy pair is run for at most 120 seconds and 1 million steps, on a single core of the University of Cambridge CSD3 Cluster with dual-socket Intel Xeon Platinum 8368Q CPUs at 2.60 GHz, with 38 cores per socket and one thread per core, and 3370 MiB RAM per core\cite{cambridge_csd3}.
+Each problem-strategy pair is run until the problem is solved, or until either 120 seconds or 1 million steps pass, on a single core of the University of Cambridge CSD3 Cluster with dual-socket Intel Xeon Platinum 8368Q CPUs at 2.60 GHz, with 38 cores per socket and one thread per core, and 3370 MiB RAM per core\cite{cambridge_csd3}.
 We thank the Computer Science Lab of the University of Cambridge for providing this computer.
 
 \subsection{Results}
 
 \subsubsection{Individual Results}
 
-\cop{SATResetCoP} considerably increases the number of problems solved by both \satcopzc{} and \satcopc{} under the 120-second time limit, as shown in \cref{problems_solved}.
+\cop{SATResetCoP} considerably improves on the number of problems solved by both \satcopzc{} and \satcopc{} under the 120-second time limit, as shown in \cref{problems_solved}.
 The results are consistent with the claim the SAT solver reaches unsatisfiability in less time and fewer \step{Start}, \step{Extension}, and \step{Reduction} steps than in the previous strategies, as seen in \cref{strategy_solved_time,strategy_solved_steps}.
-For the SAT-based variants, the \num{1000000} step limit is rarely reached, and most unsolved problems hit the 120 second limit instead.
 
 The improvement is visible in both TPTP problem formats and on the MPTP2078-derived problems.
 \cop{SATResetCoP} solves \num{529} more problems than \satcopc{}, with a net gain of \num{206} TPTP CNF problems, \num{256} TPTP FOF problems, and \num{67} Mizar Bushy problems.
@@ -380,7 +375,7 @@ Compared with \satcopzc{}, it solves \num{1395} more problems, an increase of \n
 		\caption{Problems solved, stacked by number of steps. SAT-based strategies can solve a problem in 0 steps if the initial ground SAT clause set is already unsatisfiable.}
 		\label{strategy_solved_steps}
 	\end{subfigure}
-	\caption{Results of running the strategies on all TPTP problems under limits of 120 seconds and 1 million steps. \cop{SATResetCoP} solves more problems in fewer steps than in previous strategies, and also faster except for the niche category of $\leq 1s$ solves.}
+	\caption{Results of running the strategies on all TPTP problems under with time limits of 120 seconds and step limit of 1 million steps. \cop{SATResetCoP} solves more problems in fewer steps than in previous strategies, and also faster except for the niche category of $\leq 1s$ solves.}
 \end{figure}
 
 % \Cref{diagram_syn052_1} shows the solution to the TPTP problem \cop{SYN052-1}\cite{Pelletier86} in three different strategies.
@@ -523,7 +518,7 @@ The most promising direction is therefore not a single fixed reset policy, but a
 \label{schedule}
 
 \cop{SATResetCoP} still struggles with a significant number of problems, as seen in \cref{newly_solved_table}.
-It would be worth experimenting with adding this strategy to a schedule, following the examples of Otten and Mangla\cite{leancopcut,mangla2022a}, and possibly running a different strategy or solver if no solution is found after a fixed amount of time or number of steps.
+It would be worth experimenting with adding this strategy to a schedule, following the examples of LeanCoP 2.1 and research by Mangla\cite{leancopcut,mangla2022a}, and possibly running a different strategy or solver if no solution is found after a fixed amount of time or number of steps.
 
 \subsection{Further Experiments}
 
