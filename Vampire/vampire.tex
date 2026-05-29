@@ -90,7 +90,7 @@
 	Connection-tableau provers typically construct closed tableaux by backtracking search.
 	This gives lightweight proof procedures, but their low-memory search state leaves little derived information to reuse after a failed attempt.
 	\cop{SATCoP} addresses this by retaining grounded tableau clauses in an incremental SAT solver, allowing the prover to refute the problem once the accumulated ground clauses become propositionally unsatisfiable.
-	We introduce \cop{SATResetCoP}, which relies more directly on this persistent SAT state by resetting unproductive tableaux and using each new tableau to generate further ground clauses for the SAT solver.
+	We introduce \cop{SATResetCoP}, which relies more directly on this persistent SAT state by not backtracking on unproductive tableaux and instead starting new ones to generate further ground clauses for the SAT solver.
 	On TPTP, \cop{SATResetCoP} improves over our \cop{leanCoP}-style baseline by 54\% and our \cop{SATCoP}-style baseline by 18\%.
 	On the bushy \cop{MPTP2078} benchmark, it solves \num{616} problems, a 49\% improvement over our \cop{leanCoP}-style baseline and a 12\% improvement over our \cop{SATCoP}-style baseline.
 	These results suggest that changing tableau guidance to accumulate useful ground clauses faster improves the performance of the prover.
@@ -119,7 +119,7 @@ We introduce \cop{SATResetCoP}, which pushes this idea further: when the active 
 The tableau is therefore used as a generator of ground clauses, and the SAT solver becomes the persistent object from which a proof may ultimately be obtained.
 
 We evaluate \cop{SATResetCoP} on TPTP against \cop{leanCoP}-style and \cop{SATCoP}-style baselines implemented in a fully compatible backend.
-\cop{SATResetCoP} solves 54\% more problems than the \cop{leanCoP}-style baseline and 18\% more than the \cop{SATCoP}-style baseline, suggesting that once ground clauses are preserved in the SAT solver, resetting unproductive tableaux and starting new ones from scratch can be an effective way to generate the clauses needed for a proof.
+\cop{SATResetCoP} solves 54\% more problems than the \cop{leanCoP}-style baseline and 18\% more than the \cop{SATCoP}-style baseline, suggesting that once ground clauses are preserved in the SAT solver, starting a new tableau rather than continuing to backtrack on an unproductive one can be an effective way to generate the clauses needed for a proof.
 
 \section{Preliminaries}
 
@@ -146,7 +146,7 @@ Backtracking is therefore part of the operational search procedure, not a proof-
 \begin{figure}[h]
 	\centering
 	\framebox[\linewidth][c]{\input{diagrams/connection_calculus_steps.tikz}}
-	\caption{The three proof-building steps of a clausal connection tableau, taken from the tableau closure of \cop{SYN052-1.p}~\cite{Pelletier86}. The two \step{Extension} steps add an extra clause to the tableau; the \step{Reduction} step closes the nodes against a complementary literal already on the path.}
+	\caption{Drawing convention for the tableau diagrams, illustrated on steps from \cop{SYN052-1.p}~\cite{Pelletier86}. Each box is a clause instance in the tableau. An edge records the connection that introduced a child clause, with the edge label showing the resulting substitution. Grey boxes mark clauses whose selected open literal has been closed. A \step{Reduction} closes against a complementary literal already on the current path, so it adds no new child.}
 \end{figure}
 
 \subsection{Backtracking Control}
@@ -513,7 +513,13 @@ The most promising direction is therefore not a single fixed reset policy, but a
 \label{schedule}
 
 \cop{SATResetCoP} still struggles with a significant number of problems, as seen in \cref{newly_solved_table}.
-It would be worth experimenting with adding this strategy to a schedule, following the examples of LeanCoP 2.1 and research by Mangla~\cite{leancopcut,mangla2022a}, and possibly running a different strategy or solver if no solution is found after a fixed amount of time or number of steps.
+The reset policy is deliberately incomplete, and the newly unsolved problems show cases where less aggressive tableau search finds proofs that \cop{SATResetCoP} misses.
+A natural next step is to use \cop{SATResetCoP} as one component of a schedule, following \cop{leanCoP 2.1} and the strategy-scheduling work of Mangla~\cite{leancopcut,mangla2022a}.
+\cop{leanCoP 2.1}, for example, obtains stronger performance by scheduling several strategy variants with different options and resource limits, rather than relying on a single fixed configuration~\cite{leancopoverview}.
+
+The simplest schedule would run \cop{SATResetCoP} first as a fast ground-clause generator, then switch to a more conventional \cop{leanCoP}- or \cop{SATCoP}-style strategy after a fixed time or step budget.
+More adaptive schedules could use the SAT state itself, for example whether new ground clauses are still being produced or recent resets have stopped changing the accumulated clause set.
+This would keep the benefit of aggressive resets while giving ordinary tableau search time on problems that need longer local branches.
 
 \subsection{Further Experiments}
 
