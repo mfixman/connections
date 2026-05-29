@@ -285,10 +285,13 @@ Using a common backend makes the strategies easier to compare by keeping the tab
 The source code for this implementation is available online,\footnote{\url{https://github.com/mfixman/resetsatcop}} and is released under the GNU Lesser General Public Licence\cite{lgpl}.
 
 We evaluate these 3 control strategies along with the test strategy \cop{SATResetCoP} on \num{7815} CNF problems and \num{8779} FOF problems from the Thousands of Problems for Theorem Provers (TPTP) library\cite{tptp}.
-These problems cover all 50 TPTP categories containing at least one CNF or FOF problem.
+The TPTP problems cover all 50 TPTP categories containing at least one CNF or FOF problem.
 
-The library provides a varied problem set that is a standard benchmark for first-order provers.
-It also provides declared statuses for these problems, which are a useful sanity check for false unsatisfiability results.
+These benchmark sets provide a varied collection of problems for first-order provers.
+TPTP also provides declared statuses for its problems, which are a useful sanity check for false unsatisfiability results.
+
+We additionally test these strategies in the Bushy MPTP2078 library, which contains \num{2078} problems exported from the Mizar Mathematical library\cite{mptp2078}.
+This benchmark is useful because its problems share a large formal-mathematical vocabulary and test whether the strategies remain effective on related large-theory problems rather than only on the more heterogeneous TPTP collection.
 
 \section{Experimental Evaluation}
 
@@ -309,7 +312,7 @@ These implementations are faithful to the originals, and they allow a better com
 
 An overview of these strategies is shown in \cref{cops_table}.
 
-\begin{table}[t]
+\begin{table}[h]
 	\centering
 	\footnotesize
 	\begin{tabularx}{\textwidth}{>{\sffamily}l X c c c c}
@@ -340,44 +343,45 @@ We thank the Computer Science Lab of the University of Cambridge for providing t
 The main driver is that the SAT solver reaches unsatisfiability in less time and fewer steps than in the previous strategies, as seen in \cref{strategy_solved_time,strategy_solved_steps}.
 For the SAT-based variants, the \num{1000000} step limit is rarely reached, and most unsolved problems hit the 120 second limit instead.
 
-The improvement is visible in both problem formats.
-\cop{SATResetCoP} solves \num{462} more problems than \satcopc{}, with \num{206} additional CNF problems and \num{256} additional FOF problems.
-Compared with \satcopzc{}, it solves \num{1100} more problems, an increase of \num{58.8}\%, and compared with \leancopc{} it solves \num{1048} more problems, an increase of \num{54.5}\%.
+The improvement is visible in both TPTP problem formats and on the MPTP2078-derived problems.
+\cop{SATResetCoP} solves \num{529} more problems than \satcopc{}, with \num{206} additional TPTP CNF problems, \num{256} additional TPTP FOF problems, and \num{67} additional Mizar Bushy problems.
+Compared with \satcopzc{}, it solves \num{1395} more problems, an increase of \num{63.6}\%, and compared with \leancopc{} it solves \num{1251} more problems, an increase of \num{53.6}\%.
 
 \begin{table}[h]
 	\centering
 	\footnotesize
-	\begin{tabular}{>{\sffamily}l r r r r r r}
+	\begin{tabular}{>{\sffamily}l r r r r r r r r}
 		\toprule
-			& \multicolumn{2}{c}{CNF} & \multicolumn{2}{c}{FOF} & \multicolumn{2}{c}{Total} \\
+			& \multicolumn{2}{c}{TPTP CNF} & \multicolumn{2}{c}{TPTP FOF} & \multicolumn{2}{c}{MPTP2078} & \multicolumn{2}{c}{Total} \\
 		\cmidrule(lr){2-3}
 		\cmidrule(lr){4-5}
 		\cmidrule(lr){6-7}
-			strategy & Number & \% & Number & \% & Number & \% \\
+		\cmidrule(lr){8-9}
+			strategy & Number & \% & Number & \% & Number & \% & Number & \% \\
 		\midrule
-			\leancopc{}       & 723  & 9.3  & 1200 & 13.7 & 1923 & 11.6 \\
-			\satcopzc{}       & 804  & 10.3 & 1067 & 12.2 & 1871 & 11.3 \\
-			\satcopc{}        & 1067 & 13.7 & 1442 & 16.4 & 2509 & 15.1 \\
-			\cop{SATResetCoP} & 1273 & 16.3 & 1698 & 19.3 & 2971 & 17.9 \\
+			\leancopc{}       & 723  & 9.3  & 1200 & 13.7 & 413 & 19.9 & 2336 & 12.5 \\
+			\satcopzc{}       & 804  & 10.3 & 1067 & 12.2 & 321 & 15.4 & 2192 & 11.7 \\
+			\satcopc{}        & 1067 & 13.7 & 1442 & 16.4 & 549 & 26.4 & 3058 & 16.4 \\
+			\cop{SATResetCoP} & 1273 & 16.3 & 1698 & 19.3 & 616 & 29.6 & 3587 & 19.2 \\
 		\bottomrule
 	\end{tabular}
-	\caption{Number and percentage of CNF and FOF problems solved within the time limit by each strategy. Each strategy component (other than the original \satcopzc{}) improves results on both CNF and FOF problems.}
+	\caption{Number and percentage of TPTP CNF, TPTP FOF, and MPTP2078-derived problems solved within the time limit by each strategy. The total column combines all three benchmark sets.}
 	\label{problems_solved}
 \end{table}
 
 \begin{figure}[h]
 	\centering
-	\begin{subfigure}[t]{.40\textwidth}
-		\includegraphics[height=220pt]{strategy_solved_time_plot.png}
+	\begin{subfigure}[t]{.45\textwidth}
+		\includegraphics[height=200pt]{strategy_solved_time_plot.png}
 		\caption{Problems solved, stacked by time in seconds.}
 		\label{strategy_solved_time}
 	\end{subfigure} \hspace{.05\textwidth}
-	\begin{subfigure}[t]{.40\textwidth}
-		\includegraphics[height=220pt]{strategy_solved_steps_plot.png}
+	\begin{subfigure}[t]{.45\textwidth}
+		\includegraphics[height=200pt]{strategy_solved_steps_plot.png}
 		\caption{Problems solved, stacked by number of steps. SAT-based strategies can solve a problem in 0 steps if the initial ground SAT clause set is already unsatisfiable.}
 		\label{strategy_solved_steps}
 	\end{subfigure}
-	\caption{Results of running the strategies on all problems under limits of 120 seconds and 1 million steps. \cop{SATResetCoP} solves more problems in fewer steps than in previous experiments, and also faster except for the niche category of $\leq 1s$ solves.}
+	\caption{Results of running the strategies on all TPTP problems under limits of 120 seconds and 1 million steps. \cop{SATResetCoP} solves more problems in fewer steps than in previous experiments, and also faster except for the niche category of $\leq 1s$ solves.}
 \end{figure}
 
 \Cref{diagram_syn052_1} shows the solution to the TPTP problem \cop{SYN052-1}\cite{Pelletier86} in three different strategies.
@@ -408,14 +412,14 @@ A comparison of newly solved and newly unsolved problems can be seen in \cref{ne
 
 \Cref{solved_heatmap} shows the number of problems solved by one strategy but not by another.
 
-\begin{figure}
+\begin{figure}[h]
 	\centering\includegraphics[width=.50\textwidth]{solved_heatmap}
 	\caption{Pairwise comparison of strategy results: the cell in column \cop{y} and row \cop{x} shows the number of problems solved by strategy \cop{y}, but not by strategy \cop{x}. For example, \cop{SATResetCoP} solved 1123 TPTP problems that \satcopzc{} did not.}
 	\label{solved_heatmap}
 \end{figure}
 
 The improvement between \cop{SATResetCoP} and the best previous experimental strategy, our \satcopc{} implementation of \cop{SATCoP}, is especially visible in TPTP categories where the accumulated ground clauses become propositionally unsatisfiable quickly, such as \step{SYN}, \step{SWC}, and \step{SWV}.
-As expected, this strategy also solves problems in fewer steps, as can be seen in \cref{violinplots}.
+As expected, this strategy also solves problems in fewer steps, as can be seen in \cref{violinplots} for TPTP problems and in \cref{violinplot_mizar} for Mizar.
 
 \begin{table}[h]
 	\centering
@@ -440,14 +444,20 @@ As expected, this strategy also solves problems in fewer steps, as can be seen i
 	\label{violinplots}
 \end{figure}
 
+\begin{figure}[h]
+	\includegraphics[width=\textwidth]{violinplot_mizar.png}
+	\caption{Density of problems solved at each step count by \satcopc{} and \cop{SATResetCoP} on the Mizar Bushy MPTP2078 dataset. Just like in TPTP, \cop{SATResetCoP} solves more problems in fewer steps. Unsolved problems are collected in the $\geq 10k$ category on the right.}
+	\label{violinplot_mizar}
+\end{figure}
+
 \subsubsection{Soundness Verification: Problem Satisfiability}
 
 The TPTP library includes declared statuses for its problems\cite{tptp}.
 While this does not demonstrate soundness, it provides a useful check that the strategy has not become unsound by mistake.
 
 As a sanity check, we group the \cop{SATResetCoP} results by TPTP declared status in \cref{sat_proof}.
-The results are consistent with what we would expect if the prover were sound, as it does not find unsatisfiability (``Solved'') in any problem marked satisfiable or countersatisfiable.
-It also does not solve any unknown or open problems; while this limits the number of new discoveries, any such solutions would need to be checked closely to ensure that they were not caused by an incorrect prover.
+The results are consistent with what we would expect if the prover were sound: it does not find unsatisfiability (``Solved'') in any problem marked satisfiable or countersatisfiable.
+It also does not solve any unknown or open problems, which would require solutions to be to be checked closely to ensure that they were not caused by an incorrect prover.
 
 \begin{table}[h]
 	\centering
