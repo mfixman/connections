@@ -146,10 +146,8 @@ Backtracking is therefore part of the operational search procedure, not a proof-
 \begin{figure}[h]
 	\centering
 	\framebox[\linewidth][c]{\input{diagrams/connection_calculus_steps.tikz}}
-	\caption{The three proof-building steps of a clausal connection tableau, taken from the tableau closure of \cop{SYN052-1.p}\cite{Pelletier86}. The two \step{Extension} steps add an extra clause to the tableau; the \step{Reduction} step closes the nodes against a complementary literal already on the path. A full solution can, in several different strategies, be found in \cref{diagram_syn052_1}.}
+	\caption{The three proof-building steps of a clausal connection tableau, taken from the tableau closure of \cop{SYN052-1.p}\cite{Pelletier86}. The two \step{Extension} steps add an extra clause to the tableau; the \step{Reduction} step closes the nodes against a complementary literal already on the path.}
 \end{figure}
-
-\fredriksolved{I would avoid appendix, and instead have a README in the repo for code instructions}
 
 \subsection{Backtracking Control}
 
@@ -378,9 +376,6 @@ Compared with \satcopzc{}, it solves \num{1395} more problems, an increase of \n
 	\caption{Results of running the strategies on all TPTP problems under with time limits of 120 seconds and step limit of 1 million steps. \cop{SATResetCoP} solves more problems in fewer steps than in previous strategies, and also faster except for the niche category of $\leq 1s$ solves.}
 \end{figure}
 
-% \Cref{diagram_syn052_1} shows the solution to the TPTP problem \cop{SYN052-1}\cite{Pelletier86} in three different strategies.
-% This is an example of the kind of problem on which \cop{SATResetCoP} performs best, since it can be solved with a relatively small UNSAT core.
-
 \subsubsection{Comparative Results}
 \label{comparative_results}
 
@@ -543,51 +538,6 @@ This would turn the current experimental result into a system that can be compar
 \section{Acknowledgements}
 
 This work was performed using resources provided by the Cambridge Service for Data Driven Discovery (CSD3) operated by the University of Cambridge Research Computing Service (\url{www.csd3.cam.ac.uk}), provided by Dell EMC and Intel using Tier-2 funding from the Engineering and Physical Sciences Research Council (capital grant EP/T022159/1), and DiRAC funding from the Science and Technology Facilities Council (\url{www.dirac.ac.uk}).
-
-\clearpage{}
-
-\fredriksolved{I would drop the appendix and move code instructions to README in repo}
-
-\appendix
-
-\section{Solving example}
-\label[appendix]{diagram_syn052_1}
-
-\begin{figure}[h]
-	\newcommand{\diagrambox}[1]{\resizebox{\linewidth}{!}{\fbox{\input{#1}}}}
-	\newcommand{\sepspace}{1em}
-	\centering
-	\begin{subfigure}{\linewidth}
-		\small
-		\begin{gather*}
-			p \vee \neg F(X) \qquad
-			F(X) \vee \neg p \\
-			F(Y) \vee p \qquad
-			\neg p \vee \neg F(a) \qquad
-			F(Y) \vee \neg F(a)
-		\end{gather*}
-		\caption{Problem \cop{SYN052-1.p}\cite{Pelletier86}, adapted from \url{https://tptp.org/TPTP/Problems/SYN/SYN052-1.p}.}
-	\end{subfigure} \par\vspace{\sepspace}
-	\begin{subfigure}{\linewidth}
-		\centering
-		\tiny
-		\diagrambox{diagrams/syn052_leancop.tikz}
-		\caption{Solution found by \leancopc{} in 27 steps.}
-	\end{subfigure} \vspace{\sepspace}
-	\begin{subfigure}{\linewidth}
-		\centering
-		\tiny
-		\diagrambox{diagrams/syn052_satcop.tikz}
-		\caption{Solution found by \satcopc{} in 19 steps.}
-	\end{subfigure} \vspace{\sepspace}
-	\begin{subfigure}{\linewidth}
-		\centering
-		\tiny
-		\diagrambox{diagrams/syn052_satresetcop.tikz}
-		\caption{Solution found by \cop{SATResetCoP} in 9 steps.}
-	\end{subfigure}
-	\caption{Unsatisfiability proofs for the TPTP problem \cop{SYN052-1}\cite{Pelletier86} produced by three provers: \leancopc{}, \satcopc{}, and \cop{SATResetCoP}.}
-\end{figure}
 
 \clearpage{}
 
