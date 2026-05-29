@@ -102,17 +102,17 @@
 
 
 \section{Introduction}
-Connection-tableau provers prove first-order problems by constructing closed tableaux from sound tableau-construction rules\cite{connectiontableaux}.
+Connection-tableau provers prove first-order problems by constructing closed tableaux from sound tableau-construction rules~\cite{connectiontableaux}.
 Implementations usually turn this construction into backtracking search over applications of those rules.
 This gives a lightweight and goal-directed proof procedure, but its small search state means that failed partial tableaux leave little derived information for later attempts to reuse.
 
 Much practical work on connection-tableau proving has therefore focused on controlling backtracking, and learning how to restrict it.
-The line from semantic tableaux and model elimination to \cop{leanTAP} and \cop{leanCoP} showed that goal-directed tableau search could be implemented in small, effective proof procedures\cite{semantictableaux,modelelimination,leantap,leancop}.
+The line from semantic tableaux and model elimination to \cop{leanTAP} and \cop{leanCoP} showed that goal-directed tableau search could be implemented in small, effective proof procedures~\cite{semantictableaux,modelelimination,leantap,leancop}.
 
-\cop{leanCoP} uses Prolog's SLD resolution for depth-first connection-tableau search with iterative deepening, and \cop{leanCoP 2.0} obtains substantial speedups by restricting this backtracking with Prolog cuts at the cost of completeness\cite{leancopcut}.
-\cop{meanCoP} refines this pruning strategy by separating cuts on reductions from cuts on extensions and by introducing exclusive cuts, which preserve more alternatives than the inclusive cuts used by \cop{leanCoP}\cite{meancop}.
+\cop{leanCoP} uses Prolog's SLD resolution for depth-first connection-tableau search with iterative deepening, and \cop{leanCoP 2.0} obtains substantial speedups by restricting this backtracking with Prolog cuts at the cost of completeness~\cite{leancopcut}.
+\cop{meanCoP} refines this pruning strategy by separating cuts on reductions from cuts on extensions and by introducing exclusive cuts, which preserve more alternatives than the inclusive cuts used by \cop{leanCoP}~\cite{meancop}.
 
-\cop{SATCoP} addresses the same weakness from a different direction\cite{satcop}.
+\cop{SATCoP} addresses the same weakness from a different direction~\cite{satcop}.
 During tableau construction, it grounds encountered clauses and stores them in an incremental SAT solver.
 If the accumulated ground clauses become propositionally unsatisfiable, the original first-order problem can be proved before the active tableau has closed.
 We introduce \cop{SATResetCoP}, which pushes this idea further: when the active tableau stops producing new ground clauses, it is reset, while the accumulated SAT solver state is kept.
@@ -125,10 +125,10 @@ We evaluate \cop{SATResetCoP} on TPTP against \cop{leanCoP}-style and \cop{SATCo
 
 \subsection{Connection Calculus and Tableau Search}
 
-Connection tableaux and model elimination give a goal-directed alternative to the saturation style used by provers such as \cop{Vampire}\cite{riazanovDesignImplementationVAMPIRE2002}.
-Instead of deriving clauses from a global clause set until a contradiction is found\cite{bachmairResolutionTheoremProving2001,schulzPerformanceClauseSelection2016}, connection calculi try to close a tableau by connecting goal literals to complementary literals, either on the current path or in a fresh copy of an input clause\cite{connectiontableaux,ottenAdvancesConnectionBasedAutomated2017}.
+Connection tableaux and model elimination give a goal-directed alternative to the saturation style used by provers such as \cop{Vampire}~\cite{riazanovDesignImplementationVAMPIRE2002}.
+Instead of deriving clauses from a global clause set until a contradiction is found~\cite{bachmairResolutionTheoremProving2001,schulzPerformanceClauseSelection2016}, connection calculi try to close a tableau by connecting goal literals to complementary literals, either on the current path or in a fresh copy of an input clause~\cite{connectiontableaux,ottenAdvancesConnectionBasedAutomated2017}.
 
-The standard clausal connection tableau has three proof-building rules\cite{connectiontableaux,ottenSyntaxConnectionProofs2023}.
+The standard clausal connection tableau has three proof-building rules~\cite{connectiontableaux,ottenSyntaxConnectionProofs2023}.
 \begin{description}
 	\item[\cop{Start}] Choose an input clause and make its literals open goals.
 	\item[\cop{Extension}] Open a branch on a clause containing a complementary literal, and add the remaining literals as new subgoals.
@@ -138,7 +138,7 @@ The standard clausal connection tableau has three proof-building rules\cite{conn
 \end{description}
 
 The rules are sound, and with fair backtracking over rule applications the calculus is complete.
-The calculus is not confluent: a locally sound connection can bind variables in a way that prevents later branches from closing\cite{connectiontableaux}.
+The calculus is not confluent: a locally sound connection can bind variables in a way that prevents later branches from closing~\cite{connectiontableaux}.
 Backtracking is therefore part of the operational search procedure, not a proof-building rule.
 
 % Control operations such as backtracking, cuts, and resets affect which proof-building inferences are attempted, but are not themselves counted as steps.
@@ -146,7 +146,7 @@ Backtracking is therefore part of the operational search procedure, not a proof-
 \begin{figure}[h]
 	\centering
 	\framebox[\linewidth][c]{\input{diagrams/connection_calculus_steps.tikz}}
-	\caption{The three proof-building steps of a clausal connection tableau, taken from the tableau closure of \cop{SYN052-1.p}\cite{Pelletier86}. The two \step{Extension} steps add an extra clause to the tableau; the \step{Reduction} step closes the nodes against a complementary literal already on the path.}
+	\caption{The three proof-building steps of a clausal connection tableau, taken from the tableau closure of \cop{SYN052-1.p}~\cite{Pelletier86}. The two \step{Extension} steps add an extra clause to the tableau; the \step{Reduction} step closes the nodes against a complementary literal already on the path.}
 \end{figure}
 
 \subsection{Backtracking Control}
@@ -154,24 +154,24 @@ Backtracking is therefore part of the operational search procedure, not a proof-
 Backtracking lets a prover recover from locally sound choices that later prevent tableau closure.
 In \cop{leanCoP}-style provers, this search is controlled mainly by iterative deepening and Prolog cuts.
 Iterative deepening bounds the tableau height and raises the bound when no proof is found.
-Cuts prune alternatives after selected reductions or extensions, reducing search but making the cut phase incomplete unless the surrounding schedule later explores less restricted search\cite{leancopcut}.
+Cuts prune alternatives after selected reductions or extensions, reducing search but making the cut phase incomplete unless the surrounding schedule later explores less restricted search~\cite{leancopcut}.
 
-\cop{meanCoP} refines this pruning mechanism by separating cuts on reductions from cuts on extensions and by introducing exclusive cuts, which preserve more alternatives than the inclusive cuts used by \cop{leanCoP}\cite{meancop}.
-\cop{hopCoP} takes a different route: instead of pruning alternatives directly, it learns constraints explaining why a search state is stuck, reducing repeated backtracking while preserving completeness at a fixed iterative-deepening bound\cite{rawsonConstraintLearningNonconfluent2026}.
+\cop{meanCoP} refines this pruning mechanism by separating cuts on reductions from cuts on extensions and by introducing exclusive cuts, which preserve more alternatives than the inclusive cuts used by \cop{leanCoP}~\cite{meancop}.
+\cop{hopCoP} takes a different route: instead of pruning alternatives directly, it learns constraints explaining why a search state is stuck, reducing repeated backtracking while preserving completeness at a fixed iterative-deepening bound~\cite{rawsonConstraintLearningNonconfluent2026}.
 
 \subsection{\cop{SATCoP} and Persistent Ground Clauses}
 \label{satcop}
 
-\cop{SATCoP} maintains an incremental SAT solver alongside tableau search\cite{satcop}.
+\cop{SATCoP} maintains an incremental SAT solver alongside tableau search~\cite{satcop}.
 During tableau search, clauses appearing in the tableau are heuristically grounded and added to the SAT solver.
 If the accumulated ground clauses are propositionally unsatisfiable, proof search can stop even if the active first-order tableau has not closed.
 
 The soundness condition is that every clause sent to the SAT solver must be a ground instance of a clause generated by the tableau.
 Remaining tableau variables are therefore mapped to ground terms before a clause is added.
-Rawson and Reger use the grounding heuristic inspired by a similar suggestion by Schulz\cite{schulzSATInterpretation}: choose the most frequent constant in the conjecture, falling back to a fresh constant when no conjecture constant is available\cite{satcop}.
+Rawson and Reger use the grounding heuristic inspired by a similar suggestion by Schulz~\cite{schulzSATInterpretation}: choose the most frequent constant in the conjecture, falling back to a fresh constant when no conjecture constant is available~\cite{satcop}.
 
 Later \cop{SATCoP} variants also use the SAT solver to guide tableau search.
-Rawson and Reger describe a literal-selection refinement that prefers extension choices whose selected literal is true in the current SAT assignment\cite[\S~9.1]{satcop}.
+Rawson and Reger describe a literal-selection refinement that prefers extension choices whose selected literal is true in the current SAT assignment~\cite[\S~9.1]{satcop}.
 
 \section{Research Vehicle}
 
@@ -183,7 +183,7 @@ We propose a new tableau prover based on \cop{SATCoP}, but guided by the goal of
 The resulting strategy is simple: aggressively reset the tree when the SAT solver stops receiving new ground clauses.
 This adds a broader set of ground clauses to the solver in less time, allowing the SAT solver to reach unsatisfiability earlier.
 
-\cop{SATResetCoP} uses many of the properties of \cop{SATCoP} described in the original paper and in its ``Future Research'' section\cite[\S~9.1]{satcop}, but changes the tableau guidance to prioritise aggressive resets.
+\cop{SATResetCoP} uses many of the properties of \cop{SATCoP} described in the original paper and in its ``Future Research'' section~\cite[\S~9.1]{satcop}, but changes the tableau guidance to prioritise aggressive resets.
 
 Just like \cop{SATCoP} and other provers, this approach is sound but incomplete.
 However, we expect the speed at which it proves unsatisfiability can increase the number of problems solved within fixed time and step limits.
@@ -271,36 +271,36 @@ It might be useful to incorporate \cop{SATResetCoP} into the initial steps of a 
 
 \subsection{Implementation and benchmarking}
 
-We implement \cop{SATResetCoP} using the \cop{Connections} library\cite{connections_2023}, which provides primitives for implementing connection-tableau provers, together with the incremental SAT solver \cop{CaDiCaL}\cite{cadical20}.
+We implement \cop{SATResetCoP} using the \cop{Connections} library~\cite{connections_2023}, which provides primitives for implementing connection-tableau provers, together with the incremental SAT solver \cop{CaDiCaL}~\cite{cadical20}.
 We also implement the control strategies \leancopc{}, \satcopzc{}, and \satcopc{} using the same backend, as mirrors of \cop{LeanCoP}, \cop{SATCoP\textsubscript{0}}, and \cop{SATCoP}.
 Using a common backend makes the strategies easier to compare by keeping the tableau representation, rule applications, grounding interface, SAT interface, and step accounting fixed.
 
-The source code for this implementation is available online,\footnote{\url{https://github.com/mfixman/resetsatcop}} and is released under the GNU Lesser General Public Licence\cite{lgpl}.
+The source code for this implementation is available online,\footnote{\url{https://github.com/mfixman/resetsatcop}} and is released under the GNU Lesser General Public Licence~\cite{lgpl}.
 
-We evaluate these 3 control strategies along with the test strategy \cop{SATResetCoP} on \num{7815} CNF problems and \num{8779} FOF problems from the Thousands of Problems for Theorem Provers (TPTP) library\cite{tptp}.
+We evaluate these 3 control strategies along with the test strategy \cop{SATResetCoP} on \num{7815} CNF problems and \num{8779} FOF problems from the Thousands of Problems for Theorem Provers (TPTP) library~\cite{tptp}.
 The TPTP problems cover all 50 TPTP categories containing at least one CNF or FOF problem.
 
 These benchmark sets provide a varied collection of problems for first-order provers.
 TPTP also provides declared statuses for its problems, which are a useful sanity check for false unsatisfiability results.
 
-We additionally test these strategies in the Bushy MPTP2078 library, which contains \num{2078} problems exported from the Mizar Mathematical library\cite{mptp2078}.
+We additionally test these strategies in the Bushy MPTP2078 library, which contains \num{2078} problems exported from the Mizar Mathematical library~\cite{mptp2078}.
 This benchmark is useful because its problems share a large formal-mathematical vocabulary and test whether the strategies remain effective on related large-theory problems rather than only on the more heterogeneous TPTP collection.
 
 \section{Experimental Evaluation}
 
 \subsection{Experiment Design}
 
-As a \cop{leanCoP}-style baseline we use \leancopc{}\cite{leancopcut}.
-This is a Python version of the \cop{leanCoP} Prolog implementation, with the two recommended predicates used in the first step of the schedule by Otten\cite[\S~5.5]{leancopcut}.
+As a \cop{leanCoP}-style baseline we use \leancopc{}~\cite{leancopcut}.
+This is a Python version of the \cop{leanCoP} Prolog implementation, with the two recommended predicates used in the first step of the schedule by Otten~\cite[\S~5.5]{leancopcut}.
 \begin{description}
 	\item[\texttt{cut}] Choose one extension or reduction and commit to it, similarly to Prolog's \texttt{!} operator.
 	\item[\texttt{comp(7)}] The prover increases the depth bound by 1 whenever the current tree saturates, until reaching maximum height 7.
 		Afterwards, the height limit is removed.
 \end{description}
 
-These simple policies tend to be very effective in tableau provers\cite{leancopoverview}.
+These simple policies tend to be very effective in tableau provers~\cite{leancopoverview}.
 
-We add Python implementations in the connection prover of the two versions of \cop{SATCoP} presented by Rawson and Reger\cite{satcop}: \satcopzc{}, corresponding to \cop{SATCoP\textsubscript{0}}, and \satcopc{}, corresponding to the version of \cop{SATCoP} with the improvements in the ``Future Research'' section that was submitted to CASC.
+We add Python implementations in the connection prover of the two versions of \cop{SATCoP} presented by Rawson and Reger~\cite{satcop}: \satcopzc{}, corresponding to \cop{SATCoP\textsubscript{0}}, and \satcopc{}, corresponding to the version of \cop{SATCoP} with the improvements in the ``Future Research'' section that was submitted to CASC.
 These implementations use similar techniques to the original provers, and since they are in the same backend than \cop{SATResetCoP} allow for a fair comparison.
 
 An overview of these strategies is shown in \cref{cops_table}.
@@ -314,9 +314,9 @@ An overview of these strategies is shown in \cref{cops_table}.
 		\midrule
 			\leancopc{} & \cop{leanCoP} with initial set of predicates. & \checkmark{} & & & \\
 		\addlinespace[1em]
-			\satcopzc{} & Based on the initial implementation of \cop{SATCoP}\cite{satcop}. & \checkmark{} & \checkmark{} & & \\
+			\satcopzc{} & Based on the initial implementation of \cop{SATCoP}~\cite{satcop}. & \checkmark{} & \checkmark{} & & \\
 		\addlinespace[3pt]
-			\satcopc{} & Improvements on \cop{SATCoP}\cite[\S~9.1]{satcop}. & \checkmark{} & \checkmark{} & \checkmark{} & \\
+			\satcopc{} & Improvements on \cop{SATCoP}~\cite[\S~9.1]{satcop}. & \checkmark{} & \checkmark{} & \checkmark{} & \\
 		\addlinespace[1em]
 			\cop{SATResetCoP} & Novel strategy, specified in \cref{satresetcop}. & \checkmark{} & \checkmark{} & \checkmark{} & \checkmark{} \\
 		\bottomrule
@@ -325,7 +325,7 @@ An overview of these strategies is shown in \cref{cops_table}.
 	\label{cops_table}
 \end{table}
 
-Each problem-strategy pair is run until the problem is solved, or until either 120 seconds or 1 million steps pass, on a single core of the University of Cambridge CSD3 Cluster with dual-socket Intel Xeon Platinum 8368Q CPUs at 2.60 GHz, with 38 cores per socket and one thread per core, and 3370 MiB RAM per core\cite{cambridge_csd3}.
+Each problem-strategy pair is run until the problem is solved, or until either 120 seconds or 1 million steps pass, on a single core of the University of Cambridge CSD3 Cluster with dual-socket Intel Xeon Platinum 8368Q CPUs at 2.60 GHz, with 38 cores per socket and one thread per core, and 3370 MiB RAM per core~\cite{cambridge_csd3}.
 We thank the Computer Science Lab of the University of Cambridge for providing this computer.
 
 \subsection{Results}
@@ -456,7 +456,7 @@ As expected, this strategy also solves problems in fewer steps, as can be seen i
 
 \subsubsection{Soundness Verification: Problem Satisfiability}
 
-The TPTP library includes declared statuses for its problems\cite{tptp}.
+The TPTP library includes declared statuses for its problems~\cite{tptp}.
 While this does not demonstrate soundness, it provides a useful check that the strategy has not become unsound by mistake.
 
 As a sanity check, we group the \cop{SATResetCoP} results by TPTP declared status in \cref{sat_proof}.
@@ -513,7 +513,7 @@ The most promising direction is therefore not a single fixed reset policy, but a
 \label{schedule}
 
 \cop{SATResetCoP} still struggles with a significant number of problems, as seen in \cref{newly_solved_table}.
-It would be worth experimenting with adding this strategy to a schedule, following the examples of LeanCoP 2.1 and research by Mangla\cite{leancopcut,mangla2022a}, and possibly running a different strategy or solver if no solution is found after a fixed amount of time or number of steps.
+It would be worth experimenting with adding this strategy to a schedule, following the examples of LeanCoP 2.1 and research by Mangla~\cite{leancopcut,mangla2022a}, and possibly running a different strategy or solver if no solution is found after a fixed amount of time or number of steps.
 
 \subsection{Further Experiments}
 
