@@ -110,19 +110,24 @@
 
 
 \section{Introduction}
-Connection-tableau provers prove first-order problems by constructing closed tableaux from sound tableau-construction rules\cite{connectiontableaux}. Implementations usually turn this construction into backtracking search over applications of those rules. This gives a lightweight and goal-directed proof procedure, but its small search state means that failed partial tableaux leave little derived information for later attempts to reuse.
+Connection-tableau provers prove first-order problems by constructing closed tableaux from sound tableau-construction rules\cite{connectiontableaux}.
+Implementations usually turn this construction into backtracking search over applications of those rules.
+This gives a lightweight and goal-directed proof procedure, but its small search state means that failed partial tableaux leave little derived information for later attempts to reuse.
 
 Much practical work on connection-tableau proving has therefore focused on controlling backtracking.
-\cop{leanCoP} uses Prolog's SLD resolution for depth-first connection-tableau search with iterative
-deepening, and \cop{leanCoP 2.0} obtains substantial speedups by restricting this backtracking with Prolog
-cuts at the cost of completeness\cite{leancopcut}. \cop{meanCoP} refines this pruning strategy by separating cuts on reductions from cuts on extensions and by introducing exclusive cuts, which preserve more alternatives than the inclusive cuts used by \cop{leanCoP}\cite{meancop}.
+The line from semantic tableaux and model elimination to \cop{leanTAP} and \cop{leanCoP} showed that goal-directed tableau search could be implemented in small, effective proof procedures\cite{semantictableaux,modelelimination,leantap,leancop}.
+
+\cop{leanCoP} uses Prolog's SLD resolution for depth-first connection-tableau search with iterative deepening, and \cop{leanCoP 2.0} obtains substantial speedups by restricting this backtracking with Prolog cuts at the cost of completeness\cite{leancopcut}.
+\cop{meanCoP} refines this pruning strategy by separating cuts on reductions from cuts on extensions and by introducing exclusive cuts, which preserve more alternatives than the inclusive cuts used by \cop{leanCoP}\cite{meancop}.
 
 \cop{SATCoP} addresses the same weakness from a different direction\cite{satcop}.
 During tableau construction, it grounds encountered clauses and stores them in an incremental SAT solver.
 If the accumulated ground clauses become propositionally unsatisfiable, the original first-order problem can be proved before the active tableau has closed.
-We introduce \cop{SATResetCoP}, which pushes this idea further: when the active tableau stops producing new ground clauses, it is reset, while the accumulated SAT solver state is kept. The tableau is therefore used as a generator of ground clauses, and the SAT solver becomes the persistent object from which a proof may ultimately be obtained.
+We introduce \cop{SATResetCoP}, which pushes this idea further: when the active tableau stops producing new ground clauses, it is reset, while the accumulated SAT solver state is kept.
+The tableau is therefore used as a generator of ground clauses, and the SAT solver becomes the persistent object from which a proof may ultimately be obtained.
 
-We evaluate \cop{SATResetCoP} on TPTP against \cop{leanCoP}-style and \cop{SATCoP}-style baselines implemented in the same backend. \cop{SATResetCoP} solves 54\% more problems than the \cop{leanCoP}-style baseline and 18\% more than the \cop{SATCoP}-style baseline, suggesting that once ground clauses are preserved in the SAT solver, resetting unproductive tableaux can be an effective way to generate the clauses needed for a proof.
+We evaluate \cop{SATResetCoP} on TPTP against \cop{leanCoP}-style and \cop{SATCoP}-style baselines implemented in the same backend.
+\cop{SATResetCoP} solves 54\% more problems than the \cop{leanCoP}-style baseline and 18\% more than the \cop{SATCoP}-style baseline, suggesting that once ground clauses are preserved in the SAT solver, resetting unproductive tableaux can be an effective way to generate the clauses needed for a proof.
 
 \section{Preliminaries}
 
