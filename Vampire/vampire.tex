@@ -15,7 +15,7 @@
 \usepackage[font=footnotesize,labelfont=bf]{caption}
 \usepackage[noabbrev,nameinlink,capitalize,poorman]{cleveref}
 
-\title{Resetting Tableaux for SAT-Assisted Connection Proving}
+\title{Reset Early, Reset Often, Eliminate Models}
 \author{Martin S.\ Fixman\inst{1} \and Fredrik Rømming\inst{2} \and Sean B.\ Holden\inst{3}}
 
 \institute{
@@ -24,7 +24,7 @@
 	{}\inst{1}\email{msf43@cl.cam.ac.uk} \qquad\quad {}\inst{2}\email{fr409@cl.cam.ac.uk} \qquad\quad {}\inst{3}\email{sbh11@cl.cam.ac.uk}
 }
 
-\titlerunning{Resetting Tableaux for SAT-Assisted Connection Proving}
+\titlerunning{Reset Early, Reset Often, Eliminate Models}
 \authorrunning{Fixman, Rømming, Holden}
 
 \bibliographystyle{plain}
@@ -98,9 +98,10 @@
 \begin{abstract}
 	Connection-tableau provers typically construct closed tableaux by backtracking search.
 	This gives lightweight proof procedures, but their low-memory search state leaves little derived information to reuse after a failed attempt.
-	\cop{SATCoP} addresses this by retaining grounded tableau clauses in an incremental SAT solver, allowing the prover to refute the problem once those clauses contain an UNSAT core.
+	\cop{SATCoP} addresses this by retaining grounded tableau clauses in an incremental SAT solver, allowing the prover to refute the problem once the accumulated ground clauses become propositionally unsatisfiable.
 	We introduce \cop{SATResetCoP}, which relies more directly on this persistent SAT state by resetting unproductive tableaux and using each new tableau to generate further ground clauses for the SAT solver.
 	On TPTP, \cop{SATResetCoP} improves over our \cop{leanCoP}-style baseline by 54\% and our \cop{SATCoP}-style baseline by 18\%.
+	These results suggest that changing tableau guidance to force faster saturation of the ground SAT core improves the performance of teh prover.
 \end{abstract}
 
 % \begin{footnotesize}
