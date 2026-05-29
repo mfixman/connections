@@ -388,7 +388,6 @@ Compared with \satcopzc{}, it solves \num{1100} more problems, an increase of \n
 		\label{strategy_solved_steps}
 	\end{subfigure}
 	\caption{Results of running the strategies on all problems under limits of 120 seconds and 1 million steps. \cop{SATResetCoP} solves more problems in fewer steps than in previous experiments, and also faster except for the niche category of $\leq 1s$ solves.}
-	\pycopfigurecomment{}
 \end{figure}
 
 \Cref{diagram_syn052_1} shows the solution to the TPTP problem \cop{SYN052-1}\cite{Pelletier86} in three different strategies.
@@ -423,7 +422,6 @@ A comparison of newly solved and newly unsolved problems can be seen in \cref{ne
 	\centering\includegraphics[width=.50\textwidth]{solved_heatmap}
 	\caption{Pairwise comparison of strategy results: the cell in column \cop{y} and row \cop{x} shows the number of problems solved by strategy \cop{y}, but not by strategy \cop{x}. For example, \cop{SATResetCoP} solved 1123 TPTP problems that \satcopzc{} did not.}
 	\label{solved_heatmap}
-	\pycopfigurecomment{}
 \end{figure}
 
 The improvement between \cop{SATResetCoP} and the best previous experimental strategy, our \satcopc{} implementation of \cop{SATCoP}, is especially visible in TPTP categories where propositional contradictions are reached quickly in the accumulated ground abstraction, such as \step{SYN}, \step{SWC}, and \step{SWV}.
