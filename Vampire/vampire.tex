@@ -92,7 +92,8 @@
 	\cop{SATCoP} addresses this by retaining grounded tableau clauses in an incremental SAT solver, allowing the prover to refute the problem once the accumulated ground clauses become propositionally unsatisfiable.
 	We introduce \cop{SATResetCoP}, which relies more directly on this persistent SAT state by resetting unproductive tableaux and using each new tableau to generate further ground clauses for the SAT solver.
 	On TPTP, \cop{SATResetCoP} improves over our \cop{leanCoP}-style baseline by 54\% and our \cop{SATCoP}-style baseline by 18\%.
-	These results suggest that changing tableau guidance to force faster saturation of the ground SAT core improves the performance of teh prover.
+	On the bushy \cop{MPTP2078} benchmark, it solves \num{616} problems, a 49\% improvement over our \cop{leanCoP}-style baseline and a 12\% improvement over our \cop{SATCoP}-style baseline.
+	These results suggest that changing tableau guidance to accumulate useful ground clauses faster improves the performance of the prover.
 \end{abstract}
 
 % \begin{footnotesize}
@@ -202,7 +203,7 @@ An example of how this operation works can be seen in \cref{reset_example}.
 \begin{figure}[h]
 	\centering
 	\framebox[\linewidth][c]{\resizebox{\linewidth}{!}{\input{diagrams/satresetcop_calculus_steps.tikz}}}
-	\caption{Example of \cop{SATResetCoP} on \step{SYN052-1.p}. \cop{SATCoP} and previous provers would backtrack after closing the branch with $F(x_1) \vee \neg p$; instead, \cop{SATResetCoP} resets into a new tree. This accumulates the ground clauses that form the UNSAT core shown at the bottom faster than in \cop{SATCoP}, allowing the SAT solver to reach unsatisfiability earlier. Substitutions are omitted for simplicity. At the end of the last extension, the accumulated ground clauses are unsatisfiable and the entire tableau prover can certify UNSAT.}
+	\caption{Example of \cop{SATResetCoP} on \step{SYN052-1.p}. \cop{SATCoP} and previous provers would backtrack after closing the branch with $F(x_1) \vee \neg p$; instead, \cop{SATResetCoP} resets into a new tree. This accumulates the ground clauses that form the UNSAT core shown at the bottom faster than in \cop{SATCoP}, allowing the SAT solver to reach unsatisfiability earlier. Substitutions are omitted for simplicity. At the end of the last extension, the accumulated ground clauses are unsatisfiable and the entire tableau prover can report UNSAT.}
 	\label{reset_example}
 \end{figure}
 
@@ -308,7 +309,7 @@ This is a Python version of the \cop{leanCoP} Prolog implementation, with the tw
 These simple policies tend to be very effective in tableau provers\cite{leancopoverview}.
 
 We add Python implementations in the connection prover of the two versions of \cop{SATCoP} presented by Rawson and Reger\cite{satcop}: \satcopzc{}, corresponding to \cop{SATCoP\textsubscript{0}}, and \satcopc{}, corresponding to the version of \cop{SATCoP} with the improvements in the ``Future Research'' section that was submitted to CASC.
-These implementations are faithful to the originals, and they allow a better comparison with \cop{SATResetCoP}.
+These implementations use similar techniques to the original provers, and their implementation in the same backend than \cop{SATResetCoP} allow for a fairer comparison.
 
 An overview of these strategies is shown in \cref{cops_table}.
 
@@ -340,11 +341,11 @@ We thank the Computer Science Lab of the University of Cambridge for providing t
 \subsubsection{Individual Results}
 
 \cop{SATResetCoP} considerably increases the number of problems solved by both \satcopzc{} and \satcopc{} under the 120-second time limit, as shown in \cref{problems_solved}.
-The main driver is that the SAT solver reaches unsatisfiability in less time and fewer steps than in the previous strategies, as seen in \cref{strategy_solved_time,strategy_solved_steps}.
+The results are consistent with the claim the SAT solver reaches unsatisfiability in less time and fewer \step{Start}, \step{Extension}, and \step{Reduction} steps than in the previous strategies, as seen in \cref{strategy_solved_time,strategy_solved_steps}.
 For the SAT-based variants, the \num{1000000} step limit is rarely reached, and most unsolved problems hit the 120 second limit instead.
 
 The improvement is visible in both TPTP problem formats and on the MPTP2078-derived problems.
-\cop{SATResetCoP} solves \num{529} more problems than \satcopc{}, with \num{206} additional TPTP CNF problems, \num{256} additional TPTP FOF problems, and \num{67} additional Mizar Bushy problems.
+\cop{SATResetCoP} solves \num{529} more problems than \satcopc{}, with a net gain of \num{206} TPTP CNF problems, \num{256} TPTP FOF problems, and \num{67} Mizar Bushy problems.
 Compared with \satcopzc{}, it solves \num{1395} more problems, an increase of \num{63.6}\%, and compared with \leancopc{} it solves \num{1251} more problems, an increase of \num{53.6}\%.
 
 \begin{table}[h]
@@ -381,7 +382,7 @@ Compared with \satcopzc{}, it solves \num{1395} more problems, an increase of \n
 		\caption{Problems solved, stacked by number of steps. SAT-based strategies can solve a problem in 0 steps if the initial ground SAT clause set is already unsatisfiable.}
 		\label{strategy_solved_steps}
 	\end{subfigure}
-	\caption{Results of running the strategies on all TPTP problems under limits of 120 seconds and 1 million steps. \cop{SATResetCoP} solves more problems in fewer steps than in previous experiments, and also faster except for the niche category of $\leq 1s$ solves.}
+	\caption{Results of running the strategies on all TPTP problems under limits of 120 seconds and 1 million steps. \cop{SATResetCoP} solves more problems in fewer steps than in previous strategies, and also faster except for the niche category of $\leq 1s$ solves.}
 \end{figure}
 
 % \Cref{diagram_syn052_1} shows the solution to the TPTP problem \cop{SYN052-1}\cite{Pelletier86} in three different strategies.
@@ -390,7 +391,7 @@ Compared with \satcopzc{}, it solves \num{1395} more problems, an increase of \n
 \subsubsection{Comparative Results}
 \label{comparative_results}
 
-The SAT guidance in \cop{SATResetCoP} allows it to solve several problems left unsolved by strategies without the same mechanism for accumulating ground clauses, and even by \satcopzc{} and \satcopc{}, which use less aggressive guidance.
+The tableau guidance in \cop{SATResetCoP} allows it to solve several problems left unsolved by strategies without the same mechanism for accumulating ground clauses, and even by \satcopzc{} and \satcopc{}, which use less aggressive guidance.
 A comparison of newly solved and newly unsolved problems can be seen in \cref{newly_solved_table}.
 
 This comparison is useful because the total number of solved problems hides changes in which problems are solved.
@@ -410,7 +411,7 @@ The reset policy is therefore changing the search distribution rather than just 
 				\cop{SATResetCoP} & 598  & 136 & 2971 \\
 			\bottomrule
 		\end{tabular}
-		\caption{Problems from the TPTP dataset newly solved and newly unsolved by each strategy compared with the previous strategy in the table, together with the total number of solved problems. This is consistent with previous data that shows \cop{SATResetCoP} solving hard problems faster. The 136 problems solved by \satcopc{} but not by \cop{SATResetCoP} correspond mostly to propositional cases where the accumulated ground clauses do not become propositionally unsatisfiable quickly, so aggressive resetting interrupts the tableau branches that can be closed by \satcopc{}.}
+	\caption{Problems from the TPTP dataset newly solved and newly unsolved by each strategy compared with the previous strategy in the table, together with the total number of solved problems. The reset policy changes which parts of the search space are explored: \cop{SATResetCoP} solves \num{598} TPTP problems missed by \satcopc{}, but misses \num{136} problems solved by \satcopc{}. This shows that aggressive resetting is not only a speedup of the same proof attempts, but a different search tradeoff.}
 		\label{newly_solved_table}
 \end{table}
 
@@ -472,7 +473,7 @@ While this does not demonstrate soundness, it provides a useful check that the s
 
 As a sanity check, we group the \cop{SATResetCoP} results by TPTP declared status in \cref{sat_proof}.
 The results are consistent with what we would expect if the prover were sound: it does not find unsatisfiability (``Solved'') in any problem marked satisfiable or countersatisfiable.
-It also does not solve any unknown or open problems, which would require solutions to be to be checked closely to ensure that they were not caused by an incorrect prover.
+It also does not solve any unknown or open problems, which would require solutions to be checked closely to ensure that they were not caused by an incorrect prover.
 
 \begin{table}[h]
 	\centering
@@ -501,7 +502,7 @@ It also does not solve any unknown or open problems, which would require solutio
 
 \section{Conclusion}
 
-The experiments on \cop{SATResetCoP} show that the extreme of \emph{backtracking on backtracking}, which is preventing backtracking at all and resetting the search trees instead, is a valid way to improve tableau provers.
+The experiments on \cop{SATResetCoP} show that the extreme of \emph{backtracking on backtracking}, which is preventing backtracking at all and resetting the search trees instead, is a way to improve the performance of tableau provers.
 
 \Cref{comparative_results} shows that, on a 1 million step and 120 second time limit, \cop{SATResetCoP} solves \num{2971} problems.
 This is \num{462} more problems than \satcopc{}, an 18\% increase, and \num{1048} more problems than \leancopc{}, a 54\% increase.
