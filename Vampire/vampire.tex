@@ -384,8 +384,8 @@ Compared with \satcopzc{}, it solves \num{1395} more problems, an increase of \n
 	\caption{Results of running the strategies on all TPTP problems under limits of 120 seconds and 1 million steps. \cop{SATResetCoP} solves more problems in fewer steps than in previous experiments, and also faster except for the niche category of $\leq 1s$ solves.}
 \end{figure}
 
-\Cref{diagram_syn052_1} shows the solution to the TPTP problem \cop{SYN052-1}\cite{Pelletier86} in three different strategies.
-This is an example of the kind of problem on which \cop{SATResetCoP} performs best, since it can be solved with a relatively small UNSAT core.
+% \Cref{diagram_syn052_1} shows the solution to the TPTP problem \cop{SYN052-1}\cite{Pelletier86} in three different strategies.
+% This is an example of the kind of problem on which \cop{SATResetCoP} performs best, since it can be solved with a relatively small UNSAT core.
 
 \subsubsection{Comparative Results}
 \label{comparative_results}
@@ -406,7 +406,7 @@ A comparison of newly solved and newly unsolved problems can be seen in \cref{ne
 				\cop{SATResetCoP} & 598  & 136 & 2971 \\
 			\bottomrule
 		\end{tabular}
-		\caption{Problems newly solved and newly unsolved by each strategy compared with the previous strategy in the table, together with the total number of solved problems. This is consistent with previous data that shows \cop{SATResetCoP} solving hard problems faster. The 136 problems solved by \satcopc{} but not by \cop{SATResetCoP} correspond mostly to propositional cases where the accumulated ground clauses do not become propositionally unsatisfiable quickly, so aggressive resetting interrupts the tableau branches that can be closed by \satcopc{}.}
+		\caption{Problems from the TPTP dataset newly solved and newly unsolved by each strategy compared with the previous strategy in the table, together with the total number of solved problems. This is consistent with previous data that shows \cop{SATResetCoP} solving hard problems faster. The 136 problems solved by \satcopc{} but not by \cop{SATResetCoP} correspond mostly to propositional cases where the accumulated ground clauses do not become propositionally unsatisfiable quickly, so aggressive resetting interrupts the tableau branches that can be closed by \satcopc{}.}
 		\label{newly_solved_table}
 \end{table}
 
@@ -442,9 +442,9 @@ As expected, this strategy also solves problems in fewer steps, as can be seen i
 	\includegraphics[width=\textwidth]{violinplots.png}
 	\caption{Density of problems solved at each step count by \satcopc{} and \cop{SATResetCoP} on the TPTP categories \cop{SYN}, \cop{SWC}, \cop{SWV}, \cop{GEO}, and \cop{NUM}. The area of each violinplot is the same; besides solving more problems in each category, \cop{SATResetCoP} solves many problems in fewer steps. Unsolved problems are collected in the $\geq 10k$ category on the right.}
 	\label{violinplots}
-\end{figure}
 
-\begin{figure}[h]
+	\vspace{2em}
+
 	\includegraphics[width=\textwidth]{violinplot_mizar.png}
 	\caption{Density of problems solved at each step count by \satcopc{} and \cop{SATResetCoP} on the Mizar Bushy MPTP2078 dataset. Just like in TPTP, \cop{SATResetCoP} solves more problems in fewer steps. Unsolved problems are collected in the $\geq 10k$ category on the right.}
 	\label{violinplot_mizar}
