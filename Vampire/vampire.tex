@@ -286,7 +286,7 @@ def solve_tableau(start_clauses):
 
 It might be useful to incorporate \cop{SATResetCoP} into the initial steps of a more complete schedule; this is explored in \cref{schedule}.
 
-\subsection{Implementation and TPTP Benchmarking}
+\subsection{Implementation and benchmarking}
 
 We implement \cop{SATResetCoP} and the baseline strategies \leancopc{}, \satcopzc{}, and \satcopc{} using the \cop{Connections} library\cite{connections_2023}, which provides primitives for implementing connection-tableau provers, together with the incremental SAT solver \cop{CaDiCaL}\cite{cadical20}.
 The superscript \cop{C} marks our \cop{Connections}/\cop{CaDiCaL}-based reimplementations of \cop{leanCoP}, \cop{SATCoP\textsubscript{0}}, and \cop{SATCoP}.
@@ -294,7 +294,7 @@ Using a common backend makes the strategies easier to compare by keeping the tab
 
 The source code for this implementation is available online,\footnote{\url{https://github.com/mfixman/resetsatcop}} and is released under the GNU Lesser General Public Licence\cite{lgpl}.
 
-For evaluation, we run \cop{SATResetCoP}, \leancopc{}, \satcopzc{}, and \satcopc{} on \num{7815} CNF problems and \num{8779} FOF problems from the Thousands of Problems for Theorem Provers (TPTP) library\cite{tptp}.
+We evaluate these 3 control strategies along with the test strategy \cop{SATResetCoP} on \num{7815} CNF problems and \num{8779} FOF problems from the Thousands of Problems for Theorem Provers (TPTP) library\cite{tptp}.
 These problems cover all 50 TPTP categories containing at least one CNF or FOF problem.
 
 The library provides a varied problem set that is a standard benchmark for first-order provers.
