@@ -137,7 +137,7 @@ The standard clausal connection tableau has three proof-building rules~\cite{con
 		This may also require a substitution.
 \end{description}
 
-The rules are sound, and with fair backtracking over rule applications the calculus is complete.
+The rules are sound, and with the possibility of backtracking over rule applications the calculus is complete.
 The calculus is not confluent: a locally sound connection can bind variables in a way that prevents later branches from closing~\cite{connectiontableaux}.
 Backtracking is therefore part of the operational search procedure, not a proof-building rule.
 
@@ -185,11 +185,10 @@ This adds a broader set of ground clauses to the solver in less time, allowing t
 
 \cop{SATResetCoP} uses many of the properties of \cop{SATCoP} described in the original paper and in its ``Future Research'' section~\cite[\S~9.1]{satcop}, but changes the tableau guidance to prioritise aggressive resets.
 
-Just like \cop{SATCoP} and other provers, this approach is sound but incomplete.
-However, we expect the speed at which it proves unsatisfiability can increase the number of problems solved within fixed time and step limits.
-
 Like \cop{SATCoP}, the implementation keeps a persistent SAT solver alongside the active tableau search.
 Ground clauses accumulated in earlier tableau attempts remain available in later attempts, and new clauses are added incrementally to the same solver instance.
+This keeps the approach sound but incomplete.
+However, we expect it to certify unsatisfiability of problems faster and in fewer steps.
 
 \cop{SATResetCoP} randomises the \step{Start} and \step{Extension} steps in the same way as \cop{SATCoP}.
 When starting a new tree, the implementation shuffles the possible starts and the literals inside each start clause.
@@ -267,7 +266,7 @@ def solve_tableau(start_clauses):
 				tableau := empty_tableau(max_depth)
 \end{lstlisting}
 
-It might be useful to incorporate \cop{SATResetCoP} into the initial steps of a more complete schedule; this is explored in \cref{schedule}.
+% It might be useful to incorporate \cop{SATResetCoP} into the initial steps of a more complete schedule; this is explored in \cref{schedule}.
 
 \subsection{Implementation and benchmarking}
 
@@ -291,7 +290,7 @@ This benchmark is useful because its problems share a large formal-mathematical 
 \subsection{Experiment Design}
 
 As a \cop{leanCoP}-style baseline we use \leancopc{}~\cite{leancopcut}.
-This is a Python version of the \cop{leanCoP} Prolog implementation, with the two recommended predicates used in the first step of the schedule by Otten~\cite[\S~5.5]{leancopcut}.
+This is a Python version of the \cop{leanCoP} Prolog implementation, with the two recommended predicates used in the first step of the schedule of \cop{LeanCoP~2.0}~\cite[\S~5.5]{leancopcut}.
 \begin{description}
 	\item[\texttt{cut}] Choose one extension or reduction and commit to it, similarly to Prolog's \texttt{!} operator.
 	\item[\texttt{comp(7)}] The prover increases the depth bound by 1 whenever the current tree saturates, until reaching maximum height 7.
@@ -301,7 +300,7 @@ This is a Python version of the \cop{leanCoP} Prolog implementation, with the tw
 These simple policies tend to be very effective in tableau provers~\cite{leancopoverview}.
 
 We add Python implementations in the connection prover of the two versions of \cop{SATCoP} presented by Rawson and Reger~\cite{satcop}: \satcopzc{}, corresponding to \cop{SATCoP\textsubscript{0}}, and \satcopc{}, corresponding to the version of \cop{SATCoP} with the improvements in the ``Future Research'' section that was submitted to CASC.
-These implementations use similar techniques to the original provers, and since they are in the same backend than \cop{SATResetCoP} allow for a fair comparison.
+These implementations use similar techniques to the original provers, and since they use the same backend as \cop{SATResetCoP} allow for a fair comparison.
 
 An overview of these strategies is shown in \cref{cops_table}.
 
@@ -333,7 +332,7 @@ We thank the Computer Science Lab of the University of Cambridge for providing t
 \subsubsection{Individual Results}
 
 \cop{SATResetCoP} considerably improves on the number of problems solved by both \satcopzc{} and \satcopc{} under the 120-second time limit, as shown in \cref{problems_solved}.
-The results are consistent with the claim the SAT solver reaches unsatisfiability in less time and fewer \step{Start}, \step{Extension}, and \step{Reduction} steps than in the previous strategies, as seen in \cref{strategy_solved_time,strategy_solved_steps}.
+The results are consistent with the claim that the SAT solver reaches unsatisfiability in less time and fewer \step{Start}, \step{Extension}, and \step{Reduction} steps than in the previous strategies, as seen in \cref{strategy_solved_time,strategy_solved_steps}.
 
 The improvement is visible in both TPTP problem formats and on the MPTP2078-derived problems.
 \cop{SATResetCoP} solves \num{529} more problems than \satcopc{}, with a net gain of \num{206} TPTP CNF problems, \num{256} TPTP FOF problems, and \num{67} Mizar Bushy problems.
@@ -373,7 +372,7 @@ Compared with \satcopzc{}, it solves \num{1395} more problems, an increase of \n
 		\caption{Problems solved, stacked by number of steps. SAT-based strategies can solve a problem in 0 steps if the initial ground SAT clause set is already unsatisfiable.}
 		\label{strategy_solved_steps}
 	\end{subfigure}
-	\caption{Results of running the strategies on all TPTP problems under with time limits of 120 seconds and step limit of 1 million steps. \cop{SATResetCoP} solves more problems in fewer steps than in previous strategies, and also faster except for the niche category of $\leq 1s$ solves.}
+	\caption{Results of running the strategies on all TPTP problems under a time limit of 120 seconds and step limit of 1 million steps. \cop{SATResetCoP} solves more problems in fewer steps than in previous strategies, and also faster except for the niche category of $\leq 1s$ solves.}
 \end{figure}
 
 \subsubsection{Comparative Results}
@@ -454,7 +453,7 @@ As expected, this strategy also solves problems in fewer steps, as can be seen i
 	\label{violinplot_mizar}
 \end{figure}
 
-\subsubsection{Soundness Verification: Problem Satisfiability}
+\subsubsection{Satisfiability Sanity Check}
 
 The TPTP library includes declared statuses for its problems~\cite{tptp}.
 While this does not demonstrate soundness, it provides a useful check that the strategy has not become unsound by mistake.
@@ -490,7 +489,7 @@ It also does not solve any unknown or open problems, which would require solutio
 
 \section{Conclusion}
 
-The experiments on \cop{SATResetCoP} show that the extreme of \emph{backtracking on backtracking}, which is preventing backtracking at all and resetting the search trees instead, is a way to improve the performance of tableau provers.
+The experiments on \cop{SATResetCoP} show that replacing local backtracking with resets can improve tableau performance when ground clauses are retained.
 
 \Cref{comparative_results} shows that, on a 1 million step and 120 second time limit, \cop{SATResetCoP} solves \num{2971} problems.
 This is \num{462} more problems than \satcopc{}, an 18\% increase, and \num{1048} more problems than \leancopc{}, a 54\% increase.
@@ -501,7 +500,7 @@ It is strongest in categories where useful ground clauses accumulate quickly: \c
 It also improves on \step{GEO} and \step{NUM}, solving \num{293} and \num{179} problems respectively.
 
 The newly unsolved problems show the other side of this tradeoff.
-\cop{SATResetCoP} loses \num{136} problems solved by \satcopc{}, mostly in set theory, number theory, logic calculi, and common-sense reasoning.
+% \cop{SATResetCoP} loses \num{136} problems solved by \satcopc{}, mostly in set theory, number theory, logic calculi, and common-sense reasoning.
 These are cases where the accumulated ground clauses do not become propositionally unsatisfiable quickly enough, and the aggressive reset policy can discard tableau branches that a less aggressive prover eventually closes.
 
 This suggests that accumulating ground clauses is a useful objective for connection tableaux, but not a replacement for all tableau control.
@@ -512,14 +511,12 @@ The most promising direction is therefore not a single fixed reset policy, but a
 \subsection{Schedule with different provers}
 \label{schedule}
 
-\cop{SATResetCoP} still struggles with a significant number of problems, as seen in \cref{newly_solved_table}.
 The reset policy is deliberately incomplete, and the newly unsolved problems show cases where less aggressive tableau search finds proofs that \cop{SATResetCoP} misses.
 A natural next step is to use \cop{SATResetCoP} as one component of a schedule, following \cop{leanCoP 2.1} and the strategy-scheduling work of Mangla~\cite{leancopcut,mangla2022a}.
 \cop{leanCoP 2.1}, for example, obtains stronger performance by scheduling several strategy variants with different options and resource limits, rather than relying on a single fixed configuration~\cite{leancopoverview}.
 
 The simplest schedule would run \cop{SATResetCoP} first as a fast ground-clause generator, then switch to a more conventional \cop{leanCoP}- or \cop{SATCoP}-style strategy after a fixed time or step budget.
 More adaptive schedules could use the SAT state itself, for example whether new ground clauses are still being produced or recent resets have stopped changing the accumulated clause set.
-This would keep the benefit of aggressive resets while giving ordinary tableau search time on problems that need longer local branches.
 
 \subsection{Further Experiments}
 
@@ -544,8 +541,6 @@ This would turn the current experimental result into a system that can be compar
 \section{Acknowledgements}
 
 This work was performed using resources provided by the Cambridge Service for Data Driven Discovery (CSD3) operated by the University of Cambridge Research Computing Service (\url{www.csd3.cam.ac.uk}), provided by Dell EMC and Intel using Tier-2 funding from the Engineering and Physical Sciences Research Council (capital grant EP/T022159/1), and DiRAC funding from the Science and Technology Facilities Council (\url{www.dirac.ac.uk}).
-
-\clearpage{}
 
 \bibliography{bibliography}
 

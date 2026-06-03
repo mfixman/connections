@@ -90,7 +90,7 @@
 	$};
 \end{scope}
 
-\draw (3.5*\dist+0.5*\bet, 3pt) -- (3.5*\dist+0.5*\bet, .90\satdistance)
+\draw (3.5*\dist+0.5*\bet, 3pt) -- (3.5*\dist+0.5*\bet, .85*\satdistance)
 node[midway, fill = white, inner sep=2pt, rotate = 90] {\footnotesize \step{Reset}};
 
 \begin{scope}[xshift={4*\dist+\bet}, attempt]
