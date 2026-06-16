@@ -97,7 +97,7 @@ The CRS3 tier is currently hammered, so most of these tests were done locally wi
 	\caption{Winners and losers of the strategies in a representative subset of 501 problems by \citeay{chvalovsky2021characteristic}.}
 \end{figure}
 
-\section{Some Interesting Results}
+% \section{Some Interesting Results}
 
 % \newcommand{\MS}{{\color{BrickRed}\bfseries max-steps}}
 % \newcommand{\TO}{{\color{OrangeRed}\bfseries timeout}}
@@ -108,7 +108,7 @@ The CRS3 tier is currently hammered, so most of these tests were done locally wi
 % 	table-text-alignment = right,
 % }
 % 
-% \setlength{\defaultaddspace}{4pt}
+\setlength{\defaultaddspace}{4pt}
 
 \begin{table*}[t]
 	\centering
@@ -174,24 +174,26 @@ The CRS3 tier is currently hammered, so most of these tests were done locally wi
 		\bottomrule
 	\end{tabular}
 	\caption{Thirty interesting problems for comparing these programs. All tested locally; step count should be accurate, time likely is not.}
-	\label{tab:reset-wins}
+	\label{big_table}
 \end{table*}
 
-% A subset of 247 ``representative'' TPTP problems was used for evaluation\citen{chvalovsky2021characteristic}.
-% The results with any significance are found in \cref{big_table}.
-% 
-% The comparer runs all 6 policies in parallel, with a 30-second time limit and a \num{50000} step limit.
-% A larger experiment, with the entirety of TPTP and a longer time limit, will come in the future.
-% 
-% I also post-process the canonical TPTP runs into short serial schedules.
-% For each strategy and time cap, the pair ``strategy + cap'' is treated as covering exactly the problems that the strategy solves within that cap.
-% The schedule synthesis problem is therefore a budgeted maximum-coverage problem with a multiple-choice knapsack constraint: choose at most one cap per strategy, subject to a global budget of 60 or 120 seconds, and maximise either the total number of solved problems or the number of solved problems outside LeanCopCut's solved set.
-% After fixing the capped strategies, I then order them by a second optimisation pass that minimises total runtime over the benchmark set, using the recorded per-problem runtimes and charging the full cap on timeout rows.
-% 
-% The results show that all three policies have marked improvements in certain problems.
-% It's likely that with further exploration we might get even better results than the control groups.
+A subset of 247 ``representative'' TPTP problems was used for evaluation\citen{chvalovsky2021characteristic}.
+The results with any significance are found in \cref{big_table}.
 
-\renewcommand*{\bibfont}{\small}
+The comparer runs all 6 policies in parallel, with a 30-second time limit and a \num{50000} step limit.
+A larger experiment, with the entirety of TPTP and a longer time limit, will come in the future.
+
+I also post-process the canonical TPTP runs into short serial schedules.
+For each strategy and time cap, the pair ``strategy + cap'' is treated as covering exactly the problems that the strategy solves within that cap.
+The schedule synthesis problem is therefore a budgeted maximum-coverage problem with a multiple-choice knapsack constraint: choose at most one cap per strategy, subject to a global budget of 60 or 120 seconds, and maximise either the total number of solved problems or the number of solved problems outside LeanCopCut's solved set.
+After fixing the capped strategies, I then order them by a second optimisation pass that minimises total runtime over the benchmark set, using the recorded per-problem runtimes and charging the full cap on timeout rows.
+
+The results show that all three policies have marked improvements in certain problems.
+It's likely that with further exploration we might get even better results than the control groups.
+
+\vspace{-6pt}
+\renewcommand*{\bibfont}{\tiny}
+\vspace{-6pt}
 \printbibliography{}
 
 \end{document}

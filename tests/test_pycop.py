@@ -219,6 +219,7 @@ class TestPycopLogicSelection:
     def test_default_logic_for_strategy_matches_strategy_family(self):
         assert pycop.default_logic_for_strategy('PyCoP') is Logic.Classical
         assert pycop.default_logic_for_strategy('LeanCoP') is Logic.ClassicalCut
+        assert pycop.default_logic_for_strategy('HeuristicSelection') is Logic.ClassicalCut
         assert pycop.default_logic_for_strategy('SATCoP_0') is Logic.ClassicalSAT
         assert pycop.default_logic_for_strategy('SATCoP') is Logic.ClassicalSAT
         assert pycop.default_logic_for_strategy('SATResetAtStaleAction') is Logic.ClassicalSAT

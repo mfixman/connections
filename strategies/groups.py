@@ -38,7 +38,11 @@ def strategy_choices(available_strategies: Sequence[str] | None = None) -> list[
 
 def expand_strategy_groups(names: Iterable[str]) -> list[str]:
     groups = strategy_groups()
-    available = Strategy.strategies()
+    available = {
+        name: strategy
+        for name, strategy in Strategy.strategies(include_hidden=True).items()
+        if not name.startswith('_')
+    }
     expanded: list[str] = []
 
     for name in names:

@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from cli import configure_tptp_root, parse_pycop_args
+from cli import configure_tptp_root, parse_pycop_args, print_all_strategies
 from connections.env import Logic, SATSolver, Settings
 
 def test_parse_args_accepts_cadical_sat_solver(monkeypatch):
@@ -166,6 +166,25 @@ def test_parse_args_rejects_strategy_groups(monkeypatch):
 
     assert excinfo.value.code == 2
 
+def test_parse_args_accepts_hidden_strategy(monkeypatch):
+    monkeypatch.setattr(
+        sys,
+        'argv',
+        ['pycop.py', '--strategy', 'HeuristicSelection', 'tests/cnf_problems/SYN081+1.cnf'],
+    )
+
+    args = parse_pycop_args()
+
+    assert args.strategy == 'HeuristicSelection'
+
+def test_parse_args_print_all_strategies_does_not_require_file(monkeypatch):
+    monkeypatch.setattr(sys, 'argv', ['pycop.py', '--print-all-strategies'])
+
+    args = parse_pycop_args()
+
+    assert args.print_all_strategies is True
+    assert args.file is None
+
 def test_pycop_help_lists_non_hidden_strategies_and_fof_cnf_inputs(monkeypatch, capsys):
     monkeypatch.setattr(sys, 'argv', ['pycop.py', '--help'])
 
@@ -176,8 +195,29 @@ def test_pycop_help_lists_non_hidden_strategies_and_fof_cnf_inputs(monkeypatch, 
     help_text = ' '.join(captured.out.split())
     assert excinfo.value.code == 0
     assert 'Non-hidden strategies: PyCoP, LeanCoP, SATCoP_0, SATCoP, SATResetCoP' in help_text
+    assert 'HeuristicSelection' not in help_text
+    assert '--print-all-strategies' in help_text
     assert 'local FOF/CNF file' in help_text
     assert 'DIR_OR_FILE' in help_text
+
+def test_pycop_print_strategies_help_topic(monkeypatch, capsys):
+    monkeypatch.setattr(sys, 'argv', ['pycop.py', '--help', 'print-strategies'])
+
+    with pytest.raises(SystemExit) as excinfo:
+        parse_pycop_args()
+
+    captured = capsys.readouterr()
+    help_text = ' '.join(captured.out.split())
+    assert excinfo.value.code == 0
+    assert 'print-strategies:' in help_text
+    assert '--print-all-strategies' in help_text
+
+def test_print_all_strategies_lists_hidden_but_not_internal_helpers(capsys):
+    print_all_strategies()
+
+    lines = capsys.readouterr().out.splitlines()
+    assert 'HeuristicSelection' in lines
+    assert '_ConfiguredCutStrategy' not in lines
 
 def test_configure_tptp_root_sets_environment(monkeypatch, tmp_path: Path):
     monkeypatch.delenv('TPTP', raising = False)

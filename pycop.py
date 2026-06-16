@@ -7,6 +7,7 @@ from cli import (
     configure_tptp_root,
     default_logic_for_strategy,
     parse_pycop_args,
+    print_all_strategies,
     resolved_problem_paths,
     split_problem_paths,
 )
@@ -55,6 +56,12 @@ def _print_result(result: dict, problem: str | None = None) -> None:
     print(summary)
     print(info)
 
+def _selectable_strategies() -> dict:
+    try:
+        return Strategy.strategies(include_hidden=True)
+    except TypeError:
+        return Strategy.strategies()
+
 def _run_problem(path: str, args) -> dict:
     logic = default_logic_for_strategy(args.strategy)
     env = ConnectionEnv(
@@ -65,7 +72,7 @@ def _run_problem(path: str, args) -> dict:
             debug = args.debug,
         ),
     )
-    strategy = Strategy.strategies()[args.strategy](env)
+    strategy = _selectable_strategies()[args.strategy](env)
     observation = env.reset()
 
     done, info = env.state.initial_status()
@@ -105,6 +112,10 @@ def _run_problem(path: str, args) -> dict:
 
 def main():
     args = parse_pycop_args()
+    if args.print_all_strategies:
+        print_all_strategies()
+        return
+
     logging.basicConfig(level = logging.WARN, format = '[%(relativeCreated)d] %(message)s')
 
     try:

@@ -22,12 +22,21 @@ def _public_strategy_names() -> list[str]:
     return list(Strategy.strategies().keys())
 
 
+def _all_strategy_names() -> list[str]:
+    return [
+        name
+        for name in Strategy.strategies(include_hidden=True)
+        if not name.startswith('_')
+    ]
+
+
+def print_all_strategies() -> None:
+    for name in _all_strategy_names():
+        print(name)
+
+
 def _public_strategy_help() -> str:
     return ', '.join(_public_strategy_names())
-
-
-def _strategy_choice_metavar(choices: list[str]) -> str:
-    return '{' + ','.join(choices) + '}'
 
 
 class _CompareHelpFormatter(argparse.RawDescriptionHelpFormatter):
@@ -40,14 +49,17 @@ class _CompareHelpFormatter(argparse.RawDescriptionHelpFormatter):
 def default_logic_for_strategy(strategy_name: str) -> Logic:
     if strategy_name in {'PyCoP', 'FirstAction'}:
         return Logic.Classical
-    strategy = Strategy.strategies().get(strategy_name)
-    if strategy is not None and strategy.__module__ == 'strategies.classical':
+    strategy = Strategy.strategies(include_hidden=True).get(strategy_name)
+    if strategy is not None and strategy.__module__ in {
+        'strategies.classical',
+        'strategies.hidden.classical',
+    }:
         return Logic.ClassicalCut
     return Logic.ClassicalSAT
 
 
 def default_sat_solver_for_strategy(strategy_name: str) -> SATSolver:
-    strategy = Strategy.strategies().get(strategy_name)
+    strategy = Strategy.strategies(include_hidden=True).get(strategy_name)
     if strategy is None:
         return SATSolver.CaDiCaL
     return SATSolver(getattr(strategy, 'sat_solver_backend', SATSolver.CaDiCaL))
@@ -232,12 +244,19 @@ def _add_pycop_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         '--strategy',
         default='PyCoP',
-        choices=Strategy.strategies().keys(),
+        choices=_all_strategy_names(),
+        metavar='STRATEGY',
         help=f'Strategy to use. Non-hidden strategies: {_public_strategy_help()} (default: PyCoP)',
+    )
+    parser.add_argument(
+        '--print-all-strategies',
+        action='store_true',
+        help='print every strategy name, including hidden strategies, and exit',
     )
     add_problem_split_arguments(parser)
     parser.add_argument(
         'file',
+        nargs='?',
         metavar='DIR_OR_FILE',
         help='Problem input: local FOF/CNF file, directory of .p files, TPTP codename/path, or raw quoted TPTP text',
     )
@@ -270,7 +289,7 @@ def _named_csv_file(name: str, inputs: list[str], split: int, part: int) -> str:
 def _add_compare_arguments(parser: argparse.ArgumentParser) -> None:
     available_strategies = _public_strategy_names()
     default_strategies = [available_strategies[0], available_strategies[-1]]
-    available_choices = strategy_choices(available_strategies)
+    available_choices = strategy_choices(_all_strategy_names())
 
     parser.add_argument(
         'inputs', nargs='*', metavar='DIR_OR_FILE',
@@ -281,12 +300,17 @@ def _add_compare_arguments(parser: argparse.ArgumentParser) -> None:
     strategy_group.add_argument(
         '--strategies', nargs='+',
         choices=available_choices,
-        metavar=_strategy_choice_metavar(available_choices),
+        metavar='STRATEGY',
         help=f'strategies or groups to compare (default: {" ".join(default_strategies)})',
     )
     strategy_group.add_argument(
         '--all-strategies', action='store_true',
         help='compare all strategies',
+    )
+    parser.add_argument(
+        '--print-all-strategies',
+        action='store_true',
+        help='print every strategy name, including hidden strategies, and exit',
     )
     _add_common_prover_arguments(parser, max_steps_default=1000000)
     parser.add_argument(
@@ -360,7 +384,22 @@ def _build_compare_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _show_print_strategies_help(parser: argparse.ArgumentParser, argv: list[str]) -> bool:
+    return any(arg in {'-h', '--help'} for arg in argv) and 'print-strategies' in argv
+
+
+def _print_print_strategies_help(parser: argparse.ArgumentParser) -> None:
+    print(f'usage: {parser.prog} --print-all-strategies')
+    print()
+    print('print-strategies:')
+    print('  --print-all-strategies')
+    print('      Print every selectable strategy name, including hidden strategies, and exit.')
+
+
 def _finalize_compare_args(args: argparse.Namespace, parser: argparse.ArgumentParser) -> None:
+    if args.print_all_strategies:
+        return
+
     available_strategies = _public_strategy_names()
     default_strategies = [available_strategies[0], available_strategies[-1]]
 
@@ -385,7 +424,13 @@ def _finalize_compare_args(args: argparse.Namespace, parser: argparse.ArgumentPa
 
 def parse_pycop_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = _build_pycop_parser()
+    raw_argv = sys.argv[1:] if argv is None else argv
+    if _show_print_strategies_help(parser, raw_argv):
+        _print_print_strategies_help(parser)
+        raise SystemExit(0)
     args = parser.parse_args(argv)
+    if not args.print_all_strategies and args.file is None:
+        parser.error('the following arguments are required: DIR_OR_FILE')
     validate_problem_split_arguments(args, parser)
     if args.print_trace:
         args.print_ratio = 1
@@ -396,6 +441,10 @@ def parse_pycop_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 def parse_compare_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = _build_compare_parser()
+    raw_argv = sys.argv[1:] if argv is None else argv
+    if _show_print_strategies_help(parser, raw_argv):
+        _print_print_strategies_help(parser)
+        raise SystemExit(0)
     args = parser.parse_args(argv)
     validate_problem_split_arguments(args, parser)
     _finalize_compare_args(args, parser)

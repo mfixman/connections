@@ -303,6 +303,7 @@ class TestCompareStrategiesLogicSelection:
     def test_default_logic_matches_strategy_family(self):
         assert compare_strategies.default_logic_for_strategy('PyCoP') is Logic.Classical
         assert compare_strategies.default_logic_for_strategy('LeanCoP') is Logic.ClassicalCut
+        assert compare_strategies.default_logic_for_strategy('HeuristicSelection') is Logic.ClassicalCut
         assert compare_strategies.default_logic_for_strategy('SATCoP_0') is Logic.ClassicalSAT
         assert compare_strategies.default_logic_for_strategy('SATCoP') is Logic.ClassicalSAT
         assert compare_strategies.default_logic_for_strategy('SATResetAtTwoFixedStep') is Logic.ClassicalSAT
@@ -430,6 +431,29 @@ class TestCompareStrategiesLogicSelection:
 
         assert args.strategies.count('SATCoP_0') == 1
 
+    def test_parse_args_accepts_hidden_strategy(self, monkeypatch):
+        monkeypatch.setattr(
+            sys,
+            'argv',
+            [
+                'compare_strategies.py',
+                '--strategies',
+                'HeuristicSelection',
+                '--csv',
+                '/tmp/results.csv',
+            ],
+        )
+        args = compare_strategies.parse_args()
+
+        assert args.strategies == ['HeuristicSelection']
+
+    def test_parse_args_print_all_strategies_does_not_require_csv(self, monkeypatch):
+        monkeypatch.setattr(sys, 'argv', ['compare_strategies.py', '--print-all-strategies'])
+        args = compare_strategies.parse_args()
+
+        assert args.print_all_strategies is True
+        assert args.csv is None
+
     def test_help_lists_non_hidden_strategies_and_fof_cnf_inputs(self, monkeypatch, capsys):
         monkeypatch.setattr(sys, 'argv', ['compare_strategies.py', '--help'])
 
@@ -439,10 +463,24 @@ class TestCompareStrategiesLogicSelection:
         captured = capsys.readouterr()
         help_text = ' '.join(captured.out.split())
         assert excinfo.value.code == 0
-        assert '--strategies {PyCoP,LeanCoP,SATCoP_0,SATCoP,SATResetCoP,SATControl,SATTest} [...]' in help_text
+        assert '--strategies STRATEGY [...]' in help_text
         assert 'strategies: PyCoP, LeanCoP, SATCoP_0, SATCoP, SATResetCoP' in help_text
+        assert 'HeuristicSelection' not in help_text
+        assert '--print-all-strategies' in help_text
         assert 'directories and/or FOF/CNF problem files/codenames' in help_text
         assert 'DIR_OR_FILE' in help_text
+
+    def test_print_strategies_help_topic(self, monkeypatch, capsys):
+        monkeypatch.setattr(sys, 'argv', ['compare_strategies.py', '--help', 'print-strategies'])
+
+        with pytest.raises(SystemExit) as excinfo:
+            compare_strategies.parse_args()
+
+        captured = capsys.readouterr()
+        help_text = ' '.join(captured.out.split())
+        assert excinfo.value.code == 0
+        assert 'print-strategies:' in help_text
+        assert '--print-all-strategies' in help_text
 
     def test_parse_args_accepts_split_and_part(self, monkeypatch):
         monkeypatch.setattr(

@@ -22,6 +22,7 @@ from cli import (
     default_sat_solver_for_strategy,
     expand_problem_inputs,
     parse_compare_args,
+    print_all_strategies,
     resolve_sat_solver_for_strategy,
     split_problem_paths,
 )
@@ -98,6 +99,12 @@ def _combine_info(*parts: object) -> Optional[str]:
     if not present:
         return None
     return '; '.join(present)
+
+def _selectable_strategies() -> dict:
+    try:
+        return Strategy.strategies(include_hidden=True)
+    except TypeError:
+        return Strategy.strategies()
 
 def _terminal_result_label(status_info: object) -> Optional[str]:
     if not isinstance(status_info, str) or not status_info:
@@ -212,7 +219,7 @@ def _run_problem(
                     logic = default_logic_for_strategy(strategy_name)
                     sat_solver = resolve_sat_solver_for_strategy(strategy_name, sat_solver)
                     env = ConnectionEnv(path, Settings(logic=logic, sat_solver=sat_solver))
-                    strategy = Strategy.strategies()[strategy_name](env)
+                    strategy = _selectable_strategies()[strategy_name](env)
                     env.reset()
 
                     done, info = env.state.initial_status()
@@ -831,6 +838,9 @@ def print_run_status(
 def main() -> None:
     logging.basicConfig(level = logging.INFO, format = '[%(relativeCreated)d] %(message)s')
     args = parse_args()
+    if args.print_all_strategies:
+        print_all_strategies()
+        return
 
     try:
         configure_tptp_root(args.tptp)
