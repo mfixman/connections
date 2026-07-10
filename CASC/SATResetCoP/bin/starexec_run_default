@@ -1,0 +1,37 @@
+#!/bin/bash
+# StarExec run configuration for SATResetCoP (CASC).
+#
+# StarExec / the containerised job runner invoke this as:
+#     starexec_run_default <benchmark> [<time-limit>]
+# and enforce the real CPU/wall limit externally (runsolver / timeout). We still
+# pass a limit to the prover so it can print a graceful "% SZS status Timeout"
+# just before being killed.
+set -u
+
+BIN_DIR="$(cd "$(dirname "$0")" && pwd)"
+ROOT="$(dirname "$BIN_DIR")"
+ENV="$ROOT/python"
+
+# The bundled runtime is glibc (conda-forge Python + SWI-Prolog). It is invoked
+# through the bundled glibc loader via the shims in python/shim, so it runs on
+# ANY host libc: traditional glibc SGE nodes AND the Alpine/musl containerised
+# job runner (docker/job-runner.Dockerfile). PATH puts the shims first so the
+# leanCoP clausifier finds `swipl` and we launch `python3` through the loader.
+export PATH="$ENV/shim:$ENV/bin:$PATH"
+
+# TPTP library root: respect the competition's setting; otherwise fall back to
+# the bundled directory (drop the TPTP "Axioms/" tree there to resolve
+# include() directives; an empty dir still satisfies the clausifier's check for
+# self-contained problems).
+if [ -z "${TPTP:-}" ]; then
+  export TPTP="$ROOT/tptp-root"
+fi
+
+BENCHMARK="${1:?usage: starexec_run_default <benchmark> [time-limit-seconds]}"
+LIMIT="${2:-${STAREXEC_WALLCLOCK_LIMIT:-${STAREXEC_CPU_LIMIT:-300}}}"
+
+exec "$ENV/shim/python3" "$ROOT/starexec_prover.py" \
+  --strategy SATResetCoP \
+  --sat-solver PySAT \
+  --cpu-limit "$LIMIT" \
+  "$BENCHMARK"
