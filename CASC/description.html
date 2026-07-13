@@ -1,0 +1,102 @@
+<HR><!------------------------------------------------------------------------>
+<H2>SATResetCoP 1.0</H2>
+Martin Fixman<BR>
+University of Cambridge, United Kingdom<BR>
+
+<H3>Architecture</H3>
+
+SATResetCoP is a connection prover for untyped first-order formulas without
+equality that is combined with a SAT solver to find unsatisfiability on the
+propositional formulas genrated by the set of grounded statements.
+It also uses properties of the SAT solver to guide the tree search by choosing
+the most convenient path to build the tree, while also resetting aggressively to
+increase the probability that the SAT solver would be saturated.
+
+This is inspired by SATCoP, developed by Rawson and Reger [RR21], specially by
+the "Future work" section of that paper which introduces ways to guide the
+connection prover based on properties of the SAT solver.
+
+<H3>Strategies</H3>
+
+SATResetCoP resets the entire tree rather than backtracking; this causes it to
+get a larger and more varied set of propositional clauses to the solver, thus
+making it more probably that it will contain an unsatisfiable subset of clauses.
+
+The size of the maximum tree in the connection prover grows a maximum of one at
+a time, as in LeanCoP 2.0 [O23]. This prevents unnecessarily long branches on
+simple problems, while also increasing the variety of propositional clauses
+added in the SAT solevrs.
+
+The objective is to control the tree to ensure saturation of the underlying SAT
+prover rather than relying in enhanced semantics based on LeanCoP.
+
+<H3>Implementation</H3>
+
+SATResetCoP is fully implemented in Python using a fork of the Connections
+Library [R23], which provides a general framework for the creationg and testing
+of connection provers.
+
+This fork adds a new calculus based on classical calculus that has the capacity
+to include LeanCoP-style cuts, and most importantly to define different
+strategies for different provers.
+These changes are currently being backported to newer versions of the library.
+
+The connections prover can run with a variety of SAT solvers and its results are
+mostly agnostic to this decision.
+No other Python library is needed.
+
+The final version can be downloaded from Github.
+<PRE>
+	<A HREF="https://github.com/mfixman/satresetcop">SATResetCoP Github Source</A>
+</PRE>
+
+<H3>Expected Competition Performance</H3>
+
+This is the first version of SATResetCoP, so I do not expect it to be very
+competitive in the general FOF category against mature saturation provers such
+as Vampire.
+
+However, I do expect it to have a strong performance against other connection
+provers, specially in problems that can easily generate an unsatisfiable set of
+propositional clauses.
+According to my experiments, it should be specially strong in the TPTP
+categories SWV, GEO, SWC, and NUM.
+
+<H3>References</H3>
+<DL>
+<DT> RR21
+<DD> Rawson M., Reger G. (2021),
+   <STRONG>Eliminating Models During Model Elimination</STRONG>,
+   Das A., Negri S. (Eds.),
+   <EM>Automated Reasoning with Analytic Tableaux and Related Methods</EM>
+   (Birmingham, UK),
+   pp. 250-265,
+   Lecture Notes in Computer Science 12842,
+   Springer International Publishing.
+
+<DT> O23
+<DD> Otten J. (2023),
+   <STRONG>20 Years of leanCoP — An Overview of the Provers</STRONG>,
+   Otten J., Bibel W. (Eds.),
+   <EM>Proceedings of the 1st International Workshop on Automated Reasoning
+   with Connection Calculi (AReCCa 2023)</EM>
+   (Prague, Czech Republic),
+   pp. 4-22,
+   CEUR Workshop Proceedings 3613,
+   CEUR-WS.org.
+
+<DT> ROH23
+<DD> Rømming F., Otten J., Holden S. B. (2023),
+   <STRONG>Connections: Markov Decision Processes for Classical,
+   Intuitionistic, and Modal Connection Calculi</STRONG>,
+   Otten J., Bibel W. (Eds.),
+   <EM>Proceedings of the 1st International Workshop on Automated Reasoning
+   with Connection Calculi (AReCCa 2023)</EM>
+   (Prague, Czech Republic),
+   pp. 107-118,
+   CEUR Workshop Proceedings 3613,
+   CEUR-WS.org.
+</DL>
+<P>
+
+<HR><!------------------------------------------------------------------------>
