@@ -1,4 +1,2 @@
 #!/bin/bash
-# Named StarExec configuration identical to the default one.  Kept as a
-# separate script so the configuration shows up as "SATResetCoP" in StarExec.
 exec "$(cd "$(dirname "$0")" && pwd)/starexec_run_default" "$@"

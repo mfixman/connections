@@ -110,22 +110,35 @@ mkdir -p "$PKG/tptp-root"
 chmod +x "$PKG/bin/"starexec_run_* "$PKG/starexec_prover.py" 2>/dev/null || true
 
 # ---------------------------------------------------------------------------
-# 5. Self-test the bundle on a trivial CNF problem before packaging.
+# 5. Self-test the bundle and its TPTP certificate on a trivial FOF theorem.
 # ---------------------------------------------------------------------------
 echo ">> self-test ..."
-printf 'cnf(a,axiom,p(x)).\ncnf(b,negated_conjecture,~p(x)).\n' > "$BUILD/selftest-1.p"
-"$ENV_PREFIX/shim/python3" "$PKG/starexec_prover.py" --cpu-limit 30 "$BUILD/selftest-1.p" \
+printf 'fof(a,axiom,![X]:(p(X)=>q(X))).\nfof(b,axiom,p(a)).\nfof(c,conjecture,q(a)).\n' \
+  > "$BUILD/selftest+1.p"
+"$ENV_PREFIX/shim/python3" "$PKG/starexec_prover.py" --proof --cpu-limit 30 "$BUILD/selftest+1.p" \
   | tee "$BUILD/selftest.out"
-grep -q "SZS status Unsatisfiable" "$BUILD/selftest.out" \
+grep -q "SZS status Theorem" "$BUILD/selftest.out" \
+  && grep -q "cnf(satresetcop_false,plain" "$BUILD/selftest.out" \
   && echo ">> self-test OK" \
   || { echo "!! self-test FAILED"; exit 1; }
+
+# The self-test imports the staged source and recreates Python bytecode caches.
+# They are unnecessary in the submission archive and make it look like a
+# development checkout, so remove every cache after testing and before
+# packaging.
+find "$PKG" -type d -name '__pycache__' -prune -exec rm -rf {} + 2>/dev/null || true
+find "$PKG" -type f \( -name '*.pyc' -o -name '*.pyo' -o -name '*.qlf' \) -delete 2>/dev/null || true
+rm -rf "$ENV_PREFIX/var/cache"
+rm -rf "$ENV_PREFIX/lib/python3.13/site-packages/pip" \
+       "$ENV_PREFIX/lib/python3.13/site-packages"/pip-*.dist-info \
+       "$ENV_PREFIX/bin/pip" "$ENV_PREFIX/bin/pip3" "$ENV_PREFIX/bin/pip3.13"
 
 # ---------------------------------------------------------------------------
 # 6. Package. The tar root must contain bin/ (StarExec requirement).
 # ---------------------------------------------------------------------------
 echo ">> creating $TARBALL ..."
 tar -C "$PKG" -czf "$TARBALL" \
-  bin src python starexec_prover.py tptp-root
+  bin src python starexec_prover.py tptp-root starexec_description.txt
 
 echo
 echo ">> done."

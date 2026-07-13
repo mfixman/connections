@@ -1,8 +1,7 @@
-#!/usr/bin/env python3
 """SZS/CASC front-end for SATResetCoP on StarExec.
 
-StarExec invokes ``bin/starexec_run_<config> <benchmark>`` and enforces a
-wall-clock / CPU limit externally with ``runsolver``.  This wrapper runs the
+StarExec invokes ``bin/starexec_run_<config> <benchmark> <output-directory>``
+and enforces a wall-clock / CPU limit externally with ``runsolver``.  This wrapper runs the
 SATResetCoP connection prover on a single TPTP problem and prints its verdict
 in the SZS ontology that CASC scores, e.g.::
 
@@ -30,27 +29,22 @@ import signal
 import sys
 from pathlib import Path
 
-# Make the bundled prover importable regardless of the current directory.
 _HERE = Path(__file__).resolve().parent
 _SRC = _HERE / 'src'
 sys.path.insert(0, str(_SRC))
 
-# Connection search is deeply recursive; give it plenty of Python stack.
 sys.setrecursionlimit(1_000_000)
 
-from connections.env import ConnectionEnv, Logic, Settings  # noqa: E402
-from connections.calculi.classicalsat import SATSolver  # noqa: E402
-from cli import configure_tptp_root, default_logic_for_strategy, _raw_tptp_suffix  # noqa: E402
-from strategies import Strategy  # noqa: E402
+from connections.env import ConnectionEnv, Logic, Settings
+from connections.calculi.classicalsat import SATSolver
+from cli import configure_tptp_root, default_logic_for_strategy, _raw_tptp_suffix
+from strategies import Strategy
+from tptp_certificate import CertificateError, render_satresetcop_certificate
 
-import tempfile  # noqa: E402
+import tempfile
 
 _COUNTED_STEP_ACTIONS = {'Start', 'Reduction', 'Extension'}
 
-# TPTP roles whose presence means "prove the conjecture" -> SZS Theorem.
-# Their absence (pure clause set / negated goal) means we refute -> SZS
-# Unsatisfiable.  Header ``% Status`` comments are deliberately ignored so we
-# never read the expected answer out of the problem file.
 _CONJECTURE_RE = re.compile(
     r'\b(?:fof|tff|thf|tcf)\s*\(\s*[^,]+,\s*conjecture\b', re.IGNORECASE
 )
@@ -68,6 +62,21 @@ def _counts_as_step(action) -> bool:
 
 
 def _problem_name(path: str) -> str:
+    try:
+        text = Path(path).read_text(errors='replace')
+    except OSError:
+        text = ''
+    declared = re.search(
+        r'^\s*%\s*File\s*:\s*([^\s:]+)',
+        text,
+        flags=re.MULTILINE | re.IGNORECASE,
+    )
+    if declared is not None:
+        name = declared.group(1)
+        for suffix in ('.p', '.ax'):
+            if name.endswith(suffix):
+                return name[:-len(suffix)]
+        return name
     return Path(path).stem
 
 
@@ -96,9 +105,9 @@ def _normalized_problem_path(path: str, tmpdir: str) -> str:
         text = p.read_text(errors='replace')
     except OSError:
         return path
-    suffix = _raw_tptp_suffix(text)  # '+1.p' (FOF) | '-1.p' (CNF) | None
+    suffix = _raw_tptp_suffix(text)
     if suffix is None:
-        return path  # unrecognised content: let the parser reject it -> GaveUp
+        return path
     target = Path(tmpdir) / f'problem{suffix}'
     target.write_text(text, encoding='utf-8')
     return str(target)
@@ -118,11 +127,10 @@ class _SzsPrinter:
         self._emitted = True
         print(f'% SZS status {status} for {self.name}', flush=True)
 
-    def emit_proof(self, witness: str) -> None:
+    def emit_proof(self, proof: str) -> None:
         block = 'CNFRefutation'
         print(f'% SZS output start {block} for {self.name}', flush=True)
-        for line in witness.splitlines():
-            print(f'% {line}', flush=True)
+        print(proof, flush=True)
         print(f'% SZS output end {block} for {self.name}', flush=True)
 
 
@@ -132,13 +140,8 @@ def _map_status(info: str | None, printer: _SzsPrinter) -> str:
         return 'GaveUp'
     head = info.strip()
     if head.startswith('Theorem'):
-        # Proved: refutation of axioms + negated conjecture.
         return printer.proved_status
     if head.startswith('Non-Theorem'):
-        # The connection search is a refutation procedure; a "Non-Theorem"
-        # signal (e.g. no positive start clause) is not a sound completeness
-        # claim in general, so we report GaveUp rather than risk a wrong
-        # (Counter)Satisfiable answer.
         return 'GaveUp'
     return 'GaveUp'
 
@@ -148,7 +151,7 @@ def _install_deadline(printer: _SzsPrinter, seconds: float) -> None:
     if seconds <= 0:
         return
 
-    def _handler(signum, frame):  # noqa: ANN001
+    def _handler(signum, frame):
         printer.emit('Timeout')
         os._exit(0)
 
@@ -173,7 +176,6 @@ def _resolve_time_limit(args) -> float:
                 limit = float(args.default_limit)
         else:
             limit = float(args.default_limit)
-    # Leave a margin so our own Timeout status wins the race with runsolver.
     margin = max(1.0, min(5.0, limit * 0.05))
     return max(0.0, limit - margin)
 
@@ -210,7 +212,7 @@ def _parse_args(argv: list[str]) -> argparse.Namespace:
     )
     parser.add_argument(
         '--proof', action='store_true',
-        help='emit an SZS output block with the refutation witness',
+        help='emit a TPTP CNF-refutation certificate (SATResetCoP only)',
     )
     return parser.parse_args(argv)
 
@@ -239,11 +241,11 @@ def main(argv: list[str] | None = None) -> int:
             Settings(
                 logic=logic,
                 sat_solver=args.sat_solver,
-                debug=args.proof,
+                debug=False,
             ),
         )
         strategy = _selectable_strategies()[args.strategy](env)
-    except Exception as exc:  # parse / translation / unsupported problem
+    except Exception as exc:
         printer.emit('GaveUp')
         print(f'% {type(exc).__name__}: {exc}', file=sys.stderr, flush=True)
         return 0
@@ -271,10 +273,28 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     status = _map_status(info if isinstance(info, str) else None, printer)
-    printer.emit(status)
+    certificate = None
+    if args.proof and status in {'Theorem', 'Unsatisfiable'}:
+        if args.strategy != 'SATResetCoP':
+            printer.emit('GaveUp')
+            print('% CertificateError: proof output is supported only for SATResetCoP',
+                  file=sys.stderr, flush=True)
+            return 0
+        try:
+            certificate = render_satresetcop_certificate(args.problem, env.state)
+        except Exception as exc:
+            printer.emit('GaveUp')
+            label = (
+                'CertificateError'
+                if isinstance(exc, CertificateError)
+                else type(exc).__name__
+            )
+            print(f'% {label}: {exc}', file=sys.stderr, flush=True)
+            return 0
 
-    if args.proof and status in {'Theorem', 'Unsatisfiable'} and isinstance(info, str):
-        printer.emit_proof(info)
+    printer.emit(status)
+    if certificate is not None:
+        printer.emit_proof(certificate)
 
     return 0
 

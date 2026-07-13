@@ -64,24 +64,33 @@ op_tptp2(P,P,[],[]).
 leancop_tptp2(File,F) :- leancop_tptp2(File,'',[_],F,_).
 
 leancop_tptp2(File,AxPath,AxNames,F,Con) :-
-    open(File,read,Stream), ( fof2cop(Stream,AxPath,AxNames,A,Con)
+    open(File,read,Stream), ( fof2cop(Stream,File,AxPath,AxNames,A,Con)
     -> close(Stream) ; close(Stream), fail ),
     ( Con=[] -> F=A ; A=[] -> F=Con ; F=(A=>Con) ).
 
-fof2cop(Stream,AxPath,AxNames,F,Con) :-
+fof2cop(Stream,SourceFile,AxPath,AxNames,F,Con) :-
     read(Stream,Term),
     ( Term=end_of_file -> F=[], Con=[] ;
       ( Term=..[fof,Name,Type,Fml|_] ->
         ( \+member(Name,AxNames) -> true ; fml2cop([Fml],[Fml1]) ),
         ( Type=conjecture -> Con=Fml1 ; Con=Con1 ) ;
         ( Term=include(File), AxNames2=[_] ;
-          Term=include(File,AxNames2) ) -> name(AxPath,AL),
-          name(File,FL), append(AL,FL,AxL), name(AxFile,AxL),
-          leancop_tptp2(AxFile,'',AxNames2,Fml1,_), Con=Con1
-      ), fof2cop(Stream,AxPath,AxNames,F1,Con1),
+          Term=include(File,AxNames2) ) ->
+          resolve_tptp_include(SourceFile,File,AxPath,AxFile),
+          leancop_tptp2(AxFile,AxPath,AxNames2,Fml1,_), Con=Con1
+      ), fof2cop(Stream,SourceFile,AxPath,AxNames,F1,Con1),
       ( Term=..[fof,N,Type|_], (Type=conjecture;\+member(N,AxNames))
       -> (F1=[] -> F=[] ; F=F1) ; (F1=[] -> F=Fml1 ; F=(Fml1,F1)) )
     ).
+
+% TPTP include resolution: first beside the file containing the include,
+% then beneath the directory named by the TPTP environment variable.
+resolve_tptp_include(SourceFile,File,AxPath,AxFile) :-
+    file_directory_name(SourceFile,SourceDir),
+    directory_file_path(SourceDir,File,LocalFile),
+    ( exists_file(LocalFile) -> AxFile=LocalFile ;
+      directory_file_path(AxPath,File,TPTPFile),
+      exists_file(TPTPFile), AxFile=TPTPFile ).
 
 fml2cop([],[]).
 fml2cop([F|Fml],[F1|Fml1]) :-
@@ -138,4 +147,3 @@ collect_func([F|FunL],FL) :-
 union1([],L,L).
 union1([H|L1],L2,L3) :- member(H,L2), !, union1(L1,L2,L3).
 union1([H|L1],L2,[H|L3]) :- union1(L1,L2,L3).
-

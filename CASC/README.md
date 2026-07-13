@@ -33,10 +33,11 @@ Upload `SATResetCoP.tar.gz` to StarExec as a **solver**. It exposes two
 configurations, `default` and `SATResetCoP` (identical). StarExec runs
 
 ```
-bin/starexec_run_default <benchmark.p>
+bin/starexec_run_default <benchmark.p> <output-directory>
 ```
 
-and the prover prints an SZS status line, e.g. `% SZS status Theorem for PUZ001+1`.
+and the prover prints an SZS status line followed by a TPTP CNF-refutation
+certificate, e.g. `% SZS status Theorem for PUZ001+1`.
 
 ---
 
@@ -78,7 +79,8 @@ CASC/
     │   ├── starexec_run_default      # StarExec entry point
     │   └── starexec_run_SATResetCoP  # named config (execs the default)
     ├── starexec_prover.py    # SZS/CASC front-end (time limit + status mapping)
-    ├── src/                  # copied prover source, with the PySAT backend
+    ├── src/                  # copied prover source, with PySAT + certificates
+    │   ├── tptp_certificate.py
     │   ├── pycop.py  cli.py  connections/  strategies/  translation/
     ├── tptp-root/            # placeholder TPTP library root (see below)
     └── python/               # bundled runtime  [created by build_package.sh]
@@ -98,8 +100,17 @@ The CASC front-end that differs from `pycop.py` in three ways that matter:
 
    Theorem-vs-Unsatisfiable is decided **structurally** (does the problem
    contain a `conjecture`-role formula), never from the `% Status` header.
-   `--proof` additionally prints the refutation witness inside an
-   `% SZS output start/end CNFRefutation` block.
+   `--proof` additionally prints a formal TPTP derivation inside an
+   `% SZS output start/end CNFRefutation` block. The StarExec run
+   configurations enable this by default.
+
+   For FOF input the derivation contains the original leaves, an explicit
+   negated conjecture, the equisatisfiable connection-matrix clausification,
+   an UNSAT core of ground instances accumulated by SATResetCoP's shadow SAT
+   solver, and a final `$false`. This ground-refutation form works whether the
+   strategy finishes with a closed tableau or directly detects that the
+   accumulated shadow clauses are UNSAT. Raw CNF input uses the same ground
+   certificate without the FOF clausification step.
 
 2. **Self-imposed deadline.** It reads the limit from `--cpu-limit`, else
    `$STAREXEC_WALLCLOCK_LIMIT` / `$STAREXEC_CPU_LIMIT` (default 300 s), keeps a
@@ -152,7 +163,10 @@ so you can exercise it directly (this is what was validated here):
 
 ```sh
 tar xzf CASC/SATResetCoP.tar.gz -C /tmp/se
-/tmp/se/bin/starexec_run_default /path/to/PROBLEM.p 300   # -> % SZS status ...
+mkdir -p /tmp/se-output
+STAREXEC_CPU_LIMIT=300 STAREXEC_WALLCLOCK_LIMIT=300 \
+  /tmp/se/bin/starexec_run_default /path/to/PROBLEM.p /tmp/se-output
+# -> % SZS status ...
 ```
 
 ---
@@ -164,7 +178,7 @@ Prover logic, with the real prover + `python-sat` + `swipl`:
 | Case | Result |
 |---|---|
 | CNF refutation | `% SZS status Unsatisfiable` |
-| FOF w/ conjecture (clausified via swipl) | `% SZS status Theorem` (+ proof block) |
+| FOF w/ conjecture (clausified via swipl) | `% SZS status Theorem` + TPTP refutation |
 | unparseable input | `% SZS status GaveUp` |
 | satisfiable set + short limit | `% SZS status Timeout` (watchdog fires before kill) |
 | **pydical absent, python-sat present** (bundle scenario) | `% SZS status Unsatisfiable` |
@@ -179,6 +193,9 @@ Built bundle (`build_package.sh`), running through the **bundled** runtime via
 | FOF via bundled `swipl` clausifier (`SWI_HOME_DIR`) | `% SZS status Theorem` |
 | Bundle self-test in `build_package.sh` | passes |
 | Real library problems (PUZ001+1, PUZ005+1, PUZ031+1) | `% SZS status Theorem` |
+| TPTP4X parsing (PUZ001+1, PUZ005+1, PUZ031+1, SYN040+1, SYN046+1) | no syntax/variable errors |
+| Official SystemOnTSTP BNFParser (PUZ001+1 certificate) | `% SZS status Success` |
+| Independent E check of PUZ001+1 ground core | `% SZS status Unsatisfiable` |
 | `include()`-based problem (ALG213+1) — axioms resolved & clausified | ran to `Timeout` (no error) |
 | **Relocation**: untar to a fresh path, run with a clean `env -i` (CNF + FOF) | `Unsatisfiable` / `Theorem` |
 
@@ -258,8 +275,6 @@ bash CASC/test_in_container.sh [problem.p] [limit]
   a belt-and-braces step you can still run one FOF job on a StarExec test space
   before the competition; if `swipl` ever fails to find its home, add a
   `starexec_build` that runs `python/bin/conda-unpack`.
-* **Proof output is a connection/SAT witness**, not a formal TPTP derivation —
-  adequate for assurance-level divisions; a verifiable proof is future work.
 * **`Non-Theorem` is reported as `GaveUp`**, not `(Counter)Satisfiable`, to
   stay sound (the search is a refutation procedure). Change the mapping in
   `starexec_prover.py:_map_status` if a completeness argument justifies it.

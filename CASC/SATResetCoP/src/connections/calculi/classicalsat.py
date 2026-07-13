@@ -157,6 +157,7 @@ class ShadowSAT:
     solver: Any = None
     solver_clauses: set[SATClause] = field(default_factory = set)
     expanded_clauses: dict[SATClause, list[str]] = field(default_factory = dict)
+    clause_origins: dict[SATClause, int] = field(default_factory = dict)
     unsat_core: list[SATClause] = field(default_factory = list)
     model: dict[int, bool] = field(default_factory = dict)
     satisfiable: bool = True
@@ -638,8 +639,9 @@ class SATConnectionState:
         return _PydicalBackend()
 
     def _record_tableau_clauses(self) -> None:
-        for clause, expanded in self._tableau_clauses().items():
+        for clause, (expanded, origin) in self._tableau_clauses().items():
             self.shadow.expanded_clauses.setdefault(clause, expanded)
+            self.shadow.clause_origins.setdefault(clause, origin)
             if clause not in self.shadow.ground_clauses:
                 self._iteration_new_ground_clause = True
                 self.shadow.new_ground_clauses.add(clause)
@@ -653,8 +655,8 @@ class SATConnectionState:
     def _sorted_shadow_clauses(self, clauses: set[SATClause]) -> list[SATClause]:
         return sorted(clauses, key = lambda clause: (-len(clause), clause))
 
-    def _tableau_clauses(self) -> dict[SATClause, list[str]]:
-        clauses = {}
+    def _tableau_clauses(self) -> dict[SATClause, tuple[list[str], int]]:
+        clauses: dict[SATClause, tuple[list[str], int]] = {}
         stack = [self.tableau]
         while stack:
             node = stack.pop()
@@ -663,7 +665,17 @@ class SATConnectionState:
                     [child.literal for child in node.children],
                     apply_substitution = True,
                 )
-                clauses.setdefault(clause, expanded)
+                matrix_positions = [
+                    child.literal.matrix_pos
+                    for child in node.children
+                    if child.literal.matrix_pos is not None
+                ]
+                if not matrix_positions:
+                    raise ValueError('tableau clause has no matrix origin')
+                origin = matrix_positions[0][0]
+                if any(position[0] != origin for position in matrix_positions):
+                    raise ValueError('tableau clause combines multiple matrix origins')
+                clauses.setdefault(clause, (expanded, origin))
             stack.extend(node.children)
         return clauses
 
@@ -673,6 +685,51 @@ class SATConnectionState:
             grounded_clause, expanded_clause = self._ground_clause_data(clause, apply_substitution = False)
             self._add_ground_clause(grounded_clause)
             self.shadow.expanded_clauses[grounded_clause] = expanded_clause
+            self.shadow.clause_origins[grounded_clause] = clause_idx
+
+    def certificate_ground_clauses(self) -> list[SATClause]:
+        """Return an UNSAT core of grounded matrix instances for certification.
+
+        ``SATResetCoP`` can finish either with a closed tableau or when the
+        accumulated shadow clause set becomes UNSAT after a reset.  In both
+        cases the sound certificate is the same: an UNSAT set of ground
+        instances of input matrix clauses.  CASC explicitly accepts this form
+        of certificate.  Selector assumptions obtain a core in one additional
+        SAT call, avoiding the quadratic deletion loop used for debug output.
+        """
+        self._record_tableau_clauses()
+        clauses = self._sorted_shadow_clauses(
+            self.shadow.ground_clauses | self.shadow.new_ground_clauses
+        )
+        if not clauses:
+            raise ValueError('the theorem has no grounded certificate clauses')
+
+        core = self._selector_unsat_core(clauses)
+        if not core:
+            raise ValueError('grounded certificate clauses are not UNSAT')
+        return core
+
+    def _selector_unsat_core(self, clauses: list[SATClause]) -> list[SATClause]:
+        if _PySATSolverCls is None:
+            return []
+
+        max_atom = max((abs(literal) for clause in clauses for literal in clause), default = 0)
+        selectors = list(range(max_atom + 1, max_atom + len(clauses) + 1))
+        solver = _PySATSolverCls(name = _PYSAT_SOLVER_NAME)
+        try:
+            for clause, selector in zip(clauses, selectors):
+                solver.add_clause(list(clause) + [-selector])
+            if solver.solve(assumptions = selectors):
+                return []
+            core_selectors = set(solver.get_core() or selectors)
+        finally:
+            solver.delete()
+
+        return [
+            clause
+            for clause, selector in zip(clauses, selectors)
+            if selector in core_selectors
+        ]
 
     def _restart_same_iteration(self) -> None:
         remaining_actions = self.tableau.actions.copy()

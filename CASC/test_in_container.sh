@@ -49,7 +49,9 @@ echo
     echo "--- [2] bundled SWI-Prolog via glibc-loader shim ---"
     /starexec/solver/python/shim/swipl --version   || echo "!! SWIPL SHIM FAILED"
     echo "--- [3] full run as job-entrypoint.sh calls it (benchmark = STAREXEC default name) ---"
-    bash /starexec/solver/bin/starexec_run_default /starexec/input/benchmark
+    mkdir -p /starexec/output_files
+    bash /starexec/solver/bin/starexec_run_default \
+      /starexec/input/benchmark /starexec/output_files
   '
 rc=$?
 echo

@@ -1,0 +1,4 @@
+# Built runtime bundle and packaged tarball (regenerate with build_package.sh)
+SATResetCoP/python/
+SATResetCoP.tar.gz
+.build/
