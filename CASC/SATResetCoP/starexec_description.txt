@@ -1,0 +1,6 @@
+SATResetCoP is a first order connection tableau prover based on the strategy
+Reset Early Reset Often Eliminate Models by Martin Fixman Fredrik Romming and
+Sean B. Holden.
+
+The strategy retains grounded tableau clauses in an incremental SAT solver and
+aggressively resets the connection tableau rather than backtracking.
