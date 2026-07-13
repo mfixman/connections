@@ -7,6 +7,9 @@ ENV="$ROOT/python"
 
 export PATH="$ENV/shim:$ENV/bin:$PATH"
 
+chmod +x "$ENV/glibc/ld-linux-x86-64.so.2" "$ENV/shim/"* \
+         "$ENV/bin/python3"* "$ENV/lib/swipl/bin/x86_64-linux/swipl" 2>/dev/null || true
+
 if [ -z "${TPTP:-}" ]; then
   export TPTP="$ROOT/tptp-root"
 fi
@@ -23,7 +26,7 @@ if [[ ! "$LIMIT" =~ ^[0-9]+([.][0-9]+)?$ ]]; then
   LIMIT=300
 fi
 
-exec "$ENV/shim/python3" "$ROOT/starexec_prover.py" \
+exec sh "$ENV/shim/python3" "$ROOT/starexec_prover.py" \
   --strategy SATResetCoP \
   --sat-solver PySAT \
   --proof \

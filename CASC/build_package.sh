@@ -83,22 +83,39 @@ rm -rf "$ENV_PREFIX/glibc"; mkdir -p "$ENV_PREFIX/glibc"
     cp -L "/lib/x86_64-linux-gnu/$f" /out/ 2>/dev/null || true
   done
   cp -L /lib64/ld-linux-x86-64.so.2 /out/'
+chmod 755 "$ENV_PREFIX/glibc"/*
 
+# The shims restore a lost exec bit on the loader, and fall back to the host
+# loader (fine on any glibc host) if the bundled one can't be executed.
 mkdir -p "$ENV_PREFIX/shim"
 cat > "$ENV_PREFIX/shim/python3" <<'SHIM'
 #!/bin/sh
 HERE=$(cd "$(dirname "$0")/.." && pwd)
-exec "$HERE/glibc/ld-linux-x86-64.so.2" \
-  --library-path "$HERE/glibc:$HERE/lib" \
-  "$HERE/bin/python3" -s -E "$@"
+LOADER="$HERE/glibc/ld-linux-x86-64.so.2"
+[ -x "$LOADER" ] || chmod +x "$LOADER" 2>/dev/null
+if [ -x "$LOADER" ]; then
+  exec "$LOADER" \
+    --library-path "$HERE/glibc:$HERE/lib" \
+    "$HERE/bin/python3" -s -E "$@"
+fi
+[ -x "$HERE/bin/python3" ] || chmod +x "$HERE/bin/python3" 2>/dev/null
+export LD_LIBRARY_PATH="$HERE/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+exec "$HERE/bin/python3" -s -E "$@"
 SHIM
 cat > "$ENV_PREFIX/shim/swipl" <<'SHIM'
 #!/bin/sh
 HERE=$(cd "$(dirname "$0")/.." && pwd)
 export SWI_HOME_DIR="$HERE/lib/swipl"
-exec "$HERE/glibc/ld-linux-x86-64.so.2" \
-  --library-path "$HERE/glibc:$HERE/lib:$HERE/lib/swipl/lib/x86_64-linux" \
-  "$HERE/lib/swipl/bin/x86_64-linux/swipl" "$@"
+LOADER="$HERE/glibc/ld-linux-x86-64.so.2"
+[ -x "$LOADER" ] || chmod +x "$LOADER" 2>/dev/null
+if [ -x "$LOADER" ]; then
+  exec "$LOADER" \
+    --library-path "$HERE/glibc:$HERE/lib:$HERE/lib/swipl/lib/x86_64-linux" \
+    "$HERE/lib/swipl/bin/x86_64-linux/swipl" "$@"
+fi
+[ -x "$HERE/lib/swipl/bin/x86_64-linux/swipl" ] || chmod +x "$HERE/lib/swipl/bin/x86_64-linux/swipl" 2>/dev/null
+export LD_LIBRARY_PATH="$HERE/lib:$HERE/lib/swipl/lib/x86_64-linux${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+exec "$HERE/lib/swipl/bin/x86_64-linux/swipl" "$@"
 SHIM
 chmod +x "$ENV_PREFIX/shim/python3" "$ENV_PREFIX/shim/swipl"
 
