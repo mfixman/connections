@@ -6,61 +6,60 @@ University of Cambridge, United Kingdom<BR>
 <H3>Architecture</H3>
 
 SATResetCoP is a connection prover for untyped first-order formulas without
-equality that is combined with a SAT solver to find unsatisfiability on the
-propositional formulas genrated by the set of grounded statements.
-It also uses properties of the SAT solver to guide the tree search by choosing
-the most convenient path to build the tree, while also resetting aggressively to
-increase the probability that the SAT solver would be saturated.
+equality. It is coupled to an incremental SAT solver: ground instances of
+clauses encountered during tableau construction are accumulated as
+propositional clauses, and a theorem is reported when that clause set is
+propositionally unsatisfiable.
 
-This is inspired by SATCoP, developed by Rawson and Reger [RR21], specially by
-the "Future work" section of that paper which introduces ways to guide the
-connection prover based on properties of the SAT solver.
+The current SAT model is used to rank eligible tableau steps. When a tableau
+attempt has generated new ground clauses, it is reset to explore a fresh part of
+the search space while retaining the accumulated SAT state. This design builds
+on SATCoP [RR21] and the Connections framework [ROH23].
 
 <H3>Strategies</H3>
 
-SATResetCoP resets the entire tree rather than backtracking; this causes it to
-get a larger and more varied set of propositional clauses to the solver, thus
-making it more probably that it will contain an unsatisfiable subset of clauses.
+At a tableau dead end, a reset at the current depth is selected when new ground
+clauses have been generated. Otherwise the depth bound is increased and a new
+tableau is started. Thus, local backtracking is traded for diverse clause
+generation while the SAT state is retained.
 
-The size of the maximum tree in the connection prover grows a maximum of one at
-a time, as in LeanCoP 2.0 [O23]. This prevents unnecessarily long branches on
-simple problems, while also increasing the variety of propositional clauses
-added in the SAT solevrs.
+The depth bound is increased by at most one when an iteration has stopped
+producing new ground clauses, following the iterative-deepening discipline used
+by leanCoP [O23]. This keeps early searches shallow while allowing deeper
+tableaux when they are required.
 
-The objective is to control the tree to ensure saturation of the underlying SAT
-prover rather than relying in enhanced semantics based on LeanCoP.
+The strategy is intended to generate a sufficiently informative set of ground
+clauses for a SAT refutation, rather than to close one particular tableau.
 
 <H3>Implementation</H3>
 
-SATResetCoP is fully implemented in Python using a fork of the Connections
-Library [R23], which provides a general framework for the creationg and testing
-of connection provers.
+SATResetCoP is implemented in Python using a fork of the Connections
+library [ROH23], which provides a framework for creating and testing
+connection provers.
 
-This fork adds a new calculus based on classical calculus that has the capacity
-to include LeanCoP-style cuts, and most importantly to define different
-strategies for different provers.
+The fork adds a classical SAT-assisted calculus with leanCoP-style cuts and a
+strategy interface for selecting different prover controllers.
 These changes are currently being backported to newer versions of the library.
 
-The connections prover can run with a variety of SAT solvers and its results are
-mostly agnostic to this decision.
-No other Python library is needed.
+The incremental SAT state is maintained by CaDiCaL through the pydical Python
+binding. The packaged system also depends on python-sat for optional
+experimental strategies.
 
-The final version can be downloaded from Github.
+The final version can be downloaded from GitHub.
 <PRE>
-	<A HREF="https://github.com/mfixman/satresetcop">SATResetCoP Github Source</A>
+	<A HREF="https://github.com/mfixman/satresetcop">SATResetCoP GitHub Source</A>
 </PRE>
 
 <H3>Expected Competition Performance</H3>
 
-This is the first version of SATResetCoP, so I do not expect it to be very
-competitive in the general FOF category against mature saturation provers such
-as Vampire.
+As a first version, SATResetCoP is not expected to be competitive with mature
+saturation provers such as Vampire in the general FOF category.
 
-However, I do expect it to have a strong performance against other connection
-provers, specially in problems that can easily generate an unsatisfiable set of
-propositional clauses.
-According to my experiments, it should be specially strong in the TPTP
-categories SWV, GEO, SWC, and NUM.
+Strong performance is expected against other connection provers on problems for
+which shallow tableau exploration quickly generates an unsatisfiable set of
+ground propositional clauses. The experimental results suggest particular
+strength on the TPTP SYN, SWC, and SWV categories, with improvements also seen
+on GEO and NUM. No category-specific tuning is used.
 
 <H3>References</H3>
 <DL>
