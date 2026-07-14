@@ -1,0 +1,472 @@
+% SZS status Theorem for SYN036+1
+% SZS output start CNFRefutation for SYN036+1
+fof(satresetcop_input_1,conjecture,
+    ( ( ? [X] :
+        ! [Y] :
+          ( big_p(X)
+        <=> big_p(Y) )
+    <=> ( ? [U] : big_q(U)
+      <=> ! [W] : big_q(W) ) )
+  <=> ( ? [X1] :
+        ! [Y1] :
+          ( big_q(X1)
+        <=> big_q(Y1) )
+    <=> ( ? [U1] : big_p(U1)
+      <=> ! [W1] : big_p(W1) ) ) ),
+    file('SYN036+1.p',pel34)).
+fof(satresetcop_negated_conjecture_1,negated_conjecture,
+    ~ (( ( ? [X] :
+        ! [Y] :
+          ( big_p(X)
+        <=> big_p(Y) )
+    <=> ( ? [U] : big_q(U)
+      <=> ! [W] : big_q(W) ) )
+  <=> ( ? [X1] :
+        ! [Y1] :
+          ( big_q(X1)
+        <=> big_q(Y1) )
+    <=> ( ? [U1] : big_p(U1)
+      <=> ! [W1] : big_p(W1) ) ) )),
+    inference(negate,[status(cth)],[satresetcop_input_1])).
+fof(satresetcop_cnf_matrix,plain,
+    ! [X1,X2] :
+    ( (( p_defini_48(X1) | ~ big_p(X1) ))
+    & (( p_defini_48(X1) | big_p(f_skolem_46(X1)) ))
+    & (( p_defini_47(X1) | ~ big_p(f_skolem_46(X1)) ))
+    & (( p_defini_47(X1) | big_p(X1) ))
+    & (( p_defini_49 | big_q(f_skolem_44) | ~ big_q(f_skolem_45) ))
+    & (( p_defini_49 | ~ big_q(X1) | big_q(X2) ))
+    & (( p_defini_49 | ~ p_defini_47(X1) | ~ p_defini_48(X1) ))
+    & (( p_defini_42 | ~ big_q(X1) ))
+    & (( p_defini_42 | big_q(X1) ))
+    & (( p_defini_41 | ~ big_q(f_skolem_40) ))
+    & (( p_defini_41 | big_q(f_skolem_39) ))
+    & (( p_defini_43 | big_p(f_skolem_38) | ~ big_p(X1) ))
+    & (( p_defini_43 | ~ big_p(f_skolem_38) | big_p(X1) ))
+    & (( p_defini_43 | ~ p_defini_41 | ~ p_defini_42 ))
+    & (( p_defini_37 | ~ big_p(X1) ))
+    & (( p_defini_37 | big_p(X1) ))
+    & (( p_defini_36 | ~ big_p(f_skolem_35) ))
+    & (( p_defini_36 | big_p(f_skolem_34) ))
+    & (( p_defini_33 | big_q(f_skolem_32) | ~ big_q(X1) ))
+    & (( p_defini_33 | ~ big_q(f_skolem_32) | big_q(X1) ))
+    & (( p_defini_31 | big_p(f_skolem_29) | ~ big_p(f_skolem_30) ))
+    & (( p_defini_31 | ~ big_p(X1) | big_p(X2) ))
+    & (( p_defini_28(X1) | ~ big_q(X1) ))
+    & (( p_defini_28(X1) | big_q(f_skolem_26(X1)) ))
+    & (( p_defini_27(X1) | ~ big_q(f_skolem_26(X1)) ))
+    & (( p_defini_27(X1) | big_q(X1) ))
+    & (( p_defini_50 | ~ p_defini_37 | ~ p_defini_36 | ~ p_defini_33 ))
+    & (( p_defini_50 | ~ p_defini_28(X1) | ~ p_defini_27(X1) | ~ p_defini_31 ))
+    & (( p_defini_50 | ~ p_defini_43 | ~ p_defini_49 ))
+    & (( p_defini_23(X1) | ~ big_q(X1) ))
+    & (( p_defini_23(X1) | big_q(f_skolem_21(X1)) ))
+    & (( p_defini_22(X1) | ~ big_q(f_skolem_21(X1)) ))
+    & (( p_defini_22(X1) | big_q(X1) ))
+    & (( p_defini_24 | big_p(f_skolem_19) | ~ big_p(f_skolem_20) ))
+    & (( p_defini_24 | ~ big_p(X1) | big_p(X2) ))
+    & (( p_defini_24 | ~ p_defini_22(X1) | ~ p_defini_23(X1) ))
+    & (( p_defini_17 | ~ big_p(X1) ))
+    & (( p_defini_17 | big_p(X1) ))
+    & (( p_defini_16 | ~ big_p(f_skolem_15) ))
+    & (( p_defini_16 | big_p(f_skolem_14) ))
+    & (( p_defini_18 | big_q(f_skolem_13) | ~ big_q(X1) ))
+    & (( p_defini_18 | ~ big_q(f_skolem_13) | big_q(X1) ))
+    & (( p_defini_18 | ~ p_defini_16 | ~ p_defini_17 ))
+    & (( p_defini_12 | ~ big_q(X1) ))
+    & (( p_defini_12 | big_q(X1) ))
+    & (( p_defini_11 | ~ big_q(f_skolem_10) ))
+    & (( p_defini_11 | big_q(f_skolem_9) ))
+    & (( p_defini_8 | big_p(f_skolem_7) | ~ big_p(X1) ))
+    & (( p_defini_8 | ~ big_p(f_skolem_7) | big_p(X1) ))
+    & (( p_defini_6 | big_q(f_skolem_4) | ~ big_q(f_skolem_5) ))
+    & (( p_defini_6 | ~ big_q(X1) | big_q(X2) ))
+    & (( p_defini_3(X1) | ~ big_p(X1) ))
+    & (( p_defini_3(X1) | big_p(f_skolem_1(X1)) ))
+    & (( p_defini_2(X1) | ~ big_p(f_skolem_1(X1)) ))
+    & (( p_defini_2(X1) | big_p(X1) ))
+    & (( p_defini_25 | ~ p_defini_12 | ~ p_defini_11 | ~ p_defini_8 ))
+    & (( p_defini_25 | ~ p_defini_3(X1) | ~ p_defini_2(X1) | ~ p_defini_6 ))
+    & (( p_defini_25 | ~ p_defini_18 | ~ p_defini_24 ))
+    & (( ~ p_defini_25 | ~ p_defini_50 )) ),
+    inference(clausify,[status(esa),new_symbols(skolem,[f_skolem_1,f_skolem_10,f_skolem_13,f_skolem_14,f_skolem_15,f_skolem_19,f_skolem_20,f_skolem_21,f_skolem_26,f_skolem_29,f_skolem_30,f_skolem_32,f_skolem_34,f_skolem_35,f_skolem_38,f_skolem_39,f_skolem_4,f_skolem_40,f_skolem_44,f_skolem_45,f_skolem_46,f_skolem_5,f_skolem_7,f_skolem_9]),new_symbols(definition,[p_defini_11,p_defini_12,p_defini_16,p_defini_17,p_defini_18,p_defini_2,p_defini_22,p_defini_23,p_defini_24,p_defini_25,p_defini_27,p_defini_28,p_defini_3,p_defini_31,p_defini_33,p_defini_36,p_defini_37,p_defini_41,p_defini_42,p_defini_43,p_defini_47,p_defini_48,p_defini_49,p_defini_50,p_defini_6,p_defini_8])],[satresetcop_negated_conjecture_1])).
+cnf(satresetcop_matrix_1,plain,
+    ( p_defini_48(X1) | ~ big_p(X1) ),
+    inference(split_conjunct,[status(thm)],[satresetcop_cnf_matrix])).
+cnf(satresetcop_matrix_2,plain,
+    ( p_defini_48(X1) | big_p(f_skolem_46(X1)) ),
+    inference(split_conjunct,[status(thm)],[satresetcop_cnf_matrix])).
+cnf(satresetcop_matrix_3,plain,
+    ( p_defini_47(X1) | ~ big_p(f_skolem_46(X1)) ),
+    inference(split_conjunct,[status(thm)],[satresetcop_cnf_matrix])).
+cnf(satresetcop_matrix_4,plain,
+    ( p_defini_47(X1) | big_p(X1) ),
+    inference(split_conjunct,[status(thm)],[satresetcop_cnf_matrix])).
+cnf(satresetcop_matrix_5,plain,
+    ( p_defini_49 | big_q(f_skolem_44) | ~ big_q(f_skolem_45) ),
+    inference(split_conjunct,[status(thm)],[satresetcop_cnf_matrix])).
+cnf(satresetcop_matrix_6,plain,
+    ( p_defini_49 | ~ big_q(X1) | big_q(X2) ),
+    inference(split_conjunct,[status(thm)],[satresetcop_cnf_matrix])).
+cnf(satresetcop_matrix_7,plain,
+    ( p_defini_49 | ~ p_defini_47(X1) | ~ p_defini_48(X1) ),
+    inference(split_conjunct,[status(thm)],[satresetcop_cnf_matrix])).
+cnf(satresetcop_matrix_8,plain,
+    ( p_defini_42 | ~ big_q(X1) ),
+    inference(split_conjunct,[status(thm)],[satresetcop_cnf_matrix])).
+cnf(satresetcop_matrix_9,plain,
+    ( p_defini_42 | big_q(X1) ),
+    inference(split_conjunct,[status(thm)],[satresetcop_cnf_matrix])).
+cnf(satresetcop_matrix_10,plain,
+    ( p_defini_41 | ~ big_q(f_skolem_40) ),
+    inference(split_conjunct,[status(thm)],[satresetcop_cnf_matrix])).
+cnf(satresetcop_matrix_11,plain,
+    ( p_defini_41 | big_q(f_skolem_39) ),
+    inference(split_conjunct,[status(thm)],[satresetcop_cnf_matrix])).
+cnf(satresetcop_matrix_12,plain,
+    ( p_defini_43 | big_p(f_skolem_38) | ~ big_p(X1) ),
+    inference(split_conjunct,[status(thm)],[satresetcop_cnf_matrix])).
+cnf(satresetcop_matrix_13,plain,
+    ( p_defini_43 | ~ big_p(f_skolem_38) | big_p(X1) ),
+    inference(split_conjunct,[status(thm)],[satresetcop_cnf_matrix])).
+cnf(satresetcop_matrix_14,plain,
+    ( p_defini_43 | ~ p_defini_41 | ~ p_defini_42 ),
+    inference(split_conjunct,[status(thm)],[satresetcop_cnf_matrix])).
+cnf(satresetcop_matrix_15,plain,
+    ( p_defini_37 | ~ big_p(X1) ),
+    inference(split_conjunct,[status(thm)],[satresetcop_cnf_matrix])).
+cnf(satresetcop_matrix_16,plain,
+    ( p_defini_37 | big_p(X1) ),
+    inference(split_conjunct,[status(thm)],[satresetcop_cnf_matrix])).
+cnf(satresetcop_matrix_17,plain,
+    ( p_defini_36 | ~ big_p(f_skolem_35) ),
+    inference(split_conjunct,[status(thm)],[satresetcop_cnf_matrix])).
+cnf(satresetcop_matrix_18,plain,
+    ( p_defini_36 | big_p(f_skolem_34) ),
+    inference(split_conjunct,[status(thm)],[satresetcop_cnf_matrix])).
+cnf(satresetcop_matrix_19,plain,
+    ( p_defini_33 | big_q(f_skolem_32) | ~ big_q(X1) ),
+    inference(split_conjunct,[status(thm)],[satresetcop_cnf_matrix])).
+cnf(satresetcop_matrix_20,plain,
+    ( p_defini_33 | ~ big_q(f_skolem_32) | big_q(X1) ),
+    inference(split_conjunct,[status(thm)],[satresetcop_cnf_matrix])).
+cnf(satresetcop_matrix_21,plain,
+    ( p_defini_31 | big_p(f_skolem_29) | ~ big_p(f_skolem_30) ),
+    inference(split_conjunct,[status(thm)],[satresetcop_cnf_matrix])).
+cnf(satresetcop_matrix_22,plain,
+    ( p_defini_31 | ~ big_p(X1) | big_p(X2) ),
+    inference(split_conjunct,[status(thm)],[satresetcop_cnf_matrix])).
+cnf(satresetcop_matrix_23,plain,
+    ( p_defini_28(X1) | ~ big_q(X1) ),
+    inference(split_conjunct,[status(thm)],[satresetcop_cnf_matrix])).
+cnf(satresetcop_matrix_24,plain,
+    ( p_defini_28(X1) | big_q(f_skolem_26(X1)) ),
+    inference(split_conjunct,[status(thm)],[satresetcop_cnf_matrix])).
+cnf(satresetcop_matrix_25,plain,
+    ( p_defini_27(X1) | ~ big_q(f_skolem_26(X1)) ),
+    inference(split_conjunct,[status(thm)],[satresetcop_cnf_matrix])).
+cnf(satresetcop_matrix_26,plain,
+    ( p_defini_27(X1) | big_q(X1) ),
+    inference(split_conjunct,[status(thm)],[satresetcop_cnf_matrix])).
+cnf(satresetcop_matrix_27,plain,
+    ( p_defini_50 | ~ p_defini_37 | ~ p_defini_36 | ~ p_defini_33 ),
+    inference(split_conjunct,[status(thm)],[satresetcop_cnf_matrix])).
+cnf(satresetcop_matrix_28,plain,
+    ( p_defini_50 | ~ p_defini_28(X1) | ~ p_defini_27(X1) | ~ p_defini_31 ),
+    inference(split_conjunct,[status(thm)],[satresetcop_cnf_matrix])).
+cnf(satresetcop_matrix_29,plain,
+    ( p_defini_50 | ~ p_defini_43 | ~ p_defini_49 ),
+    inference(split_conjunct,[status(thm)],[satresetcop_cnf_matrix])).
+cnf(satresetcop_matrix_30,plain,
+    ( p_defini_23(X1) | ~ big_q(X1) ),
+    inference(split_conjunct,[status(thm)],[satresetcop_cnf_matrix])).
+cnf(satresetcop_matrix_31,plain,
+    ( p_defini_23(X1) | big_q(f_skolem_21(X1)) ),
+    inference(split_conjunct,[status(thm)],[satresetcop_cnf_matrix])).
+cnf(satresetcop_matrix_32,plain,
+    ( p_defini_22(X1) | ~ big_q(f_skolem_21(X1)) ),
+    inference(split_conjunct,[status(thm)],[satresetcop_cnf_matrix])).
+cnf(satresetcop_matrix_33,plain,
+    ( p_defini_22(X1) | big_q(X1) ),
+    inference(split_conjunct,[status(thm)],[satresetcop_cnf_matrix])).
+cnf(satresetcop_matrix_34,plain,
+    ( p_defini_24 | big_p(f_skolem_19) | ~ big_p(f_skolem_20) ),
+    inference(split_conjunct,[status(thm)],[satresetcop_cnf_matrix])).
+cnf(satresetcop_matrix_35,plain,
+    ( p_defini_24 | ~ big_p(X1) | big_p(X2) ),
+    inference(split_conjunct,[status(thm)],[satresetcop_cnf_matrix])).
+cnf(satresetcop_matrix_36,plain,
+    ( p_defini_24 | ~ p_defini_22(X1) | ~ p_defini_23(X1) ),
+    inference(split_conjunct,[status(thm)],[satresetcop_cnf_matrix])).
+cnf(satresetcop_matrix_37,plain,
+    ( p_defini_17 | ~ big_p(X1) ),
+    inference(split_conjunct,[status(thm)],[satresetcop_cnf_matrix])).
+cnf(satresetcop_matrix_38,plain,
+    ( p_defini_17 | big_p(X1) ),
+    inference(split_conjunct,[status(thm)],[satresetcop_cnf_matrix])).
+cnf(satresetcop_matrix_39,plain,
+    ( p_defini_16 | ~ big_p(f_skolem_15) ),
+    inference(split_conjunct,[status(thm)],[satresetcop_cnf_matrix])).
+cnf(satresetcop_matrix_40,plain,
+    ( p_defini_16 | big_p(f_skolem_14) ),
+    inference(split_conjunct,[status(thm)],[satresetcop_cnf_matrix])).
+cnf(satresetcop_matrix_41,plain,
+    ( p_defini_18 | big_q(f_skolem_13) | ~ big_q(X1) ),
+    inference(split_conjunct,[status(thm)],[satresetcop_cnf_matrix])).
+cnf(satresetcop_matrix_42,plain,
+    ( p_defini_18 | ~ big_q(f_skolem_13) | big_q(X1) ),
+    inference(split_conjunct,[status(thm)],[satresetcop_cnf_matrix])).
+cnf(satresetcop_matrix_43,plain,
+    ( p_defini_18 | ~ p_defini_16 | ~ p_defini_17 ),
+    inference(split_conjunct,[status(thm)],[satresetcop_cnf_matrix])).
+cnf(satresetcop_matrix_44,plain,
+    ( p_defini_12 | ~ big_q(X1) ),
+    inference(split_conjunct,[status(thm)],[satresetcop_cnf_matrix])).
+cnf(satresetcop_matrix_45,plain,
+    ( p_defini_12 | big_q(X1) ),
+    inference(split_conjunct,[status(thm)],[satresetcop_cnf_matrix])).
+cnf(satresetcop_matrix_46,plain,
+    ( p_defini_11 | ~ big_q(f_skolem_10) ),
+    inference(split_conjunct,[status(thm)],[satresetcop_cnf_matrix])).
+cnf(satresetcop_matrix_47,plain,
+    ( p_defini_11 | big_q(f_skolem_9) ),
+    inference(split_conjunct,[status(thm)],[satresetcop_cnf_matrix])).
+cnf(satresetcop_matrix_48,plain,
+    ( p_defini_8 | big_p(f_skolem_7) | ~ big_p(X1) ),
+    inference(split_conjunct,[status(thm)],[satresetcop_cnf_matrix])).
+cnf(satresetcop_matrix_49,plain,
+    ( p_defini_8 | ~ big_p(f_skolem_7) | big_p(X1) ),
+    inference(split_conjunct,[status(thm)],[satresetcop_cnf_matrix])).
+cnf(satresetcop_matrix_50,plain,
+    ( p_defini_6 | big_q(f_skolem_4) | ~ big_q(f_skolem_5) ),
+    inference(split_conjunct,[status(thm)],[satresetcop_cnf_matrix])).
+cnf(satresetcop_matrix_51,plain,
+    ( p_defini_6 | ~ big_q(X1) | big_q(X2) ),
+    inference(split_conjunct,[status(thm)],[satresetcop_cnf_matrix])).
+cnf(satresetcop_matrix_52,plain,
+    ( p_defini_3(X1) | ~ big_p(X1) ),
+    inference(split_conjunct,[status(thm)],[satresetcop_cnf_matrix])).
+cnf(satresetcop_matrix_53,plain,
+    ( p_defini_3(X1) | big_p(f_skolem_1(X1)) ),
+    inference(split_conjunct,[status(thm)],[satresetcop_cnf_matrix])).
+cnf(satresetcop_matrix_54,plain,
+    ( p_defini_2(X1) | ~ big_p(f_skolem_1(X1)) ),
+    inference(split_conjunct,[status(thm)],[satresetcop_cnf_matrix])).
+cnf(satresetcop_matrix_55,plain,
+    ( p_defini_2(X1) | big_p(X1) ),
+    inference(split_conjunct,[status(thm)],[satresetcop_cnf_matrix])).
+cnf(satresetcop_matrix_56,plain,
+    ( p_defini_25 | ~ p_defini_12 | ~ p_defini_11 | ~ p_defini_8 ),
+    inference(split_conjunct,[status(thm)],[satresetcop_cnf_matrix])).
+cnf(satresetcop_matrix_57,plain,
+    ( p_defini_25 | ~ p_defini_3(X1) | ~ p_defini_2(X1) | ~ p_defini_6 ),
+    inference(split_conjunct,[status(thm)],[satresetcop_cnf_matrix])).
+cnf(satresetcop_matrix_58,plain,
+    ( p_defini_25 | ~ p_defini_18 | ~ p_defini_24 ),
+    inference(split_conjunct,[status(thm)],[satresetcop_cnf_matrix])).
+cnf(satresetcop_matrix_59,plain,
+    ( ~ p_defini_25 | ~ p_defini_50 ),
+    inference(split_conjunct,[status(thm)],[satresetcop_cnf_matrix])).
+cnf(satresetcop_ground_1,plain,
+    ( p_defini_50 | ~ p_defini_37 | ~ p_defini_36 | ~ p_defini_33 ),
+    inference(instantiate,[status(thm)],[satresetcop_matrix_27])).
+cnf(satresetcop_ground_2,plain,
+    ( p_defini_50 | ~ p_defini_31 | ~ p_defini_28(satresetcop_ground) | ~ p_defini_27(satresetcop_ground) ),
+    inference(instantiate,[status(thm)],[satresetcop_matrix_28])).
+cnf(satresetcop_ground_3,plain,
+    ( p_defini_25 | ~ p_defini_12 | ~ p_defini_11 | ~ p_defini_8 ),
+    inference(instantiate,[status(thm)],[satresetcop_matrix_56])).
+cnf(satresetcop_ground_4,plain,
+    ( p_defini_25 | ~ p_defini_6 | ~ p_defini_3(satresetcop_ground) | ~ p_defini_2(satresetcop_ground) ),
+    inference(instantiate,[status(thm)],[satresetcop_matrix_57])).
+cnf(satresetcop_ground_5,plain,
+    ( p_defini_18 | big_q(f_skolem_13) | ~ big_q(f_skolem_9) ),
+    inference(instantiate,[status(thm)],[satresetcop_matrix_41])).
+cnf(satresetcop_ground_6,plain,
+    ( p_defini_18 | ~ big_q(f_skolem_13) | big_q(f_skolem_10) ),
+    inference(instantiate,[status(thm)],[satresetcop_matrix_42])).
+cnf(satresetcop_ground_7,plain,
+    ( big_p(f_skolem_15) | p_defini_8 | ~ big_p(f_skolem_7) ),
+    inference(instantiate,[status(thm)],[satresetcop_matrix_49])).
+cnf(satresetcop_ground_8,plain,
+    ( p_defini_24 | ~ p_defini_23(f_skolem_21(satresetcop_ground)) | ~ p_defini_22(f_skolem_21(satresetcop_ground)) ),
+    inference(instantiate,[status(thm)],[satresetcop_matrix_36])).
+cnf(satresetcop_ground_9,plain,
+    ( big_p(f_skolem_35) | ~ big_p(f_skolem_34) | p_defini_31 ),
+    inference(instantiate,[status(thm)],[satresetcop_matrix_22])).
+cnf(satresetcop_ground_10,plain,
+    ( p_defini_43 | big_p(f_skolem_38) | ~ big_p(f_skolem_34) ),
+    inference(instantiate,[status(thm)],[satresetcop_matrix_12])).
+cnf(satresetcop_ground_11,plain,
+    ( p_defini_43 | ~ big_p(f_skolem_38) | big_p(f_skolem_35) ),
+    inference(instantiate,[status(thm)],[satresetcop_matrix_13])).
+cnf(satresetcop_ground_12,plain,
+    ( big_q(f_skolem_40) | p_defini_33 | ~ big_q(f_skolem_32) ),
+    inference(instantiate,[status(thm)],[satresetcop_matrix_20])).
+cnf(satresetcop_ground_13,plain,
+    ( big_q(satresetcop_ground) | ~ big_q(f_skolem_32) | p_defini_6 ),
+    inference(instantiate,[status(thm)],[satresetcop_matrix_51])).
+cnf(satresetcop_ground_14,plain,
+    ( p_defini_49 | big_q(satresetcop_ground) | ~ big_q(f_skolem_26(satresetcop_ground)) ),
+    inference(instantiate,[status(thm)],[satresetcop_matrix_6])).
+cnf(satresetcop_ground_15,plain,
+    ( p_defini_49 | ~ big_q(satresetcop_ground) | big_q(f_skolem_26(satresetcop_ground)) ),
+    inference(instantiate,[status(thm)],[satresetcop_matrix_6])).
+cnf(satresetcop_ground_16,plain,
+    ( big_p(satresetcop_ground) | p_defini_8 | ~ big_p(f_skolem_7) ),
+    inference(instantiate,[status(thm)],[satresetcop_matrix_49])).
+cnf(satresetcop_ground_17,plain,
+    ( big_p(satresetcop_ground) | p_defini_24 | ~ big_p(f_skolem_1(satresetcop_ground)) ),
+    inference(instantiate,[status(thm)],[satresetcop_matrix_35])).
+cnf(satresetcop_ground_18,plain,
+    ( big_p(satresetcop_ground) | ~ big_p(f_skolem_46(satresetcop_ground)) | p_defini_31 ),
+    inference(instantiate,[status(thm)],[satresetcop_matrix_22])).
+cnf(satresetcop_ground_19,plain,
+    ( p_defini_50 | ~ p_defini_49 | ~ p_defini_43 ),
+    inference(instantiate,[status(thm)],[satresetcop_matrix_29])).
+cnf(satresetcop_ground_20,plain,
+    ( p_defini_25 | ~ p_defini_24 | ~ p_defini_18 ),
+    inference(instantiate,[status(thm)],[satresetcop_matrix_58])).
+cnf(satresetcop_ground_21,plain,
+    ( ~ p_defini_48(satresetcop_ground) | ~ p_defini_47(satresetcop_ground) | p_defini_49 ),
+    inference(instantiate,[status(thm)],[satresetcop_matrix_7])).
+cnf(satresetcop_ground_22,plain,
+    ( ~ big_p(satresetcop_ground) | p_defini_8 | big_p(f_skolem_7) ),
+    inference(instantiate,[status(thm)],[satresetcop_matrix_48])).
+cnf(satresetcop_ground_23,plain,
+    ( ~ big_p(satresetcop_ground) | p_defini_24 | big_p(f_skolem_1(satresetcop_ground)) ),
+    inference(instantiate,[status(thm)],[satresetcop_matrix_35])).
+cnf(satresetcop_ground_24,plain,
+    ( ~ big_p(satresetcop_ground) | big_p(f_skolem_46(satresetcop_ground)) | p_defini_31 ),
+    inference(instantiate,[status(thm)],[satresetcop_matrix_22])).
+cnf(satresetcop_ground_25,plain,
+    ( ~ big_q(satresetcop_ground) | big_q(f_skolem_10) | p_defini_6 ),
+    inference(instantiate,[status(thm)],[satresetcop_matrix_51])).
+cnf(satresetcop_ground_26,plain,
+    ( ~ big_q(satresetcop_ground) | big_q(f_skolem_21(satresetcop_ground)) | p_defini_6 ),
+    inference(instantiate,[status(thm)],[satresetcop_matrix_51])).
+cnf(satresetcop_ground_27,plain,
+    ( ~ big_q(satresetcop_ground) | big_q(f_skolem_32) | p_defini_6 ),
+    inference(instantiate,[status(thm)],[satresetcop_matrix_51])).
+cnf(satresetcop_ground_28,plain,
+    ( ~ p_defini_42 | ~ p_defini_41 | p_defini_43 ),
+    inference(instantiate,[status(thm)],[satresetcop_matrix_14])).
+cnf(satresetcop_ground_29,plain,
+    ( ~ big_q(f_skolem_39) | p_defini_33 | big_q(f_skolem_32) ),
+    inference(instantiate,[status(thm)],[satresetcop_matrix_19])).
+cnf(satresetcop_ground_30,plain,
+    ( ~ p_defini_23(satresetcop_ground) | ~ p_defini_22(satresetcop_ground) | p_defini_24 ),
+    inference(instantiate,[status(thm)],[satresetcop_matrix_36])).
+cnf(satresetcop_ground_31,plain,
+    ( ~ big_q(f_skolem_21(satresetcop_ground)) | p_defini_6 | big_q(f_skolem_21(f_skolem_21(satresetcop_ground))) ),
+    inference(instantiate,[status(thm)],[satresetcop_matrix_51])).
+cnf(satresetcop_ground_32,plain,
+    ( ~ p_defini_17 | ~ p_defini_16 | p_defini_18 ),
+    inference(instantiate,[status(thm)],[satresetcop_matrix_43])).
+cnf(satresetcop_ground_33,plain,
+    ( ~ big_p(f_skolem_14) | p_defini_8 | big_p(f_skolem_7) ),
+    inference(instantiate,[status(thm)],[satresetcop_matrix_48])).
+cnf(satresetcop_ground_34,plain,
+    ( p_defini_22(f_skolem_21(satresetcop_ground)) | ~ big_q(f_skolem_21(f_skolem_21(satresetcop_ground))) ),
+    inference(instantiate,[status(thm)],[satresetcop_matrix_32])).
+cnf(satresetcop_ground_35,plain,
+    ( p_defini_3(satresetcop_ground) | big_p(f_skolem_1(satresetcop_ground)) ),
+    inference(instantiate,[status(thm)],[satresetcop_matrix_53])).
+cnf(satresetcop_ground_36,plain,
+    ( p_defini_11 | big_q(f_skolem_9) ),
+    inference(instantiate,[status(thm)],[satresetcop_matrix_47])).
+cnf(satresetcop_ground_37,plain,
+    ( p_defini_11 | ~ big_q(f_skolem_10) ),
+    inference(instantiate,[status(thm)],[satresetcop_matrix_46])).
+cnf(satresetcop_ground_38,plain,
+    ( p_defini_16 | big_p(f_skolem_14) ),
+    inference(instantiate,[status(thm)],[satresetcop_matrix_40])).
+cnf(satresetcop_ground_39,plain,
+    ( p_defini_16 | ~ big_p(f_skolem_15) ),
+    inference(instantiate,[status(thm)],[satresetcop_matrix_39])).
+cnf(satresetcop_ground_40,plain,
+    ( p_defini_23(satresetcop_ground) | big_q(f_skolem_21(satresetcop_ground)) ),
+    inference(instantiate,[status(thm)],[satresetcop_matrix_31])).
+cnf(satresetcop_ground_41,plain,
+    ( p_defini_28(satresetcop_ground) | big_q(f_skolem_26(satresetcop_ground)) ),
+    inference(instantiate,[status(thm)],[satresetcop_matrix_24])).
+cnf(satresetcop_ground_42,plain,
+    ( p_defini_36 | big_p(f_skolem_34) ),
+    inference(instantiate,[status(thm)],[satresetcop_matrix_18])).
+cnf(satresetcop_ground_43,plain,
+    ( p_defini_36 | ~ big_p(f_skolem_35) ),
+    inference(instantiate,[status(thm)],[satresetcop_matrix_17])).
+cnf(satresetcop_ground_44,plain,
+    ( p_defini_41 | big_q(f_skolem_39) ),
+    inference(instantiate,[status(thm)],[satresetcop_matrix_11])).
+cnf(satresetcop_ground_45,plain,
+    ( p_defini_41 | ~ big_q(f_skolem_40) ),
+    inference(instantiate,[status(thm)],[satresetcop_matrix_10])).
+cnf(satresetcop_ground_46,plain,
+    ( p_defini_42 | big_q(f_skolem_26(satresetcop_ground)) ),
+    inference(instantiate,[status(thm)],[satresetcop_matrix_9])).
+cnf(satresetcop_ground_47,plain,
+    ( p_defini_42 | ~ big_q(f_skolem_26(satresetcop_ground)) ),
+    inference(instantiate,[status(thm)],[satresetcop_matrix_8])).
+cnf(satresetcop_ground_48,plain,
+    ( big_q(satresetcop_ground) | p_defini_12 ),
+    inference(instantiate,[status(thm)],[satresetcop_matrix_45])).
+cnf(satresetcop_ground_49,plain,
+    ( big_q(satresetcop_ground) | p_defini_22(satresetcop_ground) ),
+    inference(instantiate,[status(thm)],[satresetcop_matrix_33])).
+cnf(satresetcop_ground_50,plain,
+    ( big_q(satresetcop_ground) | p_defini_27(satresetcop_ground) ),
+    inference(instantiate,[status(thm)],[satresetcop_matrix_26])).
+cnf(satresetcop_ground_51,plain,
+    ( big_p(satresetcop_ground) | p_defini_2(satresetcop_ground) ),
+    inference(instantiate,[status(thm)],[satresetcop_matrix_55])).
+cnf(satresetcop_ground_52,plain,
+    ( big_p(satresetcop_ground) | p_defini_17 ),
+    inference(instantiate,[status(thm)],[satresetcop_matrix_38])).
+cnf(satresetcop_ground_53,plain,
+    ( big_p(satresetcop_ground) | p_defini_37 ),
+    inference(instantiate,[status(thm)],[satresetcop_matrix_16])).
+cnf(satresetcop_ground_54,plain,
+    ( big_p(satresetcop_ground) | p_defini_47(satresetcop_ground) ),
+    inference(instantiate,[status(thm)],[satresetcop_matrix_4])).
+cnf(satresetcop_ground_55,plain,
+    ( p_defini_48(satresetcop_ground) | big_p(f_skolem_46(satresetcop_ground)) ),
+    inference(instantiate,[status(thm)],[satresetcop_matrix_2])).
+cnf(satresetcop_ground_56,plain,
+    ( p_defini_48(satresetcop_ground) | ~ big_p(satresetcop_ground) ),
+    inference(instantiate,[status(thm)],[satresetcop_matrix_1])).
+cnf(satresetcop_ground_57,plain,
+    ( ~ p_defini_25 | ~ p_defini_50 ),
+    inference(instantiate,[status(thm)],[satresetcop_matrix_59])).
+cnf(satresetcop_ground_58,plain,
+    ( ~ big_p(satresetcop_ground) | p_defini_3(satresetcop_ground) ),
+    inference(instantiate,[status(thm)],[satresetcop_matrix_52])).
+cnf(satresetcop_ground_59,plain,
+    ( ~ big_p(satresetcop_ground) | p_defini_17 ),
+    inference(instantiate,[status(thm)],[satresetcop_matrix_37])).
+cnf(satresetcop_ground_60,plain,
+    ( ~ big_p(satresetcop_ground) | p_defini_37 ),
+    inference(instantiate,[status(thm)],[satresetcop_matrix_15])).
+cnf(satresetcop_ground_61,plain,
+    ( ~ big_p(f_skolem_46(satresetcop_ground)) | p_defini_47(satresetcop_ground) ),
+    inference(instantiate,[status(thm)],[satresetcop_matrix_3])).
+cnf(satresetcop_ground_62,plain,
+    ( ~ big_q(satresetcop_ground) | p_defini_12 ),
+    inference(instantiate,[status(thm)],[satresetcop_matrix_44])).
+cnf(satresetcop_ground_63,plain,
+    ( ~ big_q(satresetcop_ground) | p_defini_28(satresetcop_ground) ),
+    inference(instantiate,[status(thm)],[satresetcop_matrix_23])).
+cnf(satresetcop_ground_64,plain,
+    ( ~ big_q(f_skolem_26(satresetcop_ground)) | p_defini_27(satresetcop_ground) ),
+    inference(instantiate,[status(thm)],[satresetcop_matrix_25])).
+cnf(satresetcop_ground_65,plain,
+    ( ~ big_q(f_skolem_21(satresetcop_ground)) | p_defini_23(f_skolem_21(satresetcop_ground)) ),
+    inference(instantiate,[status(thm)],[satresetcop_matrix_30])).
+cnf(satresetcop_ground_66,plain,
+    ( ~ big_p(f_skolem_1(satresetcop_ground)) | p_defini_2(satresetcop_ground) ),
+    inference(instantiate,[status(thm)],[satresetcop_matrix_54])).
+cnf(satresetcop_false,plain,
+    $false,
+    inference(sat_refutation,[status(thm)],[satresetcop_ground_1,satresetcop_ground_2,satresetcop_ground_3,satresetcop_ground_4,satresetcop_ground_5,satresetcop_ground_6,satresetcop_ground_7,satresetcop_ground_8,satresetcop_ground_9,satresetcop_ground_10,satresetcop_ground_11,satresetcop_ground_12,satresetcop_ground_13,satresetcop_ground_14,satresetcop_ground_15,satresetcop_ground_16,satresetcop_ground_17,satresetcop_ground_18,satresetcop_ground_19,satresetcop_ground_20,satresetcop_ground_21,satresetcop_ground_22,satresetcop_ground_23,satresetcop_ground_24,satresetcop_ground_25,satresetcop_ground_26,satresetcop_ground_27,satresetcop_ground_28,satresetcop_ground_29,satresetcop_ground_30,satresetcop_ground_31,satresetcop_ground_32,satresetcop_ground_33,satresetcop_ground_34,satresetcop_ground_35,satresetcop_ground_36,satresetcop_ground_37,satresetcop_ground_38,satresetcop_ground_39,satresetcop_ground_40,satresetcop_ground_41,satresetcop_ground_42,satresetcop_ground_43,satresetcop_ground_44,satresetcop_ground_45,satresetcop_ground_46,satresetcop_ground_47,satresetcop_ground_48,satresetcop_ground_49,satresetcop_ground_50,satresetcop_ground_51,satresetcop_ground_52,satresetcop_ground_53,satresetcop_ground_54,satresetcop_ground_55,satresetcop_ground_56,satresetcop_ground_57,satresetcop_ground_58,satresetcop_ground_59,satresetcop_ground_60,satresetcop_ground_61,satresetcop_ground_62,satresetcop_ground_63,satresetcop_ground_64,satresetcop_ground_65,satresetcop_ground_66]),
+    [proof]).
+% SZS output end CNFRefutation for SYN036+1

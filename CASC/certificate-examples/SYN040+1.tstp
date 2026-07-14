@@ -1,0 +1,70 @@
+% SZS status Theorem for SYN040+1
+% SZS output start CNFRefutation for SYN040+1
+fof(satresetcop_input_1,conjecture,
+    ( ( p
+     => q )
+  <=> ( ~ q
+     => ~ p ) ),
+    file('SYN040+1.p',pel1)).
+fof(satresetcop_negated_conjecture_1,negated_conjecture,
+    ~ (( ( p
+     => q )
+  <=> ( ~ q
+     => ~ p ) )),
+    inference(negate,[status(cth)],[satresetcop_input_1])).
+fof(satresetcop_cnf_matrix,plain,
+    ( (( p_defini_2 | q | ~ p ))
+    & (( p_defini_2 | ~ q ))
+    & (( p_defini_2 | p ))
+    & (( p_defini_1 | ~ p | q ))
+    & (( p_defini_1 | p ))
+    & (( p_defini_1 | ~ q ))
+    & (( ~ p_defini_1 | ~ p_defini_2 )) ),
+    inference(clausify,[status(esa),new_symbols(definition,[p_defini_1,p_defini_2])],[satresetcop_negated_conjecture_1])).
+cnf(satresetcop_matrix_1,plain,
+    ( p_defini_2 | q | ~ p ),
+    inference(split_conjunct,[status(thm)],[satresetcop_cnf_matrix])).
+cnf(satresetcop_matrix_2,plain,
+    ( p_defini_2 | ~ q ),
+    inference(split_conjunct,[status(thm)],[satresetcop_cnf_matrix])).
+cnf(satresetcop_matrix_3,plain,
+    ( p_defini_2 | p ),
+    inference(split_conjunct,[status(thm)],[satresetcop_cnf_matrix])).
+cnf(satresetcop_matrix_4,plain,
+    ( p_defini_1 | ~ p | q ),
+    inference(split_conjunct,[status(thm)],[satresetcop_cnf_matrix])).
+cnf(satresetcop_matrix_5,plain,
+    ( p_defini_1 | p ),
+    inference(split_conjunct,[status(thm)],[satresetcop_cnf_matrix])).
+cnf(satresetcop_matrix_6,plain,
+    ( p_defini_1 | ~ q ),
+    inference(split_conjunct,[status(thm)],[satresetcop_cnf_matrix])).
+cnf(satresetcop_matrix_7,plain,
+    ( ~ p_defini_1 | ~ p_defini_2 ),
+    inference(split_conjunct,[status(thm)],[satresetcop_cnf_matrix])).
+cnf(satresetcop_ground_1,plain,
+    ( p_defini_2 | q | ~ p ),
+    inference(instantiate,[status(thm)],[satresetcop_matrix_1])).
+cnf(satresetcop_ground_2,plain,
+    ( p_defini_1 | q | ~ p ),
+    inference(instantiate,[status(thm)],[satresetcop_matrix_4])).
+cnf(satresetcop_ground_3,plain,
+    ( p_defini_2 | p ),
+    inference(instantiate,[status(thm)],[satresetcop_matrix_3])).
+cnf(satresetcop_ground_4,plain,
+    ( p_defini_2 | ~ q ),
+    inference(instantiate,[status(thm)],[satresetcop_matrix_2])).
+cnf(satresetcop_ground_5,plain,
+    ( p_defini_1 | p ),
+    inference(instantiate,[status(thm)],[satresetcop_matrix_5])).
+cnf(satresetcop_ground_6,plain,
+    ( p_defini_1 | ~ q ),
+    inference(instantiate,[status(thm)],[satresetcop_matrix_6])).
+cnf(satresetcop_ground_7,plain,
+    ( ~ p_defini_1 | ~ p_defini_2 ),
+    inference(instantiate,[status(thm)],[satresetcop_matrix_7])).
+cnf(satresetcop_false,plain,
+    $false,
+    inference(sat_refutation,[status(thm)],[satresetcop_ground_1,satresetcop_ground_2,satresetcop_ground_3,satresetcop_ground_4,satresetcop_ground_5,satresetcop_ground_6,satresetcop_ground_7]),
+    [proof]).
+% SZS output end CNFRefutation for SYN040+1

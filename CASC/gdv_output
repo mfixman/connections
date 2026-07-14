@@ -1,0 +1,41 @@
+<!DOCTYPE html
+	PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+	 "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en-US" xml:lang="en-US">
+<head>
+<title>System Results</title>
+<meta name="ROBOTS" content="INDEX,NOFOLLOW" />
+<link href="https://tptp.org/Logos/SoTSTP.png" rel="icon" type="image/png" />
+<script type="text/javascript">//<![CDATA[
+
+  var tstp_dump;
+  function openSoTSTP (dump) {   
+    var tstp_url = 'https://tptp.org/cgi-bin/SystemOnTSTP';
+    var tstp_browser = window.open(tstp_url, '_blank');
+    tstp_dump = dump;
+  }
+  function getTSTPDump () {
+    return tstp_dump;
+  }
+
+//]]></script>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+</head>
+<body>
+
+<PRE>
+GDV---2.0   system information being retrieved
+GDV---2.0's non-default parameters being retrieved
+    -t none
+    -f tptp:raw
+    -x run_GDV %s 60
+GDV---2.0's SOT_IRTJq4 does not need preparation
+GDV---2.0   being executed on SOT_IRTJq4 using /home/tptp/Systems/GDV---2.0/run_GDV '/tmp/Yinq9H_3G6/SOT_IRTJq4' 60
+% 20 wall clock seconds gone, waiting for system output
+% 30 wall clock seconds gone, waiting for system output
+RESULT: SOT_IRTJq4 - GDV---2.0 says VerifiedGood - CPU = 47.77 WC = 32.83 
+OUTPUT: SOT_IRTJq4 - GDV---2.0 says Assurance - CPU = 47.77 WC = 32.83 
+</PRE>
+
+</body>
+</html>

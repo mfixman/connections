@@ -275,3 +275,10 @@ prolog/*
 nohup.out
 
 AGENTS.md
+
+*.nav
+*.snm
+
+*/SATResetCoP*.tar.gz
+*/SATResetCoP*.tgz
+satresetcop/
