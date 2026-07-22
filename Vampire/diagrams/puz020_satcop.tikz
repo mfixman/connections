@@ -3,7 +3,7 @@
 	y=.9cm,
 	every node/.style={font=\scriptsize},
 	clause/.style={draw,rounded corners=1pt,inner xsep=3pt,inner ysep=2pt,align=center},
-	groundbox/.style={draw,rounded corners=2pt,fill=black!3,minimum width=10.2cm,minimum height=2.15cm},
+	groundbox/.style={draw,rounded corners=2pt,fill=black!3,minimum width=10.2cm,minimum height=2.45cm},
 	groundclause/.style={rounded corners=1pt,fill=black!9,inner xsep=3pt,inner ysep=2pt},
 	note/.style={align=center,text width=10.5cm},
 	edge/.style={draw},
@@ -12,39 +12,33 @@
 	visible on/.style={alt={#1{}{invisible}}},
 	active on/.style={alt={#1{fill=yellow!30,very thick}{}}}
 ]
-	\useasboundingbox (-6.3,-4.75) rectangle (6.3,1.15);
-	\node[note] at (0,.9) {%
-		\only<1>{The SAT model prefers the wife/truth clause as a start.}%
-		\only<2>{Its ground instance enters the persistent SAT state.}%
-		\only<3>{The selected wife literal connects to the converse implication.}%
-		\only<4>{That second ground clause is retained.}%
-		\only<5>{The model next selects the husband fact.}%
-		\only<6>{An extension adds the decisive truth/knight instance.}%
-		\only<7>{The negated conjecture supplies the final missing clause.}%
-		\only<8>{The accumulated ground is now UNSAT.}%
-	};
-
-	\node[clause,visible on=<1->,active on=<1>] (wife) at (-3.9,-.75)
+	\useasboundingbox (-6.3,-5.15) rectangle (6.3,1.15);
+	\node[clause,visible on=<1->,active on=<1>] (wife) at (-4,-.55)
 		{$c\bigl(\phi(\eta)\bigr)\lor b(\gamma)$};
-	\node[clause,visible on=<3->,active on=<3>] (wifeclose) at (-3.9,-1.65)
+	\node[clause,visible on=<3->,active on=<3>] (wifeclose) at (-4,-1.5)
 		{$\neg b(\gamma)\lor c\bigl(\phi(\eta)\bigr)$};
-	\node[clause,visible on=<5->,active on=<5>] (aeta) at (.2,-.75) {$a(\eta)$};
-	\node[clause,visible on=<6->,active on=<6>] (rule) at (.2,-1.65)
-		{$\neg a(\eta)\lor\neg c\bigl(\phi(\eta)\bigr)\lor b(\eta)$};
-	\node[clause,visible on=<7->,active on=<7>] (nbeta) at (4.2,-.75) {$\neg b(\eta)$};
+	\node[clause,visible on=<5->,active on=<5>] (aeta) at (.2,-.55) {$a(\eta)$};
+	\node[clause,visible on=<6->,active on=<6>] (failed) at (-1.2,-1.5)
+		{$\neg a(\eta)\lor c\bigl(\phi(\eta)\bigr)$\\$\lor d(\eta)$};
+	\node[clause,visible on=<7->,active on=<7>] (rule) at (1.8,-1.5)
+		{$\neg a(\eta)\lor\neg c\bigl(\phi(\eta)\bigr)$\\$\lor b(\eta)$};
+	\node[clause,visible on=<8->,active on=<8>] (nbeta) at (4.5,-.55) {$\neg b(\eta)$};
 
 	\draw[edge,visible on=<3->] (wife) -- (wifeclose);
-	\draw[edge,visible on=<6->] (aeta) -- (rule);
+	\draw[edge,visible on=<6->] (aeta) -- (failed);
+	\draw[edge,visible on=<7->] (aeta) -- (rule);
 
-	\node[groundbox,active on=<8>] (ground) at (0,-3.5) {};
+	\node[groundbox] (ground) at (0,-3.65) {};
 	\node[note] at (0,-2.62) {persistent SAT ground};
-	\node[groundclause,visible on=<5->,active on=<5>] at (-4.3,-3.12) {$a(\eta)$};
-	\node[groundclause,visible on=<7->,active on=<7>] at (-2.55,-3.12) {$\neg b(\eta)$};
-	\node[groundclause,visible on=<6->,active on=<6>] at (1.25,-3.12)
+	\node[groundclause,visible on=<5->,active on=<5>,active on=<9>] at (-4.65,-3.18) {$a(\eta)$};
+	\node[groundclause,visible on=<8->,active on=<8>,active on=<9>] at (-2.45,-3.18) {$\neg b(\eta)$};
+	\node[groundclause,visible on=<6->,active on=<6>] at (.85,-3.18)
+		{$\neg a(\eta)\lor c\bigl(\phi(\eta)\bigr)\lor d(\eta)$};
+	\node[groundclause,visible on=<7->,active on=<7>,active on=<9>] at (.85,-3.82)
 		{$\neg a(\eta)\lor\neg c\bigl(\phi(\eta)\bigr)\lor b(\eta)$};
-	\node[groundclause,visible on=<2->,active on=<2>] at (-2.25,-3.95)
+	\node[groundclause,visible on=<1->,active on=<1>,active on=<9>] at (-2.85,-4.42)
 		{$c\bigl(\phi(\eta)\bigr)\lor b(\gamma)$};
-	\node[groundclause,visible on=<4->,active on=<4>] at (2.05,-3.95)
+	\node[groundclause,visible on=<3->,active on=<3>,active on=<9>] at (2.55,-4.42)
 		{$\neg b(\gamma)\lor c\bigl(\phi(\eta)\bigr)$};
-	\node[clause,visible on=<8->,active on=<8>] at (4.75,-3.5) {$\bot$};
+	\node[clause,visible on=<9->,active on=<9>] at (5.05,-3.75) {$\bot$};
 \end{tikzpicture}

@@ -1,0 +1,20 @@
+\begin{tikzpicture}[scale=.9,every node/.style={transform shape},
+	clause/.style={draw,rounded corners=2pt,minimum height=20pt,inner xsep=5pt},
+	core/.style={fill=black!16},
+	flow/.style={-{Latex[length=6pt]},thick}
+]
+	\node[clause,core] (leftroot) {$\neg F(g) \vee p$};
+	\node[clause,below=23pt of leftroot] (leftchild) {$F(x_0) \vee \neg p$};
+	\node[clause,below=23pt of leftchild] (leftleaf) {$F(x_1) \vee \neg p$};
+	\draw[flow] (leftroot) -- (leftchild);
+	\draw[flow] (leftchild) -- (leftleaf);
+
+	\node[clause,core,right=142pt of leftroot] (rightroot) {$p \vee F(g)$};
+	\node[clause,core,below=23pt of rightroot] (rightchild) {$\neg p \vee \neg F(a)$};
+	\node[clause,core,below=23pt of rightchild] (rightleaf) {$F(a) \vee \neg p$};
+	\draw[flow] (rightroot) -- (rightchild);
+	\draw[flow] (rightchild) -- (rightleaf);
+
+	\draw[flow,cambridgeorange] (leftroot.east) -- node[midway,above=6pt,text=black,fill=white,inner sep=1pt]{\step{Reset}} (rightroot.west);
+	\node[below=11pt of rightleaf,font=\footnotesize] {UNSAT core reached};
+\end{tikzpicture}

@@ -1,0 +1,23 @@
+\begin{tikzpicture}[scale=.86,every node/.style={transform shape},
+	clause/.style={draw,rounded corners=2pt,minimum height=20pt,inner xsep=5pt},
+	core/.style={fill=black!16},
+	flow/.style={-{Latex[length=6pt]},thick}
+]
+	\node[clause,core] (root) {$\neg F(g) \vee p$};
+	\node[clause,below=23pt of root] (child) {$F(x_0) \vee \neg p$};
+	\node[clause,core,below left=23pt and 17pt of child] (left) {$\neg p \vee \neg F(a)$};
+	\node[clause,below right=23pt and 17pt of child] (right) {$F(x_1) \vee \neg p$};
+	\draw[flow] (root) -- (child);
+	\draw[flow] (child) -- (left);
+	\draw[flow] (child) -- (right);
+
+	\node[draw,rounded corners=2pt,align=left,minimum width=120pt,minimum height=80pt,right=80pt of root] (satstate) {
+		$\neg F(g) \vee p$\\
+		$p \vee F(g)$\\
+		$\neg F(a) \vee \neg p$\\
+		$\neg p \vee F(a)$
+	};
+	\node[above=6pt of satstate] {accumulated SAT state};
+	\draw[flow] (root.east) -- node[midway,above=4pt,font=\footnotesize,fill=white,inner sep=1pt]{ground and retain} (satstate.west);
+	\node[below=6pt of satstate,font=\footnotesize] {UNSAT};
+\end{tikzpicture}

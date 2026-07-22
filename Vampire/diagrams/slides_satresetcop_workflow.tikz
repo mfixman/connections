@@ -1,0 +1,17 @@
+\begin{tikzpicture}[scale=.9,every node/.style={transform shape},
+	node distance=23pt,
+	box/.style={draw,rounded corners=2pt,minimum height=37pt,align=center,inner xsep=8pt},
+	decision/.style={draw,diamond,aspect=2,align=center,inner sep=1pt},
+	flow/.style={-{Latex[length=6pt]},thick}
+]
+	\node[box,fill=black!3] (attempt) {SAT-guided\\tableau attempt};
+	\node[box,fill=black!3,right=of attempt] (clauses) {new ground\\clauses};
+	\node[box,fill=yellow!16,right=of clauses] (solver) {incremental\\SAT solver};
+	\draw[flow] (attempt) -- (clauses);
+	\draw[flow] (clauses) -- (solver);
+	\node[decision,below=20pt of solver] (unsat) {UNSAT?};
+	\draw[flow] (solver) -- (unsat);
+	\draw[flow] (unsat.south) -- node[right,font=\footnotesize]{yes} ++(0,-20pt)
+		node[below,font=\footnotesize]{stop};
+	\draw[flow] (unsat.west) -| node[pos=.25,below,font=\footnotesize]{no: \step{Reset}} (attempt.south);
+\end{tikzpicture}

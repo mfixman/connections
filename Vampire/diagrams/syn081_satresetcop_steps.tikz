@@ -1,0 +1,46 @@
+\begin{tikzpicture}[
+	x=1cm,
+	y=1cm,
+	every node/.style={font=\huge},
+	clause/.style={draw,rounded corners=1pt,inner xsep=4pt,inner ysep=3pt,align=center},
+	groundbox/.style={draw,rounded corners=2pt,fill=black!3,minimum width=19.4cm,minimum height=3.55cm},
+	groundclause/.style={rounded corners=1pt,fill=black!9,inner xsep=4pt,inner ysep=3pt},
+	note/.style={align=center,text width=19cm},
+	edge/.style={draw},
+	invisible/.style={opacity=0,text opacity=0},
+	alt/.code args={<#1>#2#3}{\alt<#1>{\pgfkeysalso{#2}}{\pgfkeysalso{#3}}},
+	visible on/.style={alt={#1{}{invisible}}},
+	active on/.style={alt={#1{fill=yellow!30,very thick}{}}}
+]
+	% SYN081 notation is deliberately disjoint from the PUZ example.
+	\renewcommand{\phi}{\psi}
+	\renewcommand{\eta}{\kappa}
+	\useasboundingbox (-10.5,-7) rectangle (10.5,1);
+
+	% The separation between the two tableaux represents the reset.  There is
+	% deliberately no reset arrow: only the lower SAT ground persists.
+	\node[clause,visible on=<1->,active on=<1>] (a1root) at (-5.25,.25)
+		{$\neg p(\phi(\eta))\lor p(\phi(\phi(\eta)))$};
+	\node[clause,visible on=<2->,active on=<2>] (a1child) at (-5.25,-1.15)
+		{$p(\phi(\eta))\lor\neg p(\eta)$};
+	\draw[edge,visible on=<2->] (a1root) -- (a1child);
+
+	\node[clause,visible on=<3->,active on=<3>] (a2root) at (5.25,.25)
+		{$\neg p(\phi(\eta))\lor\neg p(\phi(\phi(\eta)))$};
+	\node[clause,visible on=<4->,active on=<4>] (a2child) at (5.25,-1.15)
+		{$p(\phi(\eta))\lor p(\eta)$};
+	\draw[edge,visible on=<4->] (a2root) -- (a2child);
+
+	% SATResetCoP adds exactly these four distinct ground clauses on this run.
+	\node[groundbox] (ground) at (0,-5.10) {};
+	\node[note] at (0,-3.55) {persistent SAT ground};
+	\node[groundclause,visible on=<1->,active on=<1>,active on=<5>] at (-5.00,-4.35)
+		{$\neg p(\phi(\eta))\lor p(\phi(\phi(\eta)))$};
+	\node[groundclause,visible on=<2->,active on=<2>,active on=<5>] at (5.00,-4.35)
+		{$p(\phi(\eta))\lor\neg p(\eta)$};
+	\node[groundclause,visible on=<3->,active on=<3>,active on=<5>] at (-5.00,-5.60)
+		{$\neg p(\phi(\eta))\lor\neg p(\phi(\phi(\eta)))$};
+	\node[groundclause,visible on=<4->,active on=<4>,active on=<5>] at (5.00,-5.60)
+		{$p(\phi(\eta))\lor p(\eta)$};
+	\node[clause,visible on=<5->,active on=<5>] at (8.85,-6.10) {$\bot$};
+\end{tikzpicture}

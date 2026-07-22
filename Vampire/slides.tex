@@ -16,9 +16,15 @@
 \usepackage{booktabs}
 \usepackage{graphbox}
 \usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{multicol}
+\usepackage{lmodern}
 \usepackage{tikz}
+\usepackage{xurl}
 
 \usetikzlibrary{arrows.meta,positioning,shapes.geometric}
+% \usetikzlibrary{external}
+% \tikzexternalize[prefix=cache/]
 
 \usetheme{CambridgeUK}
 
@@ -56,35 +62,65 @@
 
 \graphicspath{{.}{./figures/}}
 
-\newcommand{\cop}[1]{\textsf{#1}}
-\newcommand{\step}[1]{\textsf{#1}}
+\newcommand{\semibold}[1]{\textbf{#1}}
+\newcommand{\cop}[1]{\semibold{#1}}
+\newcommand{\copcon}[1]{\semibold{#1\textsuperscript{con}}}
+\newcommand{\pcopcon}[1]{\semibold{#1\phantom{\textsuperscript{con}}}}
+\newcommand{\step}[1]{\semibold{#1}}
+\newcommand{\leantap}{\cop{leanTAP}}
 \newcommand{\leancop}{\cop{leanCoP}}
 \newcommand{\satcop}{\cop{SATCoP}}
+\newcommand{\satcopz}{\cop{SATCoP\textsubscript{0}}}
+\newcommand{\satresetcop}{\cop{SATResetCoP}}
+\newcommand{\leantapcon}{\copcon{leanTAP}}
+\newcommand{\leancopcon}{\copcon{leanCoP}}
+\newcommand{\satcopcon}{\copcon{SATCoP}}
+\newcommand{\satcopzcon}{\copcon{SATCoP\textsubscript{0}}}
+\newcommand{\satresetcopcon}{\copcon{SATResetCoP}}
+\newcommand{\pleantap}{\pcopcon{leanTAP}}
+\newcommand{\pleancop}{\pcopcon{leanCoP}}
+\newcommand{\psatcop}{\pcopcon{SATCoP}}
+\newcommand{\psatcopz}{\pcopcon{SATCoP\textsubscript{0}}}
+\newcommand{\psatresetcop}{\pcopcon{SATResetCoP}}
+
 \newcommand{\citelogo}{\includegraphics[width=5pt,align=c]{cite_logo.png}}
-\DeclareFieldFormat{slidecitetitle}{\mkbibemph{#1}}
+\DeclareFieldFormat{slidecitetitle}{%
+	\usebeamercolor[fg]{bibliography entry title}\mkbibemph{#1}}
 \newbibmacro*{slidecite:collection}{%
-	\iffieldundef{booktitle}
-		{\printfield{journaltitle}}
-		{\printfield{booktitle}}%
-	\iffieldundef{series}{}{\setunit{\addcomma\space}\printfield{series}}%
-	\iffieldundef{volume}{}{\setunit{\addspace}\printfield{volume}}%
-	\iffieldundef{number}{}{\printtext[parens]{\printfield{number}}}%
+	\ifentrytype{book}
+		{\printlist{location}%
+		 \iflistundef{publisher}{}{\setunit{\addcolon\space}\printlist{publisher}}}
+		{\iffieldundef{booktitle}
+			{\printfield{journaltitle}}
+			{\printfield{booktitle}}%
+		 \iffieldundef{series}{}{\setunit{\addcomma\space}\printfield{series}}%
+		 \iffieldundef{volume}{}{\setunit{\addspace}\printfield{volume}}%
+		 \iffieldundef{number}{}{\printtext[parens]{\printfield{number}}}}%
 }
 \DeclareCiteCommand{\slidecite}
 	{}
-	{\printnames{labelname}%
-	 \setunit{\addspace}\printtext[parens]{\printfield{year}}%
+	{{\usebeamercolor[fg]{bibliography entry author}%
+	  \printnames{labelname}%
+	  \setunit{\addspace}\printtext[parens]{\printfield{year}}}%
 	 \setunit{\addcolon\space}\printfield[slidecitetitle]{title}%
-	 \setunit{\addperiod\space}\usebibmacro{slidecite:collection}}
-	{\addsemicolon\space}
+	 \iffieldundef{subtitle}{}{\setunit{\addcolon\space}\printfield[slidecitetitle]{subtitle}}%
+	 \setunit{\addperiod\space}%
+	 {\usebeamercolor[fg]{bibliography entry location}%
+	  \usebibmacro{slidecite:collection}}}
+	{\par}
 	{}
 \newcommand{\insertframesources}{}
 \AtBeginEnvironment{frame}{\gdef\insertframesources{}}
 \newcommand{\sourcecite}[1]{%
 	\gdef\insertframesources{%
+		\hrule
+		\vspace{5pt}
 		\citelogo\hspace{2pt}%
-		\parbox[b]{\dimexpr\paperwidth-5em-2pt\relax}{%
-			\raggedright\color{black!55}\fontsize{5}{6}\selectfont\slidecite{#1}}}%
+		\parbox[c]{\dimexpr\paperwidth-5em-2pt\relax}{%
+			\raggedright\color{black!55}\tiny\slidecite{#1}%
+		}%
+		\vspace{5pt}
+	}%
 }
 \setbeamertemplate{footline}{%
 	\leavevmode
@@ -114,7 +150,7 @@
 
 \section{Progress in Connection Provers}
 
-\begin{frame}{Base Problem}
+\begin{frame}{Knights and Knaves}
 	\begin{center}
 		\includegraphics[height=100pt]{knights_knaves_small.jpg}
 	\end{center}
@@ -131,9 +167,10 @@
 		\item If the wife is a knight, then the husband's statement is true.
 		\item If the husband is a knight, then his wife is a knight
 	\end{enumerate}
+	\sourcecite{Smullyan78}
 \end{frame}
 
-\begin{frame}{Base Problem}
+\begin{frame}{Knights and Knaves}
 	\begin{center}
 		\Large\texttt{PUZ020-1.p}
 	\end{center}
@@ -148,66 +185,383 @@
 	\end{gather}
 	}
 
-	\small
-	\begin{columns}[T,onlytextwidth]
-		\column{.48\textwidth}
-		$ a(A) $: $A$ is a person. \\
-		$ b(A) $: $A$ is a knight. \\
-		$ c(B) $: $B$ is a true statement. \\
-		$ d(A) $: $A$ is a knave.
-
-		\column{.48\textwidth}
-		$ e(A,B) $: $A$ says statement $B$. \\
-		$ \phi(A) $: statement $\phi$ made by $A$. \\
-		$ \eta $: the husband. \\
-		$ \gamma $: the wife.
-	\end{columns}
+	\begin{multicols}{2}
+		\begin{description}
+			\item[$a(A)$] $A$ is a person.
+			\item[$b(A)$] $A$ is a knight.
+			\item[$c(B)$] $B$ is a true statement.
+			\item[$d(A)$] $A$ is a knave.
+			\item[$e(A,B)$] $A$ says statement $B$.
+			\item[$\phi(A)$] statement $\phi$ by $A$.
+			\item[$\eta$] the husband.
+			\item[$\gamma$] the wife.
+		\end{description}
+	\end{multicols}
+	\sourcecite{Smullyan78,tptp}
 \end{frame}
 
-\begin{frame}{PyCoP / LeanTAP Solution}
+\begin{frame}{Connection Provers (LeanTAP)}
 	\centering
+	{\huge \leantap}
+
+	\vspace{10pt}
 	\input{diagrams/puz020_pycop.tikz}
+	\uncover<9->{\makebox[\linewidth][c]{\large total steps: 2,563}\par}
+	\sourcecite{leantap}
 \end{frame}
 
-\begin{frame}{LeanCoP-style provers}
+\begin{frame}{Proves with Cut \leancop}
 	\centering
+	{\huge \leancop}
+
+	\vspace{10pt}
 	\input{diagrams/puz020_leancop.tikz}
+	\uncover<10->{\makebox[\linewidth][c]{\large total steps: 241}\par}
+	\sourcecite{leancop,leancopcut}
 \end{frame}
 
-\begin{frame}{SATCoP\_0}
+\begin{frame}{Propositional SAT shadow \satcop}
 	\centering
+	{\huge \satcop}
+
+	% \vspace{10pt}
 	\input{diagrams/puz020_satcop_0.tikz}
+	% Comparable PUZ020 runs for SATCoP_0 and SATCoP use random_seed=807.
+	\uncover<9->{\makebox[\linewidth][c]{\large total steps: 93}\par}
+	\sourcecite{satcop}
+\end{frame}
+
+\begin{frame}{Further Improvements to SATCoP}
+	\begin{itemize}
+		\item \satcopz{} uses the SAT solver to check whether the ground clauses are inconsistent.
+		\item \satcop{} also looks at the current SAT model.
+		\item When choosing the next connection, it tries a goal that is true in that model. If the model gives no preference, it keeps the shuffled order.
+	\end{itemize}
+	\sourcecite{satcop}
+\end{frame}
+
+\begin{frame}{Improved SATCoP}
+	\centering
+	{\huge \satcop}
+
+	\vspace{10pt}
+	\input{diagrams/puz020_satcop.tikz}
+	\uncover<9->{\makebox[\linewidth][c]{\large total steps: 75}\par}
+	\sourcecite{satcop}
+\end{frame}
+
+\begin{frame}{Why is SATCoP so good?}
+	\begin{columns}[T,onlytextwidth]
+		\column{.47\textwidth}
+		\centering
+		{\Large\bfseries Connection tableau}
+
+		\vspace{6pt}
+		Performs goal-directed search for relevant ground instances.
+
+		\column{.06\textwidth}
+		\centering
+		\vspace{28pt}
+		{\Large$+$}
+
+		\column{.47\textwidth}
+		\centering
+		{\Large\bfseries Persistent SAT solver}
+
+		\vspace{6pt}
+		Retains those instances and detects propositional \textbf{UNSAT}.
+	\end{columns}
+
+	\vfill
+	\begin{beamercolorbox}[rounded=true,sep=8pt,center]{block body}
+		\Large A failed tableau can still contribute to the proof.
+	\end{beamercolorbox}
+\end{frame}
+
+\section{SATResetCoP}
+\begin{frame}{SATResetCoP}
+	\begin{itemize}
+		\item Keep newly generated ground clauses.
+		\item \step{Reset} the tableau instead of locally backtracking.
+		\item Increase the depth only when an attempt produces nothing new.
+	\end{itemize}
+
+	\vfill
+	\begin{beamercolorbox}[rounded=true,sep=7pt,center]{block body}
+		SAT refutations remain \textbf{sound}; the reset search is \textbf{incomplete}.
+	\end{beamercolorbox}
+\end{frame}
+
+\begin{frame}{SATResetCoP}
+	\centering
+	{\Huge \satresetcop}
+	\input{diagrams/puz020_satresetcop.tikz}
+	\uncover<6->{\makebox[\linewidth][c]{\large total steps: 10}\par}
+\end{frame}
+
+\begin{frame}{Pelletier 59}
+	\begin{center}
+		\Large\texttt{SYN081-1.p}
+	\end{center}
+
+	{\large
+	\begin{gather}
+		\neg p(X) \lor \neg p(\psi(X)) \notag\\
+		p(\psi(X)) \lor p(X) \notag\\
+		\neg p(X) \lor p(\psi(X)) \notag
+	\end{gather}
+	}
+
+	\begin{description}
+		\item[$p(X)$] an arbitrary unary atom.
+		\item[$\psi(X)$] an arbitrary unary function.
+		\item[$X$] a variable, universally quantified in every clause.
+		\item[$\kappa$] the fresh constant used to ground clauses for the SAT shadow.
+	\end{description}
+	\sourcecite{Pelletier86}
 \end{frame}
 
 \begin{frame}{SATCoP}
 	\centering
-	\input{diagrams/puz020_satcop.tikz}
+	{\huge \satcop}
+
+	\resizebox{\textwidth}{!}{\input{diagrams/syn081_satcop_steps.tikz}}
+	\uncover<15->{\makebox[\linewidth][c]{\large total steps: 24}\par}
+	\sourcecite{satcop}
 \end{frame}
 
 \begin{frame}{SATResetCoP}
 	\centering
-	\input{diagrams/puz020_satresetcop.tikz}
+	{\Huge \satresetcop}
+
+	\vspace{4pt}
+	\resizebox{\textwidth}{!}{\input{diagrams/syn081_satresetcop_steps.tikz}}
+	\uncover<5->{\makebox[\linewidth][c]{\large total steps: 5}\par}
 \end{frame}
 
-\begin{frame}{Why is SATCoP so good?}
+\section{Evaluation}
+\begin{frame}{Experimental Evaluation}
+	\centering
+	\setlength{\tabcolsep}{3pt}
+	\renewcommand{\arraystretch}{1.25}
+	\small
+	\begin{tabular}{llcccc}
+		\toprule
+		\footnotesize Strategy & \footnotesize Implementation & \footnotesize Cut & \footnotesize SAT refutation & \footnotesize SAT guidance & \footnotesize \step{Reset} on \step{backtrack} \\
+		\midrule
+		\alt<1>{\pleancop{}}{\leancopcon{}}         & \alt<1>{Prolog}{Python} & \checkmark &            &            & \\
+		\alt<1>{\psatcopz{}}{\satcopzcon{}}         & \alt<1>{Rust}{Python}   & \checkmark & \checkmark &            & \\
+		\alt<1>{\psatcop{}}{\satcopcon{}}           & \alt<1>{Rust}{Python}   & \checkmark & \checkmark & \checkmark & \\
+		\alt<1>{\psatresetcop{}}{\satresetcopcon{}} & Python                  & \checkmark & \checkmark & \checkmark & \checkmark \\
+		\bottomrule
+	\end{tabular}
+	\pause
 \end{frame}
 
-\begin{frame}{Further Improvements to SATCoP}
+\begin{frame}{Experimental Evaluation}
+	\begin{columns}[T,onlytextwidth]
+		\column{.57\textwidth}
+		{\large\bfseries Connections Library}\par
+		\vspace{4pt}
+		Connections is a Python library for building connection-tableau provers.
+		It supplies representation of connection tableaus.
+
+		We implement \leancopcon{}, \satcopzcon{}, \satcopcon{}, and
+		\satresetcop{} as different policies over this same backend.
+
+		\textbf{CaDiCaL 2.0}\par
+		All SAT-based policies use the same incremental solver to retain and test
+		the accumulated ground clauses.
+
+		\column{.4\textwidth}
+		{\large\bfseries Cambridge CSD3}\par
+		\vspace{4pt}
+		\textbf{Ice Lake node}\par
+		Intel Xeon Platinum 8368Q at 2.60\,GHz
+		\begin{itemize}
+			\item dual socket, 38 cores each
+			\item one hardware thread per core
+			\item 3,370\,MiB RAM per core
+			\item each run uses one core
+		\end{itemize}
+	\end{columns}
+	\sourcecite{connections_2023,cadical20,cambridge_csd3}
 \end{frame}
 
-\section{SATResetCoP}
-\begin{frame}{What if we stop doing regular tableau guidance?}
+\begin{frame}{Results}
+	\centering
+	{\large\textbf{Limits:}
+	\textcolor{cambridgeorange}{\textbf{120 seconds}} or
+	\textcolor{cambridgeorange}{\textbf{1,000,000 steps}} per problem}
+	\vspace{5pt}
+
+	\begin{columns}[c,onlytextwidth]
+		\column{.61\textwidth}
+		\centering
+		\textbf{TPTP problems solved}\par
+		\vspace{7pt}
+		\begin{tikzpicture}[x=.85cm,y=.78cm]
+			\node[anchor=e] at (0,3.3) {\leancopcon};
+			\fill[cambridgelightblue] (0,3) rectangle (2.40,3.6);
+			\node[anchor=west] at (2.48,3.3) {1,923};
+
+			\node[anchor=e] at (0,2.3) {\satcopzcon};
+			\fill[black!25] (0,2) rectangle (2.33,2.6);
+			\node[anchor=west] at (2.41,2.3) {1,871};
+
+			\node[anchor=e] at (0,1.3) {\satcopcon};
+			\fill[cambridgeblue] (0,1) rectangle (3.13,1.6);
+			\node[anchor=west] at (3.21,1.3) {2,509};
+
+			\node[anchor=e] at (0,.3) {\satresetcop};
+			\fill[cambridgeorange] (0,0) rectangle (3.70,.6);
+			\node[anchor=west,font=\bfseries] at (3.78,.3) {2,971};
+		\end{tikzpicture}
+
+		\column{.35\textwidth}
+		\centering
+		{\color{cambridgeorange}\fontsize{27}{28}\selectfont\bfseries 2,971}\par
+		\vspace{-2pt}
+		problems solved
+
+		\vspace{8pt}
+		{\Large\bfseries +462}\par
+		vs. \satcop{} \textbf{(+18\%)}
+
+		\vspace{5pt}
+		{\Large\bfseries +1,048}\par
+		vs. \leancop{} \textbf{(+54\%)}
+	\end{columns}
+
+	\vfill
+	\begin{beamercolorbox}[rounded=true,sep=5pt,center]{block body}
+		\textbf{Aggressive resets solve 18\% more TPTP problems than the best \satcop{} baseline.}
+	\end{beamercolorbox}
+	\sourcecite{tptp}
 \end{frame}
 
-\begin{frame}{SATResetCoP}
+\begin{frame}{Faster Proving = More Proofs}
+	\centering
+	\begin{columns}[T,onlytextwidth]
+		\column{.49\textwidth}
+		\centering
+		\textbf{Solved by wall-clock time}\par
+		\vspace{2pt}
+		\includegraphics[height=.60\textheight]{strategy_solved_time_plot.png}
+
+		\column{.49\textwidth}
+		\centering
+		\textbf{Solved by tableau steps}\par
+		\vspace{2pt}
+		\includegraphics[height=.60\textheight]{strategy_solved_steps_plot.png}
+	\end{columns}
+
+	\vfill
+	\textbf{Resetting reaches more SAT refutations with less tableau search.}\par
+	{\scriptsize A 0-step proof means that the initial ground clause set was already propositionally unsatisfiable.}
 \end{frame}
 
-\section{Results}
-\begin{frame}{General Results}
+\begin{frame}{Resets Change the Search}
+	\centering
+	\includegraphics[height=.66\textheight]{solved_heatmap.png}
+
+	\vfill
+	\begin{beamercolorbox}[rounded=true,sep=5pt,center]{block body}
+		Aggressive resets explore a different part of the search space---a schedule should retain both modes.
+	\end{beamercolorbox}
+\end{frame}
+
+\begin{frame}{Where \step{Reset} Helps}
+	\begin{columns}[T,onlytextwidth]
+		\column{.55\textwidth}
+		\centering
+		\textbf{Top five absolute gains over \satcop{}}\par
+		\vspace{3pt}
+		{\small
+		\setlength{\tabcolsep}{5pt}
+		\renewcommand{\arraystretch}{1.15}
+		\begin{tabular}{lrrr}
+			\toprule
+			& \satcop{} & \satresetcop{} & Gain \\
+			\midrule
+			SYN & 549 & 672 & \textbf{+123} \\
+			SWC & 11  & 64  & \textbf{+53} \\
+			SWV & 173 & 215 & \textbf{+42} \\
+			GEO & 260 & 293 & \textbf{+33} \\
+			NUM & 151 & 179 & \textbf{+28} \\
+			\bottomrule
+		\end{tabular}
+		}
+
+		\column{.40\textwidth}
+		Useful ground instances appear early, so retained
+		clauses reach propositional \textbf{UNSAT} before local tableau search pays off.
+	\end{columns}
+
+	\vfill
+	\includegraphics[width=.96\textwidth]{violinplots.png}
+	\vspace{-3pt}
+	{\scriptsize Step distributions on the five categories above; unsolved problems are placed in $\geq 10$k.}
+\end{frame}
+
+
+\section{Takeaways}
+\begin{frame}{Takeaways}
+	\centering
+	{\LARGE\bfseries Keep the clauses, \step{reset} the tree.}
+
+	\vfill
+	\raggedright
+	\begin{itemize}
+		\item Aggressive resets help, but change which problems are solved.
+		\item Schedule \step{Reset} search before conventional \satcop{} or \leancop{} search.
+
+		\pause
+		\item {\large\textbf{Try this at CASC this Monday!}}
+	\end{itemize}
+	\sourcecite{mangla2022a,cadical20}
+\end{frame}
+
+
+\section{Acknowledgements}
+\begin{frame}{Acknowledgements}
+Thanks to Fredrik Rømming for his prior work on the Connections Prover\sourcecite{connections_2023}.
+
+This work was performed using resources provided by the Cambridge Service for Data Driven Discovery (CSD3) operated by the University of Cambridge Research Computing Service (\url{https://www.csd3.cam.ac.uk}), provided by Dell EMC and Intel using Tier-2 funding from the Engineering and Physical Sciences Research Council (capital grant EP/T022159/1), and DiRAC funding from the Science and Technology Facilities Council (\url{https://www.dirac.ac.uk}).
 \end{frame}
 
 \section{References}
 \begin{frame}{References}
+	\tiny
+	\begin{columns}[T,onlytextwidth]
+		\column{.48\textwidth}
+		\begin{itemize}\setlength{\itemsep}{4pt}
+			\refentry{Smullyan78}
+			\refentry{Pelletier86}
+			\refentry{leantap}
+			\refentry{leancop}
+			\refentry{leancopcut}
+			\refentry{satcop}
+		\end{itemize}
+
+		\column{.48\textwidth}
+		\begin{itemize}\setlength{\itemsep}{4pt}
+			\refentry{connections_2023}
+			\refentry{cadical20}
+			\refentry{mangla2022a}
+			\refentry{tptp}
+			\refentry{cambridge_csd3}
+		\end{itemize}
+	\end{columns}
+\end{frame}
+
+\section{Questions}
+\begin{frame}{{}}
+	\centering
+	\Huge
+	\bfseries
+
+	Any questions?
 \end{frame}
 	
 \end{document}

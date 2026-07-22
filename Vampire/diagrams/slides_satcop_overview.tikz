@@ -1,0 +1,12 @@
+\begin{tikzpicture}[scale=.9,every node/.style={transform shape},
+	node distance=26pt,
+	box/.style={draw,rounded corners=2pt,minimum height=37pt,align=center,inner xsep=7pt},
+	flow/.style={-{Latex[length=6pt]},thick}
+]
+	\node[box,fill=black!3] (tab) {active\\tableau};
+	\node[box,fill=black!3,right=of tab] (ground) {ground clause\\instances};
+	\node[box,fill=yellow!16,right=of ground] (sat) {incremental\\SAT solver};
+	\draw[flow] (tab) -- node[above,font=\scriptsize]{ground} (ground);
+	\draw[flow] (ground) -- node[above,font=\scriptsize]{add} (sat);
+	\draw[flow] (sat.south) -- ++(0,-20pt) -| node[pos=.25,below,font=\scriptsize]{current SAT model guides choices} (tab.south);
+\end{tikzpicture}

@@ -1,0 +1,16 @@
+\begin{tikzpicture}[scale=.9,every node/.style={transform shape},
+	clause/.style={draw,rounded corners=2pt,minimum height=20pt,inner xsep=6pt},
+	label/.style={font=\scriptsize,align=center},
+	flow/.style={-{Latex[length=6pt]},thick}
+]
+	\node[clause,fill=black!4] (start) {$F(a) \vee p$};
+	\node[label,above=3pt of start] {\step{Start}};
+	\node[clause,below left=26pt and 43pt of start] (extone) {$\neg F(a) \vee p$};
+	\node[clause,below=26pt of extone,fill=black!18] (exttwo) {$\neg p \vee \neg F(a)$};
+	\node[clause,below right=26pt and 43pt of start] (next) {$\neg F(a) \vee \neg p$};
+	\draw[flow] (start) -- node[label,left] {\step{Extension}} (extone);
+	\draw[flow] (extone) -- node[label,left] {\step{Extension}} (exttwo);
+	\draw[flow] (start) -- node[label,right] {\step{Extension}} (next);
+	\node[label,below=11pt of next] {\step{Reduction}\\closes against the path};
+	\draw[flow,dashed] (exttwo.east) .. controls +(57pt,0) and +(0,-23pt) .. (start.east);
+\end{tikzpicture}

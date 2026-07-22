@@ -1,0 +1,74 @@
+\newcommand{\satdistance}{-160pt}
+\newcommand{\dist}{65pt}
+\newcommand{\lat}{10pt}
+\newcommand{\bet}{5pt}
+
+\begin{tikzpicture}[
+  attempt/.style = {
+    every node/.style = {
+      draw,
+      rounded corners=1pt,
+      inner xsep=3pt,
+      inner ysep=2pt,
+      font=\footnotesize
+    },
+    level distance=40pt,
+    sibling distance=40pt,
+    level 2/.style={sibling distance=63pt},
+    edge from parent/.style={draw, -}
+  },
+  start/.style={},
+  goal/.style={fill=black!40},
+  bt/.style={edge from parent/.style={draw, dash pattern=on 2pt off 1pt on .5pt off 1pt}},
+  title/.style={draw=none, font=\normalsize\bfseries},
+  edgelabel/.style={draw=none, fill=none, font=\tiny}
+]
+\useasboundingbox (-85pt,-122pt) rectangle (407pt,11pt);
+
+\begin{scope}[attempt]
+  \node[title] {\step{Start}};
+	\node[start] at (0pt, -28pt) {$F(Y) \vee p$};
+\end{scope}
+
+\begin{scope}[xshift={1*\dist}, attempt]
+  \node[title] {\step{Extension}};
+	\node[start] at (0pt, -28pt) {$F(Y) \vee p$}
+	child[xshift={-\lat}] {
+		node {$ \neg F(X) \vee p $}
+		edge from parent node[edgelabel, right] {$ \sigma_0 = \{ X \leftarrow Y \} $}
+	};
+\end{scope}
+
+\begin{scope}[xshift={2*\dist}, attempt]
+  \node[title] {\step{Extension}};
+	\node[start] at (0pt, -28pt) {$F(Y) \vee p$}
+		child[xshift={-\lat}] { node {$ \neg F(X) \vee p $}
+		child {
+			node {$\neg p \vee \neg F(a)$}
+			edge from parent node[edgelabel, right] {$ \sigma_1 = \sigma_0 $}
+		}
+		edge from parent node[edgelabel, right] {$ \sigma_0 = \{ X \leftarrow Y \} $}
+	};
+\end{scope}
+
+\begin{scope}[xshift={3*\dist}, attempt]
+  \node[title] {\step{Reduction}};
+	\node[start,label={[edgelabel,font=\tiny,xshift=-7pt]300:$ \sigma_2 = \left\{ \begin{gathered} X \leftarrow a \\ Y \leftarrow a \end{gathered} \right\} $}] at (0pt, -28pt) {$F(a) \vee p$}
+		child[xshift={-\lat}] { node[goal] {$ \neg F(a) \vee p $}
+		child { node[goal] {$\neg p \vee \neg F(a)$} }
+	};
+\end{scope}
+
+\begin{scope}[xshift={4.25*\dist}, attempt]
+  \node[title] {\step{Extension}};
+	\node[start,label={[edgelabel,font=\tiny,xshift=10pt]300:$ \sigma_2 = \left\{ \begin{gathered} X \leftarrow a \\ Y \leftarrow a \end{gathered} \right\} $}] at (0pt, -28pt) {$F(a) \vee p$}
+		child[xshift={-\lat}] {
+			node[goal] {$ \neg F(a) \vee p $}
+			child { node[goal] {$\neg p \vee \neg F(a)$} }
+		}
+		child[xshift={\lat}] {
+			node {$ \neg F(a) \vee \neg p $}
+		};
+\end{scope}
+
+\end{tikzpicture}

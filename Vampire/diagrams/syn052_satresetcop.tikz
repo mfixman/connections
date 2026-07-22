@@ -1,0 +1,38 @@
+\begin{tikzpicture}[
+  attempt/.style = {
+    every node/.style = {
+      draw,
+      rounded corners=1pt,
+      inner xsep=3pt,
+      inner ysep=2pt,
+      font=\normalsize
+    },
+    level distance=23pt,
+    sibling distance=80pt,
+    level 2/.style={sibling distance=57pt},
+    edge from parent/.style={draw, -}
+  },
+  start/.style={},
+  core/.style={fill=black!6},
+  bt/.style={draw, dash pattern=on 2pt off 1pt on .5pt off 1pt},
+  label/.style={draw=none, font=\large\itshape}
+]
+\useasboundingbox (-91pt,-108pt) rectangle (449pt,23pt);
+
+\begin{scope}[xshift=57pt, attempt]
+  \node[start, core] {$\neg F(g) \vee p$}
+    child { node {$F(x_0) \vee \neg p$}
+      child { node {$F(x_1) \vee \neg p$} }
+    };
+\end{scope}
+
+\begin{scope}[xshift=285pt, attempt]
+  \node[start, core] {$p \vee \neg F(g)$}
+    child { node[core] {$\neg p \vee \neg F(a)$}
+      child { node[core] {$F(a) \vee \neg p$} }
+    };
+\end{scope}
+
+\node[label, align=center] at (179pt,-91pt)
+  {UNSAT core:\\$\{\neg F(g) \vee p,\ F(g) \vee p,\ \neg p \vee \neg F(a),\ F(a) \vee \neg p\}$};
+\end{tikzpicture}
