@@ -282,3 +282,5 @@ AGENTS.md
 */SATResetCoP*.tar.gz
 */SATResetCoP*.tgz
 satresetcop/
+outputs/
+old/
