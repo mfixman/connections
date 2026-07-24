@@ -292,6 +292,24 @@
 	\end{beamercolorbox}
 \end{frame}
 
+
+\begin{frame}{SATResetCoP}
+	\begin{beamercolorbox}[rounded=true,sep=7pt,center]{block body}
+		Our objective is to \textbf{saturate the SAT shadow}.
+	\end{beamercolorbox}
+
+	\pause
+	\vfill
+
+	We borrow the iterative deepening from leanCoP 2.0.
+	\begin{itemize}
+		\item New SAT propositional entries on this tree? Keep the same height.
+		\item No new SAT propositional entries? \texttt{max\_height += 1}.
+	\end{itemize}
+
+	\sourcecite{leancopoverview}
+\end{frame}
+
 \begin{frame}{SATResetCoP}
 	\centering
 	{\Huge \satresetcop}
@@ -517,7 +535,7 @@
 		\item Schedule \step{Reset} search before conventional \satcop{} or \leancop{} search.
 
 		\pause
-		\item {\large\textbf{Try this at CASC this Monday!}}
+		\item {\large\textbf{See you at CASC on Monday!}}
 	\end{itemize}
 	\sourcecite{mangla2022a,cadical20}
 \end{frame}
@@ -541,11 +559,12 @@ This work was performed using resources provided by the Cambridge Service for Da
 			\refentry{leantap}
 			\refentry{leancop}
 			\refentry{leancopcut}
-			\refentry{satcop}
+			\refentry{leancopoverview}
 		\end{itemize}
 
 		\column{.48\textwidth}
 		\begin{itemize}\setlength{\itemsep}{4pt}
+			\refentry{satcop}
 			\refentry{connections_2023}
 			\refentry{cadical20}
 			\refentry{mangla2022a}
