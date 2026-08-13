@@ -45,7 +45,7 @@ class _LeanCoPPhase:
         return None
 
 
-class leancop_2(Strategy):
+class LeanCoP_2(Strategy):
     """A close, but not binary-identical, reimplementation of leanCoP 2.0.
 
     Experimental provenance
@@ -268,4 +268,4 @@ class leancop_2(Strategy):
     def final_info(self) -> str:
         phase = self.phases[self._phase_index]
         options = ','.join(phase.settings) or 'complete'
-        return f'leancop_2_phase={self._phase_index + 1}:{options}'
+        return f'LeanCoP_2_phase={self._phase_index + 1}:{options}'

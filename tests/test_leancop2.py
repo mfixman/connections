@@ -6,7 +6,7 @@ from connections.calculi.leancop2 import Lemma
 from connections.env import ConnectionEnv, Logic, Settings
 from connections.utils.classical_problem_parsing import translate_tptp_problem
 from strategies import Strategy
-from strategies.custom import leancop_2
+from strategies.custom import LeanCoP_2
 
 
 def _write_matrix(tmp_path: Path, clauses: str) -> Path:
@@ -16,8 +16,8 @@ def _write_matrix(tmp_path: Path, clauses: str) -> Path:
 
 
 def test_leancop2_is_public_and_uses_its_core_state():
-    assert Strategy.strategies()['leancop_2'] is leancop_2
-    assert default_logic_for_strategy('leancop_2') is Logic.LeanCoP2
+    assert Strategy.strategies()['LeanCoP_2'] is LeanCoP_2
+    assert default_logic_for_strategy('LeanCoP_2') is Logic.LeanCoP2
 
 
 def test_scoped_lemma_closes_repeated_sibling(tmp_path: Path):
@@ -84,10 +84,10 @@ def test_nonground_extension_records_path_limit_hit(tmp_path: Path):
 
 
 def test_original_ten_phase_schedule_and_reordering_constants():
-    assert [phase.share for phase in leancop_2.phases] == [2, 60, 16, 4, 2, 2, 2, 2, 2, 8]
+    assert [phase.share for phase in LeanCoP_2.phases] == [2, 60, 16, 4, 2, 2, 2, 2, 2, 8]
     assert [
         setting
-        for phase in leancop_2.phases
+        for phase in LeanCoP_2.phases
         for setting in phase.settings
         if setting.startswith('reo(')
     ] == ['reo(23)', 'reo(29)', 'reo(37)', 'reo(41)', 'reo(47)']
@@ -110,7 +110,7 @@ def test_comp_restarts_complete_search_at_depth_one(tmp_path: Path):
         str(problem),
         Settings(logic=Logic.LeanCoP2, step_limit=1000),
     )
-    strategy = leancop_2(env)
+    strategy = LeanCoP_2(env)
 
     reset = strategy._complete_comp_phase(Reset(id='rs', depth=8))
 

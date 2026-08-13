@@ -31,12 +31,12 @@ The program takes a series of strategies and a directory or set of `.p` problems
 The program aggressively uses multiprocessing, and will try to ``fit'' each strategy/problem pair into a single processor core.
 Additionally, it keep partial information of solved problems; runs of `compare\_strategies.py --name A` after the first one will retry from where the previous run ended, even if that run crashed or was killed for some reason.
 
-The public `leancop_2` strategy implements the leanCoP 2.0 core features and
+The public `LeanCoP_2` strategy implements the leanCoP 2.0 core features and
 fixed schedule.  `compare_strategies.py` passes its per-problem timeout into
 the strategy so that the ten schedule phases receive their published shares:
 
 ```
-$ python compare_strategies.py --name LeanCoP2 --strategies leancop_2 $TPTP/Problems
+$ python compare_strategies.py --name LeanCoP2 --strategies LeanCoP_2 $TPTP/Problems
 ```
 
 ```

@@ -464,7 +464,7 @@ class TestCompareStrategiesLogicSelection:
         help_text = ' '.join(captured.out.split())
         assert excinfo.value.code == 0
         assert '--strategies STRATEGY [...]' in help_text
-        assert 'strategies: PyCoP, LeanCoP, leancop_2, SATCoP_0, SATCoP, SATResetCoP' in help_text
+        assert 'strategies: PyCoP, LeanCoP, LeanCoP_2, SATCoP_0, SATCoP, SATResetCoP' in help_text
         assert 'HeuristicSelection' not in help_text
         assert '--print-all-strategies' in help_text
         assert 'directories and/or FOF/CNF problem files/codenames' in help_text

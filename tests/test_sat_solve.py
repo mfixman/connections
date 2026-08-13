@@ -39,7 +39,7 @@ cnf(clause5,negated_conjecture,
 
 def test_sat_solve_is_registered():
     public = Strategy.strategies()
-    assert list(public) == ['PyCoP', 'LeanCoP', 'leancop_2', 'SATCoP_0', 'SATCoP', 'SATResetCoP']
+    assert list(public) == ['PyCoP', 'LeanCoP', 'LeanCoP_2', 'SATCoP_0', 'SATCoP', 'SATResetCoP']
 
     hidden = Strategy.strategies(include_hidden=True)
     for name in [
