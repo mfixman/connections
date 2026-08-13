@@ -194,7 +194,7 @@ def test_pycop_help_lists_non_hidden_strategies_and_fof_cnf_inputs(monkeypatch, 
     captured = capsys.readouterr()
     help_text = ' '.join(captured.out.split())
     assert excinfo.value.code == 0
-    assert 'Non-hidden strategies: PyCoP, LeanCoP, SATCoP_0, SATCoP, SATResetCoP' in help_text
+    assert 'Non-hidden strategies: PyCoP, LeanCoP, leancop_2, SATCoP_0, SATCoP, SATResetCoP' in help_text
     assert 'HeuristicSelection' not in help_text
     assert '--print-all-strategies' in help_text
     assert 'local FOF/CNF file' in help_text

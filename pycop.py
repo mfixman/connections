@@ -15,7 +15,7 @@ from connections.env import ConnectionEnv, Logic, Settings
 from connections.calculi.classicalsat import SATSolver
 from strategies import Strategy
 
-_COUNTED_STEP_ACTIONS = {'Start', 'Reduction', 'Extension'}
+_COUNTED_STEP_ACTIONS = {'Start', 'Reduction', 'Extension', 'Lemma'}
 
 def _counts_as_step(action) -> bool:
     return action.__class__.__name__ in _COUNTED_STEP_ACTIONS
@@ -70,6 +70,7 @@ def _run_problem(path: str, args) -> dict:
             logic = logic,
             sat_solver = args.sat_solver,
             debug = args.debug,
+            step_limit = args.max_steps,
         ),
     )
     strategy = _selectable_strategies()[args.strategy](env)

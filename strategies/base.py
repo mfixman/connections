@@ -5,6 +5,7 @@ from importlib import import_module
 PUBLIC_STRATEGY_NAMES = (
     'PyCoP',
     'LeanCoP',
+    'leancop_2',
     'SATCoP_0',
     'SATCoP',
     'SATResetCoP',

@@ -257,7 +257,7 @@ class ClassicalCut:
         on the current path, augmented with the new fact from this
         action, is a superset of any learned constraint.
         """
-        if not self.constraints:
+        if not self.settings.connection_constraints or not self.constraints:
             return False
         new_fact = self.action_to_fact(action)
         if new_fact is None:
@@ -328,6 +328,12 @@ class ClassicalCut:
             self.goal.proven = False
             self.goal.children = []
             self.goal.actions = self._refresh_remaining_actions(remaining_ids)
+
+            # Exhausting the root is a normal finite-search outcome.  There is
+            # no parent choice point to visit; callers may now deepen, switch
+            # schedule phase, or report a non-theorem.
+            if self.goal.parent is None:
+                break
 
             if self.goal.cut_committed or not self.goal.actions:
                 continue

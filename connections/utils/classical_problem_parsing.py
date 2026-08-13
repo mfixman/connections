@@ -226,10 +226,21 @@ def _preprocess_tptp_for_prolog(path: Path, workdir: Path) -> Path:
     rewritten_path.write_text(modified, encoding = 'utf-8')
     return rewritten_path
 
-def _translate_tptp_problem(path: Path, metadata: ProblemMetadata | None = None) -> Matrix:
-    """Translate raw TPTP FOF to connection CNF, then parse it."""
+def translate_tptp_problem(
+    path: str | Path,
+    metadata: ProblemMetadata | None = None,
+    settings: tuple[str, ...] = (),
+) -> Matrix:
+    """Translate raw TPTP FOF/CNF to connection CNF, then parse it."""
+    path = Path(path)
+    valid_setting = re.compile(r'^(?:cut|scut|conj|def|nodef|comp\(\d+\)|reo\(\d+\))$')
+    invalid_settings = [setting for setting in settings if valid_setting.fullmatch(setting) is None]
+    if invalid_settings:
+        raise ValueError(f'unsupported leanCoP translation settings: {invalid_settings!r}')
+
     env = os.environ.copy()
     env.setdefault('TPTP', str(_tptp_root()))
+    env['LEANCOP_TRANSLATION_SETTINGS'] = f"[{','.join(settings)}]"
 
     with tempfile.TemporaryDirectory(prefix = 'tptp-translate-') as temp_dir:
         temp_dir_path = Path(temp_dir)
@@ -251,6 +262,11 @@ def _translate_tptp_problem(path: Path, metadata: ProblemMetadata | None = None)
         if metadata is not None:
             matrix.metadata = metadata
         return matrix
+
+
+def _translate_tptp_problem(path: Path, metadata: ProblemMetadata | None = None) -> Matrix:
+    """Backward-compatible default leanCoP translation."""
+    return translate_tptp_problem(path, metadata)
 
 @lru_cache(maxsize = None)
 def problem_metadata(path: str | Path) -> ProblemMetadata:
