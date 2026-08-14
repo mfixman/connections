@@ -100,6 +100,12 @@ class Substitution:
         t = self.find(t, add=False)
         if s == t:
             return True
+        # Two unbound variables are identical only if they are the *same*
+        # variable.  Copies of one clause share their source name, so the
+        # structural comparison below would wrongly equate them, which is
+        # not Prolog's ==/2 and over-prunes regularity.
+        if isinstance(s, Variable) or isinstance(t, Variable):
+            return False
         if isinstance(s, Expression) and isinstance(t, Expression):
             return s.symbol == t.symbol and len(s.args) == len(t.args) and all(self.equal(arg1, arg2) for arg1, arg2 in zip(s.args, t.args))
         return False

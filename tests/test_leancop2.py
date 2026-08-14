@@ -589,6 +589,52 @@ def test_comp_restarts_complete_search_at_depth_one(tmp_path: Path):
     assert strategy._phase_complete_search is True
 
 
+def test_comp_restart_happens_once_and_then_deepens_without_bound(tmp_path: Path):
+    problem = _write_matrix(tmp_path, '[[p],[-(p)]]')
+    env = ConnectionEnv(
+        str(problem),
+        Settings(logic=Logic.LeanCoP2, step_limit=1000),
+    )
+    strategy = LeanCoP_2(env)
+
+    assert strategy._complete_comp_phase(Reset(id='rs', depth=8)).depth == 1
+
+    # After ``prove(1,[],Proof)`` the setting list is empty, so deepening past
+    # the old comp limit must proceed instead of restarting at depth one
+    # again -- otherwise the phase cycles 1..J forever.
+    for depth in (8, 9, 20):
+        again = strategy._complete_comp_phase(Reset(id='rs', depth=depth))
+        assert again.depth == depth
+        assert again.reason != 'comp'
+
+
+def test_comp_phase_reaches_a_proof_deeper_than_the_comp_limit(tmp_path: Path):
+    # A non-ground chain needing a path limit above comp(7); ground clauses
+    # would be exempt from the bound, so every link carries a variable.
+    clauses = ['[p0(a)]', '[-(p8(a))]']
+    clauses += [f'[-(p{i}(_X)),p{i + 1}(_X)]' for i in range(8)]
+    problem = _write_matrix(tmp_path, '[' + ','.join(clauses) + ']')
+    env = ConnectionEnv(
+        str(problem),
+        Settings(logic=Logic.LeanCoP2, step_limit=100_000),
+    )
+
+    class OnlyCompPhase(LeanCoP_2):
+        phases = (LeanCoP_2.phases[0],)
+
+    strategy = OnlyCompPhase(env)
+    env.reset()
+
+    for _ in range(100_000):
+        _, _, done, info = env.step(strategy.step())
+        if done:
+            break
+    else:
+        raise AssertionError('comp phase never terminated')
+
+    assert info == 'Theorem'
+
+
 def test_exhausted_complete_comp_search_finishes_without_later_phases(tmp_path: Path):
     problem = _write_matrix(tmp_path, '[[p]]')
     env = ConnectionEnv(

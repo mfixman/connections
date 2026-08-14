@@ -90,8 +90,30 @@ class LeanCoP_2(Strategy):
       Consequently variable names, memory use, timing, proof traces, and rare
       path-limit edge cases need not be identical even when the same proof is
       found.
-    * An eagerly observed path-limit hit can cause one harmless extra deepening
-      round even if a later alternative would make that round unnecessary.
+    * Legal actions are generated eagerly, so a path-limit hit is observed even
+      when Prolog would never reach that extension -- for instance when a
+      lemma or reduction closes the literal first and ``cut`` commits to it.
+      The effect is always conservative, never a wrong answer, but it is not
+      merely one extra deepening round: where leanCoP exhausts a finite search
+      and reports Non-Theorem, this strategy can keep deepening instead.  A
+      faithful version would raise the flag when a blocked extension is
+      actually reached, i.e. on failing out of the node, rather than when the
+      node's actions are generated.
+    * In ``pos`` mode leanCoP's ``assert_clauses/2`` prepends ``#`` to every
+      all-positive clause, so extending into one leaves an extra ``#`` subgoal
+      that is always closed by reduction against the ``-#`` on the path.  That
+      marker is not modelled here.  It costs leanCoP one extra inference per
+      such extension and changes nothing else: differential testing against
+      the Prolog prover shows identical extension counts and identical
+      verdicts, with only the reduction counts differing.  In ``conj`` mode the
+      markers come from the clausifier and are modelled exactly.
+    * leanCoP's ``member(LitL,Lem)`` succeeds once per occurrence of the
+      literal in ``Lem`` and redoes the identical continuation for each,
+      whereas :meth:`LeanCoP2State.lemmas` offers a single ``Lemma`` action.
+      The alternatives are indistinguishable, so only the amount of redundant
+      work differs.
+    * leancop.sh rounds every phase allowance up to at least one second; the
+      phase budget here is not floored.
     * The original shell divides every ``TIME_PC`` by 111 even though all phase
       values sum to 194, allowing the final complete ``def`` run to exceed the
       advertised time limit.  The same denominator is used here, but the
@@ -256,8 +278,11 @@ class LeanCoP_2(Strategy):
 
     def _complete_comp_phase(self, reset: Reset) -> Reset:
         state = self.env.state
-        phase = self.phases[self._phase_index]
-        if phase.comp_limit is None or reset.depth <= phase.comp_limit:
+        # The live state limit, not the phase constant: the restart below
+        # clears it, and Prolog's ``prove(1,[],Proof)`` runs with an empty
+        # setting list, so the complete search deepens without bound.
+        comp_limit = state.comp_limit
+        if comp_limit is None or reset.depth <= comp_limit:
             return reset
 
         # comp(J): restart at depth one with cut and scut switched off.
