@@ -21,6 +21,7 @@ from connections.calculi.classicalcut import (
     Start,
 )
 from connections.utils.primitives import Expression, Literal, Variable
+from connections.utils.tableau import Tableau
 
 
 @dataclass
@@ -28,6 +29,7 @@ class Lemma(ConnectionAction):
     """Close the current literal using an earlier solved sibling literal."""
 
     lemma_lit: Literal | None = None
+    principle_node: Tableau | None = None
 
     def __repr__(self) -> str:
         suffix = " [cut]" if self.cut else ""
@@ -46,7 +48,7 @@ def _is_ground_expression(expression: Expression) -> bool:
 
 
 class LeanCoP2State(ClassicalCut):
-    """Classical connection state with the leanCoP 2.0 core optimisations."""
+    """Classical connection state with the leanCoP 2.1 core optimisations."""
 
     def reset(self, depth: int | None = None) -> None:
         self.path_limit_hit = False
@@ -57,23 +59,28 @@ class LeanCoP2State(ClassicalCut):
         super().reset(depth)
 
     def _conjecture_start_indices(self) -> list[int]:
-        marker_indices = [
+        return [
             index
             for index, clause in enumerate(self.matrix.clauses)
             if any(literal.symbol == '#' and not literal.neg for literal in clause)
         ]
-        # This is the test used by leanCoP's assert_clauses/2 to decide
-        # whether make_matrix/3 actually produced conjecture markers.
-        has_negative_marker = any(
+
+    def _uses_conjecture_markers(self) -> bool:
+        # This is the exact test in leanCoP's prove2/3.  The ``conj`` option
+        # influences clausification, but start selection itself depends on
+        # whether the resulting matrix contains the administrative [-#]
+        # clause.  Without it, Prolog falls back to positive starts.
+        return any(
             len(clause) == 1 and clause[0].symbol == '#' and clause[0].neg
             for clause in self.matrix.clauses
         )
-        return marker_indices if has_negative_marker else []
 
     def starts(self) -> list[Start]:
-        candidates = self._conjecture_start_indices() if self.conjecture_start else []
-        if not candidates:
-            candidates = list(self.matrix.positive_clauses)
+        candidates = (
+            self._conjecture_start_indices()
+            if self._uses_conjecture_markers()
+            else list(self.matrix.positive_clauses)
+        )
         if self.restricted_start:
             candidates = candidates[:1]
 
@@ -90,8 +97,6 @@ class LeanCoP2State(ClassicalCut):
                     clause_copy=clause_copy,
                 )
             )
-        if not starts:
-            starts.append(Start(id='st0', clause_copy=None))
         return starts
 
     def _current_subgoal_clause(self) -> list[Literal]:
@@ -119,8 +124,22 @@ class LeanCoP2State(ClassicalCut):
 
     def lemmas(self) -> list[Lemma]:
         for lemma_lit in self._lemma_literals(self.goal):
-            if self.substitution.equal(self.goal.literal, lemma_lit):
-                return [Lemma(id='lm0', lemma_lit=lemma_lit)]
+            # Prolog's ``Lit == LitL`` compares complete literals.  The
+            # generic substitution equality intentionally compares only the
+            # atom and arguments, because it is also used after independent
+            # polarity checks by regularity.  Check polarity explicitly here:
+            # a solved p(X) sibling is not a lemma for a later -p(X) goal.
+            if (
+                self.goal.literal.neg == lemma_lit.neg
+                and self.substitution.equal(self.goal.literal, lemma_lit)
+            ):
+                return [
+                    Lemma(
+                        id='lm0',
+                        lemma_lit=lemma_lit,
+                        principle_node=self.goal,
+                    )
+                ]
         return []
 
     def reductions(self) -> list[Reduction]:
@@ -140,15 +159,9 @@ class LeanCoP2State(ClassicalCut):
             )
         return reductions
 
-    def _partition_extensions(self) -> tuple[list[Extension], list[Extension]]:
-        ground: list[Extension] = []
-        nonground: list[Extension] = []
-        for extension in self.extensions():
-            destination = ground if all(
-                _is_ground_expression(literal) for literal in extension.clause_copy
-            ) else nonground
-            destination.append(extension)
-        return ground, nonground
+    @staticmethod
+    def _ground_extension(extension: Extension) -> bool:
+        return all(_is_ground_expression(literal) for literal in extension.clause_copy)
 
     def legal_forward_actions(self) -> dict[str, ConnectionAction]:
         current_clause = self._current_subgoal_clause()
@@ -158,18 +171,25 @@ class LeanCoP2State(ClassicalCut):
         if self.goal is None or virtual_marker_repeats or self.regularizable(current_clause):
             actions: list[ConnectionAction] = []
         else:
-            ground_extensions, nonground_extensions = self._partition_extensions()
+            extensions = self.extensions()
             actions = cast(
                 list[ConnectionAction],
-                self.lemmas() + self.reductions() + ground_extensions,
+                self.lemmas() + self.reductions(),
             )
             # The administrative -# literal is the first member of leanCoP's
             # active Path after the start step, hence the explicit tableau's
             # path length is goal.depth + 1.
             if self.goal.depth + 1 < self.max_depth:
-                actions.extend(nonground_extensions)
-            elif nonground_extensions:
-                self.path_limit_hit = True
+                # Prolog keeps assertion order here; groundness only decides
+                # whether an extension survives at the path limit.  Reordering
+                # ground alternatives first changes cut behavior.
+                actions.extend(extensions)
+            else:
+                for extension in extensions:
+                    if self._ground_extension(extension):
+                        actions.append(extension)
+                    else:
+                        self.path_limit_hit = True
 
         if self.settings.connection_constraints:
             actions = [action for action in actions if not self.violates_constraint(action)]

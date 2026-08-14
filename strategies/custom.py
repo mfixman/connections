@@ -21,8 +21,10 @@ from .base import Strategy
 
 @dataclass(frozen=True)
 class _LeanCoPPhase:
+    # TIME_PC value from leanCoP 2.1's leancop.sh.
     share: int
     settings: tuple[str, ...]
+    complete: bool = False
 
     @property
     def cut(self) -> bool:
@@ -46,18 +48,18 @@ class _LeanCoPPhase:
 
 
 class LeanCoP_2(Strategy):
-    """A close, but not binary-identical, reimplementation of leanCoP 2.0.
+    """A close, but not binary-identical, reimplementation of leanCoP 2.1.
 
     Experimental provenance
     -----------------------
-    The reference implementation for the search procedure and the schedule is
-    the official leanCoP 2.0 distribution, in particular ``leancop_main.sh``
-    and the 2007 ``leancop.sh``.  In a paper this strategy is best described as
-    ``leanCoP_2^Con``: a Connections-based reimplementation of the leanCoP 2.0
-    search core and its fixed schedule, using the later leanCoP clausifier.  It
-    should not be described as the original leanCoP executable.
+    The reference implementation for the search procedure and schedule is the
+    official leanCoP 2.1 distribution in ``~/packages/leancop21``, especially
+    ``leancop21_swi.pl`` and ``leancop.sh``.  In a paper this strategy is best
+    described as ``leanCoP_2.1^Con``: a Connections-based reimplementation of
+    the Prolog search core and fixed schedule.  It should not be described as
+    the original leanCoP executable.
 
-    What is intended to match leanCoP 2.0
+    What is intended to match leanCoP 2.1
     --------------------------------------
     * regularity over the current remaining subgoal and active path;
     * scoped lemmata, tried before reduction and extension;
@@ -69,16 +71,15 @@ class LeanCoP_2(Strategy):
     * iterative path-depth deepening, including the ground-clause exemption;
     * ``comp(J)``, which abandons restricted search after depth ``J`` and
       restarts unrestricted search at depth one; and
-    * the ten schedule entries below, including their ``def``, ``nodef``,
+    * the 30 schedule entries below, including their ``def``, ``nodef``,
       ``conj``, ``cut``, ``scut``, ``comp`` and ``reo`` constants.
 
     The TPTP frontend uses the official translator bundled with this project.
-    It is closer to the later leanCoP 2.1/2.2 frontend than to the literal 2.0
-    frontend: it accepts direct TPTP input and adds the corresponding equality
-    axioms.  Thus the overall strategy is a deliberate 2.0-search/2.2-frontend
-    hybrid, not a complete reproduction of either later leanCoP release.  In
-    particular it does not reproduce their optimized schedules or their proof
-    presentation.
+    It is the later 2.2-style frontend: it accepts direct TPTP input, accepts
+    CNF statements as well as FOF statements, and adds the corresponding
+    equality axioms.  The differences from 2.1's clausifier are naming-level
+    changes for Skolem functions and definition predicates, plus CNF input
+    support; the logical transformations and schedule settings are retained.
 
     Observable differences from the Prolog program
     -----------------------------------------------
@@ -87,16 +88,15 @@ class LeanCoP_2(Strategy):
     * Legal actions are generated eagerly and use this project's indexing and
       union-find unifier.  The Prolog program generates alternatives lazily.
       Consequently variable names, memory use, timing, proof traces, and rare
-      path-limit/reordering edge cases need not be identical even when the same
-      proof is found.
+      path-limit edge cases need not be identical even when the same proof is
+      found.
     * An eagerly observed path-limit hit can cause one harmless extra deepening
       round even if a later alternative would make that round unnecessary.
-    * The original shell gives its final unrestricted run a full time limit
-      after allocating 92 percent to the preceding runs, so its worst-case
-      total is 192 percent of the advertised limit.  Here the final phase gets
-      the remaining 8 percent: the schedule is normalized to one caller-owned
-      budget.  With no wall-clock limit, the same shares are applied to the
-      proof-step limit.
+    * The original shell divides every ``TIME_PC`` by 111 even though all phase
+      values sum to 194, allowing the final complete ``def`` run to exceed the
+      advertised time limit.  The same denominator is used here, but the
+      caller's outer per-problem time or step limit remains a hard cap and can
+      stop that final extra allowance.
     * Phase translation is prepared outside the runner's timed ``step`` call,
       although that elapsed preparation time is deducted from the phase's own
       wall-clock allowance.
@@ -114,24 +114,49 @@ class LeanCoP_2(Strategy):
     version history and implementation context.
     """
 
+    # Exact settings, order, and TIME_PC weights from leanCoP 2.1's
+    # leancop.sh.  ``complete`` corresponds to COMP=y in that script.
     phases = (
-        _LeanCoPPhase(2, ('cut', 'comp(7)')),
-        _LeanCoPPhase(60, ('conj', 'cut')),
-        _LeanCoPPhase(16, ('def', 'scut', 'cut')),
-        _LeanCoPPhase(4, ('nodef', 'scut', 'cut')),
-        _LeanCoPPhase(2, ('conj', 'cut', 'reo(23)')),
-        _LeanCoPPhase(2, ('def', 'scut', 'cut', 'reo(29)')),
-        _LeanCoPPhase(2, ('conj', 'cut', 'reo(37)')),
-        _LeanCoPPhase(2, ('nodef', 'scut', 'cut', 'reo(41)')),
-        _LeanCoPPhase(2, ('conj', 'cut', 'reo(47)')),
-        _LeanCoPPhase(8, ()),
+        _LeanCoPPhase(10, ('cut', 'comp(7)'), complete=True),
+        _LeanCoPPhase(15, ('conj', 'def', 'cut')),
+        _LeanCoPPhase(15, ('nodef', 'scut', 'cut')),
+        _LeanCoPPhase(10, ('scut',)),
+        _LeanCoPPhase(5, ('def', 'cut')),
+        _LeanCoPPhase(4, ('conj', 'nodef', 'cut')),
+        _LeanCoPPhase(2, ('def', 'scut', 'cut')),
+        _LeanCoPPhase(2, ('scut', 'cut')),
+        _LeanCoPPhase(1, ('conj', 'def')),
+        _LeanCoPPhase(4, ('reo(40)', 'conj', 'nodef', 'scut', 'cut')),
+        _LeanCoPPhase(4, ('reo(42)', 'def', 'scut', 'cut')),
+        _LeanCoPPhase(2, ('reo(12)', 'def', 'scut', 'cut')),
+        _LeanCoPPhase(2, ('reo(72)', 'def', 'scut', 'cut')),
+        _LeanCoPPhase(2, ('reo(39)', 'nodef', 'cut')),
+        _LeanCoPPhase(2, ('reo(38)', 'conj', 'def', 'cut')),
+        _LeanCoPPhase(2, ('reo(15)', 'conj', 'def', 'cut')),
+        _LeanCoPPhase(1, ('reo(73)', 'conj', 'def', 'cut')),
+        _LeanCoPPhase(1, ('reo(57)', 'conj', 'def', 'cut')),
+        _LeanCoPPhase(1, ('reo(13)', 'conj', 'nodef', 'scut', 'cut')),
+        _LeanCoPPhase(1, ('reo(59)', 'conj', 'nodef', 'scut', 'cut')),
+        _LeanCoPPhase(1, ('reo(75)', 'conj', 'nodef', 'scut', 'cut')),
+        _LeanCoPPhase(1, ('reo(36)', 'conj', 'nodef', 'scut')),
+        _LeanCoPPhase(1, ('reo(16)', 'conj', 'nodef', 'scut')),
+        _LeanCoPPhase(1, ('reo(71)', 'def', 'scut')),
+        _LeanCoPPhase(1, ('reo(58)', 'def', 'scut', 'cut')),
+        _LeanCoPPhase(1, ('reo(76)', 'def', 'scut', 'cut')),
+        _LeanCoPPhase(1, ('reo(74)', 'nodef', 'cut')),
+        _LeanCoPPhase(1, ('reo(14)', 'nodef', 'cut')),
+        _LeanCoPPhase(1, ('reo(37)', 'nodef', 'scut')),
+        _LeanCoPPhase(99, ('def',), complete=True),
     )
+    _schedule_weight = sum(phase.share for phase in phases)
+    _schedule_denominator = 111
 
     def __init__(self, env):
         super().__init__(env)
         self._phase_index = 0
         self._phase_started: float | None = None
         self._phase_inferences = 0
+        self._phase_complete_search = False
         self._phase_matrices = {}
         self._original_matrix = copy.deepcopy(env.matrix)
         self._raw_tptp = not self._is_connections_matrix(env.path)
@@ -194,6 +219,7 @@ class LeanCoP_2(Strategy):
     def _install_phase(self, index: int) -> None:
         self._phase_index = index
         phase = self.phases[index]
+        self._phase_complete_search = phase.complete and phase.comp_limit is None
         self._phase_started = time.perf_counter()
         settings = self.env.settings
         settings.leancop_cut = phase.cut
@@ -213,12 +239,12 @@ class LeanCoP_2(Strategy):
         if time_limit is not None:
             assert self._phase_started is not None
             elapsed = time.perf_counter() - self._phase_started
-            return elapsed >= time_limit * phase.share / 100.0
+            return elapsed >= time_limit * phase.share / self._schedule_denominator
 
         step_limit = self.env.settings.step_limit
         if step_limit is None:
             return False
-        phase_budget = max(1, step_limit * phase.share // 100)
+        phase_budget = max(1, step_limit * phase.share // self._schedule_denominator)
         return self._phase_inferences >= phase_budget
 
     def _advance_phase(self) -> bool:
@@ -241,6 +267,7 @@ class LeanCoP_2(Strategy):
         state.settings.leancop_cut = False
         state.settings.leancop_scut = False
         state.settings.leancop_comp_limit = None
+        self._phase_complete_search = True
         return Reset(id='rs', depth=1, reason='comp')
 
     def step(self):
@@ -250,6 +277,8 @@ class LeanCoP_2(Strategy):
 
             actions = self.env.legal_actions()
             if not actions:
+                if self._phase_complete_search:
+                    return Finish(id='done')
                 if self._advance_phase():
                     continue
                 return Finish(id='done')
