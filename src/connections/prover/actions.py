@@ -6,6 +6,7 @@ from typing import Generic, TypeAlias, TypeVar
 from connections.prover.rules import (
     Extension,
     Factorization,
+    ModelLemma,
     Reduction,
     Rule,
     Start,
@@ -28,6 +29,8 @@ class ApplyAction(Generic[RuleT]):
             return "reduction"
         if isinstance(self.rule, Factorization):
             return "lemma" if self.rule.mode == "equal" else "factorization"
+        if isinstance(self.rule, ModelLemma):
+            return "lemma"
         raise TypeError(f"unsupported action: {self!r}")
 
     def __str__(self) -> str:
@@ -54,6 +57,8 @@ class ApplyAction(Generic[RuleT]):
         if isinstance(self.rule, Factorization):
             name = "lemma" if self.rule.mode == "equal" else "factorization"
             return f"{name}(source_goal={self.rule.source_goal_id})"
+        if isinstance(self.rule, ModelLemma):
+            return "model_lemma"
         raise TypeError(f"unsupported action: {self!r}")
 
 
@@ -70,10 +75,15 @@ class UndoAction:
 
 StartAction: TypeAlias = ApplyAction[Start]
 FactorizationAction: TypeAlias = ApplyAction[Factorization]
+ModelLemmaAction: TypeAlias = ApplyAction[ModelLemma]
 ReductionAction: TypeAlias = ApplyAction[Reduction]
 ExtensionAction: TypeAlias = ApplyAction[Extension]
 AnyApplyAction: TypeAlias = (
-    StartAction | FactorizationAction | ReductionAction | ExtensionAction
+    StartAction
+    | FactorizationAction
+    | ModelLemmaAction
+    | ReductionAction
+    | ExtensionAction
 )
 Action: TypeAlias = AnyApplyAction | UndoAction
 
@@ -101,6 +111,7 @@ __all__ = [
     "ApplyActions",
     "ExtensionAction",
     "FactorizationAction",
+    "ModelLemmaAction",
     "ReductionAction",
     "StartAction",
     "UndoAction",

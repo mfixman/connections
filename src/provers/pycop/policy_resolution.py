@@ -4,16 +4,43 @@ from dataclasses import dataclass, replace
 import importlib
 import inspect
 
-from connections.policy import FirstActionIDPolicy, Policy
-from connections.prover.strategy import PolicyOptions, Strategy
+from connections.policy import (
+    FirstActionIDPolicy,
+    LeanCoPCon,
+    LeanCoPCon_2,
+    Policy,
+    SATCoPCon,
+    SATResetCoP,
+)
+from connections.prover.strategy import (
+    PolicyOptions,
+    Strategy,
+    StrategySchedule,
+    WeightedStrategy,
+)
 from provers.pycop.settings_codec import LeancopSettingsCodec
 
 
 _BUILTIN_POLICIES: dict[str, type[Policy]] = {
     "FirstActionID": FirstActionIDPolicy,
     "FirstActionIDPolicy": FirstActionIDPolicy,
+    "LeanCoPCon": LeanCoPCon,
+    "LeanCoPCon_2": LeanCoPCon_2,
+    "SATCoPCon": SATCoPCon,
+    "SATResetCoP": SATResetCoP,
 }
-_CANONICAL_POLICY_NAMES = ("FirstActionIDPolicy",)
+_CANONICAL_POLICY_NAMES = (
+    "FirstActionIDPolicy",
+    "LeanCoPCon",
+    "LeanCoPCon_2",
+    "SATCoPCon",
+    "SATResetCoP",
+)
+_DEFAULT_SETTINGS = {
+    "LeanCoPCon": ("cut", "comp(7)"),
+    "SATCoPCon": ("cut",),
+    "SATResetCoP": ("cut",),
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -54,7 +81,13 @@ def strategy_for_policy(
     settings: list[str],
     backtrack: str,
 ) -> Strategy:
-    base = LeancopSettingsCodec.from_tokens(settings)
+    tokens = [*_DEFAULT_SETTINGS.get(selection.reference, ()), *settings]
+    base = LeancopSettingsCodec.from_tokens(tokens)
+    if selection.reference in {"SATCoPCon", "SATResetCoP"}:
+        base = replace(
+            base,
+            matrix=replace(base.matrix, start_clauses="all"),
+        )
     policy_args = dict(base.policy.args or {})
     policy_args["backtrack"] = backtrack
     _validate_constructor(selection, policy_args)
@@ -64,6 +97,55 @@ def strategy_for_policy(
             policy_class=selection.policy_class,
             args=policy_args,
         ),
+    )
+
+
+def schedule_for_policy(
+    selection: PolicySelection,
+    *,
+    settings: list[str],
+    backtrack: str,
+    steps: int,
+    timeout: float,
+) -> StrategySchedule[Strategy]:
+    if selection.reference != "LeanCoPCon_2":
+        return StrategySchedule.single(
+            strategy_for_policy(
+                selection,
+                settings=settings,
+                backtrack=backtrack,
+            ),
+            steps=steps,
+            timeout_seconds=timeout,
+        )
+    if settings:
+        raise ValueError(
+            "LeanCoPCon_2 owns its 30 phase settings; do not pass --settings"
+        )
+
+    from provers.pycop.schedule import load_schedule_entries
+
+    entries: list[WeightedStrategy[Strategy]] = []
+    for entry in load_schedule_entries("classical"):
+        policy_args = dict(entry.strategy.policy.args or {})
+        policy_args["backtrack"] = backtrack
+        _validate_constructor(selection, policy_args)
+        entries.append(
+            replace(
+                entry,
+                strategy=replace(
+                    entry.strategy,
+                    policy=PolicyOptions(
+                        policy_class=selection.policy_class,
+                        args=policy_args,
+                    ),
+                ),
+            )
+        )
+    return StrategySchedule.from_weighted(
+        entries,
+        steps=steps,
+        timeout_seconds=timeout,
     )
 
 
@@ -113,5 +195,6 @@ __all__ = [
     "builtin_policy_names",
     "resolve_policies",
     "resolve_policy",
+    "schedule_for_policy",
     "strategy_for_policy",
 ]

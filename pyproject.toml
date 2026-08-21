@@ -26,6 +26,7 @@ classifiers = [
 ]
 dependencies = [
     "lark>=1.2.2",
+    "pydical @ git+https://github.com/mfixman/pydical.git@main",
 ]
 
 [project.urls]

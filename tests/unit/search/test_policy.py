@@ -21,7 +21,13 @@ from connections.prover.actions import (
 )
 from connections.prover.dynamics import Dynamics
 from connections.prover.prover import Problem
-from connections.prover.rules import Extension, Factorization, Reduction, Start
+from connections.prover.rules import (
+    Extension,
+    Factorization,
+    ModelLemma,
+    Reduction,
+    Start,
+)
 from connections.prover.state import State
 from connections.prover.tableau import Tableau
 from connections.trace_logging import TRACE_LEVEL
@@ -156,6 +162,8 @@ class _FakeActionSpace:
             return rule.clause.literals[0].atom.symbol
         if isinstance(rule, Reduction):
             return f"re{rule.source_goal_id}"
+        if isinstance(rule, ModelLemma):
+            return "model_lemma"
         return f"fa{rule.source_goal_id}"
 
 

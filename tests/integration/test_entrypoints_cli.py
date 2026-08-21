@@ -44,6 +44,26 @@ def test_policy_experiment_console_helps_run():
         assert expected in proc.stdout
 
 
+def test_compare_strategies_lists_connections_policies():
+    proc = subprocess.run(
+        ["compare-strategies", "--print-all-strategies"],
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=5,
+        env=_env_without_logic_roots(),
+    )
+
+    assert proc.returncode == 0
+    assert proc.stdout.splitlines() == [
+        "FirstActionIDPolicy",
+        "LeanCoPCon",
+        "LeanCoPCon_2",
+        "SATCoPCon",
+        "SATResetCoP",
+    ]
+
+
 def test_run_pycop_accepts_raw_problem():
     proc = subprocess.run(
         [
@@ -197,6 +217,50 @@ def test_compare_strategies_writes_and_resumes_validated_results(tmp_path):
     )
     assert mismatch.returncode == 2
     assert "different code/configuration/problem set" in mismatch.stderr
+
+
+def test_compare_strategies_runs_all_named_connections_policies(tmp_path):
+    problem = tmp_path / "tiny.p"
+    problem.write_text("fof(c,conjecture,(p => p)).\n", encoding="utf-8")
+    csv_path = tmp_path / "policies.csv"
+    partial_path = tmp_path / "policies.jsonl"
+    proc = subprocess.run(
+        [
+            "compare-strategies",
+            str(problem),
+            "--strategies",
+            "LeanCoPCon",
+            "LeanCoPCon_2",
+            "SATCoPCon",
+            "SATResetCoP",
+            "--csv",
+            str(csv_path),
+            "--partial-file",
+            str(partial_path),
+            "--num-workers",
+            "4",
+            "--max-steps",
+            "100",
+            "--timeout",
+            "2",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=10,
+        env=_env_without_logic_roots(),
+    )
+
+    assert proc.returncode == 0, proc.stderr
+    with csv_path.open(newline="", encoding="utf-8") as input_file:
+        rows = list(csv.DictReader(input_file))
+    assert [row["policy"] for row in rows] == [
+        "LeanCoPCon",
+        "LeanCoPCon_2",
+        "SATCoPCon",
+        "SATResetCoP",
+    ]
+    assert {row["status"] for row in rows} == {"Theorem"}
 
 
 def test_all_prover_helps_include_steps_option():

@@ -16,6 +16,12 @@ from connections.policy.id import (
     IDPolicy,
     IterativeDeepeningOptions,
 )
+from connections.policy.connections import (
+    LeanCoPCon,
+    LeanCoPCon_2,
+    SATCoPCon,
+    SATResetCoP,
+)
 
 __all__ = [
     "BacktrackGranularity",
@@ -25,7 +31,11 @@ __all__ = [
     "Frame",
     "IDPolicy",
     "IterativeDeepeningOptions",
+    "LeanCoPCon",
+    "LeanCoPCon_2",
     "Policy",
     "PolicyDecision",
+    "SATCoPCon",
+    "SATResetCoP",
     "WorkFrame",
 ]

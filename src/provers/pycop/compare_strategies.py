@@ -19,7 +19,7 @@ import time
 import traceback
 from typing import Any, Callable, cast
 
-from connections.prover import ProblemSpec, Prover, StrategySchedule
+from connections.prover import ProblemSpec, Prover
 from connections.runs import row_from_result
 from provers.pycop.cli_common import (
     add_problem_arguments,
@@ -34,7 +34,7 @@ from provers.pycop.policy_resolution import (
     builtin_policy_names,
     resolve_policies,
     resolve_policy,
-    strategy_for_policy,
+    schedule_for_policy,
 )
 
 
@@ -146,10 +146,12 @@ def main(argv: list[str] | None = None) -> int:
     try:
         selections = resolve_policies(args.policies)
         for selection in selections:
-            strategy_for_policy(
+            schedule_for_policy(
                 selection,
                 settings=args.settings,
                 backtrack=args.backtrack,
+                steps=args.max_steps,
+                timeout=args.timeout,
             )
         csv_path, partial_path = _output_paths(args)
         with resolved_problem_inputs(
@@ -319,10 +321,12 @@ def _task_worker(
         with open(os.devnull, "w", encoding="utf-8") as devnull:
             with contextlib.redirect_stdout(devnull), contextlib.redirect_stderr(devnull):
                 selection = resolve_policy(task.policy_spec)
-                strategy = strategy_for_policy(
+                schedule = schedule_for_policy(
                     selection,
                     settings=list(settings),
                     backtrack=backtrack,
+                    steps=max_steps,
+                    timeout=timeout,
                 )
                 result = Prover().run(
                     ProblemSpec(
@@ -331,11 +335,7 @@ def _task_worker(
                         domain=domain,
                         source_file_dirs=source_dirs,
                     ),
-                    schedule=StrategySchedule.single(
-                        strategy,
-                        steps=max_steps,
-                        timeout_seconds=timeout,
-                    ),
+                    schedule=schedule,
                 )
                 row = row_from_result(task.path, result)
         payload = {
@@ -665,7 +665,11 @@ def _code_fingerprint() -> dict[str, str]:
     project_root = source_root.parent
     source_hash = hashlib.sha256()
     for module_name in ("connections", "provers"):
-        for path in sorted((source_root / module_name).rglob("*.py")):
+        paths = (
+            *(source_root / module_name).rglob("*.py"),
+            *(source_root / module_name).rglob("*.json"),
+        )
+        for path in sorted(paths):
             source_hash.update(str(path.relative_to(source_root)).encode())
             source_hash.update(b"\0")
             source_hash.update(path.read_bytes())

@@ -45,6 +45,15 @@ def _non_theorem_matrix() -> Matrix:
     )
 
 
+def test_problem_all_start_mode_uses_every_clause():
+    problem = prover_module.Problem(
+        matrix=_non_theorem_matrix(),
+        start_clauses="all",
+    )
+
+    assert problem.start_clause_ids == (0, 1)
+
+
 class _FirstRulePolicy(Policy):
     def __call__(self, state: State) -> PolicyDecision:
         for goal in state.fringe:

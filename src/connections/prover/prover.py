@@ -56,6 +56,13 @@ class Problem:
     start_clause_ids: tuple[int, ...] = field(init=False, repr=False)
 
     def __post_init__(self) -> None:
+        if self.start_clauses == "all":
+            object.__setattr__(
+                self,
+                "start_clause_ids",
+                tuple(range(len(self.matrix.clauses))),
+            )
+            return
         if self.start_clauses == "conjecture":
             start_clause_ids = (
                 self.matrix.conjecture_clauses or self.matrix.positive_clauses
@@ -329,9 +336,13 @@ class Prover:
         steps = 0
         inference_actions = 0
         while outcome is None:
-            if state.tableau.root.closed and state.constraints.satisfiable(
-                logic=state.problem.logic,
-                domain=state.problem.domain,
+            if (
+                state.tableau.root.closed
+                and state.constraints.satisfiable(
+                    logic=state.problem.logic,
+                    domain=state.problem.domain,
+                )
+                and policy.accepts_tableau_proof(state)
             ):
                 outcome = ProverOutcome.PROVED
                 break
@@ -360,6 +371,7 @@ class Prover:
                     logic=state.problem.logic,
                     domain=state.problem.domain,
                 )
+                and policy.accepts_tableau_proof(state)
             ):
                 if isinstance(policy, DFSPolicy):
                     policy._on_tableau_closed(state)

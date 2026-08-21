@@ -48,7 +48,7 @@ from connections.clausification.reorder import mreorder_items
 from connections.parsing.tptp.parser import ParsedTPTPDocument
 
 ClausificationTranslationMode = TypingLiteral["default", "def", "nodef"]
-StartClausesMode = TypingLiteral["positive", "conjecture"]
+StartClausesMode = TypingLiteral["positive", "conjecture", "all"]
 _CONJECTURE_CNF_ROLES = {"conjecture", "negated_conjecture"}
 
 

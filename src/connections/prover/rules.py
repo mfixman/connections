@@ -25,6 +25,13 @@ class Factorization:
 
 
 @dataclass(frozen=True, slots=True)
+class ModelLemma:
+    """Close a goal justified by the current SAT-shadow model."""
+
+    constraint_delta: ConstraintDelta = field(default_factory=ConstraintDelta)
+
+
+@dataclass(frozen=True, slots=True)
 class Reduction:
     source_goal_id: int
     constraint_delta: ConstraintDelta = field(default_factory=ConstraintDelta)
@@ -39,13 +46,14 @@ class Extension:
     instance_id: int | None = None
 
 
-Rule: TypeAlias = Start | Factorization | Reduction | Extension
+Rule: TypeAlias = Start | Factorization | ModelLemma | Reduction | Extension
 
 
 __all__ = [
     "Extension",
     "Factorization",
     "FactorizationMode",
+    "ModelLemma",
     "Reduction",
     "Rule",
     "Start",

@@ -98,6 +98,27 @@ slice. A run resumes only when that manifest matches, preventing results from
 an older prover revision or configuration from being silently reused. Use a
 new `--name` or pass `--overwrite` to start a fresh run.
 
+The bundled Connections policies can be compared directly:
+
+```bash
+compare-strategies SYN001+1.p \
+  --strategies LeanCoPCon LeanCoPCon_2 SATCoPCon SATResetCoP \
+  --name connections-policies
+```
+
+- `LeanCoPCon` is first-action iterative deepening with leanCoP cut and
+  `comp(7)`.
+- `LeanCoPCon_2` uses the same policy class across the bundled 30-phase
+  leanCoP 2.1 schedule.
+- `SATCoPCon` accumulates ground tableau clauses in an incremental CaDiCaL
+  shadow and uses its model for literal selection and model lemmata.
+- `SATResetCoP` uses the same SAT control and resets the tableau at dead ends
+  instead of locally backtracking.
+
+The SAT policies accept a result from their SAT shadow only when the grounded
+clause set is UNSAT. An ordinary tableau closure is restarted until the shadow
+validates it.
+
 `--split` and `--part` select modulo slices. If neither is supplied, Slurm
 array values are read from `SLURM_ARRAY_TASK_COUNT` and
 `SLURM_ARRAY_TASK_ID`. Worker count similarly defaults from

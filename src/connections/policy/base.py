@@ -23,6 +23,11 @@ class Policy(ABC):
     def __call__(self, state: State) -> object:
         raise NotImplementedError
 
+    def accepts_tableau_proof(self, state: State) -> bool:
+        """Return whether an ordinary closed tableau is terminal for this policy."""
+        _ = state
+        return True
+
 
 __all__ = [
     "BacktrackGranularity",

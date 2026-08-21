@@ -6,7 +6,6 @@ from pathlib import Path
 import sys
 
 from connections.runs import RunRow, run_corpus
-from connections.prover.strategy import StrategySchedule
 from provers.pycop.cli import configure_trace_loggers
 from provers.pycop.cli_common import (
     add_problem_arguments,
@@ -19,7 +18,7 @@ from provers.pycop.cli_common import (
 from provers.pycop.policy_resolution import (
     builtin_policy_names,
     resolve_policy,
-    strategy_for_policy,
+    schedule_for_policy,
 )
 
 
@@ -94,15 +93,12 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         selection = resolve_policy(args.policy)
-        strategy = strategy_for_policy(
+        schedule = schedule_for_policy(
             selection,
             settings=args.settings,
             backtrack=args.backtrack,
-        )
-        schedule = StrategySchedule.single(
-            strategy,
             steps=args.max_steps,
-            timeout_seconds=args.timeout,
+            timeout=args.timeout,
         )
         configure_trace_loggers(
             search=args.trace_search,

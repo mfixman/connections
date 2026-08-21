@@ -82,8 +82,23 @@ compare-strategies Problems/SYN \
 ```
 
 Built-in aliases can be mixed with importable policy classes using
-`LABEL=package.module:PolicyClass`.  All policies in one comparison share the
-same matrix and leanCoP settings, so the experiment changes policy choice only.
+`LABEL=package.module:PolicyClass`. Imported policies share the selected matrix
+and leanCoP settings. Named built-ins may supply required settings: notably the
+leanCoP 2.1 portfolio and SATCoP's all-clause start pool.
+
+The built-in Connections policies are `LeanCoPCon`, `LeanCoPCon_2`,
+`SATCoPCon`, and `SATResetCoP`. For example:
+
+```bash
+compare-strategies SYN001+1.p \
+  --strategies LeanCoPCon LeanCoPCon_2 SATCoPCon SATResetCoP \
+  --name connections-policies
+```
+
+`LeanCoPCon_2` runs the complete 30-phase leanCoP 2.1 schedule. The SAT
+policies use all clauses as legal starts, maintain an incremental grounded
+CaDiCaL shadow, use its model for literal selection, and accept shadow UNSAT as
+a proof. `SATResetCoP` resets to the root instead of locally backtracking.
 
 Download benchmark corpora:
 
