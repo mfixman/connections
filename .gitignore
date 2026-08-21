@@ -16,6 +16,8 @@ AGENTS.md
 .ty/
 artifacts/
 benchmarks/out/
+partial/
+results/
 
 # C extensions
 *.so

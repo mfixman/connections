@@ -36,6 +36,8 @@ Issues = "https://github.com/fredrrom/connections/issues"
 
 [project.scripts]
 pycop = "provers.pycop.cli:main"
+run-pycop = "provers.pycop.run_pycop:main"
+compare-strategies = "provers.pycop.compare_strategies:main"
 connections-download-benchmarks = "connections.runs.download:main"
 
 [tool.pytest.ini_options]
@@ -56,3 +58,7 @@ docs = [
 [build-system]
 requires = ["uv_build>=0.10.4,<0.11.0"]
 build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = ["connections", "provers"]
+source-exclude = ["src/connections/Axioms"]

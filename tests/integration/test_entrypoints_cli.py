@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import csv
 import subprocess
 import sys
 
@@ -24,6 +25,178 @@ def test_pycop_console_help_runs():
     )
     assert proc.returncode == 0
     assert "Connections Python connection-tableau prover" in proc.stdout
+
+
+def test_policy_experiment_console_helps_run():
+    for command, expected in (
+        ("run-pycop", "Run one connections policy"),
+        ("compare-strategies", "Compare connections policies"),
+    ):
+        proc = subprocess.run(
+            [command, "--help"],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=5,
+            env=os.environ.copy(),
+        )
+        assert proc.returncode == 0
+        assert expected in proc.stdout
+
+
+def test_run_pycop_accepts_raw_problem():
+    proc = subprocess.run(
+        [
+            "run-pycop",
+            "fof(c,conjecture,(p => p)).",
+            "--strategy",
+            "FirstActionIDPolicy",
+            "--max-steps",
+            "20",
+            "--timeout",
+            "2",
+            "--num-workers",
+            "1",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=5,
+        env=_env_without_logic_roots(),
+    )
+
+    assert proc.returncode == 0
+    payload = __import__("json").loads(proc.stdout)
+    assert payload["status"] == "Theorem"
+    assert payload["policy"] == "FirstActionIDPolicy"
+
+
+def test_run_pycop_resolves_tptp_codename(tmp_path):
+    problem_dir = tmp_path / "Problems" / "SYN"
+    problem_dir.mkdir(parents=True)
+    (problem_dir / "SYN001+1.p").write_text(
+        "fof(c,conjecture,(p => p)).\n",
+        encoding="utf-8",
+    )
+    proc = subprocess.run(
+        [
+            "run-pycop",
+            "SYN001+1.p",
+            "--tptp",
+            str(tmp_path),
+            "--max-steps",
+            "20",
+            "--timeout",
+            "2",
+            "--num-workers",
+            "1",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=5,
+        env=_env_without_logic_roots(),
+    )
+
+    assert proc.returncode == 0
+    assert '"status": "Theorem"' in proc.stdout
+
+
+def test_run_pycop_expands_and_slices_directory(tmp_path):
+    for name, atom in (("a.p", "p"), ("b.p", "q"), ("c.p", "r")):
+        (tmp_path / name).write_text(
+            f"fof(c,conjecture,({atom} => {atom})).\n",
+            encoding="utf-8",
+        )
+    proc = subprocess.run(
+        [
+            "run-pycop",
+            str(tmp_path),
+            "--split",
+            "2",
+            "--part",
+            "1",
+            "--max-steps",
+            "20",
+            "--timeout",
+            "2",
+            "--num-workers",
+            "1",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=5,
+        env=_env_without_logic_roots(),
+    )
+
+    assert proc.returncode == 0
+    payload = __import__("json").loads(proc.stdout)
+    assert payload["problem"] == "b.p"
+    assert payload["status"] == "Theorem"
+
+
+def test_compare_strategies_writes_and_resumes_validated_results(tmp_path):
+    problem = tmp_path / "tiny.p"
+    problem.write_text("fof(c,conjecture,(p => p)).\n", encoding="utf-8")
+    csv_path = tmp_path / "results.csv"
+    partial_path = tmp_path / "partial.jsonl"
+    command = [
+        "compare-strategies",
+        str(problem),
+        "--strategies",
+        "FirstActionID",
+        "FirstActionIDPolicy",
+        "--csv",
+        str(csv_path),
+        "--partial-file",
+        str(partial_path),
+        "--num-workers",
+        "2",
+        "--max-steps",
+        "20",
+        "--timeout",
+        "2",
+    ]
+
+    first = subprocess.run(
+        command,
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=10,
+        env=_env_without_logic_roots(),
+    )
+    second = subprocess.run(
+        command,
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=10,
+        env=_env_without_logic_roots(),
+    )
+
+    assert first.returncode == 0, first.stderr
+    assert second.returncode == 0, second.stderr
+    assert "completed=2  remaining=0" in second.stderr
+    with csv_path.open(newline="", encoding="utf-8") as input_file:
+        rows = list(csv.DictReader(input_file))
+    assert [row["policy"] for row in rows] == [
+        "FirstActionID",
+        "FirstActionIDPolicy",
+    ]
+    assert {row["status"] for row in rows} == {"Theorem"}
+
+    mismatch = subprocess.run(
+        command[:-4] + ["--max-steps", "21", "--timeout", "2"],
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=5,
+        env=_env_without_logic_roots(),
+    )
+    assert mismatch.returncode == 2
+    assert "different code/configuration/problem set" in mismatch.stderr
 
 
 def test_all_prover_helps_include_steps_option():

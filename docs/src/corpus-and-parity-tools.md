@@ -63,6 +63,46 @@ schedule, source directories, and problem paths. The `pycop` CLI supplies
 pycop strategies and output-file handling. Downstream experiment code should
 import `connections.runs`, not developer tool modules.
 
+## Policy Experiment Entry Points
+
+`run-pycop` selects one policy explicitly while retaining convenient TPTP
+codename, raw-problem, directory, SLURM-slice, and parallel-corpus handling:
+
+```bash
+run-pycop SYN001+1.p \
+  --tptp "$TPTP" \
+  --strategy FirstActionIDPolicy \
+  --max-steps 1000 \
+  --timeout 10
+```
+
+`--strategy` is a compatibility alias for `--policy`.  A policy can be a
+built-in alias or an import path such as
+`my_package.policies:LearnedPolicy`. Result rows are JSON objects containing
+both total policy calls and inference-action counts.
+
+Use `compare-strategies` for a problem-by-policy experiment matrix:
+
+```bash
+compare-strategies Problems/SYN \
+  --strategies FirstActionIDPolicy learned=my_package.policies:LearnedPolicy \
+  --settings cut \
+  --name syn-policies \
+  --num-workers 8
+```
+
+The command writes a human progress report, a final CSV, and a JSONL partial
+file.  The partial file starts with a manifest covering the code revision,
+source and policy implementation hashes, problem hashes, settings, budgets, and
+slice. A run resumes only when that manifest matches, preventing results from
+an older prover revision or configuration from being silently reused. Use a
+new `--name` or pass `--overwrite` to start a fresh run.
+
+`--split` and `--part` select modulo slices. If neither is supplied, Slurm
+array values are read from `SLURM_ARRAY_TASK_COUNT` and
+`SLURM_ARRAY_TASK_ID`. Worker count similarly defaults from
+`SLURM_CPUS_PER_TASK` when present.
+
 The summary schema is:
 
 - `schema`

@@ -65,6 +65,26 @@ Run over a directory or file list and write corpus rows:
 pycop Problems/SYN --out artifacts/corpus/syn.jsonl --steps 1000 --overwrite
 ```
 
+Run one explicitly selected policy with MyPyCop-compatible input conveniences:
+
+```bash
+run-pycop SYN001+1.p --tptp "$TPTP" --strategy FirstActionIDPolicy
+```
+
+Compare policies over a corpus with parallel workers, resumable JSONL state,
+and final CSV output:
+
+```bash
+compare-strategies Problems/SYN \
+  --strategies FirstActionIDPolicy \
+  --name syn-baseline \
+  --num-workers 8
+```
+
+Built-in aliases can be mixed with importable policy classes using
+`LABEL=package.module:PolicyClass`.  All policies in one comparison share the
+same matrix and leanCoP settings, so the experiment changes policy choice only.
+
 Download benchmark corpora:
 
 ```bash

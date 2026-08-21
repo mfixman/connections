@@ -8,7 +8,6 @@ from connections.syntax.formula import Atom
 from connections.syntax.matrix import Clause, Literal, Matrix
 from connections.prover.status import ProverOutcome, SZSStatus
 from connections.policy import FirstActionIDPolicy, Policy, PolicyDecision
-from connections.prover.actions import Action
 from connections.prover.dynamics import Dynamics
 from connections.prover.prover import (
     ProblemSpec,

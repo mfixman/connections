@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from connections.policy import Policy, PolicyDecision
-from connections.prover.actions import Action
 from connections.prover.dynamics import Dynamics
 from connections.prover.state import State
 from connections.prover.strategy import MatrixOptions, PolicyOptions, Strategy, StrategySchedule
