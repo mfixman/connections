@@ -71,7 +71,7 @@ leancop_tptp2(File,AxPath,AxNames,F,Con) :-
 fof2cop(Stream,AxPath,AxNames,F,Con) :-
     read(Stream,Term),
     ( Term=end_of_file -> F=[], Con=[] ;
-      ( Term=..[fof,Name,Type,Fml|_] ->
+      ( Term=..[Kind,Name,Type,Fml|_], (Kind=fof;Kind=cnf) ->
         ( \+member(Name,AxNames) -> true ; fml2cop([Fml],[Fml1]) ),
         ( Type=conjecture -> Con=Fml1 ; Con=Con1 ) ;
         ( Term=include(File), AxNames2=[_] ;
@@ -79,7 +79,8 @@ fof2cop(Stream,AxPath,AxNames,F,Con) :-
           name(File,FL), append(AL,FL,AxL), name(AxFile,AxL),
           leancop_tptp2(AxFile,'',AxNames2,Fml1,_), Con=Con1
       ), fof2cop(Stream,AxPath,AxNames,F1,Con1),
-      ( Term=..[fof,N,Type|_], (Type=conjecture;\+member(N,AxNames))
+      ( Term=..[Kind2,N,Type|_], (Kind2=fof;Kind2=cnf),
+        (Type=conjecture;\+member(N,AxNames))
       -> (F1=[] -> F=[] ; F=F1) ; (F1=[] -> F=Fml1 ; F=(Fml1,F1)) )
     ).
 
@@ -138,4 +139,3 @@ collect_func([F|FunL],FL) :-
 union1([],L,L).
 union1([H|L1],L2,L3) :- member(H,L2), !, union1(L1,L2,L3).
 union1([H|L1],L2,[H|L3]) :- union1(L1,L2,L3).
-

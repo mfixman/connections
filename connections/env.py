@@ -5,6 +5,7 @@ from typing import Optional
 
 from connections.calculi.classical import ConnectionState
 from connections.calculi.classicalcut import ClassicalCut
+from connections.calculi.leancop2 import LeanCoP2State
 from connections.calculi.classicalsat import SATConnectionState, SATSolver
 from connections.utils.classical_problem_parsing import file2cnf as CNF
 
@@ -24,12 +25,14 @@ class Logic(UncaseEnum):
     ClassicalSAT = auto()
     Classical = auto()
     ClassicalCut = auto()
+    LeanCoP2 = auto()
 
     def state_class(self):
         class_map = {
             Logic.ClassicalSAT: SATConnectionState,
             Logic.Classical: ConnectionState,
             Logic.ClassicalCut: ClassicalCut,
+            Logic.LeanCoP2: LeanCoP2State,
         }
 
         return class_map[self]
@@ -43,6 +46,12 @@ class Logic(UncaseEnum):
                 return dict(
                     positive_start_clauses = False,
                     iterative_deepening = True,
+                )
+            case Logic.LeanCoP2:
+                return dict(
+                    positive_start_clauses = True,
+                    iterative_deepening = True,
+                    connection_constraints = False,
                 )
 
         return {}
@@ -59,6 +68,13 @@ class Settings:
     logic: Logic = Logic.Classical
     sat_solver: SATSolver = SATSolver.CaDiCaL
     debug: bool = False
+    connection_constraints: bool = True
+    time_limit_seconds: Optional[float] = None
+    step_limit: Optional[int] = None
+    leancop_cut: bool = False
+    leancop_scut: bool = False
+    leancop_comp_limit: Optional[int] = None
+    leancop_conjecture_start: bool = False
 
     def __post_init__(self):
         self.logic = Logic(self.logic)

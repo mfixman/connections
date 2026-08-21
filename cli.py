@@ -47,6 +47,8 @@ class _CompareHelpFormatter(argparse.RawDescriptionHelpFormatter):
 
 
 def default_logic_for_strategy(strategy_name: str) -> Logic:
+    if strategy_name == 'LeanCoP_2':
+        return Logic.LeanCoP2
     if strategy_name in {'PyCoP', 'FirstAction'}:
         return Logic.Classical
     strategy = Strategy.strategies(include_hidden=True).get(strategy_name)

@@ -49,6 +49,25 @@ class TestUnify:
     def test_unify_occur_check(self, symbols):
         assert self.sub.can_unify(symbols['fx'], symbols['ffx']) == (False, [symbols['X']])
 
+    def test_equal_distinguishes_copies_of_the_same_source_variable(self, symbols):
+        # Two clause copies share their source variable name but are distinct
+        # variables, so Prolog's ==/2 separates them.  Conflating them
+        # over-prunes regularity and can close a goal by a bogus lemma.
+        sub = Substitution()
+        first = Variable('X')
+        first.copy_num = 1
+        second = Variable('X')
+        second.copy_num = 2
+
+        assert sub.equal(Literal('q', [first]), Literal('q', [second])) is False
+        assert sub.equal(Literal('q', [first]), Literal('q', [first])) is True
+        assert sub.equal(Literal('q', [first]), Literal('q', [symbols['a']])) is False
+
+        # ...but once both are bound to the same term they are equal.
+        sub.unify(first, symbols['a'])
+        sub.unify(second, symbols['a'])
+        assert sub.equal(Literal('q', [first]), Literal('q', [second])) is True
+
     def test_unify_incremental(self, symbols):
         sub1 = Substitution()
         sub1.unify(symbols['X'], symbols['Y'])

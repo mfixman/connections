@@ -33,7 +33,7 @@ from strategies import Strategy
 _ANSI = re.compile(r'\033\[[0-9;]*m')
 _PARTIAL_RESULT_PREFIX = 'RESULT_JSON\t'
 _INLINE_PARTIAL_SEPARATOR = '  |  '
-_COUNTED_STEP_ACTIONS = {'Start', 'Reduction', 'Extension'}
+_COUNTED_STEP_ACTIONS = {'Start', 'Reduction', 'Extension', 'Lemma'}
 
 def _counts_as_step(action) -> bool:
     return action.__class__.__name__ in _COUNTED_STEP_ACTIONS
@@ -218,7 +218,15 @@ def _run_problem(
                 try:
                     logic = default_logic_for_strategy(strategy_name)
                     sat_solver = resolve_sat_solver_for_strategy(strategy_name, sat_solver)
-                    env = ConnectionEnv(path, Settings(logic=logic, sat_solver=sat_solver))
+                    env = ConnectionEnv(
+                        path,
+                        Settings(
+                            logic=logic,
+                            sat_solver=sat_solver,
+                            time_limit_seconds=timeout,
+                            step_limit=max_steps,
+                        ),
+                    )
                     strategy = _selectable_strategies()[strategy_name](env)
                     env.reset()
 

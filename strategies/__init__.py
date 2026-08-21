@@ -1,5 +1,6 @@
 from .base import Strategy
 from .classical import FirstAction, LeanCoP, LeanCopCut, PyCoP
+from .custom import LeanCoP_2
 from .sat_reset import (
     ResetSATCoP,
     SATResetCoP,

@@ -257,7 +257,7 @@ class ClassicalCut:
         on the current path, augmented with the new fact from this
         action, is a superset of any learned constraint.
         """
-        if not self.constraints:
+        if not self.settings.connection_constraints or not self.constraints:
             return False
         new_fact = self.action_to_fact(action)
         if new_fact is None:
@@ -304,30 +304,46 @@ class ClassicalCut:
             fresh_actions = self.legal_forward_actions()
         return {action_id: fresh_actions[action_id] for action_id in remaining_ids if action_id in fresh_actions}
 
+    def _proof_action_principle(self, action: ConnectionAction) -> Tableau | None:
+        if isinstance(action, Start):
+            return self.tableau
+        return getattr(action, 'principle_node', None)
+
     def _backtrack_once(self) -> None:
         if self.goal.parent is None:
             return
 
         while True:
-            old_goal = self.goal
             self.goal = self.goal.find_prev()
-            pop_frame = (self.goal is old_goal.parent)
             remaining_ids = list(self.goal.actions)
 
-            if pop_frame and self.proof_sequence:
+            # Each proof action owns one substitution frame.  A traversal can
+            # move from a failed sibling into a previously solved descendant,
+            # so parent/child movement alone does not identify which frame to
+            # unwind.  Pop the action exactly when backtracking reaches the
+            # node where that action was applied.
+            if (
+                self.proof_sequence
+                and self._proof_action_principle(self.proof_sequence[-1]) is self.goal
+            ):
                 popped = self.proof_sequence.pop()
                 fact = self.action_to_fact(popped)
                 if fact is not None:
                     self._cached_facts.discard(fact)
+                self.substitution.backtrack()
 
             if self.goal.pending_cut:
                 self.goal.pending_cut = False
 
-            if pop_frame:
-                self.substitution.backtrack()
             self.goal.proven = False
             self.goal.children = []
             self.goal.actions = self._refresh_remaining_actions(remaining_ids)
+
+            # Exhausting the root is a normal finite-search outcome.  There is
+            # no parent choice point to visit; callers may now deepen, switch
+            # schedule phase, or report a non-theorem.
+            if self.goal.parent is None:
+                break
 
             if self.goal.cut_committed or not self.goal.actions:
                 continue

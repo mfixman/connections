@@ -31,6 +31,17 @@ The program takes a series of strategies and a directory or set of `.p` problems
 The program aggressively uses multiprocessing, and will try to ``fit'' each strategy/problem pair into a single processor core.
 Additionally, it keep partial information of solved problems; runs of `compare\_strategies.py --name A` after the first one will retry from where the previous run ended, even if that run crashed or was killed for some reason.
 
+The public `LeanCoP_2` strategy implements the leanCoP 2.1 core features and
+30-phase schedule from `~/packages/leancop21`. `compare_strategies.py` passes
+its per-problem timeout into the strategy so that the phases receive their
+published `TIME_PC / 111` limits within one outer timeout. See
+[`docs/leancop2-parity-and-soundness.md`](docs/leancop2-parity-and-soundness.md)
+for the parity notes and the August 2026 soundness correction:
+
+```
+$ python compare_strategies.py --name LeanCoP2 --strategies LeanCoP_2 $TPTP/Problems
+```
+
 ```
 $ python compare_strategies.py --name LongTest --strategies SATCoP SATResetCoP $TPTP/Problems/PUZ
 Run: partial=partial/LongTest_PUZ  csv=results/LongTest/PUZ.csv  tasks=262  completed=0  remaining=262  workers=20  timeout=120s

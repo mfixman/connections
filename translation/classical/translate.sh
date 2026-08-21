@@ -72,4 +72,4 @@ set +m
 
 # invoke leanCoP core prover with different settings SET
 
-SET="[]"; leancop_tr
+SET="${LEANCOP_TRANSLATION_SETTINGS:-[]}"; leancop_tr
