@@ -126,6 +126,11 @@ def build_parser() -> argparse.ArgumentParser:
         dest="color",
         help="Use ANSI colors in the human report",
     )
+    parser.add_argument(
+        "--debug-sat-core",
+        action="store_true",
+        help="Minimize SAT-shadow UNSAT cores and include them in diagnostics",
+    )
     return parser
 
 
@@ -152,6 +157,7 @@ def main(argv: list[str] | None = None) -> int:
                 backtrack=args.backtrack,
                 steps=args.max_steps,
                 timeout=args.timeout,
+                debug_sat_core=args.debug_sat_core,
             )
         csv_path, partial_path = _output_paths(args)
         with resolved_problem_inputs(
@@ -184,6 +190,8 @@ def main(argv: list[str] | None = None) -> int:
             )
             remaining = tuple(task for task in tasks if _task_key(task) not in existing)
             workers = determine_worker_count(len(remaining), args.num_workers)
+            if workers > 1 and args.debug_sat_core:
+                raise ValueError("SAT-core debugging requires --num-workers 1")
             print(
                 "Run: "
                 f"partial={partial_path}  csv={csv_path}  tasks={len(tasks)}  "
@@ -201,6 +209,7 @@ def main(argv: list[str] | None = None) -> int:
                 source_dirs=tuple(str(path) for path in source_file_dirs(args)),
                 max_steps=args.max_steps,
                 timeout=args.timeout,
+                debug_sat_core=args.debug_sat_core,
                 workers=workers,
                 on_result=lambda result: _record_result(
                     partial_path,
@@ -233,6 +242,7 @@ def run_task_matrix(
     source_dirs: tuple[str, ...],
     max_steps: int,
     timeout: float,
+    debug_sat_core: bool,
     workers: int,
     on_result: Callable[[dict[str, object]], object],
     grace_seconds: float = 5.0,
@@ -258,6 +268,7 @@ def run_task_matrix(
                 source_dirs,
                 max_steps,
                 timeout,
+                debug_sat_core,
             ),
             daemon=True,
         )
@@ -315,6 +326,7 @@ def _task_worker(
     source_dirs: tuple[str, ...],
     max_steps: int,
     timeout: float,
+    debug_sat_core: bool,
 ) -> None:
     _configure_worker_threads()
     try:
@@ -327,6 +339,7 @@ def _task_worker(
                     backtrack=backtrack,
                     steps=max_steps,
                     timeout=timeout,
+                    debug_sat_core=debug_sat_core,
                 )
                 result = Prover().run(
                     ProblemSpec(
@@ -352,6 +365,7 @@ def _task_worker(
             "elapsed_seconds": row.elapsed_seconds,
             "error_type": row.error_type,
             "error_message": row.error_message,
+            "diagnostics": dict(row.diagnostics),
         }
     except BaseException as exc:
         payload = _error_result(task, exc)
@@ -399,6 +413,7 @@ def build_manifest(
         "timeout": args.timeout,
         "split": args.split,
         "part": args.part,
+        "debug_sat_core": args.debug_sat_core,
     }
 
 
@@ -463,13 +478,16 @@ def write_csv(path: Path, results: tuple[dict[str, object], ...]) -> None:
         "elapsed_seconds",
         "error_type",
         "error_message",
+        "diagnostics",
     )
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8", newline="") as output:
         writer = csv.DictWriter(output, fieldnames=fields, lineterminator="\n")
         writer.writeheader()
         for result in results:
-            writer.writerow({field: result.get(field) for field in fields})
+            row = {field: result.get(field) for field in fields}
+            row["diagnostics"] = json.dumps(result.get("diagnostics", {}), sort_keys=True)
+            writer.writerow(row)
 
 
 def print_summary(
@@ -607,6 +625,7 @@ def _timeout_result(task: ComparisonTask, timeout: float) -> dict[str, object]:
         "elapsed_seconds": timeout,
         "error_type": None,
         "error_message": None,
+        "diagnostics": {},
     }
 
 
@@ -625,6 +644,7 @@ def _error_result(task: ComparisonTask, error: BaseException) -> dict[str, objec
         "elapsed_seconds": 0.0,
         "error_type": type(error).__name__,
         "error_message": "".join(traceback.format_exception_only(type(error), error)).strip(),
+        "diagnostics": {},
     }
 
 

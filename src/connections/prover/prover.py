@@ -6,7 +6,7 @@ from pathlib import Path
 import logging
 import signal
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from typing import Any, Generic, TypeVar, cast
 
 from connections.clausification import StartClausesMode, matrix_from_file
@@ -84,6 +84,7 @@ class StrategyResult(Generic[StrategyT]):
     inference_actions: int
     elapsed_seconds: float
     szs_status: SZSStatus | None = None
+    diagnostics: Mapping[str, object] = field(default_factory=dict)
 
 
 @dataclass(frozen=True, slots=True)
@@ -93,6 +94,7 @@ class ProverResult(Generic[StrategyT]):
     winning_strategy_index: int | None = None
     szs_status: SZSStatus | None = None
     proof_payload: Any | None = None
+    diagnostics: Mapping[str, object] = field(default_factory=dict)
 
 
 @dataclass(frozen=True, slots=True)
@@ -267,6 +269,9 @@ class Prover:
             winning_strategy_index=winning_strategy_index,
             szs_status=szs_status,
             proof_payload=proof_payload,
+            diagnostics=(
+                strategy_results[-1].diagnostics if strategy_results else {}
+            ),
         )
 
     def _strategy_schedule(
@@ -290,6 +295,7 @@ class Prover:
         steps = 0
         inference_actions = 0
         state: State | None = None
+        policy: Policy | None = None
         try:
             with _wall_clock_alarm(entry.timeout_seconds):
                 state = self._build_state_from_file(
@@ -319,10 +325,17 @@ class Prover:
             inference_actions=inference_actions,
             elapsed_seconds=time.monotonic() - started_at,
             szs_status=szs_status,
+            diagnostics={} if policy is None else dict(policy.diagnostics()),
         )
         return _StrategyRun(
             result=result,
-            proof_state=state if outcome is ProverOutcome.PROVED else None,
+            proof_state=(
+                state
+                if outcome is ProverOutcome.PROVED
+                and policy is not None
+                and policy.accepts_tableau_proof(state)
+                else None
+            ),
         )
 
     def _run_strategy_loop(

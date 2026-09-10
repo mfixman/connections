@@ -28,18 +28,21 @@ _BUILTIN_POLICIES: dict[str, type[Policy]] = {
     "LeanCoPCon_2": LeanCoPCon_2,
     "SATCoPCon": SATCoPCon,
     "SATResetCoP": SATResetCoP,
+    "leancop_con": LeanCoPCon,
+    "satcop_con": SATCoPCon,
+    "satresetcop": SATResetCoP,
 }
 _CANONICAL_POLICY_NAMES = (
     "FirstActionIDPolicy",
-    "LeanCoPCon",
+    "leancop_con",
     "LeanCoPCon_2",
-    "SATCoPCon",
-    "SATResetCoP",
+    "satcop_con",
+    "satresetcop",
 )
-_DEFAULT_SETTINGS = {
-    "LeanCoPCon": ("cut", "comp(7)"),
-    "SATCoPCon": ("cut",),
-    "SATResetCoP": ("cut",),
+_DEFAULT_SETTINGS: dict[type[Policy], tuple[str, ...]] = {
+    LeanCoPCon: ("cut", "comp(7)"),
+    SATCoPCon: ("cut",),
+    SATResetCoP: ("cut",),
 }
 
 
@@ -80,16 +83,19 @@ def strategy_for_policy(
     *,
     settings: list[str],
     backtrack: str,
+    debug_sat_core: bool = False,
 ) -> Strategy:
-    tokens = [*_DEFAULT_SETTINGS.get(selection.reference, ()), *settings]
+    tokens = [*_DEFAULT_SETTINGS.get(selection.policy_class, ()), *settings]
     base = LeancopSettingsCodec.from_tokens(tokens)
-    if selection.reference in {"SATCoPCon", "SATResetCoP"}:
+    if issubclass(selection.policy_class, SATCoPCon):
         base = replace(
             base,
             matrix=replace(base.matrix, start_clauses="all"),
         )
     policy_args = dict(base.policy.args or {})
     policy_args["backtrack"] = backtrack
+    if issubclass(selection.policy_class, SATCoPCon):
+        policy_args["debug_sat_core"] = debug_sat_core
     _validate_constructor(selection, policy_args)
     return replace(
         base,
@@ -107,13 +113,15 @@ def schedule_for_policy(
     backtrack: str,
     steps: int,
     timeout: float,
+    debug_sat_core: bool = False,
 ) -> StrategySchedule[Strategy]:
-    if selection.reference != "LeanCoPCon_2":
+    if selection.policy_class is not LeanCoPCon_2:
         return StrategySchedule.single(
             strategy_for_policy(
                 selection,
                 settings=settings,
                 backtrack=backtrack,
+                debug_sat_core=debug_sat_core,
             ),
             steps=steps,
             timeout_seconds=timeout,

@@ -82,6 +82,8 @@ class _ShadowSAT:
     dirty: bool = False
     satisfiable: bool = True
     new_tableau_clause: bool = False
+    debug_unsat_core: bool = False
+    unsat_core: tuple[tuple[int, ...], ...] = ()
 
     def __post_init__(self) -> None:
         if hasattr(self.solver, "set"):
@@ -117,6 +119,8 @@ class _ShadowSAT:
         if status == pydical.UNSATISFIABLE:
             self.model.clear()
             self.satisfiable = False
+            if self.debug_unsat_core:
+                self.unsat_core = self._irreducible_unsat_subset()
             return False
         if status != pydical.SATISFIABLE:
             self.model.clear()
@@ -129,6 +133,21 @@ class _ShadowSAT:
         self.model = {abs(value): value > 0 for value in values if value != 0}
         self.satisfiable = True
         return True
+
+    def _irreducible_unsat_subset(self) -> tuple[tuple[int, ...], ...]:
+        """Deletion-minimize the shadow CNF in a deterministic order."""
+        kept = sorted(self.clauses, key=lambda clause: (-len(clause), clause))
+        index = 0
+        while index < len(kept):
+            trial = kept[:index] + kept[index + 1 :]
+            solver = pydical.Solver()
+            for clause in trial:
+                solver.add_clause(list(clause))
+            if solver.solve() == pydical.UNSATISFIABLE:
+                kept = trial
+                continue
+            index += 1
+        return tuple(kept)
 
     def literal_value(self, literal: int | None) -> bool | None:
         if literal is None:
@@ -161,6 +180,7 @@ class SATCoPCon(IDPolicy):
         backtrack: BacktrackGranularity = "step",
         factorization: FactorizationMode = "equal",
         initial_depth: int = 1,
+        debug_sat_core: bool = False,
     ) -> None:
         super().__init__(
             cut=cut,
@@ -170,8 +190,22 @@ class SATCoPCon(IDPolicy):
             factorization=factorization,
             initial_depth=initial_depth,
         )
-        self._shadow = _ShadowSAT()
+        self._shadow = _ShadowSAT(debug_unsat_core=debug_sat_core)
         self._seeded = False
+
+    def diagnostics(self) -> dict[str, object]:
+        if not self._shadow.debug_unsat_core or not self._shadow.unsat_core:
+            return {}
+        atoms = {identifier: key for key, identifier in self._shadow.atom_ids.items()}
+        return {
+            "sat_core": [
+                [
+                    atoms[abs(literal)] if literal > 0 else f"~{atoms[abs(literal)]}"
+                    for literal in clause
+                ]
+                for clause in self._shadow.unsat_core
+            ]
+        }
 
     def __call__(self, state: State) -> DFSPolicyDecision:
         if state.problem.logic != "classical":

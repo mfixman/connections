@@ -40,7 +40,7 @@ def add_problem_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--tptp",
         metavar="ROOT",
-        help="TPTP root; defaults to the TPTP environment variable",
+        help="Explicit TPTP root used for corpus and basename lookup",
     )
     parser.add_argument(
         "--settings",
@@ -134,7 +134,7 @@ def source_file_dirs(args: argparse.Namespace) -> tuple[Path, ...]:
 
 
 def tptp_root_from_args(args: argparse.Namespace) -> Path | None:
-    raw = args.tptp or os.getenv("TPTP")
+    raw = args.tptp
     if raw is None:
         return None
     root = Path(raw).expanduser().resolve()
@@ -200,7 +200,7 @@ def _resolve_root(raw: str, *, tptp_root: Path | None) -> Path:
         return path.resolve()
     if tptp_root is None:
         raise FileNotFoundError(
-            f"could not find {raw!r}; pass --tptp ROOT or set TPTP for codenames"
+            f"could not find {raw!r}; pass --tptp ROOT for codenames and basenames"
         )
     candidates = [tptp_root / raw, tptp_root / "Problems" / raw]
     name = path.name

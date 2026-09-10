@@ -76,6 +76,11 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Replace an existing --out file",
     )
+    parser.add_argument(
+        "--debug-sat-core",
+        action="store_true",
+        help="Minimize and report the SAT-shadow UNSAT core",
+    )
     return parser
 
 
@@ -99,6 +104,7 @@ def main(argv: list[str] | None = None) -> int:
             backtrack=args.backtrack,
             steps=args.max_steps,
             timeout=args.timeout,
+            debug_sat_core=args.debug_sat_core,
         )
         configure_trace_loggers(
             search=args.trace_search,
@@ -115,6 +121,8 @@ def main(argv: list[str] | None = None) -> int:
             workers = determine_worker_count(len(problems), args.num_workers)
             if workers > 1 and (args.trace_search or args.trace_clausification):
                 raise ValueError("trace output requires --num-workers 1")
+            if workers > 1 and args.debug_sat_core:
+                raise ValueError("SAT-core debugging requires --num-workers 1")
             rows = tuple(
                 run_corpus(
                     problems,
@@ -134,6 +142,9 @@ def main(argv: list[str] | None = None) -> int:
             for row in rows
         )
         _write_lines(lines, args.out, overwrite=args.overwrite)
+        if args.debug_sat_core:
+            for row in rows:
+                _print_sat_core(row)
         return 1 if any(row.error_type is not None for row in rows) else 0
     except (FileNotFoundError, ImportError, TypeError, ValueError, RuntimeError) as exc:
         print(f"error: {exc}", file=sys.stderr)
@@ -153,7 +164,18 @@ def _result_record(row: RunRow, policy: str) -> dict[str, object]:
         "elapsed_seconds": row.elapsed_seconds,
         "error_type": row.error_type,
         "error_message": row.error_message,
+        "diagnostics": dict(row.diagnostics),
     }
+
+
+def _print_sat_core(row: RunRow) -> None:
+    core = row.diagnostics.get("sat_core")
+    if not isinstance(core, list):
+        return
+    print(f"SAT core for {row.problem}:", file=sys.stderr)
+    for clause in core:
+        if isinstance(clause, list):
+            print(f"  ({' | '.join(str(literal) for literal in clause)})", file=sys.stderr)
 
 
 def _write_lines(

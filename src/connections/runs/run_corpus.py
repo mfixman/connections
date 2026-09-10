@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable, Iterator, Sequence
-from dataclasses import dataclass
+from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
+from dataclasses import dataclass, field
 import importlib
 import json
 import multiprocessing as mp
@@ -45,6 +45,7 @@ class RunRow:
     winning_strategy_index: int | None
     error_type: str | None = None
     error_message: str | None = None
+    diagnostics: Mapping[str, object] = field(default_factory=dict)
 
 
 @dataclass(frozen=True, slots=True)
@@ -225,6 +226,7 @@ def row_from_result(
         ),
         strategy_count=len(result.strategy_results),
         winning_strategy_index=result.winning_strategy_index,
+        diagnostics=dict(result.diagnostics),
     )
 
 
@@ -247,6 +249,7 @@ def row_from_error(
         winning_strategy_index=None,
         error_type=type(error).__name__,
         error_message=str(error),
+        diagnostics={},
     )
 
 
@@ -264,6 +267,7 @@ def row_to_json(row: RunRow) -> dict[str, object]:
         "winning_strategy_index": row.winning_strategy_index,
         "error_type": row.error_type,
         "error_message": row.error_message,
+        "diagnostics": dict(row.diagnostics),
     }
 
 

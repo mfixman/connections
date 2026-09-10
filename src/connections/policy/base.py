@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import Mapping
 from typing import Literal, TypeAlias
 
 from connections.prover.actions import Action
@@ -27,6 +28,10 @@ class Policy(ABC):
         """Return whether an ordinary closed tableau is terminal for this policy."""
         _ = state
         return True
+
+    def diagnostics(self) -> Mapping[str, object]:
+        """Return JSON-serializable diagnostics collected during this run."""
+        return {}
 
 
 __all__ = [
