@@ -73,7 +73,8 @@ class LeanCoPCon_2(FirstActionIDPolicy):
 @dataclass(slots=True)
 class _ShadowSAT:
     atom_ids: dict[str, int] = field(default_factory=dict)
-    clauses: set[tuple[int, ...]] = field(default_factory=set)
+    selector_ids: dict[int, int] = field(default_factory=dict)
+    clauses: set[tuple[int, tuple[int, ...]]] = field(default_factory=set)
     observed_groundings: set[tuple[int, tuple[int, ...]]] = field(
         default_factory=set
     )
@@ -84,6 +85,9 @@ class _ShadowSAT:
     new_tableau_clause: bool = False
     debug_unsat_core: bool = False
     unsat_core: tuple[tuple[int, ...], ...] = ()
+    sat_core_clause_ids: tuple[int, ...] = ()
+    core_available: bool = False
+    next_variable_id: int = 1
 
     def __post_init__(self) -> None:
         if hasattr(self.solver, "set"):
@@ -98,15 +102,29 @@ class _ShadowSAT:
     def atom_id(self, key: str) -> int:
         identifier = self.atom_ids.get(key)
         if identifier is None:
-            identifier = len(self.atom_ids) + 1
+            identifier = self._fresh_variable()
             self.atom_ids[key] = identifier
         return identifier
 
-    def add_clause(self, clause: tuple[int, ...], *, from_tableau: bool) -> None:
-        if clause in self.clauses:
+    def selector_id(self, clause_idx: int) -> int:
+        identifier = self.selector_ids.get(clause_idx)
+        if identifier is None:
+            identifier = self._fresh_variable()
+            self.selector_ids[clause_idx] = identifier
+        return identifier
+
+    def _fresh_variable(self) -> int:
+        identifier = self.next_variable_id
+        self.next_variable_id += 1
+        return identifier
+
+    def add_clause(self, clause: tuple[int, ...], *, clause_idx: int, from_tableau: bool) -> None:
+        sourced = (clause_idx, clause)
+        if sourced in self.clauses:
             return
-        self.clauses.add(clause)
-        self.solver.add_clause(list(clause))
+        self.clauses.add(sourced)
+        selector = self.selector_id(clause_idx)
+        self.solver.add_clause([-selector, *clause])
         self.dirty = True
         if from_tableau:
             self.new_tableau_clause = True
@@ -114,13 +132,26 @@ class _ShadowSAT:
     def solve(self) -> bool:
         if not self.dirty:
             return self.satisfiable
+        for selector in self.selector_ids.values():
+            self.solver.assume(selector)
         status = self.solver.solve()
         self.dirty = False
         if status == pydical.UNSATISFIABLE:
             self.model.clear()
             self.satisfiable = False
+            self.core_available = True
             if self.debug_unsat_core:
-                self.unsat_core = self._irreducible_unsat_subset()
+                failed = {
+                    clause_idx
+                    for clause_idx, selector in self.selector_ids.items()
+                    if self.solver.failed(selector)
+                }
+                self.sat_core_clause_ids = tuple(sorted(failed))
+                self.unsat_core = tuple(
+                    clause
+                    for clause_idx, clause in sorted(self.clauses)
+                    if clause_idx in failed
+                )
             return False
         if status != pydical.SATISFIABLE:
             self.model.clear()
@@ -133,21 +164,6 @@ class _ShadowSAT:
         self.model = {abs(value): value > 0 for value in values if value != 0}
         self.satisfiable = True
         return True
-
-    def _irreducible_unsat_subset(self) -> tuple[tuple[int, ...], ...]:
-        """Deletion-minimize the shadow CNF in a deterministic order."""
-        kept = sorted(self.clauses, key=lambda clause: (-len(clause), clause))
-        index = 0
-        while index < len(kept):
-            trial = kept[:index] + kept[index + 1 :]
-            solver = pydical.Solver()
-            for clause in trial:
-                solver.add_clause(list(clause))
-            if solver.solve() == pydical.UNSATISFIABLE:
-                kept = trial
-                continue
-            index += 1
-        return tuple(kept)
 
     def literal_value(self, literal: int | None) -> bool | None:
         if literal is None:
@@ -194,10 +210,11 @@ class SATCoPCon(IDPolicy):
         self._seeded = False
 
     def diagnostics(self) -> dict[str, object]:
-        if not self._shadow.debug_unsat_core or not self._shadow.unsat_core:
+        if not self._shadow.debug_unsat_core or not self._shadow.core_available:
             return {}
         atoms = {identifier: key for key, identifier in self._shadow.atom_ids.items()}
         return {
+            "sat_core_clause_ids": list(self._shadow.sat_core_clause_ids),
             "sat_core": [
                 [
                     atoms[abs(literal)] if literal > 0 else f"~{atoms[abs(literal)]}"
@@ -291,6 +308,7 @@ class SATCoPCon(IDPolicy):
                         state,
                         state.problem.matrix.clauses[clause_idx],
                     ),
+                    clause_idx=clause_idx,
                     from_tableau=False,
                 )
             self._seeded = True
@@ -300,6 +318,8 @@ class SATCoPCon(IDPolicy):
             rule = application.rule
             if not isinstance(rule, (Start, Extension)):
                 continue
+            if rule.clause_idx is None:
+                raise RuntimeError("SAT shadow clause is missing source-clause provenance")
             clause = self._ground_clause(
                 state,
                 rule.clause,
@@ -309,7 +329,11 @@ class SATCoPCon(IDPolicy):
             if observation in self._shadow.observed_groundings:
                 continue
             self._shadow.observed_groundings.add(observation)
-            self._shadow.add_clause(clause, from_tableau=True)
+            self._shadow.add_clause(
+                clause,
+                clause_idx=rule.clause_idx,
+                from_tableau=True,
+            )
 
     def _ground_clause(
         self,
@@ -451,11 +475,16 @@ def _term_key(
     instance_id: int | None,
     pending_bindings: tuple[TermBinding, ...],
 ) -> str:
-    resolved = state.constraints.terms.substitute_term(
-        term,
-        instance_id=instance_id,
-        pending_bindings=pending_bindings,
-    )
+    if isinstance(term, TableauVariable):
+        return "__ground__"
+    try:
+        resolved = state.constraints.terms.substitute_term(
+            term,
+            instance_id=instance_id,
+            pending_bindings=pending_bindings,
+        )
+    except AttributeError:
+        resolved = term
     if isinstance(resolved, (Variable, TableauVariable)):
         return "__ground__"
     if not isinstance(resolved, Function) or not resolved.args:
