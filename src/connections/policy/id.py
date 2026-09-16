@@ -33,6 +33,7 @@ class IDPolicy(DFSPolicy):
         backtrack: BacktrackGranularity = "step",
         factorization: FactorizationMode = "unify",
         initial_depth: int = 1,
+        ground_extensions_beyond_depth: bool = True,
     ) -> None:
         super().__init__(
             cut=cut,
@@ -43,6 +44,7 @@ class IDPolicy(DFSPolicy):
         if initial_depth < 1:
             raise ValueError("initial_depth must be at least 1")
         self.comp = comp
+        self.ground_extensions_beyond_depth = ground_extensions_beyond_depth
         self.depth_limit = initial_depth - 1
         self._path_limit_hit = False
         self._pending_path_limit_plan: tuple[int, dict[int, int], int] | None = None
@@ -96,7 +98,9 @@ class IDPolicy(DFSPolicy):
             ):
                 instance_id = state.fresh_instance_id()
                 clause = state.problem.matrix.clauses[clause_idx]
-                if goal.depth + 1 >= self.depth_limit and not clause.is_ground:
+                if goal.depth + 1 >= self.depth_limit and (
+                    not clause.is_ground or not self.ground_extensions_beyond_depth
+                ):
                     if Dynamics.extension_terms_unify_for_position(
                         state,
                         goal_id,
@@ -145,7 +149,9 @@ class IDPolicy(DFSPolicy):
             goal_id,
             extension_actions,
         ):
-            if goal.depth + 1 >= self.depth_limit and not clause.is_ground:
+            if goal.depth + 1 >= self.depth_limit and (
+                    not clause.is_ground or not self.ground_extensions_beyond_depth
+                ):
                 self._path_limit_hit = True
                 pending_hits += 1
                 continue

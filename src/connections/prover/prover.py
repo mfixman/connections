@@ -10,6 +10,7 @@ from collections.abc import Callable, Mapping
 from typing import Any, Generic, TypeVar, cast
 
 from connections.clausification import StartClausesMode, matrix_from_file
+from connections.recursion import deep_recursion
 from connections.syntax.logic import Domain, Logic
 from connections.syntax.matrix import Matrix
 from connections.prover.status import ProverOutcome, SZSStatus, to_szs_status
@@ -297,7 +298,7 @@ class Prover:
         state: State | None = None
         policy: Policy | None = None
         try:
-            with _wall_clock_alarm(entry.timeout_seconds):
+            with _wall_clock_alarm(entry.timeout_seconds), deep_recursion():
                 state = self._build_state_from_file(
                     problem,
                     matrix_options=strategy.matrix,

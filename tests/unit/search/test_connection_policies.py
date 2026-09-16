@@ -9,12 +9,12 @@ from connections.policy import (
     SATResetCoP,
 )
 from connections.prover.actions import ApplyAction, UndoAction
-from connections.prover.prover import Problem
+from connections.prover.prover import Problem, Prover
 from connections.prover.rules import Extension, Start
 from connections.prover.state import State
 from connections.prover.status import ProverOutcome
 from connections.prover.tableau import Tableau
-from connections.syntax.formula import Atom
+from connections.syntax.formula import Atom, Function, Variable
 from connections.syntax.matrix import Clause, Literal, Matrix
 
 
@@ -70,6 +70,7 @@ def test_satcop_prefers_head_made_true_by_shadow_model():
         (policy._shadow.atom_id("p"),), clause_idx=0, from_tableau=False
     )
     assert policy._shadow.solve() is True
+    policy._guidance_model = dict(policy._shadow.model)
     positive = ApplyAction(
         state.tableau.root_goal_id,
         Extension(lit_idx=0, clause=Clause((_lit("p"),))),
@@ -162,7 +163,7 @@ def test_satreset_replaces_nested_backtrack_with_root_reset():
     start = Clause((_lit("p"), _lit("q")))
     extension = Clause((_lit("p", positive=False), _lit("r")), role="conjecture")
     state = _state(start, extension)
-    policy = SATResetCoP()
+    policy = SATResetCoP(initial_depth=2, seed=None)
 
     start_action = policy(state)
     assert isinstance(start_action, ApplyAction)
@@ -189,3 +190,67 @@ def _start_rules(state: State):
     from connections.prover.dynamics import Dynamics
 
     return Dynamics.start_rules_for(state, state.tableau.root_goal_id)
+
+
+def _atom_literal(symbol: str, argument, *, positive: bool = True) -> Literal:
+    return Literal(Atom(symbol, (argument,)), polarity=positive)
+
+
+def test_sat_guidance_model_waits_for_the_next_iteration():
+    state = _state(Clause((_lit("p"),)), Clause((_lit("p", positive=False), _lit("q"))))
+    policy = SATCoPCon()
+    policy._shadow.add_clause((policy._shadow.atom_id("p"),), clause_idx=0, from_tableau=False)
+    assert policy._shadow.solve() is True
+
+    policy._start_next_depth()
+    assert policy._literal_value(state, _lit("p"), instance_id=None) is None
+    policy._start_next_depth()
+    assert policy._literal_value(state, _lit("p"), instance_id=None) is True
+    assert policy._literal_value(state, _lit("p", positive=False), instance_id=None) is False
+
+
+def test_sat_guidance_only_values_ground_literals():
+    state = _state(Clause((_lit("p"),)))
+    policy = SATCoPCon()
+    for key in ("p(__ground__)", "p(a)"):
+        policy._shadow.add_clause((policy._shadow.atom_id(key),), clause_idx=0, from_tableau=False)
+    assert policy._shadow.solve() is True
+    policy._guidance_model = dict(policy._shadow.model)
+
+    ground = _atom_literal("p", Function("a"))
+    open_literal = _atom_literal("p", Variable("X"))
+    assert policy._literal_value(state, ground, instance_id=1) is True
+    assert policy._literal_value(state, open_literal, instance_id=1) is None
+
+
+def test_satreset_resets_instead_of_stopping_when_start_clauses_are_exhausted():
+    # Both start clauses close the tableau, so the search exhausts its start
+    # clauses before the shadow sees p(a) and ~p(a) together.
+    positive = Clause((_atom_literal("p", Variable("X")),))
+    negative = Clause((_atom_literal("p", Function("a"), positive=False),))
+    state = State(Problem(Matrix((positive, negative)), start_clauses="all"), Tableau())
+
+    _steps, _inferences, outcome = Prover()._run_strategy_loop(
+        state,
+        policy=SATResetCoP(),
+        step_limit=200,
+    )
+
+    assert outcome is ProverOutcome.PROVED
+
+
+def test_sat_policies_do_not_extend_with_ground_clauses_beyond_the_depth_limit():
+    assert SATCoPCon().ground_extensions_beyond_depth is False
+    assert LeanCoPCon().ground_extensions_beyond_depth is True
+
+
+def test_deep_axiom_conjunctions_clausify(tmp_path):
+    from connections.clausification import matrix_from_file
+
+    problem = tmp_path / "deep.p"
+    axioms = "".join(f"fof(a{index}, axiom, p{index}).\n" for index in range(3000))
+    problem.write_text(axioms + "fof(c, conjecture, p0).\n", encoding="utf-8")
+
+    matrix = matrix_from_file(problem, start_clauses="all")
+
+    assert len(matrix.clauses) == 3001

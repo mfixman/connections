@@ -8,6 +8,7 @@ from connections.clausification.translate import (
     StartClausesMode,
     clausify,
 )
+from connections.recursion import deep_recursion
 from connections.syntax.logic import Domain, Logic
 from connections.syntax.matrix import Matrix
 from connections.trace_logging import TRACE_LEVEL, clausification_trace_logger, trace
@@ -34,14 +35,15 @@ def matrix_from_file(
 
     if clausification_trace_logger.isEnabledFor(TRACE_LEVEL):
         trace(clausification_trace_logger, "%s", "matrix.from_file.start")
-    parsed = parse_tptp_file(path, source_roots=resolved_source_file_dirs)
-    matrix = clausify(
-        parsed,
-        translation=translation,
-        reorder=reorder,
-        start_clauses=start_clauses,
-        logic=logic,
-    )
+    with deep_recursion():
+        parsed = parse_tptp_file(path, source_roots=resolved_source_file_dirs)
+        matrix = clausify(
+            parsed,
+            translation=translation,
+            reorder=reorder,
+            start_clauses=start_clauses,
+            logic=logic,
+        )
     if clausification_trace_logger.isEnabledFor(TRACE_LEVEL):
         trace(clausification_trace_logger, "%s", "matrix.from_file.done")
     return matrix

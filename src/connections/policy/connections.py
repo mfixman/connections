@@ -76,6 +76,7 @@ class _ShadowSAT:
     atom_ids: dict[str, int] = field(default_factory=dict)
     selector_ids: dict[int, int] = field(default_factory=dict)
     clauses: set[tuple[int, tuple[int, ...]]] = field(default_factory=set)
+    clause_contents: set[tuple[int, ...]] = field(default_factory=set)
     observed_groundings: set[tuple[int, tuple[int, ...]]] = field(
         default_factory=set
     )
@@ -97,6 +98,9 @@ class _ShadowSAT:
                 ("stabilizeonly", 1),
                 ("walk", 0),
                 ("lucky", 0),
+                ("luckyearly", 0),
+                ("luckylate", 0),
+                ("luckyassumptions", 0),
             ):
                 self.solver.set(name, value)
 
@@ -127,8 +131,9 @@ class _ShadowSAT:
         selector = self.selector_id(clause_idx)
         self.solver.add_clause([-selector, *clause])
         self.dirty = True
-        if from_tableau:
+        if from_tableau and clause not in self.clause_contents:
             self.new_tableau_clause = True
+        self.clause_contents.add(clause)
 
     def solve(self) -> bool:
         if not self.dirty:
@@ -187,12 +192,27 @@ class SATCoPCon(IDPolicy):
     incremental CaDiCaL shadow. Its model ranks reduction and extension heads;
     shadow UNSAT is a sound terminal proof outcome.
 
-    Actions with equal scores are ordered by a ``seed``-ed random draw, as in
-    the original SATCoP calculus, which shuffled start and extension clauses.
-    Breaking ties by matrix order instead restarts every SATResetCoP iteration
-    from the same start clause, so the shadow stops growing and the depth
-    limit climbs without collecting new ground instances. ``seed=None`` keeps
-    that deterministic matrix-order tie-break.
+    The search control follows the ClassicalSAT calculus of the original
+    SATCoP/SATResetCoP implementation (MyPyCop):
+
+    - Actions with equal scores, and the order of sibling goals, are chosen by
+      a ``seed``-ed random draw, like its shuffled start clauses, extension
+      clauses and clause literals. Matrix order instead restarts every
+      SATResetCoP iteration from the same start clause, so the shadow stops
+      growing and the depth limit climbs without new ground instances.
+      ``seed=None`` keeps the deterministic matrix order.
+    - Model lemmas and action scores read a guidance model that is refreshed
+      only when a new search iteration starts; the first iteration has none.
+      Re-solving after every new instance satisfied that instance at once,
+      closed its other literals as lemmas, and stalled the shadow.
+    - Only literals that are ground under the current substitution have a
+      model value. Extension and reduction heads are valued before their own
+      unifier is applied.
+    - Beyond the depth limit no extension is allowed, including extensions
+      with ground clauses.
+
+    The shadow is still solved after every new instance, so UNSAT is found as
+    soon as it holds rather than at the next iteration boundary.
     """
 
     def __init__(
@@ -214,10 +234,13 @@ class SATCoPCon(IDPolicy):
             backtrack=backtrack,
             factorization=factorization,
             initial_depth=initial_depth,
+            ground_extensions_beyond_depth=False,
         )
         self._shadow = _ShadowSAT(debug_unsat_core=debug_sat_core)
         self._seeded = False
         self._random = None if seed is None else random.Random(seed)
+        self._guidance_model: dict[int, bool] = {}
+        self._iteration_started = False
 
     def diagnostics(self) -> dict[str, object]:
         if not self._shadow.debug_unsat_core or not self._shadow.core_available:
@@ -265,9 +288,23 @@ class SATCoPCon(IDPolicy):
             enumerate(actions),
             key=lambda indexed: (
                 self._action_score(state, indexed[1]),
-                indexed[0] if self._random is None else self._random.random(),
+                self._tie_break_key(state, indexed[1], indexed[0]),
             ),
         )[1]
+
+    def _tie_break_key(self, state: State, action: Action, index: int) -> float:
+        _ = state, action
+        return index if self._random is None else self._random.random()
+
+    def _choose_goal_id(self, state: State, goal_ids: tuple[int, ...]) -> int:
+        _ = state
+        return goal_ids[0] if self._random is None else self._random.choice(goal_ids)
+
+    def _start_next_depth(self) -> None:
+        if self._iteration_started:
+            self._guidance_model = dict(self._shadow.model)
+        self._iteration_started = True
+        super()._start_next_depth()
 
     def _action_score(self, state: State, action: Action) -> int:
         if isinstance(action, UndoAction):
@@ -281,18 +318,12 @@ class SATCoPCon(IDPolicy):
             return 2
         if isinstance(rule, Reduction):
             context = state.literal_context_at(rule.source_goal_id)
-            value = self._context_value(
-                state,
-                context,
-                pending_bindings=rule.constraint_delta.term_bindings,
-            )
-            return _sat_value_score(value)
+            return _sat_value_score(self._context_value(state, context))
         if isinstance(rule, Extension):
             value = self._literal_value(
                 state,
                 rule.clause.literal(rule.lit_idx),
                 instance_id=rule.instance_id,
-                pending_bindings=rule.constraint_delta.term_bindings,
             )
             return _sat_value_score(value)
         return 4
@@ -394,14 +425,22 @@ class SATCoPCon(IDPolicy):
         instance_id: int | None,
         pending_bindings: tuple[TermBinding, ...] = (),
     ) -> bool | None:
-        sat_literal = self._sat_literal(
+        key = _atom_key(
             state,
             literal,
             instance_id=instance_id,
             pending_bindings=pending_bindings,
-            create=False,
+            ground_only=True,
         )
-        return self._shadow.literal_value(sat_literal)
+        if key is None:
+            return None
+        atom_id = self._shadow.atom_ids.get(key)
+        if atom_id is None:
+            return None
+        value = self._guidance_model.get(atom_id)
+        if value is None:
+            return None
+        return value if literal.polarity else not value
 
     def _sat_literal(
         self,
@@ -418,6 +457,8 @@ class SATCoPCon(IDPolicy):
             instance_id=instance_id,
             pending_bindings=pending_bindings,
         )
+        if key is None:
+            raise RuntimeError("ground-clause construction did not create an atom key")
         atom_id = self._shadow.atom_ids.get(key)
         if atom_id is None:
             if not create:
@@ -427,11 +468,24 @@ class SATCoPCon(IDPolicy):
 
 
 class SATResetCoP(SATCoPCon):
-    """SATCoPCon policy that resets the tableau instead of backtracking."""
+    """SATCoPCon policy that resets the tableau instead of backtracking.
+
+    At every dead end the tableau is discarded. The next iteration keeps the
+    depth limit when the finished one added a ground instance the shadow had
+    not seen, and deepens otherwise. A closed tableau is not a proof: the
+    search continues with the remaining start clauses, and exhausting them
+    also resets rather than ending the search.
+    """
 
     def __call__(self, state: State) -> DFSPolicyDecision:
         closed_tableau = state.tableau.root.closed
         output = super().__call__(state)
+        if isinstance(output, ProverOutcome) and output is not ProverOutcome.PROVED:
+            # Exhausting an iteration only means this tableau search found no
+            # dead end; like the original calculus, reset and keep searching
+            # until the shadow is UNSAT.
+            self._reset_iteration()
+            return super().__call__(state)
         if not isinstance(output, UndoAction):
             return output
         if closed_tableau:
@@ -440,6 +494,10 @@ class SATResetCoP(SATCoPCon):
         if root_application_id is None:
             return output
 
+        self._reset_iteration()
+        return UndoAction(root_application_id)
+
+    def _reset_iteration(self) -> None:
         same_depth = self._shadow.consume_new_tableau_clause()
         target_depth = self.depth_limit if same_depth else self.depth_limit + 1
         self._reset_search()
@@ -448,7 +506,6 @@ class SATResetCoP(SATCoPCon):
         self._terminal_path_limit_hits.clear()
         self._path_limit_hit = False
         self.depth_limit = max(0, target_depth - 1)
-        return UndoAction(root_application_id)
 
 
 def _sat_value_score(value: bool | None) -> int:
@@ -465,17 +522,21 @@ def _atom_key(
     *,
     instance_id: int | None,
     pending_bindings: tuple[TermBinding, ...] = (),
-) -> str:
-    args = ",".join(
-        _term_key(
+    ground_only: bool = False,
+) -> str | None:
+    args: list[str] = []
+    for argument in literal.atom.args:
+        key = _term_key(
             state,
             argument,
             instance_id=instance_id,
             pending_bindings=pending_bindings,
+            ground_only=ground_only,
         )
-        for argument in literal.atom.args
-    )
-    return f"{literal.atom.symbol}({args})" if args else literal.atom.symbol
+        if key is None:
+            return None
+        args.append(key)
+    return f"{literal.atom.symbol}({','.join(args)})" if args else literal.atom.symbol
 
 
 def _term_key(
@@ -484,9 +545,10 @@ def _term_key(
     *,
     instance_id: int | None,
     pending_bindings: tuple[TermBinding, ...],
-) -> str:
+    ground_only: bool = False,
+) -> str | None:
     if isinstance(term, TableauVariable):
-        return "__ground__"
+        return None if ground_only else "__ground__"
     try:
         resolved = state.constraints.terms.substitute_term(
             term,
@@ -496,19 +558,22 @@ def _term_key(
     except AttributeError:
         resolved = term
     if isinstance(resolved, (Variable, TableauVariable)):
-        return "__ground__"
+        return None if ground_only else "__ground__"
     if not isinstance(resolved, Function) or not resolved.args:
         return str(resolved)
-    args = ",".join(
-        _term_key(
+    args: list[str] = []
+    for argument in resolved.args:
+        key = _term_key(
             state,
             argument,
             instance_id=None,
             pending_bindings=pending_bindings,
+            ground_only=ground_only,
         )
-        for argument in resolved.args
-    )
-    return f"{resolved.symbol}({args})"
+        if key is None:
+            return None
+        args.append(key)
+    return f"{resolved.symbol}({','.join(args)})"
 
 
 __all__ = [
