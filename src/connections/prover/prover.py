@@ -118,6 +118,9 @@ class WallClockExceeded(BaseException):
     `except Exception` handlers cannot swallow it."""
 
 
+_WALL_CLOCK_REPEAT_SECONDS = 1.0
+
+
 @contextmanager
 def _wall_clock_alarm(seconds: float | None):
     """Enforce a wall-clock budget over the enclosed block via SIGALRM.
@@ -128,6 +131,12 @@ def _wall_clock_alarm(seconds: float | None):
     unavailable (non-main thread, non-POSIX) the budget is not enforced and
     external supervision must cover it. Nested use is unsupported: the
     enclosed block must not arm ITIMER_REAL itself.
+
+    After the budget expires the alarm keeps firing every
+    ``_WALL_CLOCK_REPEAT_SECONDS`` until the block exits. A single alarm can
+    be lost when the exception its handler raises is swallowed, and in corpus
+    collection a lost alarm left one problem searching for tens of minutes
+    past its budget.
     """
 
     if seconds is None or not hasattr(signal, "SIGALRM"):
@@ -146,7 +155,7 @@ def _wall_clock_alarm(seconds: float | None):
     except ValueError:  # not the main thread
         yield
         return
-    signal.setitimer(signal.ITIMER_REAL, seconds)
+    signal.setitimer(signal.ITIMER_REAL, seconds, _WALL_CLOCK_REPEAT_SECONDS)
     try:
         yield
     finally:
