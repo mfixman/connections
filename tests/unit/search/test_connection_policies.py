@@ -82,6 +82,23 @@ def test_satcop_prefers_head_made_true_by_shadow_model():
     assert policy._next_action(state, (negative, positive)) is positive
 
 
+def test_satcop_breaks_score_ties_randomly_unless_seed_is_none():
+    clauses = tuple(Clause((_lit(f"p{index}"),)) for index in range(8))
+    state = _state(*clauses)
+    starts = tuple(
+        ApplyAction(state.tableau.root_goal_id, rule)
+        for rule in _start_rules(state)
+    )
+
+    seeded = SATCoPCon(seed=0)
+    chosen = {seeded._next_action(state, starts) for _ in range(20)}
+    assert len(chosen) > 1
+    assert [SATCoPCon(seed=3)._next_action(state, starts) for _ in range(5)] == [
+        SATCoPCon(seed=3)._next_action(state, starts) for _ in range(5)
+    ]
+    assert SATCoPCon(seed=None)._next_action(state, starts) is starts[0]
+
+
 def test_sat_core_uses_source_selectors_and_excludes_irrelevant_clause():
     shadow = SATCoPCon(debug_sat_core=True)._shadow
     p = shadow.atom_id("p")

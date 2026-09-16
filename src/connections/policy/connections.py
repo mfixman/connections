@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+import random
 from typing import Any
 
 import pydical  # type: ignore[unresolved-import]
@@ -185,6 +186,13 @@ class SATCoPCon(IDPolicy):
     Ground instances exposed by the current tableau are accumulated in an
     incremental CaDiCaL shadow. Its model ranks reduction and extension heads;
     shadow UNSAT is a sound terminal proof outcome.
+
+    Actions with equal scores are ordered by a ``seed``-ed random draw, as in
+    the original SATCoP calculus, which shuffled start and extension clauses.
+    Breaking ties by matrix order instead restarts every SATResetCoP iteration
+    from the same start clause, so the shadow stops growing and the depth
+    limit climbs without collecting new ground instances. ``seed=None`` keeps
+    that deterministic matrix-order tie-break.
     """
 
     def __init__(
@@ -197,6 +205,7 @@ class SATCoPCon(IDPolicy):
         factorization: FactorizationMode = "equal",
         initial_depth: int = 1,
         debug_sat_core: bool = False,
+        seed: int | None = 0,
     ) -> None:
         super().__init__(
             cut=cut,
@@ -208,6 +217,7 @@ class SATCoPCon(IDPolicy):
         )
         self._shadow = _ShadowSAT(debug_unsat_core=debug_sat_core)
         self._seeded = False
+        self._random = None if seed is None else random.Random(seed)
 
     def diagnostics(self) -> dict[str, object]:
         if not self._shadow.debug_unsat_core or not self._shadow.core_available:
@@ -255,7 +265,7 @@ class SATCoPCon(IDPolicy):
             enumerate(actions),
             key=lambda indexed: (
                 self._action_score(state, indexed[1]),
-                indexed[0],
+                indexed[0] if self._random is None else self._random.random(),
             ),
         )[1]
 
