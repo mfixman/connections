@@ -20,6 +20,7 @@ from connections.parsing.tptp.parser import (
     E_NON_FOF_INCLUDED,
     E_NON_FOF_TOPLEVEL,
     TPTPParseError,
+    declared_tptp_status,
     parse_tptp,
     parse_tptp_file,
 )
@@ -43,6 +44,23 @@ def test_errors_module_formats_error_message():
     err = TPTPParseError("E_SAMPLE", "sample", 2, 5)
     assert err.code == "E_SAMPLE"
     assert "(line 2, column 5)" in str(err)
+
+
+@pytest.mark.parametrize(
+    ("header", "expected"),
+    [
+        ("% Status   : Satisfiable", "Satisfiable"),
+        ("  % status: CounterSatisfiable", "CounterSatisfiable"),
+        ("% no declared result", None),
+    ],
+)
+def test_declared_tptp_status_reads_top_level_header(
+    tmp_path: Path, header: str, expected: str | None
+):
+    problem = tmp_path / "problem.p"
+    problem.write_text(f"{header}\nfof(a,axiom,p).\n", encoding="utf-8")
+
+    assert declared_tptp_status(problem) == expected
 
 
 def test_parse_single_fof_statement_to_ir():

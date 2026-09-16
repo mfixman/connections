@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+import re
 from typing import Iterable
 
 from lark import UnexpectedInput
@@ -52,6 +53,17 @@ class ParsedTPTPDocument:
 
 
 _UNSUPPORTED_ANNOTATED_KINDS = frozenset({"tff", "thf", "tcf", "tpi"})
+_DECLARED_STATUS = re.compile(
+    r"^\s*%\s*Status\s*:\s*([A-Za-z][A-Za-z_-]*)\b",
+    re.IGNORECASE | re.MULTILINE,
+)
+
+
+def declared_tptp_status(path: str | Path) -> str | None:
+    """Return the top-level TPTP ``Status`` header value, when present."""
+
+    match = _DECLARED_STATUS.search(_read_tptp_text(Path(path)))
+    return None if match is None else match.group(1)
 
 
 def _parse(text: str) -> TptpFile:

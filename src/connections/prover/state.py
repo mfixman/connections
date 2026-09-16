@@ -141,18 +141,32 @@ class State:
 
     def _refresh_factorization_sources(self, app: RuleApplication) -> None:
         local: dict[SignedPredicateSymbol, list[int]] = {}
+        child_symbols: dict[int, SignedPredicateSymbol] = {}
         for source_id in app.closed_child_goal_ids:
             literal = self.source_literal_at(source_id)
             if literal is not None:
-                local.setdefault(literal.signed_symbol, []).append(source_id)
+                symbol = literal.signed_symbol
+                local.setdefault(symbol, []).append(source_id)
+                child_symbols[source_id] = symbol
+
+        shared = {symbol: tuple(ids) for symbol, ids in local.items()}
         for child_id in app.child_goal_ids:
-            sources = {
-                symbol: tuple(id_ for id_ in ids if id_ != child_id)
-                for symbol, ids in local.items()
-            }
-            self._set_factorization_sources(
-                child_id, {k: v for k, v in sources.items() if v}
-            )
+            symbol = child_symbols.get(child_id)
+            if symbol is None:
+                self._set_factorization_sources(child_id, shared)
+                continue
+
+            sources = dict(shared)
+            same_symbol_ids = shared[symbol]
+            if len(same_symbol_ids) == 1:
+                del sources[symbol]
+            else:
+                sources[symbol] = tuple(
+                    source_id
+                    for source_id in same_symbol_ids
+                    if source_id != child_id
+                )
+            self._set_factorization_sources(child_id, sources)
 
     def _set_factorization_sources(
         self, goal_id: int, sources: dict[SignedPredicateSymbol, tuple[int, ...]]

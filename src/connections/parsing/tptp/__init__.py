@@ -7,6 +7,7 @@ from connections.parsing.tptp.parser import (
     IncludeEdge,
     ParsedTPTPDocument,
     TPTPParseError,
+    declared_tptp_status,
     parse_tptp,
     parse_tptp_file,
 )
@@ -38,6 +39,7 @@ __all__ = [
     "E_INCLUDE_CYCLE",
     "E_INCLUDE_NOT_FOUND",
     "TPTPParseError",
+    "declared_tptp_status",
     "parse_tptp",
     "parse_tptp_file",
 ]

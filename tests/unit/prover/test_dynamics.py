@@ -504,6 +504,33 @@ def test_factorization_sources_from_closed_siblings_on_path_only():
     assert tableau.goals[target_goal_id].closed is True
 
 
+def test_factorization_sources_exclude_only_the_current_closed_sibling():
+    state = State(
+        Problem(matrix=Matrix((Clause((lit("dummy"),)),)), start_clauses="positive"),
+        Tableau(),
+    )
+    app = apply_rule(
+        state,
+        state.tableau.root_goal_id,
+        Start(Clause((lit("p"), lit("p"), lit("q")))),
+    )
+    first_p, second_p, q_goal = app.child_goal_ids
+    app.closed_child_goal_ids = (first_p, second_p)
+
+    state._refresh_factorization_sources(app)
+
+    p_symbol = lit("p").signed_symbol
+    assert state.tableau.goals[first_p].factorization_source_goal_ids_by_signed_symbol == {
+        p_symbol: (second_p,)
+    }
+    assert state.tableau.goals[second_p].factorization_source_goal_ids_by_signed_symbol == {
+        p_symbol: (first_p,)
+    }
+    assert state.tableau.goals[q_goal].factorization_source_goal_ids_by_signed_symbol == {
+        p_symbol: (first_p, second_p)
+    }
+
+
 def test_factorization_constraint_delta_binds_new_goal_variables_to_closed_source_variables():
     x_var = Variable("X", vid=1)
     y_var = Variable("Y", vid=2)
