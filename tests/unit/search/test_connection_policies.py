@@ -254,3 +254,19 @@ def test_deep_axiom_conjunctions_clausify(tmp_path):
     matrix = matrix_from_file(problem, start_clauses="all")
 
     assert len(matrix.clauses) == 3001
+
+
+def test_sat_shadow_seed_clauses_can_be_restricted():
+    class Restricted(SATCoPCon):
+        def _shadow_seed_clause_ids(self, state):
+            return (0,)
+
+    state = State(
+        Problem(Matrix((Clause((_lit("p"),)), Clause((_lit("p", positive=False),)))), start_clauses="all"),
+        Tableau(),
+    )
+    policy = Restricted()
+    policy._observe_shadow(state)
+
+    assert {clause_idx for clause_idx, _ in policy._shadow.clauses} == {0}
+    assert policy._shadow.solve() is True

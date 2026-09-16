@@ -348,9 +348,13 @@ class SATCoPCon(IDPolicy):
                 return True
         return False
 
+    def _shadow_seed_clause_ids(self, state: State) -> tuple[int, ...]:
+        """Matrix clauses grounded into the shadow before any tableau step."""
+        return state.problem.start_clause_ids
+
     def _observe_shadow(self, state: State) -> None:
         if not self._seeded:
-            for clause_idx in state.problem.start_clause_ids:
+            for clause_idx in self._shadow_seed_clause_ids(state):
                 self._shadow.add_clause(
                     self._ground_clause(
                         state,
