@@ -18,6 +18,7 @@ class MatrixOptions:
     translation: ClausificationTranslationMode = "default"
     reorder: int = 0
     start_clauses: StartClausesMode = "positive"
+    mark_conjecture_clauses: bool = False
 
 
 @dataclass(frozen=True, slots=True)

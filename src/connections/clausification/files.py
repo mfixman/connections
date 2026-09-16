@@ -23,6 +23,7 @@ def matrix_from_file(
     logic: Logic = "classical",
     domain: Domain = "constant",
     source_file_dirs: Iterable[str | Path] = (),
+    mark_conjecture_clauses: bool = False,
 ) -> Matrix:
     """Load a matrix from a source file using the native parser and translator."""
 
@@ -43,6 +44,7 @@ def matrix_from_file(
             reorder=reorder,
             start_clauses=start_clauses,
             logic=logic,
+            mark_conjecture_clauses=mark_conjecture_clauses,
         )
     if clausification_trace_logger.isEnabledFor(TRACE_LEVEL):
         trace(clausification_trace_logger, "%s", "matrix.from_file.done")

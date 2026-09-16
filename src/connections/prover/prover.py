@@ -444,6 +444,7 @@ class Prover:
             logic=problem.logic,
             domain=problem.domain,
             source_file_dirs=problem.source_file_dirs,
+            mark_conjecture_clauses=matrix_options.mark_conjecture_clauses,
         )
 
         if matrix_key is not None and matrix_cache is not None:
@@ -464,6 +465,7 @@ class Prover:
             matrix_options.translation,
             matrix_options.reorder,
             matrix_options.start_clauses,
+            matrix_options.mark_conjecture_clauses,
         )
 
 __all__ = [

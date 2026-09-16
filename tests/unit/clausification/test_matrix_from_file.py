@@ -234,3 +234,24 @@ def test_matrix_from_file_does_not_use_logic_env_by_default(tmp_path, monkeypatc
             problem,
             logic="classical",
         )
+
+
+def test_marking_conjecture_clauses_keeps_all_clauses_as_start_clauses(tmp_path):
+    problem = tmp_path / "marked.p"
+    problem.write_text(
+        "fof(a1, axiom, ![X]: (p(X) => (q(X) & r(X)))).\n"
+        "fof(a2, axiom, p(a)).\n"
+        "fof(a3, axiom, ![X]: (s(X) | t(X) | ~p(X))).\n"
+        "fof(c, conjecture, (q(a) & r(a)) | (s(b) & t(b))).\n",
+        encoding="utf-8",
+    )
+
+    unmarked = matrix_from_file(problem, start_clauses="all")
+    conjecture = matrix_from_file(problem, start_clauses="conjecture")
+    marked = matrix_from_file(problem, start_clauses="all", mark_conjecture_clauses=True)
+
+    assert not unmarked.conjecture_clauses
+    assert [str(clause) for clause in marked.clauses] == [str(clause) for clause in conjecture.clauses]
+    assert [str(clause) for clause in marked.clauses] != [str(clause) for clause in unmarked.clauses]
+    assert marked.conjecture_clauses == conjecture.conjecture_clauses != ()
+    assert Problem(marked, start_clauses="all").start_clause_ids == tuple(range(len(marked.clauses)))

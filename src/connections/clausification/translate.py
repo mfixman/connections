@@ -59,6 +59,7 @@ def clausify(
     reorder: int = 0,
     start_clauses: StartClausesMode = "positive",
     logic: str = "classical",
+    mark_conjecture_clauses: bool = False,
 ) -> Matrix:
     if isinstance(ast, ParsedTPTPDocument):
         return make_matrix_from_document(
@@ -67,6 +68,7 @@ def clausify(
             reorder=reorder,
             start_clauses=start_clauses,
             logic=logic,
+            mark_conjecture_clauses=mark_conjecture_clauses,
         )
     return make_matrix_from_formula(
         ast,
@@ -83,6 +85,7 @@ def make_matrix_from_document(
     reorder: int = 0,
     start_clauses: StartClausesMode = "positive",
     logic: str = "classical",
+    mark_conjecture_clauses: bool = False,
 ) -> Matrix:
     from connections.parsing.tptp.transformer import StmtCNF
 
@@ -134,7 +137,9 @@ def make_matrix_from_document(
         combine_mode = "negated_axioms"
     _trace("clausification.document.combine", mode=combine_mode)
 
-    if start_clauses == "conjecture" and isinstance(combined, Impl):
+    if (start_clauses == "conjecture" or mark_conjecture_clauses) and isinstance(
+        combined, Impl
+    ):
         mark_conjecture_clauses = True
         marker = Atom("#")
         combined = Impl(And(combined.left, marker), And(marker, combined.right))

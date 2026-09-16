@@ -87,6 +87,7 @@ class _ShadowSAT:
     new_tableau_clause: bool = False
     debug_unsat_core: bool = False
     unsat_core: tuple[tuple[int, ...], ...] = ()
+    sat_core_clause_texts: tuple[str, ...] = ()
     sat_core_clause_ids: tuple[int, ...] = ()
     core_available: bool = False
     next_variable_id: int = 1
@@ -248,6 +249,7 @@ class SATCoPCon(IDPolicy):
         atoms = {identifier: key for key, identifier in self._shadow.atom_ids.items()}
         return {
             "sat_core_clause_ids": list(self._shadow.sat_core_clause_ids),
+            "sat_core_clause_texts": list(self._shadow.sat_core_clause_texts),
             "sat_core": [
                 [
                     atoms[abs(literal)] if literal > 0 else f"~{atoms[abs(literal)]}"
@@ -262,6 +264,11 @@ class SATCoPCon(IDPolicy):
             raise ValueError("SATCoPCon supports classical problems only")
         self._observe_shadow(state)
         if not self._shadow.solve():
+            if self._shadow.debug_unsat_core:
+                self._shadow.sat_core_clause_texts = tuple(
+                    str(state.problem.matrix.clauses[clause_idx])
+                    for clause_idx in self._shadow.sat_core_clause_ids
+                )
             return ProverOutcome.PROVED
         if state.tableau.root.closed:
             root_application_id = state.tableau.root.applied_rule_application_id
