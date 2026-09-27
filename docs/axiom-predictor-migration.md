@@ -105,3 +105,6 @@ do not establish full-corpus performance parity or GPU compatibility.
 
 Untracked datasets, presentations, merge-backup files, secrets and local agent
 notes in the original checkouts are not imported into Git. No remote is pushed.
+The existing `src/connections/Axioms` benchmark symlink is explicitly excluded
+from distributions, so building in the original checkout does not package the
+local TPTP corpus. The symlink itself is preserved.
