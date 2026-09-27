@@ -42,7 +42,7 @@ class AgentOptions:
     comp: int | None = None
     backtrack: Literal["step", "maximal"] = "step"
     factorization: FactorizationMode = "unify"
-    start: Literal["positive", "conjecture"] = "positive"
+    start: Literal["positive", "conjecture", "all"] = "positive"
     initial_depth: int = 1
 
 

@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Generic, TypeAlias, TypeVar
 
-from connections.environment.rules import Extension, Factorization, Reduction, Rule, Start
+from connections.environment.rules import Extension, Factorization, ModelLemma, Reduction, Rule, Start
 
 RuleT = TypeVar("RuleT", bound=Rule)
 
@@ -14,6 +14,8 @@ class ApplyAction(Generic[RuleT]):
     rule: RuleT
 
     def trace_event(self) -> str:
+        if isinstance(self.rule, ModelLemma):
+            return "model_lemma"
         if isinstance(self.rule, Start):
             return "start"
         if isinstance(self.rule, Extension):
@@ -25,6 +27,8 @@ class ApplyAction(Generic[RuleT]):
         raise TypeError(f"unsupported action: {self!r}")
 
     def __str__(self) -> str:
+        if isinstance(self.rule, ModelLemma):
+            return "model_lemma"
         if isinstance(self.rule, Start):
             if self.rule.clause_idx is None:
                 return f"start({self.rule.clause})"
@@ -66,8 +70,9 @@ StartAction: TypeAlias = ApplyAction[Start]
 FactorizationAction: TypeAlias = ApplyAction[Factorization]
 ReductionAction: TypeAlias = ApplyAction[Reduction]
 ExtensionAction: TypeAlias = ApplyAction[Extension]
+ModelLemmaAction: TypeAlias = ApplyAction[ModelLemma]
 AnyApplyAction: TypeAlias = (
-    StartAction | FactorizationAction | ReductionAction | ExtensionAction
+    StartAction | FactorizationAction | ReductionAction | ExtensionAction | ModelLemmaAction
 )
 Action: TypeAlias = AnyApplyAction | UndoAction
 

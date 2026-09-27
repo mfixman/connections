@@ -96,6 +96,27 @@ For the library and its calculi:
 }
 ```
 
+## Local SAT and axiom-prediction experiments
+
+The `axiom_predictor` branch restores SATCoP/SATResetCoP as
+`connections.agent.sat` agents, finite-model finding, and the
+[`axiom-predictor` workspace package](packages/axiom-predictor/README.md).
+See the [migration notes](docs/axiom-predictor-migration.md) for the API mapping
+and validation commands. Your corpus tools are available as `run-pycop` and
+`compare-strategies`; the existing `pycop` entry point retains its behavior.
+
+```python
+from connections.agent.sat import SATResetCoP
+from connections.interaction.run import Problem, run_schedule
+from connections.interaction.strategy import MatrixOptions, PolicyOptions, Strategy, StrategySchedule
+
+strategy = Strategy(MatrixOptions(mark_conjecture=True), PolicyOptions(SATResetCoP))
+result = run_schedule(
+    Problem("examples/socrates.p"),
+    schedule=StrategySchedule.single(strategy, steps=10000, timeout_seconds=10),
+)
+```
+
 ## License
 
 This project is licensed under GNU GPL v3 or later. See [`LICENSE`](LICENSE).

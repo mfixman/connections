@@ -19,7 +19,7 @@ from typing import Any, Generic, TypeVar
 from connections.agent.base import AgentStatus
 from connections.environment.actions import Action, ApplyAction, UndoAction
 from connections.environment.dynamics import Dynamics
-from connections.environment.rules import Extension, Factorization, Reduction, Start
+from connections.environment.rules import Extension, Factorization, ModelLemma, Reduction, Start
 from connections.environment.state import State
 from connections.interaction.truncation import Truncation
 from connections.interaction.szs import SZSStatus
@@ -107,6 +107,8 @@ def action_record(action: Action) -> dict[str, Any]:
     if isinstance(action, UndoAction):
         return {"kind": "undo", "step_id": action.step_id}
     rule = action.rule
+    if isinstance(rule, ModelLemma):
+        return {"kind": "model_lemma", "goal_id": action.goal_id}
     if isinstance(rule, Start):
         return {
             "kind": "start",
@@ -151,8 +153,13 @@ def resolve_record(state: State, record: dict[str, Any]) -> Action | None:
             return None
         return UndoAction(step_id=record["step_id"])
     goal_id = record["goal_id"]
+    if kind == "model_lemma":
+        goal = state.tableau.goals.get(goal_id)
+        if goal is None or goal.closed or goal.applied_rule_application_id is not None:
+            return None
+        return ApplyAction(goal_id, ModelLemma())
     if kind == "start":
-        for mode in ("positive", "conjecture"):
+        for mode in ("positive", "conjecture", "all"):
             for rule in Dynamics.start_rules_for(state, mode):
                 if rule.clause_idx == record["clause_idx"]:
                     return ApplyAction(goal_id, rule)

@@ -24,6 +24,8 @@ RuleT = TypeVar("RuleT", bound=Rule)
 
 def start_clause_ids(matrix: Matrix, start: str) -> tuple[int, ...]:
     """The clause ids a start mode selects from the matrix's role indexes."""
+    if start == "all":
+        return tuple(range(len(matrix)))
     if start == "conjecture":
         return matrix.conjecture_clauses or matrix.positive_clauses
     return matrix.positive_clauses

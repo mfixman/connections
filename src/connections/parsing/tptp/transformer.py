@@ -22,6 +22,14 @@ from connections.syntax.formula import (
 )
 
 
+class DistinctObjectSymbol(str):
+    """Marker retained by the parser for unsupported TPTP distinct objects."""
+
+
+class DefinedNumberSymbol(str):
+    """Marker retained by the parser for unsupported numeric terms."""
+
+
 @dataclass(frozen=True)
 class IncludeOptionals:
     formula_selection: tuple[str, ...] | str | None = None
@@ -82,7 +90,27 @@ class TptpToIRTransformer(Transformer):
 
     def DISTINCT_OBJECT(self, token):
         value = str(token)
-        return value[1:-1].replace('\\"', '"').replace("\\\\", "\\")
+        return DistinctObjectSymbol(
+            value[1:-1].replace('\\"', '"').replace("\\\\", "\\")
+        )
+
+    def SIGNED_INTEGER(self, token):
+        return DefinedNumberSymbol(str(token))
+
+    def UNSIGNED_INTEGER(self, token):
+        return DefinedNumberSymbol(str(token))
+
+    def SIGNED_RATIONAL(self, token):
+        return DefinedNumberSymbol(str(token))
+
+    def UNSIGNED_RATIONAL(self, token):
+        return DefinedNumberSymbol(str(token))
+
+    def SIGNED_REAL(self, token):
+        return DefinedNumberSymbol(str(token))
+
+    def UNSIGNED_REAL(self, token):
+        return DefinedNumberSymbol(str(token))
 
     def tptp_file(self, *items):
         return TptpFile(
@@ -202,9 +230,10 @@ class TptpToIRTransformer(Transformer):
         return (first, *rest)
 
     def term_tuple(self, symbol, args=None) -> tuple[str, tuple[Term, ...]]:
+        normalized_symbol = symbol if isinstance(symbol, str) else str(symbol)
         if args is None:
-            return str(symbol), tuple()
-        return str(symbol), tuple(args)
+            return normalized_symbol, tuple()
+        return normalized_symbol, tuple(args)
 
     def fof_atomic_formula(self, part):
         if isinstance(part, tuple) and len(part) == 2:

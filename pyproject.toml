@@ -34,11 +34,18 @@ Documentation = "https://fredrrom.github.io/connections/"
 Repository = "https://github.com/fredrrom/connections"
 Issues = "https://github.com/fredrrom/connections/issues"
 
+[project.optional-dependencies]
+sat = ["pydical @ git+https://github.com/mfixman/pydical.git@0e0778bdf98408ed434bfaa0ede8fd3a3514f623"]
+
 [project.scripts]
 connections-download-corpora = "connections.corpora:main"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = ["unit: small deterministic checks", "training: requires the axiom predictor package"]
+
+[tool.ty.environment]
+python-version = "3.12"
 
 [dependency-groups]
 dev = [

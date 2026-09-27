@@ -15,6 +15,11 @@ AGENTS.md
 .ruff_cache/
 .ty/
 artifacts/
+agents/
+secrets/
+partial/
+results/
+axiom-dataset/
 corpora/
 
 # C extensions
