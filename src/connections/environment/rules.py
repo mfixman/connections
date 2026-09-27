@@ -39,7 +39,14 @@ class Extension:
     instance_id: int | None = None
 
 
-Rule: TypeAlias = Start | Factorization | Reduction | Extension
+@dataclass(frozen=True, slots=True)
+class ModelLemma:
+    """A SAT-model search closure; only shadow UNSAT certifies a SAT proof."""
+
+    constraint_delta: ConstraintDelta = field(default_factory=ConstraintDelta)
+
+
+Rule: TypeAlias = Start | Factorization | Reduction | Extension | ModelLemma
 
 
 __all__ = [
@@ -47,6 +54,7 @@ __all__ = [
     "Factorization",
     "FactorizationMode",
     "Reduction",
+    "ModelLemma",
     "Rule",
     "Start",
 ]

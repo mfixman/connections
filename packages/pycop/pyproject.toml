@@ -13,6 +13,8 @@ dependencies = [
 ]
 
 [project.scripts]
+run-pycop = "pycop.run_pycop:main"
+compare-strategies = "pycop.compare_strategies:main"
 pycop = "pycop.cli:main"
 
 [tool.uv.sources]

@@ -9,9 +9,11 @@ from connections.clausification.translate import (
 )
 from connections.syntax.logic import Domain, Logic
 from connections.syntax.matrix import Matrix
+from connections.recursion import deep_recursion
 from connections.trace_logging import TRACE_LEVEL, clausification_trace_logger, trace
 
 
+@deep_recursion()
 def matrix_from_file(
     path: str | Path,
     *,

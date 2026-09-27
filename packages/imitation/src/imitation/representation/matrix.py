@@ -94,7 +94,7 @@ def _build_matrix_graph(
         clause_node = len(graph.nodes["clause"])
         graph.nodes["clause"].append(
             [
-                min(clause.literal_count - 1, 4),
+                max(0, min(clause.literal_count - 1, 4)),
                 _ROLE_INDEX.get(str(clause.role), 2),
                 int(bool(clause.is_ground)),
                 int(clause_idx in start_clause_ids),

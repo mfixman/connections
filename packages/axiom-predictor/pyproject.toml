@@ -1,0 +1,25 @@
+[project]
+name = "axiom-predictor"
+version = "0.1.0"
+description = "SAT-core axiom prediction and guided connection search."
+readme = "README.md"
+license = { text = "GPL-3.0-or-later" }
+requires-python = ">=3.12"
+dependencies = ["connections[sat]", "numpy", "torch>=2.2"]
+
+[project.optional-dependencies]
+tracking = ["wandb"]
+
+[project.scripts]
+axiom-predictor = "axiom_prediction.cli:main"
+
+[tool.uv.sources]
+connections = { workspace = true }
+
+[build-system]
+requires = ["uv_build>=0.10.4,<0.11.0"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "axiom_prediction"
+module-root = "src"
