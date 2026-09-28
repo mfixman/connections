@@ -87,6 +87,12 @@ use `problems.jsonl`. Collection resumes using records in `.cache`.
 Finish collection before launching readers, and avoid simultaneous writers
 to the same shard. Separate policies still require separate datasets.
 
+For the initial four-run comparison, use DefaultFull, SmallFull,
+DefaultNoTerms and DefaultNoComplements. Keep the dataset and policy fixed,
+train on parts 0–7, validate on part 8, and reserve part 9 for final proof
+search against an unguided baseline with the same policy and budgets.
+LargeFull is an optional fifth run. See [CLI.md](CLI.md) for the commands.
+
 ### Keeping the dataset inside a run directory
 
 Collect separately for each label policy; networks can reuse each dataset:
@@ -107,18 +113,24 @@ Repeat with any network name from the table. `--network` selects the Python
 network implementation for training; `--model` selects a trained checkpoint
 for proof search, and `--model-name` names the saved run.
 Without a run name, training writes `DATA_DIR/model/model.pt`; with a name,
-it writes `DATA_DIR/models/NAME/model.pt`. Reusing a run name replaces its
-checkpoint.
+it writes `DATA_DIR/models/NAME/model.pt`. Existing checkpoints are protected:
+use a new run name/directory or pass `--resume` to continue training.
 
 A saved dataset's collection policy is authoritative. Explicitly requesting
 a different `--policy` fails; collect a separate dataset to change labels.
-The `run --policy` choice is independent of the label policy.
+Run and evaluate inherit the checkpoint's label policy; conflicting explicit
+policies are rejected.
 
 Splits now hash the **complete filename including .p**, excluding its parent
 directory. This differs from the previous family-based default. Use the new
 split consistently across training, validation, and testing; old family
 checkpoints retain their metadata, and evaluation warns about the mismatch.
-The trainer saves the final model and has no validation-based early stopping.
+The trainer saves a checkpoint after every epoch, independently of logging,
+including optimizer/RNG state. It has no validation-based early stopping.
+For example, repeat the same training command with `--resume --epochs 200`
+to continue to epoch 200, not to train 200 additional epochs. The selected
+data, network, seed, split, and optimizer configuration must match. Older
+checkpoints remain usable for prediction but cannot resume without this state.
 
 TPTP discovery uses `--tptp`, then `$TPTP`, then conventional local corpus
 directories. Here it discovers the sibling `../TPTP`. No corpus is downloaded

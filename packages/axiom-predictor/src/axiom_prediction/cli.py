@@ -51,6 +51,12 @@ def build_parser() -> argparse.ArgumentParser:
     add_model_name_argument(train)
     add_dataset_argument(train)
     train.add_argument(
+        "--resume",
+        action = "store_true",
+        help = "continue model/optimizer/RNG state; --epochs is the total target epoch",
+    )
+
+    train.add_argument(
         "--network",
         default = "DefaultFull",
         help = f"network module from models/: {', '.join(available_models())}",
@@ -150,14 +156,14 @@ def build_parser() -> argparse.ArgumentParser:
         metavar = "CHECKPOINT",
         type = Path,
         nargs = "?",
-        help = "model.pt or its directory; defaults to the --data-dir model selected by --model-name",
+        help = "model.pt or its directory; with --data-dir, all positional inputs are problems instead",
     )
 
     evaluate.add_argument("problems", metavar = "PROBLEM", nargs = "*")
     evaluate.add_argument(
         "--data-dir",
         type = Path,
-        help = "score examples in DATA_DIR/dataset without proof search instead of proving PROBLEM inputs",
+        help = "select checkpoint and default dataset; explicit PROBLEM inputs collect fresh labels instead",
     )
 
     add_model_name_argument(evaluate)
@@ -188,7 +194,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--policy",
         type = ProverPolicy,
         choices = tuple(ProverPolicy),
-        help = "label collection policy; defaults to dataset provenance or satresetcop",
+        help = "inherit checkpoint policy; dataset and explicit policy must agree",
     )
 
     add_worker_argument(evaluate)
@@ -217,7 +223,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--policy",
         type = ProverPolicy,
         choices = RUN_POLICIES,
-        default = ProverPolicy.SatResetCoP,
+        help = "checkpoint's training policy, or SatResetCoP for unguided search",
     )
 
     run.add_argument("--seed", type = int, default = 0)
@@ -355,6 +361,7 @@ def main(argv: list[str] | None = None) -> int:
                 wandb_config = wandb_config(args),
                 run_properties = cli_properties(args),
                 split = selected_split(args),
+                resume = args.resume,
             )
 
             log(json.dumps(metrics, sort_keys = True))
@@ -363,7 +370,11 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "evaluate":
             from .training import AxiomTrainingConfig, evaluate_axiom_predictor
 
-            dataset = selected_dataset(args)
+            if args.data_dir is not None and args.checkpoint is not None:
+                args.problems = [str(args.checkpoint), *args.problems]
+                args.checkpoint = None
+
+            dataset = args.dataset if args.problems else selected_dataset(args)
             if dataset is not None and args.problems:
                 raise ValueError("evaluate takes PROBLEM inputs or a dataset, not both")
 
@@ -487,9 +498,18 @@ def run_command(args: argparse.Namespace) -> int:
     from .wandb_tracking import WandbTracker
 
     model = run_model(args)
+    policy = args.policy
+    if model is not None:
+        from .model import AxiomPredictor
+        from .training import label_policy
+
+        print_device(args.device)
+        predictor = AxiomPredictor.load(model, device = "cpu")
+        policy = label_policy(policy, {"collection": predictor.training_config})
+
     config = RunConfig(
         mode = GuidanceMode.Base if model is None else GuidanceMode.Weighted,
-        policy = args.policy,
+        policy = policy or ProverPolicy.SatResetCoP,
         checkpoint = None if model is None else str(model),
         device = args.device,
 
@@ -497,13 +517,6 @@ def run_command(args: argparse.Namespace) -> int:
         step_limit = args.step_limit,
         timeout_seconds = args.timeout_seconds,
     )
-
-    if config.mode != GuidanceMode.Base:
-        from .model import AxiomPredictor
-
-        print_device(args.device)
-        assert model is not None
-        AxiomPredictor.load(model, device = args.device)
 
     problems = selected_problems(args)
     log(
@@ -562,7 +575,7 @@ def run_command(args: argparse.Namespace) -> int:
     if tracker is not None:
         tracker.finish()
 
-    return 0
+    return 2 if any(result.get("error") for result in results) else 0
 
 def run_model(args: argparse.Namespace) -> Path | None:
     if args.model is not None:
@@ -688,6 +701,7 @@ def add_worker_argument(parser: argparse.ArgumentParser):
         metavar = "N",
         help = (
             "worker processes for collection/search and CPU threads for training/evaluation "
+            "(guided CUDA search defaults to one worker) "
             "(default: maximum available within SLURM_CPUS_PER_TASK and process affinity; capped by problem count for collection/search)"
         ),
     )

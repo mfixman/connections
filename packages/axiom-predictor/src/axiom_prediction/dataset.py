@@ -3,12 +3,10 @@ from __future__ import annotations
 from .choices import ProverPolicy
 
 from collections.abc import Callable, Iterator, Mapping, Sequence
-from concurrent.futures import FIRST_COMPLETED, Future, ProcessPoolExecutor, wait
 from dataclasses import dataclass
 
 import hashlib
 import json
-import multiprocessing as mp
 from pathlib import Path
 from typing import Any
 
@@ -18,6 +16,7 @@ from connections.parsing.tptp import TPTPParseError
 from .data import AxiomTrainingExample, axiom_training_example_from_json, axiom_training_example_to_json
 from .logs import log
 from .parallel import determine_worker_count
+from .search_workers import supervised_results
 from .tptp import DEFAULT_STEP_LIMIT, DEFAULT_TIMEOUT_SECONDS, collect_proof_example, find_tptp_root
 
 AXIOM_DATASET_SCHEMA = "learncop.axiom_prediction.dataset.v2"
@@ -92,7 +91,7 @@ def collect_axiom_dataset(
                 f"unsupported axiom dataset {output} (schema {metadata.get('schema')!r}); {OUTDATED_DATASET_HINT}"
             )
 
-        if metadata.get("collection") != collection:
+        if collection_settings(metadata.get("collection", {})) != collection_settings(collection):
             raise ValueError(
                 "dataset collection settings differ from the existing dataset: "
                 f"{metadata.get('collection')!r} != {collection!r}"
@@ -288,22 +287,16 @@ def collect_problems_parallel(
         for problem in problems
     )
 
-    if workers == 1:
-        for argument in arguments:
-            yield collect_one_problem(*argument)
-
-        return
-
-    with ProcessPoolExecutor(
-        max_workers = workers,
-        mp_context = mp.get_context("spawn"),
-        max_tasks_per_child = 25,
-    ) as executor:
-        yield from bounded_process_results(
-            executor,
-            collect_one_problem,
-            arguments,
-            max_in_flight = workers,
+    for result in supervised_collection(
+        collect_one_problem,
+        arguments,
+        workers = workers,
+        timeout = timeout_seconds,
+    ):
+        yield result.get("collected") or CollectedAxiomProblem(
+            result["problem"],
+            None,
+            result["outcome"],
         )
 
 def collect_problem_records_parallel(
@@ -335,54 +328,56 @@ def collect_problem_records_parallel(
         for problem in problems
     )
 
-    if workers == 1:
-        for argument in arguments:
-            yield collect_one_problem_to_partial(*argument)
+    for result in supervised_collection(
+        collect_one_problem_to_partial,
+        arguments,
+        workers = workers,
+        timeout = timeout_seconds,
+    ):
+        yield result.get("collected") or interrupted_record(partial_dir, result)
 
-        return
+def supervised_collection(function, arguments, *, workers, timeout):
+    requests = ((args[0], function, args[1:]) for args in arguments)
+    yield from supervised_results(
+        collection_result,
+        requests,
+        workers = workers,
+        timeout = timeout,
+    )
 
-    with ProcessPoolExecutor(
-        max_workers = workers,
-        mp_context = mp.get_context("spawn"),
-        max_tasks_per_child = 25,
-    ) as executor:
-        yield from bounded_process_results(
-            executor,
-            collect_one_problem_to_partial,
-            arguments,
-            max_in_flight = workers,
+def collection_result(problem, function, arguments):
+    return {"collected": function(problem, *arguments)}
+
+def interrupted_record(partial_dir, result):
+    problem = result["problem"]
+    key = problem_key(problem)
+    partial = Path(partial_dir)
+    example = partial / "examples" / f"{key}.json"
+    failure = partial / "failures" / f"{key}.json"
+    if example.is_file():
+        validate_problem_record(example, problem)
+        return CollectedAxiomRecord(problem, "proved", True)
+
+    if failure.is_file():
+        record = read_object(failure)
+        return CollectedAxiomRecord(
+            problem,
+            record["outcome"],
+            False,
+            failure_is_parseable(record),
         )
 
-def bounded_process_results(
-    executor: ProcessPoolExecutor,
-    function: Callable[..., Any],
-    arguments: Iterator[tuple[Any, ...]],
-    *,
-    max_in_flight: int,
-) -> Iterator[Any]:
-    """Keep workers busy without retaining one future per corpus problem."""
+    write_json_atomic(
+        failure,
+        {
+            "schema": AXIOM_DATASET_SCHEMA,
+            "problem": problem,
+            "outcome": result["outcome"],
+            "parseable": True,
+        },
+    )
 
-    in_flight: set[Future[Any]] = set()
-
-    def submit_one() -> bool:
-        try:
-            argument = next(arguments)
-        except StopIteration:
-            return False
-
-        in_flight.add(executor.submit(function, *argument))
-        return True
-
-    for _ in range(max_in_flight):
-        if not submit_one():
-            break
-
-    while in_flight:
-        completed, _ = wait(in_flight, return_when = FIRST_COMPLETED)
-        for future in completed:
-            in_flight.remove(future)
-            submit_one()
-            yield future.result()
+    return CollectedAxiomRecord(problem, result["outcome"], False)
 
 def collect_one_problem_to_partial(
     problem: str,
@@ -475,6 +470,11 @@ def load_axiom_dataset(
 
     shards = tuple(sorted(root.glob("*.jsonl")))
     if shards:
+        if (root / "metadata.json").exists() or (root / "examples").exists():
+            raise ValueError(
+                f"mixed dataset formats in {root}: separate JSONL shards from legacy records"
+            )
+
         return load_axiom_dataset_shards(shards, dataset_path = root)
 
     metadata_path = root / "metadata.json"
@@ -535,7 +535,7 @@ def load_axiom_dataset_shards(
         shard_collection = dict(header["collection"])
         if collection is None:
             collection = shard_collection
-        elif collection != shard_collection:
+        elif collection_settings(collection) != collection_settings(shard_collection):
             raise ValueError(f"axiom dataset shards have different collection settings: {shard}")
 
         for row in rows:
@@ -570,6 +570,9 @@ def load_axiom_dataset_shards(
         list(failures_by_problem.values()),
         metadata,
     )
+
+def collection_settings(collection):
+    return {key: value for key, value in collection.items() if key != "tptp_root"}
 
 def problem_key(problem: str) -> str:
     return hashlib.sha256(problem.encode("utf-8")).hexdigest()

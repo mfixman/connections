@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import io
+import math
 import os
 from pathlib import Path
 
@@ -54,7 +55,7 @@ class AxiomPredictor:
         try:
             payload = torch.load(
                 checkpoint_path,
-                map_location = resolved_device,
+                map_location = "cpu",
                 weights_only = True,
             )
         except Exception as error:
@@ -107,7 +108,14 @@ class AxiomPredictor:
 
         batch = collate_axiom_graphs([(example, None)])
         with torch.no_grad():
-            probabilities = torch.sigmoid(self.model(batch)).cpu().tolist()
+            logits = self.model(batch)
+            if not torch.isfinite(logits).all():
+                raise FloatingPointError("model produced non-finite logits")
+
+            probabilities = torch.sigmoid(logits).cpu().tolist()
+
+        if any(not math.isfinite(value) for value in probabilities):
+            raise FloatingPointError("model produced non-finite probabilities")
 
         ranked = sorted(
             zip(example.axiom_clause_ids, probabilities, strict = True),
@@ -130,7 +138,11 @@ def save_checkpoint(
     *,
     training_config: dict[str, object],
     epoch: int | None = None,
+    training_state: dict | None = None,
 ):
+    if any(not torch.isfinite(value).all() for value in model.state_dict().values()):
+        raise FloatingPointError("refusing to save non-finite model parameters")
+
     buffer = io.BytesIO()
     torch.save(
         {
@@ -146,6 +158,7 @@ def save_checkpoint(
 
             "training_config": plain_values(training_config),
             "epoch": epoch,
+            "training_state": training_state,
         },
         buffer,
     )

@@ -4,7 +4,7 @@ from .choices import GraphInputKind, ProverPolicy, SplitKey, plain_values
 
 from typing import Any
 
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 import json
 import math
 from pathlib import Path
@@ -39,6 +39,7 @@ from .models import load_model_class
 from .split import SPLIT_SCHEME, ProblemSplit
 from .tptp import DEFAULT_STEP_LIMIT, DEFAULT_TIMEOUT_SECONDS
 from .wandb_tracking import WandbConfig, WandbTracker
+from .resume import check_training_target, dataset_fingerprint, restore_training, snapshot_training
 
 @dataclass(frozen = True, slots = True)
 class AxiomTrainingConfig:
@@ -177,7 +178,9 @@ def train_axiom_predictor(
     wandb_config: WandbConfig = WandbConfig(),
     run_properties: Mapping[str, object] | None = None,
     split: ProblemSplit = ProblemSplit(),
+    resume: bool = False,
 ) -> dict[str, Any]:
+    check_training_target(output_dir, resume)
     if config.epochs < 1:
         raise ValueError("epochs must be at least 1")
 
@@ -317,13 +320,26 @@ def train_axiom_predictor(
 
         loss_fn = nn.BCEWithLogitsLoss()
         rnd = random.Random(config.seed)
+        fingerprint = dataset_fingerprint(examples)
+        first_epoch = 1
+        if resume:
+            first_epoch = restore_training(
+                output / "model.pt",
+                model,
+                optimizer,
+                rnd,
+
+                config_payload,
+                fingerprint,
+            )
+
         batches = math.ceil(len(examples) / config.batch_size)
         write_json(output / "training_config.json", config_payload)
 
         probabilities: list[float] = []
         epoch_metrics: dict[str, float | int | None] | None = None
 
-        for epoch in range(1, config.epochs + 1):
+        for epoch in range(first_epoch, config.epochs + 1):
             started = time.monotonic()
             last_progress = started
             model.train()
@@ -352,12 +368,18 @@ def train_axiom_predictor(
 
                 logits = model(batch)
                 loss = loss_fn(logits, labels)
+                if not torch.isfinite(loss):
+                    raise FloatingPointError("non-finite training loss; checkpoint unchanged")
+
                 loss.backward()
 
-                norms.append(
-                    float(torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0))
+                grad_norm = torch.nn.utils.clip_grad_norm_(
+                    model.parameters(),
+                    1.0,
+                    error_if_nonfinite = True,
                 )
 
+                norms.append(float(grad_norm))
                 optimizer.step()
 
                 batch_loss = float(loss.detach().cpu().item())
@@ -408,18 +430,17 @@ def train_axiom_predictor(
 
                 eval_seconds = time.monotonic() - evaluated
 
-            if report or not math.isfinite(loss_value):
-                report_epoch(
-                    epoch,
-                    config.epochs,
+            report_epoch(
+                epoch,
+                config.epochs,
 
-                    loss = loss_value,
-                    seconds = train_seconds,
-                    eval_seconds = eval_seconds,
+                loss = loss_value,
+                seconds = train_seconds,
+                eval_seconds = eval_seconds,
 
-                    norms = norms,
-                    metrics = epoch_metrics,
-                )
+                norms = norms,
+                metrics = epoch_metrics,
+            )
 
             if tracker is not None:
                 tracker.log_epoch(
@@ -430,12 +451,13 @@ def train_axiom_predictor(
                     metrics = epoch_metrics,
                 )
 
-            if report and epoch < config.epochs:
+            if epoch < config.epochs:
                 save_checkpoint(
                     output / "model.pt",
                     model,
                     training_config = config_payload,
                     epoch = epoch,
+                    training_state = snapshot_training(optimizer, rnd, fingerprint),
                 )
 
                 log_message(f"saved epoch {epoch} checkpoint to {output / 'model.pt'}")
@@ -466,6 +488,7 @@ def train_axiom_predictor(
             model,
             training_config = config_payload,
             epoch = config.epochs,
+            training_state = snapshot_training(optimizer, rnd, fingerprint),
         )
 
         write_json(output / "metrics.json", metrics)
@@ -509,6 +532,12 @@ def evaluate_axiom_predictor(
     warn_on_training_overlap(predictor.training_config, split)
 
     collection_config = config or AxiomTrainingConfig(device = device)
+    checkpoint_policy = label_policy(
+        collection_config.sat_policy,
+        {"collection": predictor.training_config},
+    )
+
+    collection_config = replace(collection_config, sat_policy = checkpoint_policy)
     torch.set_num_threads(determine_worker_count(None, collection_config.num_workers))
     sat_policy = label_policy(collection_config.sat_policy)
 
@@ -671,7 +700,11 @@ def example_outputs(
                 [(example.graph, example.labels) for example in chunk]
             )
 
-            probabilities.extend(torch.sigmoid(model(batch)).cpu().tolist())
+            logits = model(batch)
+            if not torch.isfinite(logits).all():
+                raise FloatingPointError("model produced non-finite logits")
+
+            probabilities.extend(torch.sigmoid(logits).cpu().tolist())
 
     labels = [int(label) for example in examples for label in example.labels]
     metrics = prediction_metrics(
