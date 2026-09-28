@@ -44,13 +44,40 @@ class AxiomTrainingConfig:
     message_rounds: int = 3
     num_hidden_layers: int = 2
     activation: str = "relu"
+    graph_input: str = "full"
     seed: int = 0
     device: str = "auto"
     step_limit: int = DEFAULT_STEP_LIMIT
     timeout_seconds: float = DEFAULT_TIMEOUT_SECONDS
-    sat_policy: str = "satresetcop"
+    sat_policy: str | None = None
     num_workers: int | None = None
     log_every: int = 10
+
+    def __post_init__(self):
+        AxiomModelConfig(
+            hidden_dim=self.hidden_dim,
+            message_rounds=self.message_rounds,
+            num_hidden_layers=self.num_hidden_layers,
+            activation=self.activation,
+            graph_input=self.graph_input,
+        )
+        if self.sat_policy not in (None, "satcop", "satresetcop"):
+            raise ValueError("sat_policy must be satcop or satresetcop")
+        if not math.isfinite(self.learning_rate) or self.learning_rate <= 0:
+            raise ValueError("learning_rate must be finite and positive")
+        if not math.isfinite(self.weight_decay) or self.weight_decay < 0:
+            raise ValueError("weight_decay must be finite and nonnegative")
+
+
+def _label_policy(requested, metadata=None):
+    collection = (metadata or {}).get("collection", {})
+    recorded = collection.get("sat_policy") if isinstance(collection, Mapping) else None
+    if requested is not None and recorded is not None and requested != recorded:
+        raise ValueError(
+            f"dataset labels were collected with {recorded}, but --sat-policy requests {requested}; "
+            "collect a separate dataset to change the label policy"
+        )
+    return recorded or requested or "satresetcop"
 
 
 PROGRESS_SECONDS = 60.0
@@ -76,7 +103,7 @@ def collect_examples(
         tptp_root=tptp_root,
         step_limit=config.step_limit,
         timeout_seconds=config.timeout_seconds,
-        sat_policy=config.sat_policy,
+        sat_policy=_label_policy(config.sat_policy),
         num_workers=workers,
     ):
         problem = result.problem
@@ -170,12 +197,7 @@ def train_axiom_predictor(
             failures=len(dataset_skipped),
         )
 
-    collection = dataset_metadata.get("collection", {}) if dataset_metadata is not None else {}
-    effective_sat_policy = (
-        collection.get("sat_policy", config.sat_policy)
-        if isinstance(collection, Mapping)
-        else config.sat_policy
-    )
+    effective_sat_policy = _label_policy(config.sat_policy, dataset_metadata)
 
     random.seed(config.seed)
     torch.manual_seed(config.seed)
@@ -237,6 +259,7 @@ def train_axiom_predictor(
             message_rounds=config.message_rounds,
             num_hidden_layers=config.num_hidden_layers,
             activation=config.activation,
+            graph_input=config.graph_input,
         )
     ).to(device)
     parameters = sum(parameter.numel() for parameter in model.parameters())
@@ -405,7 +428,7 @@ def evaluate_axiom_predictor(
     predictor = AxiomPredictor.load(checkpoint, device=device)
     _warn_on_training_overlap(predictor.training_config, split)
     collection_config = config or AxiomTrainingConfig(device=device)
-    sat_policy = collection_config.sat_policy
+    sat_policy = _label_policy(collection_config.sat_policy)
     dataset_examples: list[AxiomTrainingExample] | None = None
     dataset_skipped: list[dict[str, str]] = []
     if dataset is not None:
@@ -423,15 +446,14 @@ def evaluate_axiom_predictor(
         )
         if not dataset_examples:
             raise RuntimeError(f"no examples in {split.describe()} of {dataset}")
-        collection = metadata.get("collection", {})
-        if isinstance(collection, Mapping):
-            sat_policy = str(collection.get("sat_policy", sat_policy))
+        sat_policy = _label_policy(collection_config.sat_policy, metadata)
         problem_list = [example.problem_path for example in dataset_examples]
     tracker = WandbTracker.start(
         wandb_config,
         job_type="evaluate",
         run_config={
             "checkpoint": str(checkpoint),
+            "model_config": predictor.model.config.to_dict(),
             "device": str(predictor.device),
             "sat_policy": sat_policy,
             "dataset": None if dataset is None else str(dataset),
@@ -467,6 +489,7 @@ def evaluate_axiom_predictor(
     metrics.update(
         {
             "evaluation_kind": "labelled SAT-core-membership evaluation",
+            "model_config": predictor.model.config.to_dict(),
             "label_semantics": "native CaDiCaL failed-assumption SAT-core membership",
             "sat_policy": sat_policy,
             "dataset": None if dataset is None else str(dataset),

@@ -12,6 +12,7 @@ from connections.syntax.matrix import Matrix
 from axiom_prediction.encoder import GraphModelConfig, GraphNetwork
 
 from .graph import AxiomGraphBatch, build_axiom_graph, collate_axiom_graphs
+from .inputs import GRAPH_INPUTS, select_graph_input
 
 CHECKPOINT_FORMAT = "learncop.axiom-predictor"
 CHECKPOINT_VERSION = 2
@@ -23,13 +24,25 @@ class AxiomModelConfig:
     message_rounds: int = 3
     num_hidden_layers: int = 2
     activation: str = "relu"
+    graph_input: str = "full"
 
     def __post_init__(self):
         if self.activation != "relu":
             raise ValueError("the axiom predictor currently requires activation='relu'")
+        if self.graph_input not in GRAPH_INPUTS:
+            raise ValueError(f"graph_input must be one of {GRAPH_INPUTS}")
+        if self.hidden_dim < 1 or self.num_hidden_layers < 0 or self.message_rounds < 0:
+            raise ValueError("hidden_dim must be positive; layer and message counts must be nonnegative")
 
     def to_dict(self) -> dict[str, int | str]:
         return asdict(self)
+
+
+MODEL_PRESETS = {
+    "small": AxiomModelConfig(hidden_dim=32, message_rounds=2, num_hidden_layers=1),
+    "default": AxiomModelConfig(),
+    "large": AxiomModelConfig(hidden_dim=128, message_rounds=4, num_hidden_layers=3),
+}
 
 
 class AxiomPredictionNetwork(nn.Module):
@@ -59,7 +72,8 @@ class AxiomPredictionNetwork(nn.Module):
         return next(self.parameters()).device
 
     def forward(self, batch: AxiomGraphBatch) -> torch.Tensor:
-        encoded = self.encoder.encode_matrix(batch.graph)
+        graph = select_graph_input(batch.graph, self.config.graph_input)
+        encoded = self.encoder.encode_matrix(graph)
         clauses = encoded["clause"]
         axiom_indices = batch.axiom_clause_indices.to(self.device)
         conjecture_indices = batch.conjecture_clause_indices.to(self.device)
