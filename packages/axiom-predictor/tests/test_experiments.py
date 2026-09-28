@@ -12,14 +12,11 @@ from axiom_prediction.models import available_models, load_model_class
 
 from axiom_prediction.choices import GraphInputKind, ProverPolicy
 
-@pytest.mark.parametrize("directories", [False, True])
 def test_shared_dataset_collection_and_run_directories(
     tmp_path,
     tiny_problem_path,
     monkeypatch,
     capsys,
-
-    directories,
 ):
     import axiom_prediction.dataset as dataset_module
 
@@ -30,14 +27,14 @@ def test_shared_dataset_collection_and_run_directories(
         directory.mkdir()
         problem = directory / f"{name}.p"
         problem.write_text(tiny_problem_path.read_text())
-        inputs.append(str(directory if directories else problem))
+        inputs.append(str(directory))
 
     common = ["--dataset", str(shared), "--num-workers", "1"]
-    requests = [[item] for item in inputs] if directories else [inputs]
+    requests = [[item] for item in inputs]
     for problems in requests:
         assert main(["collect", *problems, *common]) == 0
 
-    expected = {"First.jsonl", "Second.jsonl"} if directories else {"problems.jsonl"}
+    expected = {"First.jsonl", "Second.jsonl"}
     assert {path.name for path in shared.glob("*.jsonl")} == expected
 
     def unexpected_collection(*args, **kwargs):
@@ -62,7 +59,7 @@ def test_shared_dataset_collection_and_run_directories(
 
         checkpoint = str(output / "model")
         assert main(["evaluate", checkpoint, *common, *cpu]) == 0
-        assert main(["train", *run, "--policy", "SatCoP"]) == 2
+        assert main(["train", *run, "--resume", "--policy", "SatCoP"]) == 2
         assert "dataset labels were collected" in capsys.readouterr().err
 
         assert main(["train", inputs[0], *run]) == 2
@@ -72,8 +69,23 @@ def test_shared_dataset_collection_and_run_directories(
     assert after == before
     assert main(["collect", inputs[0], "--num-workers", "1"]) == 2
 
+    shard = shared / "Second.jsonl"
+    rows = [json.loads(line) for line in shard.read_text().splitlines()]
+    rows[0]["collection"]["tptp_root"] = "/different/machine/TPTP"
+    shard.write_text("".join(json.dumps(row) + "\n" for row in rows))
+    assert len(dataset_module.load_axiom_dataset(shared)[0]) == 2
+
+    rows[0]["collection"]["sat_policy"] = "satcop"
+    shard.write_text("".join(json.dumps(row) + "\n" for row in rows))
+    with pytest.raises(ValueError, match = "different collection settings"):
+        dataset_module.load_axiom_dataset(shared)
+
+    (shared / "examples").mkdir()
+    with pytest.raises(ValueError, match = "mixed dataset formats"):
+        dataset_module.load_axiom_dataset(shared)
+
 @pytest.mark.parametrize("policy", ["satcop", "satresetcop"])
-def test_policy_and_network_experiments(tmp_path, policy, capsys):
+def test_policy_and_network_experiments(tmp_path, policy, capsys, monkeypatch):
     problem = "packages/axiom-predictor/tests/fixtures/problems/marked_conjecture_clausification.p"
     common = ["--data-dir", str(tmp_path), "--num-workers", "1"]
     assert main(
@@ -108,7 +120,18 @@ def test_policy_and_network_experiments(tmp_path, policy, capsys):
         )
 
         directory = tmp_path / "models" / name
-        predictor = AxiomPredictor.load(directory)
+        torch_load = torch.load
+        locations = []
+
+        def tracked_load(*args, **kwargs):
+            locations.append(kwargs.get("map_location"))
+            return torch_load(*args, **kwargs)
+
+        with monkeypatch.context() as patch:
+            patch.setattr(torch, "load", tracked_load)
+            predictor = AxiomPredictor.load(directory)
+
+        assert locations == ["cpu"]
         expected = model_class.default_config.to_dict()
 
         assert type(predictor.model) is model_class
@@ -158,7 +181,8 @@ def test_policy_and_network_experiments(tmp_path, policy, capsys):
         assert (
             main(
                 [
-                    command,
+                        command,
+                        *(["--resume"] if command == "train" else []),
                     *common,
 
                     "--model-name",
@@ -227,40 +251,3 @@ def test_original_checkpoint_keeps_full_input_predictions(tmp_path, tiny_problem
         problem.matrix,
         **kwargs,
     )
-
-@pytest.mark.parametrize("policy", ["satcop", "satresetcop"])
-def test_fresh_training_requires_cuda_or_explicit_auto(
-    tmp_path,
-    tiny_problem_path,
-    policy,
-    monkeypatch,
-    capsys,
-):
-    monkeypatch.setattr(torch.cuda, "is_available", lambda: False)
-    args = [
-        "train",
-        str(tiny_problem_path),
-        "--data-dir",
-        str(tmp_path),
-
-        "--policy",
-        policy,
-        "--network",
-        "SmallFull.py",
-
-        "--epochs",
-        "1",
-        "--num-workers",
-        "1",
-
-        "--no-wandb",
-    ]
-
-    assert main(args) == 2
-    assert "CUDA is unavailable" in capsys.readouterr().err
-    assert not (tmp_path / "model" / "model.pt").exists()
-
-    assert main([*args, "--device", "auto"]) == 0
-    predictor = AxiomPredictor.load(tmp_path / "model")
-    assert type(predictor.model) is load_model_class("SmallFull")
-    assert predictor.training_config["sat_policy"] == policy

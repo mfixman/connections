@@ -5,11 +5,9 @@ from .choices import GuidanceMode, ProverPolicy, plain_values
 from typing import Any
 
 from collections.abc import Iterator
-from concurrent.futures import ProcessPoolExecutor
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from functools import lru_cache
 
-import multiprocessing as mp
 import math
 from pathlib import Path
 import time
@@ -20,10 +18,12 @@ from connections.interaction.szs import SUCCESS
 from connections.interaction.run import Problem, run_schedule
 from connections.interaction.strategy import MatrixOptions, PolicyOptions, Strategy, StrategySchedule
 
-from .dataset import bounded_process_results
+from .search_workers import supervised_results
+from .limits import CollectionTimeout, wall_clock
 from .parallel import determine_worker_count
 from .tptp import DEFAULT_STEP_LIMIT, DEFAULT_TIMEOUT_SECONDS, load_tptp_problem, resolve_tptp_problem
 from .tptp import declared_tptp_status
+from .graph import UnsupportedAxiomProblem
 
 RUN_MODES = tuple(GuidanceMode)
 RUN_POLICIES = tuple(ProverPolicy)
@@ -35,7 +35,7 @@ _NON_REFUTABLE = {
 @dataclass(frozen = True, slots = True)
 class RunConfig:
     mode: GuidanceMode | str = GuidanceMode.Weighted
-    policy: ProverPolicy | str = ProverPolicy.SatResetCoP
+    policy: ProverPolicy | str | None = None
     checkpoint: str | None = None
     device: str = "cuda"
 
@@ -48,7 +48,8 @@ class RunConfig:
 
     def __post_init__(self):
         object.__setattr__(self, "mode", GuidanceMode(self.mode))
-        object.__setattr__(self, "policy", ProverPolicy(self.policy))
+        if self.policy is not None:
+            object.__setattr__(self, "policy", ProverPolicy(self.policy))
 
         if self.mode != GuidanceMode.Base and self.checkpoint is None:
             raise ValueError(f"--mode {self.mode} needs --model")
@@ -77,17 +78,33 @@ def run_problem(
     tptp_root: str | Path | None,
     config: RunConfig,
 ) -> dict[str, Any]:
+    started = time.monotonic()
+    try:
+        with wall_clock(config.timeout_seconds):
+            result = search_problem(problem, tptp_root = tptp_root, config = config)
+    except CollectionTimeout:
+        result = {"problem": problem, "outcome": "Timeout", "proved": False}
+
+    result["seconds"] = time.monotonic() - started
+    return result
+
+def search_problem(problem, *, tptp_root, config):
+    predictor = None if config.mode == GuidanceMode.Base else cached_predictor(
+        config.checkpoint,
+        config.device,
+    )
+
+    from .training import label_policy
+
+    metadata = {} if predictor is None else predictor.training_config
+    policy = label_policy(config.policy, {"collection": metadata})
+    config = replace(config, policy = policy)
     out: dict[str, Any] = {
         "problem": problem,
         "mode": GuidanceMode(config.mode).wire_value,
         "policy": ProverPolicy(config.policy).wire_value,
         "seed": config.seed,
     }
-
-    predictor = None if config.mode == GuidanceMode.Base else cached_predictor(
-        config.checkpoint,
-        config.device,
-    )
 
     started = time.monotonic()
     try:
@@ -105,9 +122,15 @@ def run_problem(
 
         args: dict[str, Any] = {"seed": config.seed}
         if predictor is not None:
+            try:
+                loaded = load_tptp_problem(problem, tptp_root = tptp_root)
+            except UnsupportedAxiomProblem as error:
+                predictor = None
+                out["guidance_fallback"] = str(error)
+
+        if predictor is not None:
             from .guided import AxiomGuidedSATCoP, AxiomGuidedSATResetCoP, matrix_digest
 
-            loaded = load_tptp_problem(problem, tptp_root = tptp_root)
             predictions = predictor.predict(
                 loaded.matrix,
                 axiom_clause_ids = loaded.axiom_clause_ids,
@@ -198,6 +221,7 @@ def run_problem(
         out.update(
             outcome = f"{type(error).__name__}: {' '.join(str(error).split())}",
             proved = False,
+            error = True,
             seconds = time.monotonic() - started,
         )
 
@@ -211,34 +235,28 @@ def run_problems(
     num_workers: int | None = None,
 ) -> Iterator[dict[str, Any]]:
     workers = determine_worker_count(len(problems), num_workers)
+    if config.mode != GuidanceMode.Base and num_workers is None:
+        from .model import resolve_device
+
+        if resolve_device(config.device).type == "cuda":
+            workers = min(workers, 1)
+
     if workers == 0:
         return
 
-    if workers == 1:
-        for problem in problems:
-            yield run_problem(problem, tptp_root = tptp_root, config = config)
-
-        return
-
-    with ProcessPoolExecutor(
-        max_workers = workers,
-        mp_context = mp.get_context("spawn"),
-        initializer = init_worker,
-        initargs = (config.mode != GuidanceMode.Base,),
-        max_tasks_per_child = 25,
-    ) as executor:
-        yield from bounded_process_results(
-            executor,
-            run_one,
-            ((p, tptp_root, config) for p in problems),
-            max_in_flight = workers,
-        )
+    yield from supervised_results(
+        run_one,
+        ((p, tptp_root, config) for p in problems),
+        workers = workers,
+        timeout = config.timeout_seconds,
+    )
 
 def run_one(
     problem: str,
     tptp_root: str | Path | None,
     config: RunConfig,
 ) -> dict[str, Any]:
+    init_worker(config.mode != GuidanceMode.Base)
     return run_problem(problem, tptp_root = tptp_root, config = config)
 
 def init_worker(uses_model: bool):

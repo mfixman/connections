@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+from itertools import groupby
 
 def prediction_metrics(
     labels: list[int],
@@ -13,6 +14,9 @@ def prediction_metrics(
 
     if any(label not in (0, 1) for label in labels):
         raise ValueError("labels must be binary")
+
+    if any(not math.isfinite(p) or not 0 <= p <= 1 for p in probabilities):
+        raise ValueError("probabilities must be finite and between 0 and 1")
 
     eps = 1e-7
     clipped = [min(1.0 - eps, max(eps, float(value))) for value in probabilities]
@@ -103,11 +107,14 @@ def average_precision(labels: list[int], scores: list[float]) -> float | None:
     )
 
     hits = 0
+    count = 0
     total = 0.0
-    for rank, (_score, label) in enumerate(ranked, start = 1):
-        if label:
-            hits += 1
-            total += hits / rank
+    for _, group in groupby(ranked, key = lambda item: item[0]):
+        labels_at_score = [label for _, label in group]
+        positives_at_score = sum(labels_at_score)
+        hits += positives_at_score
+        count += len(labels_at_score)
+        total += positives_at_score * hits / count
 
     return total / positives
 

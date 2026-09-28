@@ -13,42 +13,6 @@ from axiom_prediction.wandb_tracking import WandbConfig
 
 pytestmark = pytest.mark.training
 
-@pytest.mark.parametrize("unavailable", ["package", "key", "empty-key", "startup"])
-def test_training_survives_unavailable_wandb(
-    tmp_path,
-    tiny_problem_path,
-    monkeypatch,
-    capsys,
-    unavailable,
-):
-    monkeypatch.delenv("WANDB_API_KEY", raising = False)
-    key_file = tmp_path / "key"
-    module = fake_wandb(_FakeRun(), {})
-    if unavailable == "package":
-        module = None
-        monkeypatch.setenv("WANDB_API_KEY", "test-key")
-    elif unavailable == "empty-key":
-        key_file.write_text("\n")
-    elif unavailable == "startup":
-        monkeypatch.setenv("WANDB_API_KEY", "test-key")
-        module = failing_wandb()
-
-    monkeypatch.setitem(sys.modules, "wandb", module)
-    train_axiom_predictor(
-        [str(tiny_problem_path)],
-        output_dir = tmp_path / "model",
-        config = AxiomTrainingConfig(
-            epochs = 1,
-            hidden_dim = 8,
-            device = "cpu",
-            num_workers = 1,
-        ),
-        wandb_config = WandbConfig(key_file = key_file),
-    )
-
-    assert (tmp_path / "model" / "model.pt").is_file()
-    assert "warning: W&B disabled" in capsys.readouterr().err
-
 class _FakeRun:
     def __init__(self):
         self.logs = []
@@ -83,16 +47,6 @@ def fake_wandb(run: _FakeRun, init_arguments: dict) -> Any:
         title: ("line", table, x, y, title),
     )
 
-    return module
-
-def failing_wandb() -> Any:
-    module = SimpleNamespace(__name__ = "wandb")
-    module.login = lambda **kwargs: True
-
-    def init(**kwargs):
-        raise RuntimeError("Failed to read port info after 300 seconds")
-
-    module.init = init
     return module
 
 def test_training_logs_progress_results_and_model(

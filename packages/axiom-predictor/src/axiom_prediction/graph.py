@@ -10,6 +10,9 @@ from connections.syntax.matrix import Matrix
 from axiom_prediction.representation.schema import GraphInput, NODE_TYPES, RELATIONS
 from axiom_prediction.representation.matrix import matrix_graph
 
+class UnsupportedAxiomProblem(ValueError):
+    pass
+
 def validate_clause_ids(
     matrix: Matrix,
     *,
@@ -19,10 +22,10 @@ def validate_clause_ids(
     axs = tuple(axiom_clause_ids)
     conjs = tuple(conjecture_clause_ids)
     if not axs:
-        raise ValueError("axiom_clause_ids must be nonempty")
+        raise UnsupportedAxiomProblem("axiom_clause_ids must be nonempty")
 
     if not conjs:
-        raise ValueError("conjecture_clause_ids must be nonempty")
+        raise UnsupportedAxiomProblem("conjecture_clause_ids must be nonempty")
 
     if len(set(axs)) != len(axs):
         raise ValueError("axiom_clause_ids must not contain duplicates")
