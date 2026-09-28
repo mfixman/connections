@@ -49,6 +49,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
 
     add_model_name_argument(train)
+    add_dataset_argument(train)
     train.add_argument(
         "--network",
         default = "DefaultFull",
@@ -112,10 +113,10 @@ def build_parser() -> argparse.ArgumentParser:
     collect.add_argument(
         "--data-dir",
         type = Path,
-        required = True,
-        help = "run directory containing dataset/ and receiving model/",
+        help = "write under DATA_DIR/dataset unless --dataset is supplied",
     )
 
+    add_dataset_argument(collect)
     collect.add_argument("--tptp", type = Path)
     add_split_arguments(collect)
     collect.add_argument(
@@ -160,6 +161,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
 
     add_model_name_argument(evaluate)
+    add_dataset_argument(evaluate)
     evaluate.add_argument("--tptp", type = Path)
     add_split_arguments(evaluate)
     add_device_argument(evaluate)
@@ -286,7 +288,10 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
         if args.command == "collect":
-            args.data_dir.mkdir(parents = True, exist_ok = True)
+            dataset = selected_dataset(args)
+            if dataset is None:
+                raise ValueError("collect needs --dataset or --data-dir")
+
             problems = selected_problems(args)
             input_directory = (
                 problem_input_directory(args.problems[0], tptp_root = args.tptp)
@@ -294,8 +299,8 @@ def main(argv: list[str] | None = None) -> int:
                 else None
             )
 
-            collection_args = {
-                "output_dir": args.data_dir / "dataset",
+            collection_args: dict[str, Any] = {
+                "output_dir": dataset,
                 "tptp_root": args.tptp,
                 "step_limit": args.step_limit,
                 "timeout_seconds": args.timeout_seconds,
@@ -303,12 +308,14 @@ def main(argv: list[str] | None = None) -> int:
                 "num_workers": args.num_workers,
             }
 
-            if input_directory is None:
+            if input_directory is None and args.dataset is None:
                 summary = collect_axiom_dataset(problems, **collection_args)
             else:
                 shard, summary = collect_axiom_dataset_shard(
                     problems,
-                    shard_name = input_directory.name,
+                    shard_name = (
+                        "problems" if input_directory is None else input_directory.name
+                    ),
                     **collection_args,
                 )
 
@@ -324,8 +331,8 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "train":
             from .training import AxiomTrainingConfig, train_axiom_predictor
 
-            args.data_dir.mkdir(parents = True, exist_ok = True)
             problems, dataset = training_request(args)
+            args.data_dir.mkdir(parents = True, exist_ok = True)
             metrics = train_axiom_predictor(
                 problems,
                 dataset = dataset,
@@ -356,15 +363,16 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "evaluate":
             from .training import AxiomTrainingConfig, evaluate_axiom_predictor
 
-            if args.data_dir is not None and args.problems:
-                raise ValueError("evaluate takes either PROBLEM inputs or --data-dir, not both")
+            dataset = selected_dataset(args)
+            if dataset is not None and args.problems:
+                raise ValueError("evaluate takes PROBLEM inputs or a dataset, not both")
 
             checkpoint = selected_checkpoint(args)
-            problems = () if args.data_dir is not None else selected_problems(args)
+            problems = () if dataset is not None else selected_problems(args)
             metrics = evaluate_axiom_predictor(
                 checkpoint,
                 list(problems),
-                dataset = None if args.data_dir is None else args.data_dir / "dataset",
+                dataset = dataset,
                 split = selected_split(args),
 
                 tptp_root = args.tptp,
@@ -594,10 +602,27 @@ def selected_problems(args: argparse.Namespace) -> tuple[str, ...]:
     return selected
 
 def training_request(args: argparse.Namespace) -> tuple[tuple[str, ...], Path | None]:
+    if args.dataset is not None and args.problems:
+        raise ValueError("train takes either --dataset or PROBLEM inputs, not both")
+
     if not args.problems:
-        return (), args.data_dir / "dataset"
+        return (), selected_dataset(args)
 
     return selected_problems(args), None
+
+def add_dataset_argument(parser: argparse.ArgumentParser):
+    parser.add_argument(
+        "--dataset",
+        type = Path,
+        metavar = "PATH",
+        help = "shared dataset directory; collect writes JSONL shards here, train/evaluate read it instead of DATA_DIR/dataset",
+    )
+
+def selected_dataset(args: argparse.Namespace) -> Path | None:
+    if args.dataset is not None:
+        return args.dataset
+
+    return None if args.data_dir is None else args.data_dir / "dataset"
 
 def cli_properties(args: argparse.Namespace) -> dict[str, Any]:
     return {key: jsonable_cli_value(value) for key, value in vars(args).items()}
