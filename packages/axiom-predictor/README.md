@@ -1,112 +1,113 @@
 # Axiom predictor
 
-Collect source-clause SAT cores, train a graph model to rank axioms, and guide
-SATCoP or SATResetCoP with its predictions. The graph and checkpoint formats
-are preserved from the learncop axiom_predictor branch.
+Collect SAT-core labels, train graph networks to rank axiom clauses, and use
+their predictions to guide SATCoP or SATResetCoP.
 
-With Python 3.12 or newer, from the repository root:
+From the repository root, with Python 3.12 or newer:
 
 ```bash
 python -m pip install -r requirements.txt
-python axiom_predictor.py collect examples/socrates.p --data-dir artifacts/axioms
-python axiom_predictor.py train --data-dir artifacts/axioms
 python axiom_predictor.py --help
+python axiom_predictor.py train --help
 ```
 
-Use `--tptp /path/to/TPTP` when resolving benchmark names or included axioms.
-The predictor also supports the existing `TPTP` environment variable for its
-command-line interface; the connections library receives explicit paths.
-Install optional W&B tracking with `python -m pip install wandb`.
+Training defaults: seed 0, 200 epochs, batch size 43, CUDA required, automatic
+W&B tracking with warning-only fallback, and maximum available CPUs within
+the job allocation. Use `--device auto` to allow CPU fallback, or
+`--device cpu` to require CPU execution. Building Pydical requires Git and
+a C++ compiler. Install optional tracking with `python -m pip install wandb`.
 
-The model uses its original ReLU graph encoder. Fredrik's imitation package
-has a separate tanh action model; changing that model would invalidate
-existing predictor checkpoints. Dataset schemas retain their learncop names
-to allow existing datasets and checkpoints to be loaded.
+## Models
 
-The standalone launcher can also be invoked by absolute path from another
-directory. Building Pydical requires Git and a C++ compiler.
+Each file in [src/axiom_prediction/models/](src/axiom_prediction/models/)
+defines a class with the same TitleCase name. All inherit
+`AxiomPredictionNetwork`, the shared `torch.nn.Module` base in
+[base.py](src/axiom_prediction/models/base.py).
+Select a file/class with `train --network SmallFull` or `--network SmallFull.py`.
+The available names appear in both top-level and training `--help`.
 
-Collect and shard by TPTP category, train on selected splits, and evaluate
-without repeating proof search:
+| Size | Full inputs | No complement edges | No explicit term structure | Width / rounds / hidden layers |
+| --- | --- | --- | --- | --- |
+| Small | SmallFull | SmallNoComplements | SmallNoTerms | 32 / 2 / 1 |
+| Default | DefaultFull | DefaultNoComplements | DefaultNoTerms | 64 / 3 / 2 |
+| Large | LargeFull | LargeNoComplements | LargeNoTerms | 128 / 4 / 3 |
+
+All use ReLU. `DefaultFull` is the original network and the default choice.
+The input variants retain axioms, conjectures, and pooled scoring contexts.
+NoTerms removes term/variable nodes and their incident relations, but still
+receives clause groundness, predicate arity, and complement edges computed
+from the original terms. NoComplements removes only complement edges;
+shared-symbol and shared-term connections remain.
+
+To add a variant, add a TitleCase Python file/class to this directory. Set
+its `default_config`, and override construction or `forward` if needed.
+The constructor must accept the saved `AxiomModelConfig`. No CLI registry
+edit is needed. For example:
+
+```python
+from ..configuration import AxiomModelConfig
+from .base import AxiomPredictionNetwork
+
+class MyNetwork(AxiomPredictionNetwork):
+    default_config = AxiomModelConfig(hidden_dim=48, message_rounds=2)
+```
+
+Checkpoints record the selected class and its resolved configuration.
+Evaluation, prediction, and guided search restore both automatically.
+Version-2 checkpoints remain loadable as the original base network; new
+checkpoints use version 3 so older readers cannot silently discard the
+selected class.
+
+## Experiments
+
+Collect separately for each label policy; networks can reuse each dataset:
 
 ```bash
-python axiom_predictor.py collect SYN --tptp /path/to/TPTP --data-dir artifacts/axioms --num-workers 8
-python axiom_predictor.py train --data-dir artifacts/axioms --split 4 --parts 0 1 2 --no-wandb
-python axiom_predictor.py evaluate --data-dir artifacts/axioms --split 4 --parts 3 --no-wandb
-python axiom_predictor.py run examples/socrates.p --data-dir artifacts/axioms --mode strict --policy satresetcop --no-wandb
+python axiom_predictor.py collect SYN \
+  --data-dir artifacts/SATCoP --policy SatCoP
+
+python axiom_predictor.py train \
+  --data-dir artifacts/SATCoP --network SmallFull --model-name SmallFull \
+  --split 10 --parts 0 1 2 3 4 5 6 7
+
+python axiom_predictor.py evaluate \
+  --data-dir artifacts/SATCoP --model-name SmallFull --split 10 --parts 8
 ```
 
-Use `--sat-policy satcop` during collection to select SATCoP. Core membership
-is determined by CaDiCaL failed assumptions; cores need not be minimal and
-may vary with solver versions or policies. Labels and predictions refer to
-clausified source clauses, including generated equality axioms, rather than
-original named TPTP formulas. Conjecture marking is identical during
-collection and inference. `--top-k` restricts both the search actions and
-the SAT shadow to the selected axioms plus conjecture clauses.
+Repeat with any network name from the table. `--network` selects the Python
+network implementation for training; `--model` selects a trained checkpoint
+for proof search, and `--model-name` names the saved run.
+Without a run name, training writes `DATA_DIR/model/model.pt`; with a name,
+it writes `DATA_DIR/models/NAME/model.pt`. Reusing a run name replaces its
+checkpoint.
 
-`--model-name NAME` keeps several models beside the same dataset. Dataset
-shards, partial worker results, W&B configuration and SLURM CPU detection
-retain their previous command-line behavior. See `python axiom_predictor.py COMMAND
---help` for the complete argument list.
+A saved dataset's collection policy is authoritative. Explicitly requesting
+a different `--policy` fails; collect a separate dataset to change labels.
+The `run --policy` choice is independent of the label policy.
 
-## Comparing policies and networks
+Splits now hash the **complete filename including .p**, excluding its parent
+directory. This differs from the previous family-based default. Use the new
+split consistently across training, validation, and testing; old family
+checkpoints retain their metadata, and evaluation warns about the mismatch.
+The trainer saves the final model and has no validation-based early stopping.
 
-`--sat-policy satcop` and `--sat-policy satresetcop` select the prover that
-collects the SAT-core labels for `collect`, fresh-problem `train`, and
-fresh-problem `evaluate`. They do not change the optimizer. Keep a separate
-data directory for each collection policy. When training or evaluating a
-saved dataset, the policy defaults to its recorded provenance; an explicitly
-different policy is rejected rather than silently reusing the old labels.
-The `run --policy` option independently selects the policy guided by a model.
+TPTP discovery uses `--tptp`, then `$TPTP`, then conventional local corpus
+directories. Here it discovers the sibling `../TPTP`. No corpus is downloaded
+automatically. See the [argument reference](CLI.md) for the full search order.
 
-Network size is selected with `train --model-preset`:
-
-| Preset | Hidden width | Message rounds | Hidden layers |
-| --- | ---: | ---: | ---: |
-| `small` | 32 | 2 | 1 |
-| `default` | 64 | 3 | 2 |
-| `large` | 128 | 4 | 3 |
-
-All use ReLU. `--hidden-dim`, `--message-rounds`, and `--num-hidden-layers`
-override individual values; the hidden-layer count applies to the encoder's
-action head and the axiom scoring head. Message passing shares weights across
-rounds. `--epochs`, `--learning-rate`, and `--weight-decay` control training.
-The original predictor is `--model-preset default --graph-input full`.
-
-Choose input information independently with `--graph-input`:
-
-| Input | Information supplied to the graph encoder |
-| --- | --- |
-| `full` | Original clause, literal, symbol, term, variable features and all relations. |
-| `no-complements` | Full graph with the potential complementary-literal edges removed. Other shared-symbol and shared-term connections remain. |
-| `no-terms` | Clause, literal and symbol nodes, clause membership, literal-to-predicate links and complement edges. Term/variable nodes and their incident relations are removed. |
-
-All variants retain axioms, conjectures, and the original pooled scoring
-contexts. `no-terms` still receives clause groundness, predicate arity, and
-complement edges computed from the full problem; it ablates explicit term
-structure, not every signal derived from terms. Input ablations leave the
-stored dataset intact, so all models can train on the same examples.
-
-For example, collect with each policy and compare all nine size/input pairs:
+## Proof search
 
 ```bash
-for policy in satcop satresetcop; do
-  data="artifacts/axioms-$policy"
-  python axiom_predictor.py collect SYN --tptp /path/to/TPTP --data-dir "$data" --sat-policy "$policy"
-  for size in small default large; do
-    for input in full no-complements no-terms; do
-      name="$size-$input"
-      python axiom_predictor.py train --data-dir "$data" --model-name "$name" \
-        --model-preset "$size" --graph-input "$input" --epochs 200 \
-        --split 4 --parts 0 1 2 --no-wandb
-      python axiom_predictor.py evaluate --data-dir "$data" --model-name "$name" \
-        --split 4 --parts 3 --no-wandb
-    done
-  done
-done
+# Unguided baseline:
+python axiom_predictor.py run SYN --policy SatCoP
+
+# Guided by the named checkpoint:
+python axiom_predictor.py run SYN --policy SatCoP \
+  --data-dir artifacts/SATCoP --model-name SmallFull
 ```
 
-Use a new `--model-name` for each experiment: retraining the same name replaces
-its checkpoint. Checkpoints store the resolved size and input settings;
-`evaluate`, `predict`, and guided `run` reconstruct them automatically.
-Existing checkpoints lacking an input setting continue to use `full`.
+A selected checkpoint uses weighted guidance at temperature 1 with all
+axioms retained. Without a checkpoint, search is unguided. The CLI no longer
+exposes mode, temperature, or axiom filtering.
+
+See the [complete command-line reference](CLI.md) for every remaining option.
