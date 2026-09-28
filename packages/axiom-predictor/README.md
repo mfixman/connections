@@ -60,6 +60,35 @@ selected class.
 
 ## Experiments
 
+### Sharing one dataset across runs
+
+Collect once, then give each training job its own output directory:
+
+```bash
+python axiom_predictor.py collect SYN \
+  --dataset datasets/Reset --policy SatResetCoP
+
+python axiom_predictor.py train \
+  --dataset datasets/Reset --data-dir runs/Reference --network DefaultFull \
+  --split 10 --parts 0 1 2 3 4 5 6 7
+
+python axiom_predictor.py train \
+  --dataset datasets/Reset --data-dir runs/Smaller --network SmallFull \
+  --split 10 --parts 0 1 2 3 4 5 6 7
+
+python axiom_predictor.py evaluate \
+  --dataset datasets/Reset --data-dir runs/Reference --split 10 --parts 8
+```
+
+`--dataset` overrides `--data-dir/dataset`. Collection writes JSONL shards
+directly into that directory; training and evaluation only read them.
+Single-category/directory collection uses its name for the shard; other inputs
+use `problems.jsonl`. Collection resumes using records in `.cache`.
+Finish collection before launching readers, and avoid simultaneous writers
+to the same shard. Separate policies still require separate datasets.
+
+### Keeping the dataset inside a run directory
+
 Collect separately for each label policy; networks can reuse each dataset:
 
 ```bash

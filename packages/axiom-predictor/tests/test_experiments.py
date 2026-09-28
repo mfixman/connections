@@ -12,6 +12,66 @@ from axiom_prediction.models import available_models, load_model_class
 
 from axiom_prediction.choices import GraphInputKind, ProverPolicy
 
+@pytest.mark.parametrize("directories", [False, True])
+def test_shared_dataset_collection_and_run_directories(
+    tmp_path,
+    tiny_problem_path,
+    monkeypatch,
+    capsys,
+
+    directories,
+):
+    import axiom_prediction.dataset as dataset_module
+
+    shared = tmp_path / "shared"
+    inputs = []
+    for name in ("First", "Second"):
+        directory = tmp_path / name
+        directory.mkdir()
+        problem = directory / f"{name}.p"
+        problem.write_text(tiny_problem_path.read_text())
+        inputs.append(str(directory if directories else problem))
+
+    common = ["--dataset", str(shared), "--num-workers", "1"]
+    requests = [[item] for item in inputs] if directories else [inputs]
+    for problems in requests:
+        assert main(["collect", *problems, *common]) == 0
+
+    expected = {"First.jsonl", "Second.jsonl"} if directories else {"problems.jsonl"}
+    assert {path.name for path in shared.glob("*.jsonl")} == expected
+
+    def unexpected_collection(*args, **kwargs):
+        raise AssertionError("a reused dataset must not re-prove problems")
+
+    monkeypatch.setattr(dataset_module, "collect_proof_example", unexpected_collection)
+    unused = tmp_path / "unused"
+    for problems in requests:
+        assert main(["collect", *problems, *common, "--data-dir", str(unused)]) == 0
+
+    assert not unused.exists()
+    before = {path: path.read_bytes() for path in shared.rglob("*") if path.is_file()}
+    cpu = ["--device", "cpu", "--no-wandb"]
+    for network in ("SmallFull", "SmallNoTerms"):
+        output = tmp_path / network
+        run = ["--data-dir", str(output), *common, *cpu]
+        assert main(["train", *run, "--network", network, "--epochs", "1"]) == 0
+
+        assert (output / "model" / "model.pt").is_file()
+        assert not (output / "dataset").exists()
+        assert main(["evaluate", *run]) == 0
+
+        checkpoint = str(output / "model")
+        assert main(["evaluate", checkpoint, *common, *cpu]) == 0
+        assert main(["train", *run, "--policy", "SatCoP"]) == 2
+        assert "dataset labels were collected" in capsys.readouterr().err
+
+        assert main(["train", inputs[0], *run]) == 2
+        assert main(["evaluate", checkpoint, inputs[0], *common, *cpu]) == 2
+
+    after = {path: path.read_bytes() for path in shared.rglob("*") if path.is_file()}
+    assert after == before
+    assert main(["collect", inputs[0], "--num-workers", "1"]) == 2
+
 @pytest.mark.parametrize("policy", ["satcop", "satresetcop"])
 def test_policy_and_network_experiments(tmp_path, policy, capsys):
     problem = "packages/axiom-predictor/tests/fixtures/problems/marked_conjecture_clausification.p"
