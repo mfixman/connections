@@ -6,7 +6,8 @@ import json
 from pathlib import Path
 import re
 
-from .model import device_description
+from .model import MODEL_PRESETS, device_description
+from .inputs import GRAPH_INPUTS
 from connections.parsing.tptp import TPTPParseError
 
 from .dataset import NoParseableProblemsError, collect_axiom_dataset, collect_axiom_dataset_shard
@@ -38,6 +39,14 @@ def build_parser() -> argparse.ArgumentParser:
         help="run directory containing dataset/ and receiving model/ (or models/NAME with --model-name)",
     )
     _add_model_name_argument(train)
+    train.add_argument("--model-preset", choices=tuple(MODEL_PRESETS), default="default")
+    train.add_argument("--hidden-dim", type=_positive_int)
+    train.add_argument("--message-rounds", type=int)
+    train.add_argument("--num-hidden-layers", type=int)
+    train.add_argument("--graph-input", choices=GRAPH_INPUTS)
+    train.add_argument("--epochs", type=_positive_int, default=200)
+    train.add_argument("--learning-rate", type=float, default=1e-3)
+    train.add_argument("--weight-decay", type=float, default=0.0)
     train.add_argument("--tptp", type=Path)
     _add_split_arguments(train)
     train.add_argument("--seed", type=int, default=0)
@@ -52,7 +61,11 @@ def build_parser() -> argparse.ArgumentParser:
     train.add_argument("--device", default="auto")
     train.add_argument("--step-limit", type=int, default=DEFAULT_STEP_LIMIT)
     train.add_argument("--timeout-seconds", type=float, default=DEFAULT_TIMEOUT_SECONDS)
-    train.add_argument("--sat-policy", choices=("satresetcop", "satcop"), default="satresetcop")
+    train.add_argument(
+        "--sat-policy",
+        choices=("satresetcop", "satcop"),
+        help="label collection policy; defaults to dataset provenance or satresetcop",
+    )
     _add_worker_argument(train)
     _add_wandb_arguments(train)
 
@@ -96,7 +109,11 @@ def build_parser() -> argparse.ArgumentParser:
     evaluate.add_argument("--tptp", type=Path)
     _add_split_arguments(evaluate)
     evaluate.add_argument("--device", default="auto")
-    evaluate.add_argument("--sat-policy", choices=("satresetcop", "satcop"), default="satresetcop")
+    evaluate.add_argument(
+        "--sat-policy",
+        choices=("satresetcop", "satcop"),
+        help="label collection policy; defaults to dataset provenance or satresetcop",
+    )
     _add_worker_argument(evaluate)
     _add_wandb_arguments(evaluate)
 
@@ -165,6 +182,15 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _model_options(args: argparse.Namespace) -> dict[str, Any]:
+    options = MODEL_PRESETS[args.model_preset].to_dict()
+    for name in options:
+        value = getattr(args, name, None)
+        if value is not None:
+            options[name] = value
+    return options
+
+
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
@@ -211,6 +237,10 @@ def main(argv: list[str] | None = None) -> int:
                 output_dir=model_directory(args.data_dir, args.model_name),
                 tptp_root=args.tptp,
                 config=AxiomTrainingConfig(
+                    **_model_options(args),
+                    epochs=args.epochs,
+                    learning_rate=args.learning_rate,
+                    weight_decay=args.weight_decay,
                     device=args.device,
                     seed=args.seed,
                     batch_size=args.batch_size,

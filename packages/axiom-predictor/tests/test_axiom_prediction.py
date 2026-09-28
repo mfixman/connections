@@ -364,7 +364,7 @@ def test_training_cli_properties_include_every_parsed_argument(tmp_path):
     assert properties["num_workers"] == 7
     assert properties["wandb"] is False
     assert properties["data_dir"] == str(tmp_path / "run")
-    assert properties["sat_policy"] == "satresetcop"
+    assert properties["sat_policy"] is None
 
 
 def test_cli_sat_policy_choices_do_not_apply_to_predict(tmp_path):
