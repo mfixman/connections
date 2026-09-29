@@ -35,6 +35,8 @@ with --data-dir and supply only problem paths.
 | `--tptp PATH` | All | Optional explicit corpus root. Otherwise discover it as described below. |
 | `--split N` | All | **1**. Partition by a stable hash of the complete filename, including .p but not its directory. |
 | `--parts P ...`, `--part P ...` | All | All parts. Select zero-based parts. Keep training/validation/test parts disjoint with the same N. |
+| `--evaluate PART ...` | train | Score these held-out parts during training, e.g. `--split 10 --parts 0 1 2 3 4 5 6 7 --evaluate 8`. Overlapping or empty evaluation selections fail. |
+| `--evaluate-every N` | train | **1**: evaluate every epoch. Positive N evaluates every N epochs after the first evaluation. Set 0 to measure evaluation cost and space evaluations to target 10% extra training time. First/final epochs always evaluate. |
 | `--seed N` | train, run | **0**. Training initialization/shuffle seed, or proof-search seed. Does not change the split or fresh-label collection's internal search seed. |
 | `--epochs N` | train | **200** passes through the training examples. Checkpoint saved after every epoch; no best-validation-checkpoint selection. |
 | `--batch-size N` | train, evaluate | **43 problems**, not clauses. Optimizer-update batch size in training; prediction batch size in evaluation. Memory depends on graph sizes. |
@@ -186,7 +188,22 @@ Unexpected search errors produce a nonzero command exit status.
 Evaluate reports SAT-core label prediction, not improved theorem proving.
 Only successfully labelled problems contribute to these metrics. Use run on
 the full held-out problem list to measure proof success, including failures
-from collection. Training reports training-set metrics, not validation.
+from collection. Training reports training-set metrics; `--evaluate` adds held-out
+SAT-core label metrics under `evaluation/*` to the same W&B epoch upload.
+Evaluation uses cached graphs and labels (fresh PROBLEM inputs collect labels once).
+With `--evaluate-every 0`, the automatic interval measures inference plus metric computation against training
+time; first/final evaluations and initial label collection can exceed the 10% target.
+Batch-progress uploads do not trigger evaluation. Evaluation also works with
+`--no-wandb`, writing `evaluation_metrics.json` beside the checkpoint. Final
+per-problem and ranked-axiom tables use `evaluation_results/*` in W&B.
+`train/macro_average_precision` and `evaluation/macro_average_precision` average
+per-problem AP with equal weight, excluding problems with no positive labels
+(undefined AP). If all problems have undefined AP, the metric is omitted from W&B.
+The run summary records `evaluation/best_macro_average_precision` and
+`evaluation/best_epoch`, retaining the earliest epoch on ties. These summarize
+evaluations within the current W&B run; a resumed training invocation starts a
+new run. Checkpoint saving still keeps the latest epoch.
+These are prediction metrics, not guided proof-search success rates.
 
 Previously the split default grouped TPTP families. The current CLI always
 hashes the complete filename. Old checkpoint split metadata is retained

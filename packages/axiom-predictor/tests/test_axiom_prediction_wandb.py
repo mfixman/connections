@@ -9,9 +9,29 @@ from types import SimpleNamespace
 import pytest
 
 from axiom_prediction.training import AxiomTrainingConfig, train_axiom_predictor
-from axiom_prediction.wandb_tracking import WandbConfig
+from axiom_prediction.wandb_tracking import WandbConfig, WandbTracker
 
 pytestmark = pytest.mark.training
+
+def test_best_evaluation_retains_peak_and_first_epoch_on_ties():
+    run = _FakeRun()
+    tracker = WandbTracker(fake_wandb(run, {}), run)
+    scores = [None, 0.4, 0.8, 0.8, 0.5, None]
+    for epoch, score in enumerate(scores, start = 1):
+        tracker.log_epoch(
+            epoch,
+            loss = 0.1,
+            evaluation = {"macro_average_precision": score},
+        )
+
+        if epoch == 1:
+            assert "evaluation/best_epoch" not in run.summary
+
+    tracker.log_epoch(7, loss = 0.1)
+    assert run.summary["evaluation/best_macro_average_precision"] == 0.8
+    assert run.summary["evaluation/best_epoch"] == 3
+    assert run.logs[4][0]["evaluation/macro_average_precision"] == 0.5
+    assert "evaluation/macro_average_precision" not in run.logs[5][0]
 
 class _FakeRun:
     def __init__(self):

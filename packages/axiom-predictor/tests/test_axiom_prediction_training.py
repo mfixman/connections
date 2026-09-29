@@ -25,10 +25,11 @@ skip = cast(Callable[..., NoReturn], pytest.skip)
 
 pytestmark = pytest.mark.training
 
-def test_cuda_inference_smoke_when_available(tmp_path, tiny_problem_path):
+def test_cuda_inference_smoke_when_available(tmp_path, tiny_problem_path, monkeypatch):
     if not torch.cuda.is_available():
         skip(reason = "CUDA is unavailable")
 
+    monkeypatch.setattr("axiom_prediction.encoder.SPARSE_EDGE_THRESHOLD", 0)
     train_axiom_predictor(
         [str(tiny_problem_path)],
         output_dir = tmp_path,
@@ -36,7 +37,7 @@ def test_cuda_inference_smoke_when_available(tmp_path, tiny_problem_path):
             epochs = 1,
             hidden_dim = 8,
             message_rounds = 1,
-            device = "cpu",
+            device = "cuda",
         ),
         wandb_config = WandbConfig(enabled = False),
     )

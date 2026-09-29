@@ -63,6 +63,12 @@ def prediction_metrics(
 
             offset += size
 
+        precisions = [average_precision(y, p) for y, p in per_problem]
+        defined = [value for value in precisions if value is not None]
+        result["macro_average_precision"] = (
+            sum(defined) / len(defined) if defined else None
+        )
+
         for k in (1, 3, 5, 10):
             recalls = [recall_at_k(y, p, k) for y, p in per_problem]
             defined = [value for value in recalls if value is not None]

@@ -178,9 +178,24 @@ def train_axiom_predictor(
     wandb_config: WandbConfig = WandbConfig(),
     run_properties: Mapping[str, object] | None = None,
     split: ProblemSplit = ProblemSplit(),
+    evaluation_split: ProblemSplit | None = None,
+    evaluation_problems: list[str] | tuple[str, ...] | None = None,
+    evaluate_every: int = 1,
     resume: bool = False,
 ) -> dict[str, Any]:
     check_training_target(output_dir, resume)
+    if evaluate_every < 0:
+        raise ValueError("evaluate_every must be nonnegative")
+
+    if evaluation_split is not None and (
+        (split.split, split.by) != (evaluation_split.split, evaluation_split.by)
+        or set(split.parts) & set(evaluation_split.parts)
+    ):
+        raise ValueError("evaluation parts must use the training split and not overlap --parts")
+
+    if evaluation_problems is not None and (evaluation_split is None or dataset is not None):
+        raise ValueError("evaluation_problems requires evaluation_split and no dataset")
+
     if config.epochs < 1:
         raise ValueError("epochs must be at least 1")
 
@@ -194,13 +209,40 @@ def train_axiom_predictor(
     if dataset is None and not problem_list:
         raise ValueError("training requires problem paths or a dataset")
 
+    if evaluation_split is not None and dataset is None:
+        problem_list = list(split.select(problem_list))
+        if not problem_list:
+            raise ValueError("no training problems in the selected parts")
+
+        evaluation_problems = evaluation_split.select(list(evaluation_problems or []))
+        if not evaluation_problems:
+            raise ValueError("no evaluation problems supplied for the held-out parts")
+
     dataset_metadata: Mapping[str, object] | None = None
     dataset_examples: list[AxiomTrainingExample] | None = None
     dataset_skipped: list[dict[str, str]] = []
+    held_out: list[AxiomTrainingExample] = []
+    held_out_skipped: list[dict[str, str]] = []
     if dataset is not None:
         log_message(f"loading dataset from {dataset}")
         started = time.monotonic()
         dataset_examples, dataset_skipped, dataset_metadata = load_axiom_dataset(dataset)
+        if evaluation_split is not None:
+            held_out = [
+                example
+                for example in dataset_examples
+                if evaluation_split.contains(example.problem_path)
+            ]
+
+            held_out_skipped = [
+                item
+                for item in dataset_skipped
+                if evaluation_split.contains(item.get("problem", ""))
+            ]
+
+            if not held_out:
+                raise ValueError(f"no evaluation examples in {evaluation_split.describe()}")
+
         if not split.is_everything:
             total = len(dataset_examples)
             dataset_examples = [
@@ -258,6 +300,8 @@ def train_axiom_predictor(
             "problems": problem_list,
             "problems_requested": len(problem_list),
             "dataset": None if dataset is None else str(dataset),
+            "evaluation_split": None if evaluation_split is None else evaluation_split.to_dict(),
+            "evaluate_every": evaluate_every,
             "cli_arguments": dict(run_properties or {}),
         },
         output_dir = output,
@@ -273,6 +317,13 @@ def train_axiom_predictor(
             )
         else:
             examples, skipped = dataset_examples, dataset_skipped
+
+        if evaluation_split is not None and dataset is None:
+            held_out, held_out_skipped = collect_examples(
+                list(evaluation_problems),
+                tptp_root = tptp_root,
+                config = config,
+            )
 
         if tracker is not None:
             tracker.run.summary.update(
@@ -338,6 +389,11 @@ def train_axiom_predictor(
 
         probabilities: list[float] = []
         epoch_metrics: dict[str, float | int | None] | None = None
+        evaluation_metrics = None
+        evaluation_probabilities = []
+        evaluation_seconds = 0.0
+        training_since_evaluation = 0.0
+        last_evaluation = None
 
         for epoch in range(first_epoch, config.epochs + 1):
             started = time.monotonic()
@@ -412,6 +468,43 @@ def train_axiom_predictor(
 
             loss_value = total_loss / total_labels
             train_seconds = time.monotonic() - started
+            training_since_evaluation += train_seconds
+            evaluation_due = held_out and (
+                last_evaluation is None
+                or epoch == config.epochs
+                or (
+                    epoch - last_evaluation >= evaluate_every
+                    if evaluate_every
+                    else training_since_evaluation >= 10 * evaluation_seconds
+                )
+            )
+
+            current_evaluation = None
+            if evaluation_due:
+                evaluated = time.monotonic()
+                _, evaluation_probabilities, evaluation_metrics = example_outputs(
+                    model,
+                    held_out,
+                    batch_size = config.batch_size,
+                )
+
+                evaluation_seconds = time.monotonic() - evaluated
+                current_evaluation = {
+                    **evaluation_metrics,
+                    "seconds": evaluation_seconds,
+                    "problems": len(held_out),
+                    "problems_skipped": len(held_out_skipped),
+                }
+
+                last_evaluation = epoch
+                training_since_evaluation = 0.0
+                log_message(
+                    f"epoch {epoch}: held-out {metric_text(evaluation_metrics)} "
+                    f"({len(held_out)} problems in {evaluation_seconds:.2f}s)"
+                )
+
+                emit("evaluation", epoch = epoch, **current_evaluation)
+
             report = (
                 epoch == 1
                 or epoch == config.epochs
@@ -449,6 +542,7 @@ def train_axiom_predictor(
                     seconds = train_seconds,
                     grad_norm = sum(norms) / len(norms) if norms else None,
                     metrics = epoch_metrics,
+                    evaluation = current_evaluation,
                 )
 
             if epoch < config.epochs:
@@ -492,9 +586,30 @@ def train_axiom_predictor(
         )
 
         write_json(output / "metrics.json", metrics)
+        if evaluation_metrics is not None:
+            evaluation_metrics = {
+                **evaluation_metrics,
+                "evaluation_kind": "held-out SAT-core-membership evaluation",
+                "split": evaluation_split.to_dict(),
+                "epoch": last_evaluation,
+                "seconds": evaluation_seconds,
+                "problems_proved": len(held_out),
+                "problems_skipped": len(held_out_skipped),
+                "skipped": held_out_skipped,
+            }
+
+            write_json(output / "evaluation_metrics.json", evaluation_metrics)
+
         log_message(f"saved checkpoint, config and metrics to {output}")
         if tracker is not None:
             tracker.log_results(examples, probabilities, metrics)
+            if evaluation_metrics is not None:
+                tracker.log_evaluation_results(
+                    held_out,
+                    evaluation_probabilities,
+                    evaluation_metrics,
+                )
+
             tracker.log_model(output / "model.pt")
 
         return metrics
@@ -888,6 +1003,7 @@ def metric_text(metrics: Mapping[str, object]) -> str:
         "bce",
         "roc_auc",
         "average_precision",
+        "macro_average_precision",
         "f1_at_0.5",
 
         "macro_recall_at_1",
