@@ -70,6 +70,11 @@ def test_resume_matches_uninterrupted_training_and_rejects_damage(
         train_axiom_predictor(output_dir = full, config = config, **options)
 
     assert saved_epochs == [1, 2, 3]
+    assert sorted(path.name for path in full.glob("epoch-*.pt")) == [
+        "epoch-0001.pt", "epoch-0002.pt", "epoch-0003.pt",
+    ]
+
+    assert (full / "model.pt").read_bytes() == (full / "epoch-0003.pt").read_bytes()
     events = [json.loads(line) for line in capsys.readouterr().out.splitlines()]
     assert [event["epoch"] for event in events if event["event"] == "epoch"] == [1, 2, 3]
 
@@ -82,7 +87,19 @@ def test_resume_matches_uninterrupted_training_and_rejects_damage(
     with pytest.raises(ValueError, match = "already exists"):
         train_axiom_predictor(output_dir = resumed, config = config, **options)
 
+    first_epoch = (resumed / "epoch-0001.pt").read_bytes()
     train_axiom_predictor(output_dir = resumed, config = config, resume = True, **options)
+    assert (resumed / "epoch-0001.pt").read_bytes() == first_epoch
+    for epoch in range(1, 4):
+        name = f"epoch-{epoch:04d}.pt"
+        archived = torch.load(resumed / name, weights_only = True)
+        uninterrupted = torch.load(full / name, weights_only = True)
+        assert archived["epoch"] == epoch
+        assert archived["training_state"]["optimizer"]["state"]
+        for key, weights in uninterrupted["model_state_dict"].items():
+            assert torch.equal(weights, archived["model_state_dict"][key]), key
+
+    assert (resumed / "model.pt").read_bytes() == (resumed / "epoch-0003.pt").read_bytes()
     expected = torch.load(full / "model.pt", weights_only = True)
     actual = torch.load(resumed / "model.pt", weights_only = True)
     for name, weights in expected["model_state_dict"].items():
@@ -123,6 +140,7 @@ def test_resume_matches_uninterrupted_training_and_rejects_damage(
         )
 
     assert (resumed / "model.pt").read_bytes() == before
+    assert not (resumed / "epoch-0004.pt").exists()
 
     record = next((dataset / "examples").glob("*.json"))
     payload = json.loads(record.read_text())

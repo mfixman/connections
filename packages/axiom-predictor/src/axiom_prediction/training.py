@@ -545,16 +545,17 @@ def train_axiom_predictor(
                     evaluation = current_evaluation,
                 )
 
-            if epoch < config.epochs:
-                save_checkpoint(
-                    output / "model.pt",
-                    model,
-                    training_config = config_payload,
-                    epoch = epoch,
-                    training_state = snapshot_training(optimizer, rnd, fingerprint),
-                )
+            epoch_path = output / f"epoch-{epoch:04d}.pt"
+            save_checkpoint(
+                epoch_path,
+                model,
+                training_config = config_payload,
+                epoch = epoch,
+                training_state = snapshot_training(optimizer, rnd, fingerprint),
+            )
 
-                log_message(f"saved epoch {epoch} checkpoint to {output / 'model.pt'}")
+            write_durably(output / "model.pt", epoch_path.read_bytes())
+            log_message(f"saved epoch {epoch} checkpoint to {epoch_path}")
 
         if epoch_metrics is None:
             _, probabilities, epoch_metrics = example_outputs(
@@ -575,14 +576,6 @@ def train_axiom_predictor(
                 "problems_skipped": len(skipped),
                 "skipped": skipped,
             }
-        )
-
-        save_checkpoint(
-            output / "model.pt",
-            model,
-            training_config = config_payload,
-            epoch = config.epochs,
-            training_state = snapshot_training(optimizer, rnd, fingerprint),
         )
 
         write_json(output / "metrics.json", metrics)
