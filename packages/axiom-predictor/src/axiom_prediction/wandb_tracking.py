@@ -31,6 +31,7 @@ class WandbTracker:
     def __init__(self, module: Any, run: Any):
         self.wandb = module
         self.run = run
+        self.best_evaluation = None
 
     @classmethod
     def start(
@@ -115,6 +116,7 @@ class WandbTracker:
         if hasattr(run, "define_metric"):
             run.define_metric("epoch")
             run.define_metric("train/*", step_metric = "epoch")
+            run.define_metric("evaluation/*", step_metric = "epoch")
             run.define_metric("progress/epoch")
             run.define_metric("progress/*", step_metric = "progress/epoch")
 
@@ -129,6 +131,7 @@ class WandbTracker:
         seconds: float | None = None,
         grad_norm: float | None = None,
         metrics: dict[str, float | int | None] | None = None,
+        evaluation: dict[str, float | int | None] | None = None,
     ):
         payload: dict[str, Any] = {
             "epoch": epoch,
@@ -149,7 +152,47 @@ class WandbTracker:
             }
         )
 
+        payload.update(
+            {
+                f"evaluation/{name}": value
+                for name, value in (evaluation or {}).items()
+                if value is not None
+            }
+        )
+
         self.run.log(payload)
+        self.update_best_evaluation(epoch, evaluation)
+
+    def update_best_evaluation(self, epoch, evaluation):
+        score = (evaluation or {}).get("macro_average_precision")
+        if score is None or (
+            self.best_evaluation is not None and score <= self.best_evaluation
+        ):
+            return
+
+        self.best_evaluation = score
+        self.run.summary.update(
+            {
+                "evaluation/best_macro_average_precision": score,
+                "evaluation/best_epoch": epoch,
+            }
+        )
+
+    def log_evaluation_results(self, examples, probabilities, metrics):
+        self.run.summary.update(
+            {
+                f"evaluation/{name}": value
+                for name, value in metrics.items()
+                if isinstance(value, int | float) or value is None
+            }
+        )
+
+        self.run.log(
+            {
+                "evaluation_results/per_problem": self.problem_table(examples, probabilities),
+                "evaluation_results/ranked_axioms": self.prediction_table(examples, probabilities),
+            }
+        )
 
     def log_progress(
         self,

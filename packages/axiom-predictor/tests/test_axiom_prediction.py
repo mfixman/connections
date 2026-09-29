@@ -5,6 +5,7 @@ import math
 import pytest
 
 import torch
+from copy import deepcopy
 
 from connections.clausification import matrix_from_file
 
@@ -19,7 +20,7 @@ def fixture_problem(path):
     axioms = tuple(index for index in range(len(matrix)) if index not in conjectures)
     return matrix, axioms, conjectures
 
-def test_batched_axiom_logits_match_individual_graphs(tiny_problem_path):
+def test_batched_axiom_logits_match_individual_graphs(tiny_problem_path, monkeypatch):
     matrix, axioms, conjectures = fixture_problem(tiny_problem_path)
     example = build_axiom_graph(
         matrix,
@@ -39,6 +40,30 @@ def test_batched_axiom_logits_match_individual_graphs(tiny_problem_path):
 
     assert torch.allclose(batched[: len(axioms)], individual, atol = 1e-6)
     assert torch.allclose(batched[len(axioms) :], individual, atol = 1e-6)
+
+    import axiom_prediction.encoder as encoder
+
+    dense = model.encoder.double()
+    sparse = deepcopy(dense)
+    states = {"literal": torch.randn(5, 8, dtype = torch.double, requires_grad = True)}
+    edges = torch.tensor([[0, 1], [0, 1], [2, 1], [1, 2]])
+    relations = [("complement", "literal", "literal", edges, None)]
+    probe = torch.randn(5, 8, dtype = torch.double)
+    expected = dense.message_rounds(states, relations)["literal"]
+    (expected * probe).sum().backward()
+    assert states["literal"].grad is not None
+    expected_grad = states["literal"].grad.clone()
+
+    states["literal"].grad = None
+    monkeypatch.setattr(encoder, "SPARSE_EDGE_THRESHOLD", 0)
+    actual = sparse.message_rounds(states, relations)["literal"]
+    (actual * probe).sum().backward()
+    torch.testing.assert_close(actual, expected)
+    torch.testing.assert_close(states["literal"].grad, expected_grad)
+
+    for before, after in zip(dense.parameters(), sparse.parameters(), strict = True):
+        if before.grad is not None:
+            torch.testing.assert_close(after.grad, before.grad)
 
 def test_metrics_cover_ranking_and_degenerate_classes():
     metrics = prediction_metrics([1, 0, 1, 0], [0.9, 0.8, 0.7, 0.1], problem_sizes = [4])

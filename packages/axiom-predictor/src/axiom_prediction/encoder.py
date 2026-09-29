@@ -14,6 +14,8 @@ from typing import Any, cast
 import torch
 from torch import nn
 
+from .aggregation import SPARSE_EDGE_THRESHOLD, sparse_relation_mean, sparse_relations
+
 from axiom_prediction.representation.schema import (
     GraphTensors,
     ACTION_KINDS,
@@ -178,6 +180,12 @@ class GraphNetwork(nn.Module):
         *,
         frozen: frozenset[str] = frozenset(),
     ) -> dict[str, torch.Tensor]:
+        sparse = {
+            name: sparse_relations(tensor, h[src], h[dst])
+            for name, src, dst, tensor, position in edge_tensors
+            if position is None and len(tensor) >= SPARSE_EDGE_THRESHOLD
+        }
+
         for _ in range(self.config.message_rounds):
             incoming = {
                 node_type: torch.zeros_like(values)
@@ -186,6 +194,23 @@ class GraphNetwork(nn.Module):
             }
 
             for name, src_type, dst_type, tensor, position in edge_tensors:
+                if name in sparse:
+                    if dst_type not in frozen:
+                        incoming[dst_type] += sparse_relation_mean(
+                            h[src_type],
+                            self.relation_fwd[name],
+                            sparse[name][0],
+                        )
+
+                    if src_type not in frozen:
+                        incoming[src_type] += sparse_relation_mean(
+                            h[dst_type],
+                            self.relation_rev[name],
+                            sparse[name][1],
+                        )
+
+                    continue
+
                 if dst_type not in frozen:
                     src_h = h[src_type][tensor[:, 0]]
                     if position is not None:

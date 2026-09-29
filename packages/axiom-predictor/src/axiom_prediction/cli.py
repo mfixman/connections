@@ -71,6 +71,22 @@ def build_parser() -> argparse.ArgumentParser:
 
     train.add_argument("--tptp", type = Path)
     add_split_arguments(train)
+    train.add_argument(
+        "--evaluate",
+        type = nonnegative_int,
+        nargs = "+",
+        metavar = "PART",
+        help = "held-out parts to score during training (must not overlap --parts)",
+    )
+
+    train.add_argument(
+        "--evaluate-every",
+        type = nonnegative_int,
+        default = 1,
+        metavar = "EPOCHS",
+        help = "held-out evaluation interval; 0 adapts to about 10%% training overhead",
+    )
+
     train.add_argument("--seed", type = int, default = 0)
     train.add_argument(
         "--batch-size",
@@ -338,6 +354,17 @@ def main(argv: list[str] | None = None) -> int:
             from .training import AxiomTrainingConfig, train_axiom_predictor
 
             problems, dataset = training_request(args)
+            evaluation_split = None if args.evaluate is None else ProblemSplit(
+                args.split,
+                tuple(args.evaluate),
+            )
+
+            evaluation_problems = None
+            if evaluation_split is not None and dataset is None:
+                evaluation_problems = evaluation_split.select(
+                    expand_problem_inputs(tuple(args.problems), tptp_root = args.tptp)
+                )
+
             args.data_dir.mkdir(parents = True, exist_ok = True)
             metrics = train_axiom_predictor(
                 problems,
@@ -361,6 +388,9 @@ def main(argv: list[str] | None = None) -> int:
                 wandb_config = wandb_config(args),
                 run_properties = cli_properties(args),
                 split = selected_split(args),
+                evaluation_split = evaluation_split,
+                evaluation_problems = evaluation_problems,
+                evaluate_every = args.evaluate_every,
                 resume = args.resume,
             )
 
