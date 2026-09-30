@@ -172,8 +172,14 @@ Guided search uses weighted ordering, temperature 1, and every axiom. There
 are no --mode, --temperature, or --top-k options. Both the root help and
 train help enumerate the network implementations from their Python files.
 
-W&B uses team mfixman-phd-team, project axiom-prediction, and automatic run
-names/grouping from the saved-run name. Credentials come from WANDB_API_KEY
+W&B uses team mfixman-phd-team and project axiom-prediction. Training runs use
+the network name (for example, DefaultNoTerms); resumes add the total invocation
+count: DefaultNoTerms-2, DefaultNoTerms-3, and so on. The count is stored in
+training_runs.json in the model directory, including invocations with tracking
+disabled. Existing checkpoints without a count are treated as having run once.
+Standalone evaluation runs use the checkpoint's network name followed by
+`-evaluate` (for example, `DefaultNoTerms-evaluate`).
+Grouping uses the saved-run name. Credentials come from WANDB_API_KEY
 or secrets/wandb_key relative to the working directory. Install optional
 tracking with python -m pip install wandb. Only the on/off CLI switches remain.
 

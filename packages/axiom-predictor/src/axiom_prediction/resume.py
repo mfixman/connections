@@ -5,6 +5,17 @@ from pathlib import Path
 import torch
 
 from .data import axiom_training_example_to_json
+from .io import write_json_atomic
+
+def next_training_run(output, resume):
+    path = Path(output) / "training_runs.json"
+    count = 1
+    if resume:
+        previous = json.loads(path.read_text()) if path.is_file() else {"count": 1}
+        count = previous["count"] + 1
+
+    write_json_atomic(path, {"count": count})
+    return count
 
 def dataset_fingerprint(examples):
     digest = hashlib.sha256()
