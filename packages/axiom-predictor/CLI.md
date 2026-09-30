@@ -166,6 +166,27 @@ Standalone files remain usable without a corpus. If no root can be found,
 benchmark-name resolution reports an error asking for a TPTP root.
 The resolved root on this checkout is the sibling ../TPTP.
 
+## Structured output
+
+All commands write machine-readable records to stdout and progress logs to
+stderr. Output defaults to JSON Lines. Add `--csv` before or after the command
+to use CSV with one fixed header for that command, including on empty output.
+CSV streams records as they become available. Strings are ordinary CSV cells;
+numbers and booleans use JSON syntax, and lists/dictionaries are JSON-encoded
+inside cells. An absent field is empty; an explicit null is `null`.
+
+Train and evaluate emit multiple event types. Their final metrics have
+`event=summary`. Run emits per-problem results followed by an `event=summary`
+row. Collect emits its collection summary. Predict emits one row per axiom.
+Filter by `event` when processing streams with different record types.
+The same records and fields are emitted with and without `--csv`; CSV headers
+include the union of possible fields, with irrelevant cells left empty.
+Saved checkpoints, dataset shards, and metrics files retain their existing formats.
+
+```bash
+python axiom_predictor.py predict --csv --device cpu model.pt SYN088-1.010.p > predictions.csv
+```
+
 ## Fixed behavior
 
 Guided search uses weighted ordering, temperature 1, and every axiom. There

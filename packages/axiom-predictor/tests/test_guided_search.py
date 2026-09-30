@@ -48,6 +48,8 @@ def test_trained_checkpoint_guides_search(tmp_path, tiny_problem_path, policy, c
         ]
         ) == 0
 
-        result = json.loads(capsys.readouterr().out.strip())
+        records = [json.loads(line) for line in capsys.readouterr().out.splitlines()]
+        result = records[0]
+        assert records[-1]["event"] == "summary"
         assert result["proved"]
         assert result["mode"] == ("weighted" if model_args else "base")

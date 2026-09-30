@@ -16,7 +16,7 @@ from connections.syntax.matrix import Matrix
 
 from .data import AxiomTrainingExample, sat_core_clause_ids, training_example_from_sat_core
 
-from .limits import collection_budget
+from .limits import DEFAULT_STEP_LIMIT, DEFAULT_TIMEOUT_SECONDS, collection_budget
 
 _TPTP_CATEGORY = re.compile(r"[A-Z]{3}")
 _STATUS = re.compile(r"^\s*%\s*Status\s*:\s*(\S+)", re.IGNORECASE)
@@ -34,9 +34,6 @@ _NON_REFUTABLE_DECLARED_OUTCOMES = {
     "satisfiable": "DeclaredSatisfiable",
     "countersatisfiable": "DeclaredCounterSatisfiable",
 }
-
-DEFAULT_STEP_LIMIT = 1_000_000
-DEFAULT_TIMEOUT_SECONDS = 120.0
 
 class NoProblemFilesError(FileNotFoundError):
     """A requested problem directory contains no immediate .p files."""

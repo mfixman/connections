@@ -303,7 +303,7 @@ def test_policy_inheritance_fallback_and_fresh_evaluation(
     assert result["proved"] and result["guidance_fallback"]
     capsys.readouterr()
     assert main(["run", str(cnf), "--model", str(tmp_path), *common]) == 0
-    assert json.loads(capsys.readouterr().out)["policy"] == "satcop"
+    assert json.loads(capsys.readouterr().out.splitlines()[0])["policy"] == "satcop"
 
     assert main(
         [
