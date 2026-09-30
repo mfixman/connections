@@ -6,6 +6,7 @@ import pytest
 
 from axiom_prediction.cli import main
 from axiom_prediction.output import output_format, write_record
+from axiom_prediction.split import ProblemSplit
 
 @pytest.mark.parametrize("use_csv", [False, True])
 def test_all_commands_emit_parseable_records(tmp_path, tiny_problem_path, capsys, use_csv):
@@ -22,6 +23,10 @@ def test_all_commands_emit_parseable_records(tmp_path, tiny_problem_path, capsys
     ]
 
     for command in commands:
+        if command[0] in ("evaluate", "run"):
+            part = ProblemSplit(10, (8, 9)).part(tiny_problem_path)
+            command.extend(["--split", "10", "--parts", str(part)])
+
         assert main([*flag, *command]) == 0
         stdout = capsys.readouterr().out
         if use_csv:
@@ -35,6 +40,10 @@ def test_all_commands_emit_parseable_records(tmp_path, tiny_problem_path, capsys
             assert records[-1]["event"] == "summary"
         if command[0] == "predict":
             assert 0 <= float(records[0]["probability"]) <= 1
+        if command[0] in ("evaluate", "run"):
+            problems = [row for row in records if row.get("problem")]
+            assert len(problems) == 1
+            assert int(problems[0]["part"]) == part
 
 def test_csv_preserves_nested_values_and_quoting(capsys):
     record = {"event": "summary", "skipped": [{"problem": "a,b\n\"c\"", "outcome": "Timeout"}], "dataset": None}
