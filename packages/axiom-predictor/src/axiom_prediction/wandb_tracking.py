@@ -105,7 +105,7 @@ class WandbTracker:
             return None
 
         name = getattr(run, "name", None)
-        if config.name_prefix and name and not name.startswith(config.name_prefix):
+        if not config.name and config.name_prefix and name and not name.startswith(config.name_prefix):
             try:
                 run.name = f"{config.name_prefix}-{name}"
             except Exception as error:

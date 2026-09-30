@@ -297,7 +297,7 @@ def train_axiom_predictor(
         run_name = f"{run_name}-{run_count}"
 
     tracker = WandbTracker.start(
-        replace(wandb_config, name = run_name, name_prefix = None),
+        replace(wandb_config, name = wandb_config.name or run_name, name_prefix = None),
         job_type = "train",
         run_config = {
             **config_payload,
@@ -686,7 +686,7 @@ def evaluate_axiom_predictor(
     tracker = WandbTracker.start(
         replace(
             wandb_config,
-            name = f"{type(predictor.model).__name__}-evaluate",
+            name = wandb_config.name or f"{type(predictor.model).__name__}-evaluate",
             name_prefix = None,
         ),
         job_type = "evaluate",

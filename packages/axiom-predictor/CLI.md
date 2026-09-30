@@ -179,6 +179,8 @@ training_runs.json in the model directory, including invocations with tracking
 disabled. Existing checkpoints without a count are treated as having run once.
 Standalone evaluation runs use the checkpoint's network name followed by
 `-evaluate` (for example, `DefaultNoTerms-evaluate`).
+Use `--run-name NAME` on train, evaluate, or run to set an exact W&B name,
+overriding automatic prefixes and suffixes.
 Grouping uses the saved-run name. Credentials come from WANDB_API_KEY
 or secrets/wandb_key relative to the working directory. Install optional
 tracking with python -m pip install wandb. Only the on/off CLI switches remain.

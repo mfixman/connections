@@ -680,6 +680,11 @@ def jsonable_cli_value(value: object) -> object:
     return value
 
 def add_wandb_arguments(parser: argparse.ArgumentParser):
+    parser.add_argument(
+        "--run-name",
+        help = "W&B run name (defaults to automatic model-based naming)",
+    )
+
     toggle = parser.add_mutually_exclusive_group()
     toggle.add_argument(
         "--wandb",
@@ -746,6 +751,7 @@ def positive_int(value: str) -> int:
 def wandb_config(args: argparse.Namespace) -> WandbConfig:
     return WandbConfig(
         enabled = args.wandb,
+        name = args.run_name,
         name_prefix = wandb_name_prefix(
             getattr(args, "data_dir", None),
             getattr(args, "model_name", None),
