@@ -5,6 +5,8 @@ from multiprocessing.connection import Connection, wait
 from multiprocessing.process import BaseProcess
 import time
 
+from .logs import PROGRESS_SECONDS, log
+
 @dataclass
 class SearchWorker:
     process: BaseProcess
@@ -70,6 +72,9 @@ def supervised_results(function, arguments, *, workers, timeout):
 
     pending = iter(arguments)
     active = []
+    completed = 0
+    last_report = time.monotonic()
+    log(f"starting proof search with up to {workers} workers; timeout {timeout:g}s per problem")
     try:
         for _ in range(workers):
             args = next(pending, None)
@@ -80,7 +85,16 @@ def supervised_results(function, arguments, *, workers, timeout):
 
         while active:
             delay = min(w.started + timeout for w in active) - time.monotonic()
-            ready = wait([w.pipe for w in active], timeout = max(0, delay))
+            ready = wait([w.pipe for w in active], timeout = max(0, min(delay, PROGRESS_SECONDS)))
+            now = time.monotonic()
+            if now - last_report >= PROGRESS_SECONDS:
+                oldest = min(active, key = lambda worker: worker.started)
+                log(
+                    f"proof search: {completed} completed, {len(active)} active; "
+                    f"longest running: {oldest.problem} ({now - oldest.started:.0f}s)"
+                )
+
+                last_report = now
             for worker in list(active):
                 elapsed = time.monotonic() - worker.started
                 reusable = False
@@ -102,6 +116,7 @@ def supervised_results(function, arguments, *, workers, timeout):
                 result.setdefault("proved", False)
                 result["seconds"] = elapsed
                 worker.completed += 1
+                completed += 1
                 args = next(pending, None)
                 if reusable and args is not None and worker.completed < 25:
                     worker.problem = args[0]

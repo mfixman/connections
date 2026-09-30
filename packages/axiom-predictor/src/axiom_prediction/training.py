@@ -24,6 +24,7 @@ from .data import AxiomTrainingExample
 from .dataset import NoParseableProblemsError, collect_problems_parallel, load_axiom_dataset
 from .graph import collate_axiom_graphs
 from .logs import log
+from .logs import progress as track_progress
 from .metrics import prediction_metrics
 from .model import (
     AxiomModelConfig,
@@ -377,9 +378,11 @@ def train_axiom_predictor(
 
         loss_fn = nn.BCEWithLogitsLoss()
         rnd = random.Random(config.seed)
+        log_message(f"fingerprinting {len(examples)} training examples")
         fingerprint = dataset_fingerprint(examples)
         first_epoch = 1
         if resume:
+            log_message(f"restoring optimizer and RNG state from {output / 'model.pt'}")
             first_epoch = restore_training(
                 output / "model.pt",
                 model,
@@ -413,8 +416,7 @@ def train_axiom_predictor(
             total_labels = 0
             norms: list[float] = []
 
-            if epoch == 1:
-                log_message(f"epoch 1/{config.epochs}: starting {batches} batches")
+            log_message(f"epoch {epoch}/{config.epochs}: starting {batches} batches")
 
             for index, chunk in enumerate(chunks(order, config.batch_size), start = 1):
                 batch = collate_axiom_graphs(
@@ -487,6 +489,7 @@ def train_axiom_predictor(
 
             current_evaluation = None
             if evaluation_due:
+                log_message(f"epoch {epoch}: evaluating {len(held_out)} held-out problems")
                 evaluated = time.monotonic()
                 _, evaluation_probabilities, evaluation_metrics = example_outputs(
                     model,
@@ -520,6 +523,7 @@ def train_axiom_predictor(
             epoch_metrics = None
             eval_seconds = None
             if report:
+                log_message(f"epoch {epoch}: computing training-set metrics")
                 evaluated = time.monotonic()
                 _, probabilities, epoch_metrics = example_outputs(
                     model,
@@ -552,6 +556,7 @@ def train_axiom_predictor(
                 )
 
             epoch_path = output / f"epoch-{epoch:04d}.pt"
+            log_message(f"saving epoch {epoch} checkpoint to {epoch_path}")
             save_checkpoint(
                 epoch_path,
                 model,
@@ -813,7 +818,8 @@ def example_outputs(
     model.eval()
     probabilities: list[float] = []
     with torch.no_grad():
-        for chunk in chunks(examples, batch_size):
+        batches = math.ceil(len(examples) / batch_size)
+        for chunk in track_progress(chunks(examples, batch_size), "evaluating batches", batches):
             batch = collate_axiom_graphs(
                 [(example.graph, example.labels) for example in chunk]
             )
@@ -825,6 +831,7 @@ def example_outputs(
             probabilities.extend(torch.sigmoid(logits).cpu().tolist())
 
     labels = [int(label) for example in examples for label in example.labels]
+    log_message(f"computing prediction metrics for {len(labels)} axiom scores")
     metrics = prediction_metrics(
         labels,
         probabilities,

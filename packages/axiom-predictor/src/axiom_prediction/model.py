@@ -14,6 +14,7 @@ from .graph import build_axiom_graph, collate_axiom_graphs
 from .configuration import AxiomModelConfig
 from .models import AxiomPredictionNetwork, load_model_class
 from .choices import plain_values
+from .logs import log
 
 CHECKPOINT_FORMAT = "learncop.axiom-predictor"
 CHECKPOINT_VERSION = 3
@@ -45,6 +46,7 @@ class AxiomPredictor:
         device: str | torch.device = "auto",
     ) -> "AxiomPredictor":
         checkpoint_path = Path(checkpoint)
+        log(f"loading checkpoint {checkpoint_path} onto {device}")
         if checkpoint_path.is_dir():
             checkpoint_path = checkpoint_path / "model.pt"
 
@@ -85,6 +87,7 @@ class AxiomPredictor:
             raise ValueError(f"malformed axiom predictor checkpoint {checkpoint_path}: {error}") from error
 
         training_config = payload.get("training_config")
+        log(f"loaded {type(model).__name__} checkpoint (epoch {payload.get('epoch')})")
         return cls(
             model,
             device = resolved_device,

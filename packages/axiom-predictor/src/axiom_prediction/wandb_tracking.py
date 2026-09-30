@@ -79,6 +79,7 @@ class WandbTracker:
                 return None
 
         try:
+            log(f"starting W&B {job_type} run {config.name or '(automatic name)'}")
             if file_key is not None:
                 wandb.login(key = file_key)
 
@@ -120,6 +121,7 @@ class WandbTracker:
             run.define_metric("progress/epoch")
             run.define_metric("progress/*", step_metric = "progress/epoch")
 
+        log(f"W&B {job_type} run ready")
         return cls(wandb, run)
 
     def log_epoch(
