@@ -163,6 +163,7 @@ def build_parser() -> argparse.ArgumentParser:
         help = "model.pt or its directory; with --data-dir, all positional inputs are problems instead",
     )
 
+    evaluate.add_argument("--model", type = Path, help = "explicit evaluation checkpoint")
     evaluate.add_argument("problems", metavar = "PROBLEM", nargs = "*")
     evaluate.add_argument(
         "--data-dir",
@@ -509,6 +510,12 @@ def model_directory(data_dir: Path, model_name: str | None) -> Path:
     return data_dir / "models" / model_name
 
 def selected_checkpoint(args: argparse.Namespace) -> Path:
+    if args.command == "evaluate" and args.model is not None:
+        if args.checkpoint is not None or args.model_name is not None:
+            raise ValueError("give either --model, CHECKPOINT or --model-name")
+
+        return args.model
+
     if args.checkpoint is not None:
         if args.model_name is not None:
             raise ValueError("give either CHECKPOINT or --model-name, not both")
