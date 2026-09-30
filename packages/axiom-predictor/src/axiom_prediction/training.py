@@ -25,6 +25,7 @@ from .dataset import NoParseableProblemsError, collect_problems_parallel, load_a
 from .graph import collate_axiom_graphs
 from .logs import log
 from .logs import progress as track_progress
+from .output import write_record
 from .metrics import prediction_metrics
 from .model import (
     AxiomModelConfig,
@@ -844,10 +845,7 @@ def log_message(message: str):
     log(f"axiom-predictor: {message}")
 
 def emit(event: str, **fields: object):
-    print(
-        json.dumps({"event": event, **fields}, sort_keys = True, default = str),
-        flush = True,
-    )
+    write_record({"event": event, **fields})
 
 def dataset_summary(
     examples: list[AxiomTrainingExample],

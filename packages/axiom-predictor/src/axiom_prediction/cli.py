@@ -2,34 +2,21 @@ from __future__ import annotations
 
 from .choices import GuidanceMode, ProverPolicy
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import argparse
 import json
 from pathlib import Path
 import re
 
-from .model import device_description
 from .models import available_models
-from connections.parsing.tptp import TPTPParseError
-
-from .dataset import NoParseableProblemsError, collect_axiom_dataset, collect_axiom_dataset_shard
+from .limits import DEFAULT_STEP_LIMIT, DEFAULT_TIMEOUT_SECONDS
 from .logs import log, monitor_progress
-from .tptp import (
-    DEFAULT_STEP_LIMIT,
-    DEFAULT_TIMEOUT_SECONDS,
-
-    NoProblemFilesError,
-    expand_problem_inputs,
-    load_tptp_problem,
-
-    problem_input_directory,
-    tptp_problems,
-)
-
-from .run import RUN_POLICIES
 from .split import ProblemSplit
-from .wandb_tracking import WandbConfig
+from .output import output_format, write_record
+
+if TYPE_CHECKING:
+    from .wandb_tracking import WandbConfig
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
@@ -38,6 +25,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
 
     subparsers = parser.add_subparsers(dest = "command", required = True)
+    parser.add_argument("--csv", action = "store_true", help = "write CSV with a header instead of JSON Lines")
 
     train = subparsers.add_parser("train", help = "train from proofs of TPTP problems")
     train.add_argument("problems", metavar = "PROBLEM", nargs = "*")
@@ -238,7 +226,7 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument(
         "--policy",
         type = ProverPolicy,
-        choices = RUN_POLICIES,
+        choices = tuple(ProverPolicy),
         help = "checkpoint's training policy, or SatResetCoP for unguided search",
     )
 
@@ -292,6 +280,13 @@ def build_parser() -> argparse.ArgumentParser:
     }
 
     for command in subparsers.choices.values():
+        command.add_argument(
+            "--csv",
+            action = "store_true",
+            default = argparse.SUPPRESS,
+            help = "write CSV with a header instead of JSON Lines",
+        )
+
         command.formatter_class = argparse.ArgumentDefaultsHelpFormatter
         for action in command._actions:
             if action.help is None and action.dest in common_help:
@@ -309,7 +304,15 @@ def add_device_argument(parser):
 @monitor_progress()
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
+    with output_format(args.command, args.csv):
+        return execute_command(args)
+
+def execute_command(args: argparse.Namespace) -> int:
     log(f"axiom-predictor: starting {args.command}")
+    from connections.parsing.tptp import TPTPParseError
+    from .dataset import NoParseableProblemsError, collect_axiom_dataset, collect_axiom_dataset_shard
+    from .tptp import NoProblemFilesError, expand_problem_inputs, load_tptp_problem, problem_input_directory
+
     try:
         if args.command == "collect":
             dataset = selected_dataset(args)
@@ -345,7 +348,7 @@ def main(argv: list[str] | None = None) -> int:
 
                 summary = {**summary, "dataset_shard": str(shard)}
 
-            log(json.dumps(summary, sort_keys = True))
+            write_record(summary)
             return 0
 
         if args.command == "run":
@@ -396,7 +399,7 @@ def main(argv: list[str] | None = None) -> int:
                 resume = args.resume,
             )
 
-            log(json.dumps(metrics, sort_keys = True))
+            write_record({"event": "summary", **metrics})
             return 0
 
         if args.command == "evaluate":
@@ -432,7 +435,7 @@ def main(argv: list[str] | None = None) -> int:
                 run_properties = cli_properties(args),
             )
 
-            print(json.dumps(metrics, sort_keys = True))
+            write_record({"event": "summary", **metrics})
             return 0
 
         from .model import AxiomPredictor
@@ -460,17 +463,14 @@ def main(argv: list[str] | None = None) -> int:
             )
 
             for prediction in predictions:
-                print(
-                    json.dumps(
-                        {
-                            "problem_path": loaded.requested_path,
-                            "clause_index": prediction.clause_index,
-                            "clause_text": prediction.clause_text,
-                            "probability": prediction.probability,
-                            "rank": prediction.rank,
-                        },
-                        sort_keys = True,
-                    )
+                write_record(
+                    {
+                        "problem_path": loaded.requested_path,
+                        "clause_index": prediction.clause_index,
+                        "clause_text": prediction.clause_text,
+                        "probability": prediction.probability,
+                        "rank": prediction.rank,
+                    },
                 )
 
             log(f"ranked {len(predictions)} axiom clauses for {loaded.requested_path}")
@@ -489,6 +489,7 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
 def print_device(requested: str):
+    from .model import device_description
 
     description = device_description(requested)
     suffix = " (automatically selected)" if requested in ("gpu", "auto") else ""
@@ -578,7 +579,7 @@ def run_command(args: argparse.Namespace) -> int:
         ):
             results.append(result)
             proved += int(bool(result.get("proved")))
-            print(json.dumps(result, sort_keys = True), flush = True)
+            write_record(result)
             log(
                 f"[{len(results)}/{len(problems)}] {result['problem']}: {result['outcome']} in {float(result.get('seconds') or 0):.2f}s ({proved} proved)"
             )
@@ -596,7 +597,7 @@ def run_command(args: argparse.Namespace) -> int:
             "proved_seconds_mean": sum(times) / len(times) if times else None,
         }
 
-        log(json.dumps(summary, sort_keys = True))
+        write_record({"event": "summary", **summary})
         if tracker is not None:
             tracker.log_run_results(results, summary)
     except BaseException:
@@ -630,6 +631,8 @@ def selected_split(args: argparse.Namespace) -> ProblemSplit:
     return ProblemSplit(args.split, parts)
 
 def selected_problems(args: argparse.Namespace) -> tuple[str, ...]:
+    from .tptp import expand_problem_inputs, tptp_problems
+
     split = selected_split(args)
     log("discovering problem files and selecting split")
     problems = (
@@ -753,6 +756,8 @@ def positive_int(value: str) -> int:
     return parsed
 
 def wandb_config(args: argparse.Namespace) -> WandbConfig:
+    from .wandb_tracking import WandbConfig
+
     return WandbConfig(
         enabled = args.wandb,
         name = args.run_name,

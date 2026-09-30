@@ -1,7 +1,19 @@
+from __future__ import annotations
+
 from importlib import import_module
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-from .base import AxiomPredictionNetwork
+if TYPE_CHECKING:
+    from .base import AxiomPredictionNetwork
+
+def __getattr__(name):
+    if name == "AxiomPredictionNetwork":
+        from .base import AxiomPredictionNetwork
+
+        return AxiomPredictionNetwork
+
+    raise AttributeError(name)
 
 def available_models() -> tuple[str, ...]:
     return tuple(
@@ -13,6 +25,8 @@ def available_models() -> tuple[str, ...]:
     )
 
 def load_model_class(name: str) -> type[AxiomPredictionNetwork]:
+    from .base import AxiomPredictionNetwork
+
     module_name = name.removesuffix(".py")
     if module_name not in available_models():
         raise ValueError(f"unknown model {name!r}; choose one of {', '.join(available_models())}")
