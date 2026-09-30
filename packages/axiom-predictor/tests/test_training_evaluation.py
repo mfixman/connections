@@ -16,7 +16,8 @@ from test_axiom_prediction_wandb import _FakeRun, fake_wandb
 pytestmark = pytest.mark.training
 
 @pytest.mark.parametrize("network", ["DefaultFull", "DefaultNoTerms"])
-def test_evaluation_run_name_uses_checkpoint_network(tmp_path, tiny_problem_path, monkeypatch, network):
+@pytest.mark.parametrize("run_name", [None, "my-evaluation-job"])
+def test_evaluation_run_name_uses_checkpoint_network(tmp_path, tiny_problem_path, monkeypatch, network, run_name):
     checkpoint = tmp_path / "renamed-checkpoint.pt"
     save_checkpoint(checkpoint, load_model_class(network)(), training_config = {})
     run = _FakeRun()
@@ -29,10 +30,10 @@ def test_evaluation_run_name_uses_checkpoint_network(tmp_path, tiny_problem_path
         [str(tiny_problem_path)],
         device = "cpu",
         config = training.AxiomTrainingConfig(device = "cpu", num_workers = 1),
-        wandb_config = WandbConfig(name_prefix = "smol-custom", group = "custom"),
+        wandb_config = WandbConfig(name = run_name, name_prefix = "smol-custom", group = "custom"),
     )
 
-    assert init["name"] == f"{network}-evaluate"
+    assert init["name"] == (run_name or f"{network}-evaluate")
     assert init["job_type"] == "evaluate"
     assert init["group"] == "custom"
     assert run.finished == [0]
