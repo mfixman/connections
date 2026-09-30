@@ -607,12 +607,13 @@ def train_axiom_predictor(
 
         log_message(f"saved checkpoint, config and metrics to {output}")
         if tracker is not None:
-            tracker.log_results(examples, probabilities, metrics)
+            tracker.log_results(examples, probabilities, metrics, split = split)
             if evaluation_metrics is not None:
                 tracker.log_evaluation_results(
                     held_out,
                     evaluation_probabilities,
                     evaluation_metrics,
+                    split = evaluation_split,
                 )
 
             tracker.log_model(output / "model.pt")
@@ -734,6 +735,7 @@ def evaluate_axiom_predictor(
         )
 
         metrics: dict[str, Any] = dict(raw_metrics)
+        report_problem_predictions(examples, probabilities, skipped, split)
         log_message(
             f"evaluated {len(examples)} problems in {time.monotonic() - started:.1f}s: {metric_text(metrics)}"
         )
@@ -756,7 +758,7 @@ def evaluate_axiom_predictor(
         )
 
         if tracker is not None:
-            tracker.log_results(examples, probabilities, metrics)
+            tracker.log_results(examples, probabilities, metrics, split = split)
 
         return metrics
     except BaseException:
@@ -768,6 +770,30 @@ def evaluate_axiom_predictor(
     finally:
         if tracker is not None:
             tracker.finish()
+
+def report_problem_predictions(examples, probabilities, skipped, split):
+    offset = 0
+    for example in examples:
+        size = len(example.labels)
+        scores = probabilities[offset : offset + size]
+        metrics = prediction_metrics(
+            [int(label) for label in example.labels],
+            scores,
+            problem_sizes = [size],
+        )
+
+        emit(
+            "problem",
+            problem = example.problem_path,
+            part = split.part(example.problem_path),
+            outcome = "evaluated",
+            **metrics,
+        )
+
+        offset += size
+
+    for item in skipped:
+        emit("problem", **item, part = split.part(item["problem"]))
 
 def warn_on_training_overlap(training_config: Mapping[str, Any], split: ProblemSplit):
     trained = training_config.get("split")

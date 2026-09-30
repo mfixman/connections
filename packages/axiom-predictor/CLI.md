@@ -179,6 +179,11 @@ Train and evaluate emit multiple event types. Their final metrics have
 `event=summary`. Run emits per-problem results followed by an `event=summary`
 row. Collect emits its collection summary. Predict emits one row per axiom.
 Filter by `event` when processing streams with different record types.
+Run's per-problem results include `part`, calculated using the active `--split`.
+Evaluate also emits `event=problem` rows containing `problem`, `part`, and
+per-problem metrics (`outcome=evaluated`), or the collection failure outcome
+for skipped problems. W&B per-problem tables include `part` too. Without an
+explicit split, `part` is 0. Aggregate summaries still combine all selected parts.
 The same records and fields are emitted with and without `--csv`; CSV headers
 include the union of possible fields, with irrelevant cells left empty.
 Saved checkpoints, dataset shards, and metrics files retain their existing formats.

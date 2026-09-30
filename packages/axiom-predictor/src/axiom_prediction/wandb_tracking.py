@@ -9,6 +9,7 @@ from typing import Any
 from .data import AxiomTrainingExample
 from .logs import log
 from .metrics import prediction_metrics
+from .split import ProblemSplit
 
 DEFAULT_WANDB_ENTITY = "mfixman-phd-team"
 DEFAULT_WANDB_PROJECT = "axiom-prediction"
@@ -180,7 +181,7 @@ class WandbTracker:
             }
         )
 
-    def log_evaluation_results(self, examples, probabilities, metrics):
+    def log_evaluation_results(self, examples, probabilities, metrics, *, split = ProblemSplit()):
         self.run.summary.update(
             {
                 f"evaluation/{name}": value
@@ -191,7 +192,7 @@ class WandbTracker:
 
         self.run.log(
             {
-                "evaluation_results/per_problem": self.problem_table(examples, probabilities),
+                "evaluation_results/per_problem": self.problem_table(examples, probabilities, split),
                 "evaluation_results/ranked_axioms": self.prediction_table(examples, probabilities),
             }
         )
@@ -242,6 +243,8 @@ class WandbTracker:
         examples: list[AxiomTrainingExample],
         probabilities: list[float],
         metrics: dict[str, Any],
+        *,
+        split: ProblemSplit = ProblemSplit(),
     ):
         labels = [int(label) for example in examples for label in example.labels]
         self.run.summary.update(
@@ -258,7 +261,7 @@ class WandbTracker:
                 num_bins = 32,
             ),
             "results/ranked_axioms": self.prediction_table(examples, probabilities),
-            "results/per_problem": self.problem_table(examples, probabilities),
+            "results/per_problem": self.problem_table(examples, probabilities, split),
         }
 
         used = [p for p, label in zip(probabilities, labels, strict = True) if label]
@@ -348,6 +351,7 @@ class WandbTracker:
             "prediction_seconds",
             "axioms",
             "kept_axioms",
+            "part",
         ]
 
         self.run.log(
@@ -420,6 +424,7 @@ class WandbTracker:
         self,
         examples: list[AxiomTrainingExample],
         probabilities: list[float],
+        split: ProblemSplit = ProblemSplit(),
     ) -> Any:
         rows: list[list[object]] = []
         offset = 0
@@ -442,6 +447,7 @@ class WandbTracker:
                     metrics["macro_recall_at_3"],
                     metrics["macro_recall_at_5"],
                     metrics["macro_recall_at_10"],
+                    split.part(example.problem_path),
                 ]
             )
 
@@ -462,6 +468,7 @@ class WandbTracker:
                 "recall_at_3",
                 "recall_at_5",
                 "recall_at_10",
+                "part",
             ],
         )
 

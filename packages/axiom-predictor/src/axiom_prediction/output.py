@@ -29,7 +29,7 @@ COMMAND_FIELDS = {
         "problems_unparseable dataset_shard"
     ).split(),
     "run": (
-        "event problem outcome proved seconds mode policy seed steps proof_size "
+        "event problem part outcome proved seconds mode policy seed steps proof_size "
         "axioms kept_axioms prediction_seconds guidance_fallback parseable error "
         "problems proved_seconds_total proved_seconds_mean"
     ).split(),
@@ -37,7 +37,7 @@ COMMAND_FIELDS = {
         "shards collection failures parameters device config epoch epochs batch batches "
         "loss seconds labels eval_seconds grad_norm_mean grad_norm_max metrics"
     ).split()],
-    "evaluate": ["event", *DATASET_FIELDS, *METRIC_FIELDS, *RESULT_FIELDS],
+    "evaluate": ["event", "problem", "part", "outcome", *DATASET_FIELDS, *METRIC_FIELDS, *RESULT_FIELDS],
 }
 
 writer = ContextVar("output_writer", default = None)

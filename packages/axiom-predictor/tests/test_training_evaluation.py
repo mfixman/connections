@@ -101,6 +101,7 @@ def test_held_out_logging(tmp_path, tiny_problem_path, monkeypatch, interval, sl
     table = next(p["evaluation_results/per_problem"] for p, _ in run.logs
                  if "evaluation_results/per_problem" in p)
     assert table[1][0][0] == eval_name
+    assert table[1][0][table[2].index("part")] == 8
     assert run.finished == [0]
 
 def test_evaluation_split_validation(tmp_path, monkeypatch):

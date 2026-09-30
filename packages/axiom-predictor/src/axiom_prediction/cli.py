@@ -577,6 +577,7 @@ def run_command(args: argparse.Namespace) -> int:
             config = config,
             num_workers = args.num_workers,
         ):
+            result["part"] = selected_split(args).part(result["problem"])
             results.append(result)
             proved += int(bool(result.get("proved")))
             write_record(result)
