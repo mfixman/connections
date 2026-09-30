@@ -13,6 +13,33 @@ from axiom_prediction.wandb_tracking import WandbConfig, WandbTracker
 
 pytestmark = pytest.mark.training
 
+def test_training_names_follow_model_and_resume_count(tmp_path, tiny_problem_path, monkeypatch):
+    run = _FakeRun()
+    init_arguments = {}
+    monkeypatch.setitem(sys.modules, "wandb", fake_wandb(run, init_arguments))
+    monkeypatch.setenv("WANDB_API_KEY", "test-key")
+
+    for count in range(1, 4):
+        train_axiom_predictor(
+            [str(tiny_problem_path)],
+            output_dir = tmp_path,
+            config = AxiomTrainingConfig(
+                model = "DefaultNoTerms",
+                epochs = count,
+                device = "cpu",
+                num_workers = 1,
+            ),
+            wandb_config = WandbConfig(name_prefix = "smol-custom"),
+            resume = count > 1,
+        )
+
+        expected = "DefaultNoTerms" if count == 1 else f"DefaultNoTerms-{count}"
+        assert init_arguments["name"] == expected
+        assert init_arguments["config"]["run_count"] == count
+
+        if count == 1:
+            (tmp_path / "training_runs.json").unlink()
+
 def test_best_evaluation_retains_peak_and_first_epoch_on_ties():
     run = _FakeRun()
     tracker = WandbTracker(fake_wandb(run, {}), run)

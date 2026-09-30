@@ -6,12 +6,36 @@ import pytest
 
 from axiom_prediction import training
 from axiom_prediction.cli import build_parser, main
+from axiom_prediction.model import save_checkpoint
+from axiom_prediction.models import load_model_class
 from axiom_prediction.split import ProblemSplit
 from axiom_prediction.tptp import collect_proof_example
 from axiom_prediction.wandb_tracking import WandbConfig
 from test_axiom_prediction_wandb import _FakeRun, fake_wandb
 
 pytestmark = pytest.mark.training
+
+@pytest.mark.parametrize("network", ["DefaultFull", "DefaultNoTerms"])
+def test_evaluation_run_name_uses_checkpoint_network(tmp_path, tiny_problem_path, monkeypatch, network):
+    checkpoint = tmp_path / "renamed-checkpoint.pt"
+    save_checkpoint(checkpoint, load_model_class(network)(), training_config = {})
+    run = _FakeRun()
+    init = {}
+    monkeypatch.setitem(sys.modules, "wandb", fake_wandb(run, init))
+    monkeypatch.setenv("WANDB_API_KEY", "test-key")
+
+    training.evaluate_axiom_predictor(
+        checkpoint,
+        [str(tiny_problem_path)],
+        device = "cpu",
+        config = training.AxiomTrainingConfig(device = "cpu", num_workers = 1),
+        wandb_config = WandbConfig(name_prefix = "smol-custom", group = "custom"),
+    )
+
+    assert init["name"] == f"{network}-evaluate"
+    assert init["job_type"] == "evaluate"
+    assert init["group"] == "custom"
+    assert run.finished == [0]
 
 @pytest.mark.parametrize("interval, slow, expected", [
     (1, False, [1, 2, 3, 4]),

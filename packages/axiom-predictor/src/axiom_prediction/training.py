@@ -39,7 +39,7 @@ from .models import load_model_class
 from .split import SPLIT_SCHEME, ProblemSplit
 from .tptp import DEFAULT_STEP_LIMIT, DEFAULT_TIMEOUT_SECONDS
 from .wandb_tracking import WandbConfig, WandbTracker
-from .resume import check_training_target, dataset_fingerprint, restore_training, snapshot_training
+from .resume import check_training_target, dataset_fingerprint, next_training_run, restore_training, snapshot_training
 
 @dataclass(frozen = True, slots = True)
 class AxiomTrainingConfig:
@@ -291,11 +291,17 @@ def train_axiom_predictor(
     config_payload["sat_policy"] = effective_sat_policy.wire_value
     config_payload["split"] = split.to_dict()
 
+    run_count = next_training_run(output, resume)
+    run_name = config.model or AxiomPredictionNetwork.__name__
+    if run_count > 1:
+        run_name = f"{run_name}-{run_count}"
+
     tracker = WandbTracker.start(
-        wandb_config,
+        replace(wandb_config, name = run_name, name_prefix = None),
         job_type = "train",
         run_config = {
             **config_payload,
+            "run_count": run_count,
             "resolved_device": str(device),
             "problems": problem_list,
             "problems_requested": len(problem_list),
@@ -678,7 +684,11 @@ def evaluate_axiom_predictor(
         problem_list = [example.problem_path for example in dataset_examples]
 
     tracker = WandbTracker.start(
-        wandb_config,
+        replace(
+            wandb_config,
+            name = f"{type(predictor.model).__name__}-evaluate",
+            name_prefix = None,
+        ),
         job_type = "evaluate",
         run_config = {
             "checkpoint": str(checkpoint),
