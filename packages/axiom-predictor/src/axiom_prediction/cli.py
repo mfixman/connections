@@ -14,7 +14,7 @@ from .models import available_models
 from connections.parsing.tptp import TPTPParseError
 
 from .dataset import NoParseableProblemsError, collect_axiom_dataset, collect_axiom_dataset_shard
-from .logs import log
+from .logs import log, monitor_progress
 from .tptp import (
     DEFAULT_STEP_LIMIT,
     DEFAULT_TIMEOUT_SECONDS,
@@ -306,8 +306,10 @@ def add_device_argument(parser):
         help = "cuda/cuda:N requires a GPU; auto selects CUDA if available and CPU otherwise; cpu forces CPU",
     )
 
+@monitor_progress()
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
+    log(f"axiom-predictor: starting {args.command}")
     try:
         if args.command == "collect":
             dataset = selected_dataset(args)
@@ -443,6 +445,7 @@ def main(argv: list[str] | None = None) -> int:
         problems = selected_problems(args)
         parseable = 0
         for problem in problems:
+            log(f"predicting axiom scores for {problem}")
             try:
                 loaded = load_tptp_problem(problem, tptp_root = args.tptp)
             except TPTPParseError as error:
@@ -628,6 +631,7 @@ def selected_split(args: argparse.Namespace) -> ProblemSplit:
 
 def selected_problems(args: argparse.Namespace) -> tuple[str, ...]:
     split = selected_split(args)
+    log("discovering problem files and selecting split")
     problems = (
         expand_problem_inputs(tuple(args.problems), tptp_root = args.tptp)
         if args.problems

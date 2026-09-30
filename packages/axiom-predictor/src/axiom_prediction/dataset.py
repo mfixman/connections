@@ -7,6 +7,7 @@ from dataclasses import dataclass
 
 import hashlib
 import json
+import time
 from pathlib import Path
 from typing import Any
 
@@ -15,6 +16,7 @@ from connections.parsing.tptp import TPTPParseError
 
 from .data import AxiomTrainingExample, axiom_training_example_from_json, axiom_training_example_to_json
 from .logs import log
+from .logs import progress as track_progress
 from .parallel import determine_worker_count
 from .search_workers import supervised_results
 from .tptp import DEFAULT_STEP_LIMIT, DEFAULT_TIMEOUT_SECONDS, collect_proof_example, find_tptp_root
@@ -59,6 +61,7 @@ def collect_axiom_dataset(
     same command resumes rather than repeating proof search.
     """
 
+    log(f"preparing collection of {len(problems)} problems into {output_dir}")
     output = Path(output_dir)
     examples_dir = output / "examples"
     failures_dir = output / "failures"
@@ -108,18 +111,24 @@ def collect_axiom_dataset(
     unparseable = 0
     total = len(problems)
     pending: list[str] = []
+    last_report = time.monotonic()
 
     def report(problem: str, outcome: str):
+        nonlocal last_report
         processed = proved + failed
-        log(
-            f"[{processed}/{total}] {problem}: {outcome} "
-            f"({proved} proved, {failed} failed, {reused} cached)"
-        )
+        now = time.monotonic()
+        if processed in (1, total) or now - last_report >= 60:
+            log(
+                f"[{processed}/{total}] {problem}: {outcome} "
+                f"({proved} proved, {failed} failed, {reused} cached)"
+            )
+
+            last_report = now
 
         if progress is not None:
             progress(processed, total, proved, failed, problem, outcome)
 
-    for problem in problems:
+    for problem in track_progress(problems, "checking collection cache", len(problems)):
         key = problem_key(problem)
         example_path = examples_dir / f"{key}.json"
         failure_path = failures_dir / f"{key}.json"
@@ -185,6 +194,7 @@ def collect_axiom_dataset(
         unparseable += int(not result.parseable)
         report(result.problem, result.outcome)
 
+    log(f"committing collected records to {output}")
     promote_partial_records(partial_examples_dir, examples_dir)
     promote_partial_records(partial_failures_dir, failures_dir)
 
@@ -246,7 +256,9 @@ def collect_axiom_dataset_shard(
 
     metadata = read_object(cache / "metadata.json")
     shard = output / f"{shard_name}.jsonl"
+    log(f"writing dataset shard {shard}")
     write_jsonl(shard, shard_rows(cache, metadata = metadata, summary = summary))
+    log(f"saved dataset shard {shard}")
     return shard, summary
 
 def shard_rows(
@@ -465,6 +477,7 @@ def load_axiom_dataset(
     path: str | Path
 ) -> tuple[list[AxiomTrainingExample], list[dict[str, str]], dict[str, Any]]:
     root = Path(path)
+    log(f"discovering dataset records in {root}")
     if root.is_file():
         return load_axiom_dataset_shards((root,), dataset_path = root)
 
@@ -489,11 +502,11 @@ def load_axiom_dataset(
 
     examples = [
         axiom_training_example_from_json(read_object(record))
-        for record in sorted((root / "examples").glob("*.json"))
+        for record in track_progress(sorted((root / "examples").glob("*.json")), "loading examples")
     ]
 
     failures: list[dict[str, str]] = []
-    for record in sorted((root / "failures").glob("*.json")):
+    for record in track_progress(sorted((root / "failures").glob("*.json")), "loading failure records"):
         payload = read_object(record)
         failures.append(
             {
@@ -516,7 +529,7 @@ def load_axiom_dataset_shards(
     failures_by_problem: dict[str, dict[str, str]] = {}
     collection: dict[str, Any] | None = None
 
-    for shard in shards:
+    for shard in track_progress(shards, "loading dataset shards", len(shards)):
         rows = iter(read_jsonl(shard))
         try:
             header = next(rows)
@@ -538,7 +551,7 @@ def load_axiom_dataset_shards(
         elif collection_settings(collection) != collection_settings(shard_collection):
             raise ValueError(f"axiom dataset shards have different collection settings: {shard}")
 
-        for row in rows:
+        for row in track_progress(rows, f"reading {shard.name}"):
             if row.get("schema") == AXIOM_DATASET_SCHEMA:
                 problem = str(row.get("problem", ""))
                 if problem and problem not in examples_by_problem:
