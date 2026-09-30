@@ -712,6 +712,7 @@ def add_wandb_arguments(parser: argparse.ArgumentParser):
 def add_split_arguments(parser: argparse.ArgumentParser):
     parser.add_argument(
         "--split",
+        "--splits",
         type = positive_int,
         default = 1,
         metavar = "N",
