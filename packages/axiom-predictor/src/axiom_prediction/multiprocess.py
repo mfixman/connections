@@ -61,7 +61,7 @@ def predict_graphs(model, graphs):
     return result
 
 
-def adaptive_predictions(model, graphs, tuner):
+def adaptive_predictions(model, graphs, tuner, *, tolerate_singleton_oom=False):
     offset = 0
     while offset < len(graphs):
         count = min(tuner.size, len(graphs) - offset)
@@ -69,7 +69,7 @@ def adaptive_predictions(model, graphs, tuner):
         try:
             values = predict_graphs(model, graphs[offset:offset + count])
         except torch.cuda.OutOfMemoryError:
-            if count == 1:
+            if count == 1 and not tolerate_singleton_oom:
                 raise
             failed = True
         # Leave the exception scope before collecting: its traceback holds tensors.
@@ -77,7 +77,12 @@ def adaptive_predictions(model, graphs, tuner):
             gc.collect()
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
-            tuner.oom(count)
+            if count == 1:
+                yield RuntimeError("one problem exceeds GPU memory even at batch size 1")
+                offset += 1
+                tuner.good, tuner.bad, tuner.size = 0, None, 1
+            else:
+                tuner.oom(count)
             continue
         tuner.success(count)
         yield from values
@@ -116,10 +121,11 @@ class InferenceService:
                     break
             try:
                 values = list(adaptive_predictions(self.predictor.model,
-                    [r[0] for r in requests], self.tuner))
+                    [r[0] for r in requests], self.tuner, tolerate_singleton_oom=True))
             except Exception as error:
                 # Return serializable errors, without retaining CUDA tracebacks.
                 values = [RuntimeError(f"shared inference failed: {type(error).__name__}: {error}")] * len(requests)
+            if any(isinstance(value, Exception) for value in values):
                 gc.collect()
                 if torch.cuda.is_available():
                     torch.cuda.empty_cache()
