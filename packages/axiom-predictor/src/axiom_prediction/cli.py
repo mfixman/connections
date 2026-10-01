@@ -160,7 +160,7 @@ def build_parser() -> argparse.ArgumentParser:
         metavar = "CHECKPOINT",
         type = Path,
         nargs = "?",
-        help = "model.pt or its directory; with --data-dir, all positional inputs are problems instead",
+        help = "model.pt or its directory; with --model or --data-dir, all positional inputs are problems instead",
     )
 
     evaluate.add_argument("--model", type = Path, help = "explicit evaluation checkpoint")
@@ -202,7 +202,12 @@ def build_parser() -> argparse.ArgumentParser:
         help = "inherit checkpoint policy; dataset and explicit policy must agree",
     )
 
-    evaluate.add_argument("--multiprocess", action="store_true", help="parallel CPU proof search with adaptive GPU batching")
+    evaluate.add_argument(
+        "--multiprocess",
+        action = "store_true",
+        help = "parallel CPU proof search with adaptive GPU batching",
+    )
+
     add_worker_argument(evaluate)
     add_wandb_arguments(evaluate)
 
@@ -245,7 +250,12 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--timeout-seconds", type = float, default = DEFAULT_TIMEOUT_SECONDS)
 
     add_split_arguments(run)
-    run.add_argument("--multiprocess", action="store_true", help="parallel CPU proof search with shared adaptive GPU batching")
+    run.add_argument(
+        "--multiprocess",
+        action = "store_true",
+        help = "parallel CPU proof search with shared adaptive GPU batching",
+    )
+
     add_worker_argument(run)
     add_wandb_arguments(run)
 
@@ -296,7 +306,11 @@ def build_parser() -> argparse.ArgumentParser:
                 action.help = common_help[action.dest]
 
     for name in ("run", "evaluate"):
-        subparsers.choices[name].add_argument("--output", type=Path, help="write results to this file and resume existing results; --csv selects CSV")
+        subparsers.choices[name].add_argument(
+            "--output",
+            type = Path,
+            help = "write results to this file and resume existing results; --csv selects CSV",
+        )
 
     return parser
 
@@ -310,13 +324,13 @@ def add_device_argument(parser):
 @monitor_progress()
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
-    identity = {key: value for key, value in vars(args).items()
-                if key not in {"output", "num_workers", "device", "multiprocess", "run_name", "no_wandb"}}
+    identity = vars(args).copy()
     try:
         with output_format(args.command, args.csv, getattr(args, "output", None), identity) as session:
             if session is not None and session.complete:
                 log("output already contains a completed summary; nothing to resume")
-                return 0
+                return session.exit_code
+
             return execute_command(args)
     except (OSError, ValueError) as error:
         log(f"axiom-predictor: error: {error}")
@@ -420,7 +434,7 @@ def execute_command(args: argparse.Namespace) -> int:
         if args.command == "evaluate":
             from .training import AxiomTrainingConfig, evaluate_axiom_predictor
 
-            if args.data_dir is not None and args.checkpoint is not None:
+            if (args.data_dir is not None or args.model is not None) and args.checkpoint is not None:
                 args.problems = [str(args.checkpoint), *args.problems]
                 args.checkpoint = None
 
@@ -581,6 +595,12 @@ def run_command(args: argparse.Namespace) -> int:
         f"axiom-predictor: running {config.policy} in {config.mode} mode on {len(problems)} problems ({json.dumps(config.to_dict(), sort_keys = True)})"
     )
 
+    session = journal.get()
+    results = [] if session is None else [row for row in session.records if row.get("problem")]
+    completed = {row["problem"] for row in results}
+    if completed - set(problems):
+        raise ValueError("output contains problems outside this selection; use a new --output")
+
     tracker = WandbTracker.start(
         wandb_config(args),
         job_type = "run",
@@ -592,11 +612,6 @@ def run_command(args: argparse.Namespace) -> int:
         },
     )
 
-    session = journal.get()
-    results = [] if session is None else [row for row in session.records if row.get("problem")]
-    completed = {row["problem"] for row in results}
-    if completed - set(problems):
-        raise ValueError("output contains problems outside this selection; use a new --output")
     proved = sum(bool(row.get("proved")) for row in results)
     try:
         for result in run_problems(

@@ -1,12 +1,94 @@
 """Locked output journals and atomic evaluation checkpoints."""
+
 import csv
 import fcntl
 import hashlib
+import io
 import json
 from pathlib import Path
 
 from .io import write_json_atomic
 
+TEXT_FIELDS = {"event", "problem", "outcome", "mode", "policy", "guidance_fallback"}
+RESUME_OPTIONS = {
+    "output",
+    "num_workers",
+    "device",
+    "multiprocess",
+
+    "run_name",
+    "wandb",
+    "no_wandb",
+}
+
+def resume_identity(identity):
+    if not isinstance(identity, dict):
+        return identity
+
+    return {key: value for key, value in identity.items() if key not in RESUME_OPTIONS}
+
+def csv_record(header, values):
+    if len(values) != len(header):
+        raise ValueError("corrupt CSV output record")
+
+    row = dict(zip(header, values))
+    for key, value in row.items():
+        if key in TEXT_FIELDS or value == "":
+            continue
+
+        try:
+            row[key] = json.loads(value)
+        except ValueError:
+            pass
+
+    return row
+
+def csv_records(content, fields):
+    lines = list(io.StringIO(content, newline = ""))
+    expected = ",".join(fields) + "\n"
+    if not content or ("\n" not in content and expected.startswith(content)):
+        return [], 0
+
+    reader = csv.reader(lines, strict = True)
+    if next(reader) != fields:
+        raise ValueError("output CSV header does not match this command")
+
+    records = []
+    boundary = reader.line_num
+    while True:
+        try:
+            values = next(reader)
+        except StopIteration:
+            break
+        except csv.Error:
+            if reader.line_num < len(lines):
+                raise ValueError("corrupt CSV output")
+
+            break
+
+        if not lines[reader.line_num - 1].endswith("\n"):
+            break
+
+        records.append(csv_record(fields, values))
+        boundary = reader.line_num
+
+    return records, len("".join(lines[:boundary]).encode("utf-8"))
+
+def json_records(content):
+    records = []
+    boundary = 0
+    for line in io.StringIO(content, newline = ""):
+        if not line.endswith("\n"):
+            break
+
+        row = json.loads(line)
+        if not isinstance(row, dict):
+            raise ValueError("output JSONL records must be objects")
+
+        records.append(row)
+        boundary += len(line.encode("utf-8"))
+
+    return records, boundary
 
 class OutputJournal:
     def __init__(self, path, command, use_csv, fields, identity):
@@ -15,29 +97,28 @@ class OutputJournal:
         self.use_csv = use_csv
         self.fields = fields
         self.records = []
-        self.directory = Path(str(path) + '.resume')
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        self.stream = self.path.open('a+', encoding='utf-8', newline='')
+        self.keys = set()
+
+        self.directory = Path(str(path) + ".resume")
+        self.path.parent.mkdir(parents = True, exist_ok = True)
+        self.stream = self.path.open(
+            "a+",
+            encoding = "utf-8",
+            errors = "surrogateescape",
+            newline = "",
+        )
+
         try:
             fcntl.flock(self.stream, fcntl.LOCK_EX | fcntl.LOCK_NB)
-            self.stream.seek(0)
-            content = self.stream.read()
-            if content.strip():
-                first = content.lstrip()
-                if use_csv and first.startswith("{"):
-                    raise ValueError("existing output is JSONL, but --csv requests CSV; use the matching format or a new --output")
-                if not use_csv and not first.startswith("{"):
-                    raise ValueError("existing output is not JSONL (it may be CSV); use --csv for CSV or a new --output")
-            self.directory.mkdir(parents=True, exist_ok=True)
-            metadata = self.directory / 'config.json'
-            expected = json.loads(json.dumps(identity, default=str))
-            if metadata.exists() and json.loads(metadata.read_text()) != expected:
-                raise ValueError('output belongs to a different command/configuration; use a new --output')
-            self._read(content)
-            write_json_atomic(metadata, expected)
+            self.restore(identity)
             self.stream.seek(0, 2)
             if self.use_csv:
-                self.writer = csv.DictWriter(self.stream, fieldnames=fields, lineterminator='\n')
+                self.writer = csv.DictWriter(
+                    self.stream,
+                    fieldnames = fields,
+                    lineterminator = "\n",
+                )
+
                 if self.stream.tell() == 0:
                     self.writer.writeheader()
                     self.stream.flush()
@@ -45,83 +126,80 @@ class OutputJournal:
             self.stream.close()
             raise
 
-    def _read(self, content):
-        # Only complete newline-terminated logical records are committed.
-        lines = content.splitlines(keepends=True)
-        boundary = 0
-        if self.use_csv:
-            expected_header = ','.join(self.fields) + '\n'
-            if content and '\n' not in content and expected_header.startswith(content):
-                self.stream.truncate(0)
-                return
-            reader = csv.reader(lines, strict=True)
-            try:
-                header = next(reader)
-            except StopIteration:
-                return
-            if header != self.fields:
-                raise ValueError('output CSV header does not match this command')
-            boundary = reader.line_num
-            while True:
-                try:
-                    values = next(reader)
-                except StopIteration:
-                    break
-                except csv.Error:
-                    if reader.line_num < len(lines):
-                        raise ValueError('corrupt CSV output')
-                    break
-                if not lines[reader.line_num - 1].endswith('\n'):
-                    break
-                if len(values) != len(header):
-                    raise ValueError('corrupt CSV output record')
-                row = dict(zip(header, values))
-                for key in row:
-                    if key not in {'event', 'problem', 'outcome', 'mode', 'policy', 'error', 'guidance_fallback'}:
-                        try:
-                            row[key] = json.loads(row[key])
-                        except (ValueError, TypeError):
-                            pass
-                self.records.append(row)
-                boundary = reader.line_num
-        else:
-            for i, line in enumerate(lines):
-                if not line.endswith('\n'):
-                    break
-                row = json.loads(line)
-                if not isinstance(row, dict):
-                    raise ValueError('output JSONL records must be objects')
-                self.records.append(row)
-                boundary = i + 1
-        if boundary < len(lines):
-            # Truncate a torn final record, preserving all committed records.
-            self.stream.truncate(len(''.join(lines[:boundary]).encode('utf-8')))
-            self.stream.flush()
+    def restore(self, identity):
+        self.stream.seek(0)
+        content = self.stream.read()
+        self.check_format(content)
+        metadata = self.directory / "config.json"
+        expected = resume_identity(json.loads(json.dumps(identity, default = str)))
+        if (
+            metadata.exists()
+            and resume_identity(json.loads(metadata.read_text())) != expected
+        ):
+            raise ValueError(
+                "output belongs to a different command/configuration; use a new --output"
+            )
+
+        self.records, boundary = (
+            csv_records(content, self.fields) if self.use_csv else json_records(content)
+        )
+
         self.keys = {self.key(row) for row in self.records}
+        self.directory.mkdir(parents = True, exist_ok = True)
+        write_json_atomic(metadata, expected)
+        # A torn final record may include an incomplete UTF-8 character.
+        self.stream.truncate(boundary)
+        self.stream.flush()
+
+    def check_format(self, content):
+        if not content.strip():
+            return
+
+        first = content.lstrip()
+        if self.use_csv and first.startswith("{"):
+            raise ValueError(
+                "existing output is JSONL, but --csv requests CSV; use the matching format or a new --output"
+            )
+
+        if not self.use_csv and not first.startswith("{"):
+            raise ValueError(
+                "existing output is not JSONL (it may be CSV); use --csv for CSV or a new --output"
+            )
 
     @staticmethod
     def key(row):
-        return row.get('event') or 'problem', row.get('problem') or ''
+        return row.get("event") or "problem", row.get("problem") or ""
 
     @property
     def complete(self):
-        return any(row.get('event') == 'summary' for row in self.records)
+        return any(row.get("event") == "summary" for row in self.records)
+
+    @property
+    def exit_code(self):
+        return (
+            2
+            if self.command == "run" and any(row.get("error") for row in self.records)
+            else 0
+        )
 
     def write(self, row):
         key = self.key(row)
-        if key in getattr(self, 'keys', set()):
+        if key in self.keys:
             return
+
         if self.use_csv:
-            self.writer.writerow({k: v if isinstance(v, str) else json.dumps(v, default=str)
-                                  for k, v in row.items()})
+            from .output import csv_value
+
+            self.writer.writerow({key: csv_value(value) for key, value in row.items()})
         else:
-            self.stream.write(json.dumps(row, sort_keys=True, default=str) + '\n')
+            self.stream.write(json.dumps(row, sort_keys = True, default = str) + "\n")
+
         self.stream.flush()
-        self.keys = getattr(self, 'keys', set()) | {key}
+        self.keys.add(key)
 
     def cache_path(self, stage, problem):
         key = hashlib.sha256(str(problem).encode()).hexdigest()
-        return self.directory / f'{stage}-{key}.json'
+        return self.directory / f"{stage}-{key}.json"
 
     def load(self, stage, problem):
         path = self.cache_path(stage, problem)
