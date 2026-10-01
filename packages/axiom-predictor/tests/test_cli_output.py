@@ -19,6 +19,9 @@ def test_all_commands_emit_parseable_records(tmp_path, tiny_problem_path, capsys
         ["train", "--dataset", str(dataset), "--data-dir", str(trained), "--epochs", "1", "--network", "SmallFull", *common],
         ["evaluate", str(trained / "model"), "--dataset", str(dataset), *common],
         ["evaluate", "--model", str(trained / "model"), "--dataset", str(dataset), *common],
+        ["evaluate", "--model", str(trained / "model"), "--dataset", str(dataset), "--multiprocess", *common],
+        ["evaluate", str(trained / "model"), str(tiny_problem_path), "--multiprocess", *common],
+        ["run", str(tiny_problem_path), "--model", str(trained / "model"), "--multiprocess", *common],
         ["predict", str(trained / "model"), str(tiny_problem_path), "--device", "cpu"],
         ["run", str(tiny_problem_path), "--num-workers", "1", "--no-wandb"],
     ]

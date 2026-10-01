@@ -5,7 +5,7 @@ from .choices import GuidanceMode, ProverPolicy, plain_values
 from typing import Any
 
 from collections.abc import Iterator
-from dataclasses import asdict, dataclass, replace
+from dataclasses import asdict, dataclass, field, replace
 from functools import lru_cache
 
 import math
@@ -38,6 +38,9 @@ class RunConfig:
     policy: ProverPolicy | str | None = None
     checkpoint: str | None = None
     device: str = "cuda"
+    multiprocess: bool = False
+    inference_address: tuple[str, int] | None = field(default=None, repr=False)
+    inference_key: str | None = field(default=None, repr=False)
 
     temperature: float = 1.0
     top_k: int | None = None
@@ -70,7 +73,10 @@ class RunConfig:
             raise ValueError("--top-k needs a model; it cannot be used with --mode base")
 
     def to_dict(self) -> dict[str, Any]:
-        return plain_values(asdict(self))
+        values = asdict(self)
+        values.pop("inference_address")
+        values.pop("inference_key")
+        return plain_values(values)
 
 def run_problem(
     problem: str,
@@ -89,10 +95,13 @@ def run_problem(
     return result
 
 def search_problem(problem, *, tptp_root, config):
-    predictor = None if config.mode == GuidanceMode.Base else cached_predictor(
-        config.checkpoint,
-        config.device,
-    )
+    if config.inference_address is not None:
+        from .multiprocess import shared_predictor
+        predictor = shared_predictor(config.inference_address, config.inference_key)
+    else:
+        predictor = None if config.mode == GuidanceMode.Base else cached_predictor(
+            config.checkpoint, config.device,
+        )
 
     from .training import label_policy
 
@@ -235,6 +244,16 @@ def run_problems(
     num_workers: int | None = None,
 ) -> Iterator[dict[str, Any]]:
     workers = determine_worker_count(len(problems), num_workers)
+    if config.multiprocess and config.mode != GuidanceMode.Base and workers:
+        from .multiprocess import inference_service
+        with inference_service(config.checkpoint, config.device, workers) as (address, key):
+            shared = replace(config, inference_address=address, inference_key=key)
+            yield from supervised_results(
+                run_one, ((p, tptp_root, shared) for p in problems),
+                workers=workers, timeout=config.timeout_seconds,
+            )
+        return
+
     if config.mode != GuidanceMode.Base and num_workers is None:
         from .model import resolve_device
 
