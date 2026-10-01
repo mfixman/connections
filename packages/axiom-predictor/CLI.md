@@ -175,9 +175,11 @@ CSV streams records as they become available. Strings are ordinary CSV cells;
 numbers and booleans use JSON syntax, and lists/dictionaries are JSON-encoded
 inside cells. An absent field is empty; an explicit null is `null`.
 
-Train and evaluate emit multiple event types. Their final metrics have
-`event=summary`. Run emits per-problem results followed by an `event=summary`
-row. Collect emits its collection summary. Predict emits one row per axiom.
+Train and evaluate emit multiple event types. Run emits only per-problem
+results, without an `event` column. Final aggregate metrics are stored in
+`PATH.resume/completion.json` when using `--output`, or printed to stderr
+otherwise; they are not rows in CSV or JSONL output.
+Collect emits its collection summary. Predict emits one row per axiom.
 Filter by `event` when processing streams with different record types.
 Run's per-problem results include `part`, calculated using the active `--split`.
 Evaluate also emits `event=problem` rows containing `problem`, `part`, and
@@ -284,8 +286,11 @@ python axiom_predictor.py evaluate --model runs/DefaultFull/model/best-epoch-119
 
 Repeat the same command after interruption to resume. Completed run outcomes,
 including timeouts and unreadable problems, are retained and skipped; final
-summary totals include both previous and new results. A completed summary
-makes a subsequent invocation a no-op, preserving a run's failure exit status.
+aggregate metrics include both previous and new results. An atomic
+`PATH.resume/completion.json` marker makes a subsequent invocation a no-op,
+preserving a run's failure exit status. The marker records the output size,
+exit status, and aggregate metrics. Older `run` CSVs with an `event` column
+have an incompatible header; use a new output path for those runs.
 An incomplete final record is removed
 before appending, and simultaneous writers to the same file are rejected.
 

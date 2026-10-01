@@ -29,9 +29,8 @@ COMMAND_FIELDS = {
         "problems_unparseable dataset_shard"
     ).split(),
     "run": (
-        "event problem part outcome proved seconds mode policy seed steps proof_size "
-        "axioms kept_axioms prediction_seconds guidance_fallback parseable error "
-        "problems proved_seconds_total proved_seconds_mean"
+        "problem part outcome proved seconds mode policy seed steps proof_size "
+        "axioms kept_axioms prediction_seconds guidance_fallback parseable error"
     ).split(),
     "train": ["event", *DATASET_FIELDS, *METRIC_FIELDS, *RESULT_FIELDS, *(
         "shards collection failures parameters device config epoch epochs batch batches "
@@ -54,6 +53,13 @@ def write_record(record):
     else:
         output.writerow({key: csv_value(value) for key, value in record.items()})
         sys.stdout.flush()
+
+def report_metrics(metrics):
+    session = journal.get()
+    if session is not None:
+        session.metrics = metrics
+    else:
+        print(json.dumps(metrics, sort_keys = True, default = str), file = sys.stderr)
 
 def csv_value(value):
     return value if isinstance(value, str) else json.dumps(value, default = str)

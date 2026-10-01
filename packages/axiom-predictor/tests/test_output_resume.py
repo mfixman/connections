@@ -2,6 +2,7 @@ import csv
 import io
 import json
 from types import SimpleNamespace
+from pathlib import Path
 
 import pytest
 
@@ -74,6 +75,8 @@ def test_run_cli_resumes_only_unfinished_and_keeps_summary_totals(
     with pytest.raises(KeyboardInterrupt):
         cli.main(args)
 
+    assert not Path(str(path) + ".resume/completion.json").exists()
+
     def finish(problems, **kwargs):
         calls.append(problems)
         yield {"problem": "b.p", "proved": False, "seconds": 3.0, "outcome": "Timeout"}
@@ -88,9 +91,11 @@ def test_run_cli_resumes_only_unfinished_and_keeps_summary_totals(
         else [json.loads(line) for line in contents.splitlines()]
     )
 
-    assert len(rows) == 3
-    assert int(rows[-1]["problems"]) == 2
-    assert float(rows[-1]["proved_seconds_total"]) == 2.0
+    assert len(rows) == 2
+    assert all("event" not in row for row in rows)
+    completion = json.loads(Path(str(path) + ".resume/completion.json").read_text())
+    assert completion["metrics"]["problems"] == 2
+    assert completion["metrics"]["proved_seconds_total"] == 2.0
 
     assert cli.main(args) == 0
     assert path.read_text() == contents
@@ -286,7 +291,9 @@ def test_evaluate_cli_resumes_after_interrupted_collection(
     )
 
     assert len([row for row in rows if row.get("event") == "problem"]) == 2
-    assert int(rows[-1]["problems_proved"]) == 2
+    assert all(row.get("event") != "summary" for row in rows)
+    completion = json.loads(Path(str(output) + ".resume/completion.json").read_text())
+    assert completion["metrics"]["problems_proved"] == 2
     assert cli.main(args) == 0
     assert output.read_text() == text
     assert capsys.readouterr().out == ""
@@ -315,7 +322,7 @@ def test_format_mismatch_fails_without_changing_existing_file(
 
 def test_partial_csv_header_can_resume(tmp_path):
     path = tmp_path / "results"
-    path.write_text("event,problem,part,out")
+    path.write_text("problem,part,out")
     journal = open_journal(path, use_csv = True)
     journal.write({"problem": "a.p", "proved": True})
     journal.close()
@@ -381,4 +388,19 @@ def test_older_resume_metadata_allows_tracking_change(tmp_path):
     metadata.write_text(json.dumps({"command": "run", "wandb": True}))
 
     journal = open_journal(path, identity = {"command": "run", "wandb": False})
+    journal.close()
+
+@pytest.mark.parametrize("use_csv", [False, True])
+def test_completion_marker_rejects_truncated_output(tmp_path, use_csv):
+    path = tmp_path / "results"
+    journal = open_journal(path, use_csv = use_csv)
+    journal.write({"problem": "a.p", "proved": True})
+    journal.metrics = {"problems": 1}
+    journal.finish(0)
+    assert journal.complete
+    journal.close()
+    path.write_text("")
+
+    journal = open_journal(path, use_csv = use_csv)
+    assert not journal.complete
     journal.close()

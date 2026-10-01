@@ -41,8 +41,9 @@ def test_all_commands_emit_parseable_records(tmp_path, tiny_problem_path, capsys
             records = [json.loads(line) for line in stdout.splitlines()]
 
         assert records
-        if command[0] in ("train", "evaluate", "run"):
-            assert records[-1]["event"] == "summary"
+        assert all(record.get("event") != "summary" for record in records)
+        if command[0] == "run":
+            assert all("event" not in record for record in records)
         if command[0] == "predict":
             assert 0 <= float(records[0]["probability"]) <= 1
         if command[0] in ("evaluate", "run"):
@@ -51,7 +52,7 @@ def test_all_commands_emit_parseable_records(tmp_path, tiny_problem_path, capsys
             assert int(problems[0]["part"]) == part
 
 def test_csv_preserves_nested_values_and_quoting(capsys):
-    record = {"event": "summary", "skipped": [{"problem": "a,b\n\"c\"", "outcome": "Timeout"}], "dataset": None}
+    record = {"event": "dataset", "skipped": [{"problem": "a,b\n\"c\"", "outcome": "Timeout"}], "dataset": None}
     with output_format("evaluate", True):
         write_record(record)
 

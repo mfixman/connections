@@ -13,7 +13,7 @@ from .models import available_models
 from .limits import DEFAULT_STEP_LIMIT, DEFAULT_TIMEOUT_SECONDS
 from .logs import log, monitor_progress
 from .split import ProblemSplit
-from .output import output_format, write_record, journal
+from .output import output_format, write_record, report_metrics, journal
 
 if TYPE_CHECKING:
     from .wandb_tracking import WandbConfig
@@ -336,10 +336,14 @@ def main(argv: list[str] | None = None) -> int:
     try:
         with output_format(args.command, args.csv, getattr(args, "output", None), identity) as session:
             if session is not None and session.complete:
-                log("output already contains a completed summary; nothing to resume")
+                log("output is already complete; nothing to resume")
                 return session.exit_code
 
-            return execute_command(args)
+            exit_code = execute_command(args)
+            if session is not None and session.metrics is not None:
+                session.finish(exit_code)
+
+            return exit_code
     except (OSError, ValueError) as error:
         log(f"axiom-predictor: error: {error}")
         return 2
@@ -436,7 +440,7 @@ def execute_command(args: argparse.Namespace) -> int:
                 resume = args.resume,
             )
 
-            write_record({"event": "summary", **metrics})
+            report_metrics(metrics)
             return 0
 
         if args.command == "evaluate":
@@ -474,7 +478,7 @@ def execute_command(args: argparse.Namespace) -> int:
                 run_properties = cli_properties(args),
             )
 
-            write_record({"event": "summary", **metrics})
+            report_metrics(metrics)
             return 0
 
         from .model import AxiomPredictor
@@ -649,7 +653,7 @@ def run_command(args: argparse.Namespace) -> int:
             "proved_seconds_mean": sum(times) / len(times) if times else None,
         }
 
-        write_record({"event": "summary", **summary})
+        report_metrics(summary)
         if tracker is not None:
             tracker.log_run_results(results, summary)
     except BaseException:
