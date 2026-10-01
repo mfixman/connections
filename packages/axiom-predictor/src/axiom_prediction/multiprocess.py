@@ -36,7 +36,7 @@ class AdaptiveBatches:
         self.good = count
         target = count * 2 if self.bad is None else max(count, (count + self.bad) // 2)
         self.size = min(self.maximum, target)
-        log(f"GPU batching: {count} succeeded; next target {self.size}")
+        log(f"Inference batching: {count} succeeded; next target {self.size}")
 
     def oom(self, count):
         self.bad = count
@@ -44,7 +44,7 @@ class AdaptiveBatches:
             self.good = 0
 
         self.size = max(1, (self.good + count) // 2)
-        log(f"GPU batching: OOM at {count}; retry target {self.size}")
+        log(f"Inference batching: OOM at {count}; retry target {self.size}")
 
 def predict_graphs(model, graphs):
     with torch.inference_mode():
@@ -191,7 +191,7 @@ def inference_service(checkpoint, device, maximum):
 
     manager.start(initializer = initialize_service, initargs = (checkpoint, device, maximum))
     try:
-        log(f"shared inference ready; up to {maximum} CPU proof workers, one GPU model")
+        log(f"shared inference ready; up to {maximum} CPU proof workers, one model on {device}")
         yield manager.address, key.hex()
     finally:
         manager.shutdown()
