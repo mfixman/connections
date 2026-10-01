@@ -98,6 +98,7 @@ class OutputJournal:
         self.fields = fields
         self.records = []
         self.keys = set()
+        self.metrics = None
 
         self.directory = Path(str(path) + ".resume")
         self.path.parent.mkdir(parents = True, exist_ok = True)
@@ -172,14 +173,34 @@ class OutputJournal:
 
     @property
     def complete(self):
-        return any(row.get("event") == "summary" for row in self.records)
+        path = self.directory / "completion.json"
+        if not path.exists():
+            return False
+
+        completion = json.loads(path.read_text())
+        return completion["output_bytes"] == self.path.stat().st_size
 
     @property
     def exit_code(self):
+        if self.complete:
+            return json.loads((self.directory / "completion.json").read_text())["exit_code"]
+
         return (
             2
             if self.command == "run" and any(row.get("error") for row in self.records)
             else 0
+        )
+
+    def finish(self, exit_code):
+        self.stream.flush()
+        write_json_atomic(
+            self.directory / "completion.json",
+            {
+                "output_bytes": self.path.stat().st_size,
+                "exit_code": exit_code,
+                "metrics": self.metrics,
+            },
+            default = str,
         )
 
     def write(self, row):
