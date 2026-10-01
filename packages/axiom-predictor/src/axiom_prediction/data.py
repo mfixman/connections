@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, cast
 
 from connections.syntax.matrix import Matrix
@@ -9,7 +9,7 @@ from axiom_prediction.representation.schema import GraphInput
 
 from .graph import AxiomGraph, build_axiom_graph
 
-def sat_core_clause_ids(diagnostics: object, *, matrix_size: int) -> tuple[int, ...]:
+def sat_core_clause_ids(diagnostics: object, *, matrix_size: int) -> list[int]:
     if not isinstance(diagnostics, Mapping) or "sat_core_clause_ids" not in diagnostics:
         raise ValueError("SAT result is missing SAT-core clause provenance")
 
@@ -17,8 +17,8 @@ def sat_core_clause_ids(diagnostics: object, *, matrix_size: int) -> tuple[int, 
     if not isinstance(value, list) or any(type(index) is not int for index in value):
         raise ValueError("SAT-core clause provenance must be a list of integers")
 
-    ids = tuple(cast(list[int], value))
-    if ids != tuple(sorted(set(ids))):
+    ids = list(cast(list[int], value))
+    if ids != sorted(set(ids)):
         raise ValueError("SAT-core clause provenance must be sorted and unique")
 
     if any(index < 0 or index >= matrix_size for index in ids):
@@ -31,16 +31,16 @@ class AxiomTrainingExample:
     problem_path: str
     matrix: Matrix | None
     graph: AxiomGraph
-    labels: tuple[float, ...]
-    axiom_clause_texts: tuple[str, ...] = ()
+    labels: list[float]
+    axiom_clause_texts: list[str] = field(default_factory = list)
 
 def training_example_from_sat_core(
     matrix: Matrix,
     *,
     problem_path: str,
-    axiom_clause_ids: tuple[int, ...],
-    conjecture_clause_ids: tuple[int, ...],
-    core_clause_ids: tuple[int, ...],
+    axiom_clause_ids: list[int],
+    conjecture_clause_ids: list[int],
+    core_clause_ids: list[int],
 ) -> AxiomTrainingExample:
     graph = build_axiom_graph(
         matrix,
@@ -52,10 +52,8 @@ def training_example_from_sat_core(
         problem_path = problem_path,
         matrix = matrix,
         graph = graph,
-        labels = tuple(float(index in core_clause_ids) for index in axiom_clause_ids),
-        axiom_clause_texts = tuple(
-            str(matrix.clauses[index]) for index in axiom_clause_ids
-        ),
+        labels = [float(index in core_clause_ids) for index in axiom_clause_ids],
+        axiom_clause_texts = [str(matrix.clauses[index]) for index in axiom_clause_ids],
     )
 
 AXIOM_EXAMPLE_SCHEMA = "learncop.axiom_prediction.example.v2"
@@ -63,9 +61,10 @@ AXIOM_EXAMPLE_SCHEMA = "learncop.axiom_prediction.example.v2"
 def axiom_training_example_to_json(example: AxiomTrainingExample) -> dict[str, Any]:
     texts = example.axiom_clause_texts
     if not texts and example.matrix is not None:
-        texts = tuple(
-            str(example.matrix.clauses[index]) for index in example.graph.axiom_clause_ids
-        )
+        texts = [
+            str(example.matrix.clauses[index])
+            for index in example.graph.axiom_clause_ids
+        ]
 
     return {
         "schema": AXIOM_EXAMPLE_SCHEMA,
@@ -94,13 +93,13 @@ def axiom_training_example_from_json(payload: Mapping[str, Any]) -> AxiomTrainin
             f"{graph_input.preprocessor!r} version {graph_input.version!r}"
         )
 
-    axiom_ids = integer_tuple(payload.get("axiom_clause_ids"), "axiom_clause_ids")
-    conjecture_ids = integer_tuple(
+    axiom_ids = integer_list(payload.get("axiom_clause_ids"), "axiom_clause_ids")
+    conjecture_ids = integer_list(
         payload.get("conjecture_clause_ids"),
         "conjecture_clause_ids",
     )
 
-    labels = number_tuple(payload.get("labels"), "labels")
+    labels = number_list(payload.get("labels"), "labels")
     if any(label not in (0.0, 1.0) for label in labels):
         raise ValueError("labels must contain only 0 or 1")
 
@@ -110,7 +109,7 @@ def axiom_training_example_from_json(payload: Mapping[str, Any]) -> AxiomTrainin
     ):
         raise TypeError("axiom_clause_texts must be a list of strings")
 
-    texts = tuple(raw_texts)
+    texts = list(raw_texts)
     if len(labels) != len(axiom_ids):
         raise ValueError("label count must match axiom clause count")
 
@@ -132,23 +131,23 @@ def axiom_training_example_from_json(payload: Mapping[str, Any]) -> AxiomTrainin
         axiom_clause_texts = texts,
     )
 
-def integer_tuple(value: object, name: str) -> tuple[int, ...]:
+def integer_list(value: object, name: str) -> list[int]:
     if not isinstance(value, list) or any(type(item) is not int for item in value):
         raise TypeError(f"{name} must be a list of integers")
 
-    result = tuple(cast(list[int], value))
+    result = list(cast(list[int], value))
     if len(set(result)) != len(result):
         raise ValueError(f"{name} must not contain duplicates")
 
     return result
 
-def number_tuple(value: object, name: str) -> tuple[float, ...]:
+def number_list(value: object, name: str) -> list[float]:
     if not isinstance(value, list) or any(
         isinstance(item, bool) or not isinstance(item, int | float) for item in value
     ):
         raise TypeError(f"{name} must be a list of numbers")
 
-    return tuple(float(item) for item in cast(list[int | float], value))
+    return [float(item) for item in cast(list[int | float], value)]
 
 __all__ = [
     "AxiomTrainingExample",

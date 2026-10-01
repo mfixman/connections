@@ -48,9 +48,10 @@ class SATCoPCon(SATGuidance):
             self._on_new_episode()
         self._observe_shadow(state)
         if not self._shadow.solve():
-            self._shadow.sat_core_clause_texts = tuple(
-                str(state.matrix.clauses[i]) for i in self._shadow.sat_core_clause_ids
-            )
+            self._shadow.sat_core_clause_texts = [
+                str(state.matrix.clauses[i])
+                for i in self._shadow.sat_core_clause_ids
+            ]
             self.status = AgentStatus.CLOSED
             return None
         if state.tableau.root.closed:

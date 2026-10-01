@@ -102,7 +102,7 @@ class AxiomPredictor:
         *,
         axiom_clause_ids: tuple[int, ...] | list[int],
         conjecture_clause_ids: tuple[int, ...] | list[int],
-    ) -> tuple[AxiomPrediction, ...]:
+    ) -> list[AxiomPrediction]:
         example = build_axiom_graph(
             matrix,
             axiom_clause_ids = axiom_clause_ids,
@@ -125,7 +125,7 @@ class AxiomPredictor:
             key = lambda item: (-item[1], item[0]),
         )
 
-        return tuple(
+        return [
             AxiomPrediction(
                 clause_index = clause_index,
                 clause_text = str(matrix.clauses[clause_index]),
@@ -133,7 +133,7 @@ class AxiomPredictor:
                 rank = rank,
             )
             for rank, (clause_index, probability) in enumerate(ranked, start = 1)
-        )
+        ]
 
 def save_checkpoint(
     path: str | Path,

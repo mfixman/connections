@@ -121,10 +121,10 @@ a different `--policy` fails; collect a separate dataset to change labels.
 Run and evaluate inherit the checkpoint's label policy; conflicting explicit
 policies are rejected.
 
-Splits now hash the **complete filename including .p**, excluding its parent
-directory. This differs from the previous family-based default. Use the new
-split consistently across training, validation, and testing; old family
-checkpoints retain their metadata, and evaluation warns about the mismatch.
+Splits hash the **problem prefix**, such as `ABC123`, keeping all variants
+of that problem in the same part. Non-TPTP filenames use their name without
+the directory or extension. Use the same split across training, validation,
+and testing; evaluation warns when a checkpoint uses an older split scheme.
 The trainer saves a checkpoint after every epoch, independently of logging,
 including optimizer/RNG state. It has no validation-based early stopping.
 For example, repeat the same training command with `--resume --epochs 200`

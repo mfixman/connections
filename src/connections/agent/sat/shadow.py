@@ -21,9 +21,9 @@ class _ShadowSAT:
     satisfiable: bool = True
     new_tableau_clause: bool = False
     debug_unsat_core: bool = False
-    unsat_core: tuple[tuple[int, ...], ...] = ()
-    sat_core_clause_texts: tuple[str, ...] = ()
-    sat_core_clause_ids: tuple[int, ...] = ()
+    unsat_core: list[tuple[int, ...]] = field(default_factory=list)
+    sat_core_clause_texts: list[str] = field(default_factory=list)
+    sat_core_clause_ids: list[int] = field(default_factory=list)
     core_available: bool = False
     next_variable_id: int = 1
 
@@ -88,10 +88,12 @@ class _ShadowSAT:
                     for clause_idx, selector in self.selector_ids.items()
                     if self.solver.failed(selector)
                 }
-                self.sat_core_clause_ids = tuple(sorted(failed))
-                self.unsat_core = tuple(
-                    clause for clause_idx, clause in sorted(self.clauses) if clause_idx in failed
-                )
+                self.sat_core_clause_ids = sorted(failed)
+                self.unsat_core = [
+                    clause
+                    for clause_idx, clause in sorted(self.clauses)
+                    if clause_idx in failed
+                ]
             return False
         if status != pydical.SATISFIABLE:
             self.model.clear()

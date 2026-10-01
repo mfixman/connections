@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from .choices import GraphInputKind, ProverPolicy, SplitKey, plain_values
+from .choices import GraphInputKind, ProverPolicy, plain_values
 
 from typing import Any
 
@@ -197,7 +197,7 @@ def train_axiom_predictor(
         raise ValueError("evaluate_every must be nonnegative")
 
     if evaluation_split is not None and (
-        (split.split, split.by) != (evaluation_split.split, evaluation_split.by)
+        split.split != evaluation_split.split
         or set(split.parts) & set(evaluation_split.parts)
     ):
         raise ValueError("evaluation parts must use the training split and not overlap --parts")
@@ -818,8 +818,7 @@ def warn_on_training_overlap(training_config: Mapping[str, Any], split: ProblemS
 
     trained_split = ProblemSplit(
         int(trained.get("split", 1)),
-        tuple(int(p) for p in trained.get("parts", (0,))),
-        str(trained.get("by", SplitKey.Family)),
+        [int(p) for p in trained.get("parts", (0,))],
     )
 
     if not trained_split.is_everything and trained.get("scheme") != SPLIT_SCHEME:
@@ -830,7 +829,7 @@ def warn_on_training_overlap(training_config: Mapping[str, Any], split: ProblemS
         log_message(
             "warning: the checkpoint was trained on every problem of its dataset; metrics on problems from that dataset are not held-out"
         )
-    elif (trained_split.split, trained_split.by) != (split.split, split.by):
+    elif trained_split.split != split.split:
         log_message(
             f"warning: the checkpoint was trained on {trained_split.describe()}, a different split from {split.describe()}; problems may overlap"
         )

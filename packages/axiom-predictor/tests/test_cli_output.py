@@ -29,7 +29,7 @@ def test_all_commands_emit_parseable_records(tmp_path, tiny_problem_path, capsys
 
     for command in commands:
         if command[0] in ("evaluate", "run"):
-            part = ProblemSplit(10, (8, 9)).part(tiny_problem_path)
+            part = ProblemSplit(10, [8, 9]).part(tiny_problem_path)
             command.extend(["--split", "10", "--parts", str(part)])
 
         assert main([*flag, *command]) == 0
@@ -49,7 +49,7 @@ def test_all_commands_emit_parseable_records(tmp_path, tiny_problem_path, capsys
         if command[0] in ("evaluate", "run"):
             problems = [row for row in records if row.get("problem")]
             assert len(problems) == 1
-            assert problems[0]["problem"] == tiny_problem_path.stem
+            assert problems[0]["problem"] == tiny_problem_path.name
             assert "outcome" not in problems[0]
             assert problems[0]["tptp_status"] == ""
             assert int(problems[0]["part"]) == part
@@ -78,5 +78,14 @@ def test_output_uses_declared_status(tmp_path, capsys, command, status, use_csv)
     stdout = capsys.readouterr().out
     record = next(csv.DictReader(io.StringIO(stdout))) if use_csv else json.loads(stdout)
     assert record["tptp_status"] == (status or "")
-    assert record["problem"] == "SYN001-1"
+    assert record["problem"] == "SYN001-1.p"
     assert "outcome" not in record
+
+@pytest.mark.parametrize("use_csv", [False, True])
+def test_prediction_output_uses_filename(capsys, use_csv):
+    with output_format("predict", use_csv):
+        write_record({"problem_path": "/full/path/ABC123-1.p", "rank": 1})
+
+    stdout = capsys.readouterr().out
+    record = next(csv.DictReader(io.StringIO(stdout))) if use_csv else json.loads(stdout)
+    assert record["problem_path"] == "ABC123-1.p"

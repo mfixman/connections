@@ -156,7 +156,9 @@ class OutputJournal:
     def restore_problem_paths(self):
         for index, row in enumerate(self.records):
             saved = self.load("output-path", index)
-            if saved and row.get("problem") == Path(saved["problem"]).stem:
+            if saved and row.get("problem") in (
+                Path(saved["problem"]).name, Path(saved["problem"]).stem
+            ):
                 row.update(saved)
 
     def check_format(self, content):

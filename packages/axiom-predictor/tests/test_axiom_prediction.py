@@ -97,21 +97,24 @@ def test_split_parts_are_disjoint_complete_and_path_independent(tmp_path):
         for sign, version in (("+", 1), ("+", 2), ("-", 1))
     ]
 
-    parts = [ProblemSplit(4, (part,)) for part in range(4)]
+    parts = [ProblemSplit(4, [part]) for part in range(4)]
     for name in names:
         owners = [part.parts[0] for part in parts if part.contains(name)]
         assert len(owners) == 1
-        assert ProblemSplit(4, (owners[0],)).contains(f"/rds/TPTP/Problems/ABC/{name}")
-        assert ProblemSplit(4, (owners[0],)).contains(f"Problems/ABC/{name}")
+        assert ProblemSplit(4, [owners[0]]).contains(f"/rds/TPTP/Problems/ABC/{name}")
+        assert ProblemSplit(4, [owners[0]]).contains(f"Problems/ABC/{name}")
 
-    assert any(
-        parts[0].part(f"ABC{index:03d}+1.p") != parts[0].part(f"ABC{index:03d}-1.p")
+    assert all(
+        parts[0].part(f"ABC{index:03d}+1.p") == parts[0].part(f"ABC{index:03d}-1.p")
         for index in range(60)
     )
 
     assert len({parts[0].part(name) for name in names}) == 4
-    assert ProblemSplit(4, (0, 1, 2, 3)).select(names) == tuple(names)
-    assert ProblemSplit().select(names) == tuple(names)
+    assert ProblemSplit(4, [0, 1, 2, 3]).select(names) == names
+    assert ProblemSplit().select(names) == names
     from axiom_prediction.split import split_key
 
-    assert split_key("/elsewhere/ABC001+1.p") == "ABC001+1.p"
+    assert split_key("/elsewhere/ABC001+1.p") == "ABC001"
+    assert split_key("ABC001-2.p") == "ABC001"
+    assert split_key("ABC002+1.p") == "ABC002"
+    assert split_key("tiny_theorem.p") == "tiny_theorem"

@@ -37,12 +37,6 @@ class GuidanceMode(Choice):
     Strict = "Strict"
     Base = "Base"
 
-class SplitKey(Choice):
-    Filename = "Filename"
-    Family = "Family"
-    Problem = "Problem"
-    Domain = "Domain"
-
 def plain_values(value):
     if isinstance(value, Choice):
         return value.wire_value

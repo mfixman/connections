@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import importlib
 import os
 from pathlib import Path
@@ -26,7 +26,7 @@ class WandbConfig:
 
     name_prefix: str | None = None
     group: str | None = None
-    tags: tuple[str, ...] = ()
+    tags: list[str] = field(default_factory = list)
 
 class WandbTracker:
     def __init__(self, module: Any, run: Any):

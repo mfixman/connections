@@ -57,13 +57,16 @@ def write_record(record):
         sys.stdout.flush()
 
 def display_record(record):
+    record = dict(record)
+    if record.get("problem_path"):
+        record["problem_path"] = Path(str(record["problem_path"])).name
+
     if not record.get("problem"):
         return record
 
-    record = dict(record)
     problem = record["problem"]
     record.pop("outcome", None)
-    record["problem"] = Path(str(problem)).stem
+    record["problem"] = Path(str(problem)).name
     record["tptp_status"] = problem_status(problem)
     return record
 

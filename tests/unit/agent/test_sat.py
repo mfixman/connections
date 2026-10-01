@@ -90,7 +90,7 @@ def test_sat_core_uses_source_selectors_and_excludes_irrelevant_clause():
     shadow.add_clause((shadow.atom_id("q"),), clause_idx=4, from_tableau=False)
 
     assert shadow.solve() is False
-    assert shadow.sat_core_clause_ids == (2, 3)
+    assert shadow.sat_core_clause_ids == [2, 3]
 
 
 def test_sat_core_preserves_repeated_groundings_for_one_source_clause():

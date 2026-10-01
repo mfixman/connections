@@ -117,9 +117,9 @@ def preprocess_model_problem(
 
     return ModelProblem(
         path=str(Path(path).resolve()),
-        statements=tuple(document.statements),
-        clauses=tuple(clauses),
-        asserted_formulas=tuple(asserted),
+        statements=list(document.statements),
+        clauses=clauses,
+        asserted_formulas=asserted,
         conjecture_formula=conjecture_formula,
         result_status="CounterSatisfiable" if conjecture_formula else "Satisfiable",
         function_signatures=functions,
@@ -191,14 +191,14 @@ class _Clausifier:
 
         return visit(formula, {})
 
-    def clausify(self, formula: Formula, *, source: str) -> tuple[ModelClause, ...]:
+    def clausify(self, formula: Formula, *, source: str) -> list[ModelClause]:
         standardized = self.standardize(formula)
         closed = _universally_close(standardized)
         nnf = _to_nnf(closed)
-        matrix = self._skolemize(nnf, ())
-        definitions: list[tuple[ModelLiteral, ...]] = []
+        matrix = self._skolemize(nnf, [])
+        definitions: list[list[ModelLiteral]] = []
         root = self._define(matrix, definitions)
-        definitions.append((root,))
+        definitions.append([root])
         clauses: list[ModelClause] = []
         for literals in definitions:
             simplified = _simplify_clause(literals)
@@ -211,15 +211,15 @@ class _Clausifier:
                     source=source,
                 )
             )
-        return tuple(clauses)
+        return clauses
 
     def _skolemize(
         self,
         formula: Formula,
-        universals: tuple[Variable, ...],
+        universals: list[Variable],
     ) -> Formula:
         if isinstance(formula, Forall):
-            return self._skolemize(formula.body, (*universals, formula.variable))
+            return self._skolemize(formula.body, [*universals, formula.variable])
         if isinstance(formula, Exists):
             symbol = self.fresh_symbol("model_skolem")
             self.hidden_functions.add(symbol)
@@ -238,7 +238,7 @@ class _Clausifier:
     def _define(
         self,
         formula: Formula,
-        clauses: list[tuple[ModelLiteral, ...]],
+        clauses: list[list[ModelLiteral]],
     ) -> ModelLiteral:
         literal = _as_literal(formula)
         if literal is not None:
@@ -254,17 +254,17 @@ class _Clausifier:
         if isinstance(formula, And):
             clauses.extend(
                 (
-                    (definition.complement(), left),
-                    (definition.complement(), right),
-                    (definition, left.complement(), right.complement()),
+                    [definition.complement(), left],
+                    [definition.complement(), right],
+                    [definition, left.complement(), right.complement()],
                 )
             )
         else:
             clauses.extend(
                 (
-                    (definition, left.complement()),
-                    (definition, right.complement()),
-                    (definition.complement(), left, right),
+                    [definition, left.complement()],
+                    [definition, right.complement()],
+                    [definition.complement(), left, right],
                 )
             )
         return definition
@@ -286,13 +286,12 @@ def _raw_cnf_clause(formula: Formula, *, source: str) -> ModelClause:
         if literal is None:
             raise InputError(f"CNF statement {source!r} does not contain only literals")
         literals.append(literal)
-    simplified = _simplify_clause(tuple(literals))
+    simplified = _simplify_clause(literals)
     if simplified is None:
-        simplified = ()
         # A tautological source clause imposes no constraint. Represent it with
         # a built-in reflexive equality so direct CNF remains one source clause.
         marker = Variable("Tautology", vid=-1)
-        simplified = (ModelLiteral(Eq(marker, marker)),)
+        simplified = [ModelLiteral(Eq(marker, marker))]
     return ModelClause(
         literals=simplified,
         variables=_variables_in_literals(simplified),
@@ -391,15 +390,15 @@ def _as_literal(formula: Formula) -> ModelLiteral | None:
     return None
 
 
-def _flatten_or(formula: Formula) -> tuple[Formula, ...]:
+def _flatten_or(formula: Formula) -> list[Formula]:
     if isinstance(formula, Or):
-        return (*_flatten_or(formula.left), *_flatten_or(formula.right))
-    return (formula,)
+        return [*_flatten_or(formula.left), *_flatten_or(formula.right)]
+    return [formula]
 
 
 def _simplify_clause(
-    literals: tuple[ModelLiteral, ...],
-) -> tuple[ModelLiteral, ...] | None:
+    literals: list[ModelLiteral],
+) -> list[ModelLiteral] | None:
     result: list[ModelLiteral] = []
     seen: set[ModelLiteral] = set()
     for literal in literals:
@@ -408,7 +407,7 @@ def _simplify_clause(
         if literal not in seen:
             result.append(literal)
             seen.add(literal)
-    return tuple(result)
+    return result
 
 
 def _universally_close(formula: Formula) -> Formula:
@@ -418,7 +417,7 @@ def _universally_close(formula: Formula) -> Formula:
     return result
 
 
-def _free_variables(formula: Formula) -> tuple[Variable, ...]:
+def _free_variables(formula: Formula) -> list[Variable]:
     found: list[Variable] = []
     seen: set[Variable] = set()
 
@@ -449,10 +448,10 @@ def _free_variables(formula: Formula) -> tuple[Variable, ...]:
             raise InputError(f"modal or prefixed formula {type(current).__name__} is unsupported")
 
     visit(formula, frozenset())
-    return tuple(found)
+    return found
 
 
-def _variables_in_literals(literals: tuple[ModelLiteral, ...]) -> tuple[Variable, ...]:
+def _variables_in_literals(literals: list[ModelLiteral]) -> list[Variable]:
     found: list[Variable] = []
     seen: set[Variable] = set()
 
@@ -470,7 +469,7 @@ def _variables_in_literals(literals: tuple[ModelLiteral, ...]) -> tuple[Variable
         terms = atom.args if isinstance(atom, Atom) else (atom.left, atom.right)
         for item in terms:
             term(item)
-    return tuple(found)
+    return found
 
 
 def _validate_and_collect_signature(

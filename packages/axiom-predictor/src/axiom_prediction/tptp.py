@@ -44,8 +44,8 @@ class TPTPProblem:
     path: Path
     source_root: Path | None
     matrix: Matrix
-    axiom_clause_ids: tuple[int, ...]
-    conjecture_clause_ids: tuple[int, ...]
+    axiom_clause_ids: list[int]
+    conjecture_clause_ids: list[int]
 
 def find_tptp_root(explicit: str | Path | None = None) -> Path | None:
     if explicit is not None:
@@ -64,7 +64,7 @@ def find_tptp_root(explicit: str | Path | None = None) -> Path | None:
 
     return None
 
-def default_tptp_roots() -> tuple[Path, ...]:
+def default_tptp_roots() -> list[Path]:
     from connections.corpora import workspace_root
 
     root = workspace_root(Path(__file__).resolve().parent) or Path.cwd()
@@ -73,13 +73,13 @@ def default_tptp_roots() -> tuple[Path, ...]:
         candidates.extend(
             sorted(
                 (base / "corpora").glob("TPTP*"),
-                key = lambda path: tuple(int(n) for n in re.findall(r"\d+", path.name)),
+                key = lambda path: [int(n) for n in re.findall(r"\d+", path.name)],
                 reverse = True,
             )
         )
 
     candidates.append(Path.home() / "TPTP")
-    return tuple(dict.fromkeys(candidates))
+    return list(dict.fromkeys(candidates))
 
 def load_tptp_problem(
     problem: str | Path,
@@ -96,9 +96,9 @@ def load_tptp_problem(
         source_file_dirs = source_dirs,
     )
 
-    conjectures = tuple(matrix.conjecture_clauses)
+    conjectures = list(matrix.conjecture_clauses)
     conjecture_set = frozenset(conjectures)
-    axioms = tuple(index for index in range(len(matrix)) if index not in conjecture_set)
+    axioms = [index for index in range(len(matrix)) if index not in conjecture_set]
     from .graph import validate_clause_ids
 
     validate_clause_ids(
@@ -127,7 +127,7 @@ def expand_problem_inputs(
     inputs: tuple[str, ...] | list[str],
     *,
     tptp_root: str | Path | None = None,
-) -> tuple[str, ...]:
+) -> list[str]:
     """Resolve files, flat directories, TPTP filenames, and category codes."""
 
     root = find_tptp_root(tptp_root)
@@ -157,12 +157,10 @@ def expand_problem_inputs(
 
         raise FileNotFoundError(f"TPTP problem or directory not found: {raw}")
 
-    return tuple(dict.fromkeys(problems))
+    return list(dict.fromkeys(problems))
 
-def problems_in_directory(directory: Path, *, requested: str) -> tuple[str, ...]:
-    problems = tuple(
-        str(path.resolve()) for path in sorted(directory.glob("*.p")) if path.is_file()
-    )
+def problems_in_directory(directory: Path, *, requested: str) -> list[str]:
+    problems = [str(path.resolve()) for path in sorted(directory.glob("*.p")) if path.is_file()]
 
     if not problems:
         raise NoProblemFilesError(f"no .p problem files found in {requested!r}")
@@ -179,11 +177,11 @@ def find_tptp_problem_by_name(filename: str, *, root: Path | None) -> Path:
     if _TPTP_CATEGORY.fullmatch(category) and direct.is_file():
         return direct.resolve()
 
-    matches = tuple(
-        path.resolve() for path in sorted(
-            problems_root.glob(f"*/{filename}")
-        ) if path.is_file()
-    )
+    matches = [
+        path.resolve()
+        for path in sorted(problems_root.glob(f"*/{filename}"))
+        if path.is_file()
+    ]
 
     if not matches:
         raise FileNotFoundError(f"TPTP problem {filename!r} not found under {problems_root}")
@@ -228,7 +226,7 @@ def tptp_input_directory(raw: str, *, root: Path | None) -> Path | None:
 
     return None
 
-def tptp_problems(*, tptp_root: str | Path | None = None) -> tuple[str, ...]:
+def tptp_problems(*, tptp_root: str | Path | None = None) -> list[str]:
     root = find_tptp_root(tptp_root)
     if root is None:
         raise FileNotFoundError("no TPTP root found; pass PROBLEM paths, --tptp or set $TPTP")
@@ -237,11 +235,11 @@ def tptp_problems(*, tptp_root: str | Path | None = None) -> tuple[str, ...]:
     if not problems_root.is_dir():
         raise FileNotFoundError(f"TPTP Problems directory not found: {problems_root}")
 
-    problems = tuple(
+    problems = [
         str(path.resolve())
         for path in sorted(problems_root.rglob("*.p"))
         if path.is_file() and ("-" in path.name or "+" in path.name)
-    )
+    ]
 
     if not problems:
         raise RuntimeError(f"no .p problem files found under {problems_root}")
@@ -333,7 +331,7 @@ def collect_proof_example(
         core_clause_ids = core,
     ), "proved"
 
-def check_sat_core_clauses(matrix: Matrix, core: tuple[int, ...], texts: object):
+def check_sat_core_clauses(matrix: Matrix, core: list[int], texts: object):
     if not isinstance(texts, list) or len(texts) != len(core):
         raise RuntimeError("SAT result is missing the clause texts of its core")
 

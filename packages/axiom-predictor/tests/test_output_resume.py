@@ -331,7 +331,7 @@ def test_partial_csv_header_can_resume(tmp_path):
         rows = list(csv.DictReader(stream))
 
     assert len(rows) == 1
-    assert rows[0]["problem"] == "a"
+    assert rows[0]["problem"] == "a.p"
 
 @pytest.mark.parametrize("use_csv", [False, True])
 def test_journal_recovers_torn_utf8(tmp_path, use_csv):
@@ -422,7 +422,7 @@ def test_problem_names_preserve_distinct_paths_for_resume(tmp_path, use_csv):
         else [json.loads(line) for line in contents.splitlines()]
     )
 
-    assert [row["problem"] for row in rows] == ["SYN001-1", "SYN001-1"]
+    assert [row["problem"] for row in rows] == ["SYN001-1.p", "SYN001-1.p"]
     journal = open_journal(path, use_csv = use_csv)
     assert [row["problem"] for row in journal.records] == problems
     for problem in problems:
