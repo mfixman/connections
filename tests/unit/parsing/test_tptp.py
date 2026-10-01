@@ -27,6 +27,22 @@ from connections.parsing.tptp.grammar import PARSER
 from connections.parsing.tptp.transformer import StmtCNF, StmtFOF, StmtInclude, StmtQMF
 
 
+def test_transform_deep_clause_without_recursive_visitors():
+    count = 2500
+    document = parse_tptp("cnf(deep,axiom,(" + " | ".join(["p(X)"] * count) + ")).")
+    pending = [document.items[0].formula]
+    literals = 0
+    while pending:
+        formula = pending.pop()
+        if isinstance(formula, Or):
+            pending.extend((formula.left, formula.right))
+        else:
+            assert isinstance(formula, Atom)
+            literals += 1
+
+    assert literals == count
+
+
 def test_grammar_module_parses_minimal_inputs():
     fof_tree = PARSER.parse("fof(a,axiom,p).")
     cnf_tree = PARSER.parse("cnf(a,axiom,(p | ~q)).")

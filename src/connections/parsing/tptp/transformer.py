@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from lark import Transformer, Tree, v_args
+from lark import Tree, v_args
+from lark.visitors import Transformer_NonRecursive
 
 from connections.syntax.formula import (
     And,
@@ -77,7 +78,7 @@ class TptpFile:
 
 
 @v_args(inline=True)
-class TptpToIRTransformer(Transformer):
+class TptpToIRTransformer(Transformer_NonRecursive):
     def __default_token__(self, token):
         return str(token)
 
