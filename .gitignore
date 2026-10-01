@@ -261,3 +261,7 @@ fabric.properties
 
 presentations
 src/connections/Axioms
+
+dataset/
+runs/
+results/
