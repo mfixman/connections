@@ -10,7 +10,7 @@ python axiom_predictor.py COMMAND --help
 | --- | --- |
 | `collect [PROBLEM ...]` | Collect resumable SAT-core labels in --dataset PATH or DATA_DIR/dataset. |
 | `train [PROBLEM ...]` | Train on saved labels; explicit problem inputs collect fresh labels first. |
-| `evaluate [CHECKPOINT] [PROBLEM ...]` | Evaluate saved labels, or collect fresh labels for explicit problems. With --data-dir, every positional input is a problem; otherwise the first is the checkpoint. |
+| `evaluate [CHECKPOINT] [PROBLEM ...]` | Evaluate saved labels, or collect fresh labels for explicit problems. With --model or --data-dir, every positional input is a problem; otherwise the first is the checkpoint. |
 | `predict [CHECKPOINT] [PROBLEM ...]` | Print axiom rankings and probabilities as JSON lines. |
 | `run [PROBLEM ...]` | Run SATCoP/SATResetCoP and print per-problem JSON results. A selected checkpoint enables weighted guidance; otherwise runs the baseline. |
 
@@ -19,7 +19,7 @@ Without problem inputs, collect/run/predict select all supported FOF/CNF
 candidates under the TPTP root. Training without inputs uses the saved dataset.
 CHECKPOINT is a model.pt file or its directory. For fresh evaluation,
 put the explicit checkpoint before the problem paths, or select the checkpoint
-with --data-dir and supply only problem paths.
+with --model or --data-dir and supply only problem paths.
 
 ## Arguments
 
@@ -29,7 +29,7 @@ with --data-dir and supply only problem paths.
 | `--data-dir PATH` | All | Required for train; required for collect only without --dataset. Holds model/ or models/NAME/ and the default dataset/. For evaluate it selects the checkpoint and default dataset; for predict/run it selects a checkpoint. |
 | `--dataset PATH` | collect, train, evaluate | Override DATA_DIR/dataset. Collect writes resumable JSONL shards directly here; train/evaluate read the shared dataset without copying or modifying it. Cannot accompany PROBLEM inputs in train/evaluate. |
 | `--network NAME` | train | **DefaultFull**. Select a Python file/class from src/axiom_prediction/models/. The optional .py suffix is accepted. |
-| `--model PATH` | run | Explicit trained checkpoint or directory. Otherwise use --data-dir; without either, run the unguided baseline. |
+| `--model PATH` | run, evaluate | Explicit trained checkpoint or directory. Otherwise use --data-dir; without either, run the unguided baseline. |
 | `--model-name NAME` | train, evaluate, predict, run | Optional saved-run name: use DATA_DIR/models/NAME rather than DATA_DIR/model. Separate from the network implementation. Existing checkpoints require --resume. |
 | `--resume` | train | Continue the selected checkpoint, restoring optimizer and RNG state. Requires the same data and training configuration; --epochs is the total target, not additional epochs. Older checkpoints without training state cannot resume. |
 | `--tptp PATH` | All | Optional explicit corpus root. Otherwise discover it as described below. |
@@ -211,9 +211,10 @@ Grouping uses the saved-run name. Credentials come from WANDB_API_KEY
 or secrets/wandb_key relative to the working directory. Install optional
 tracking with python -m pip install wandb. Only the on/off CLI switches remain.
 
-No automatic multi-GPU training occurs. Each guided-search worker loads its
-own model. Guided CUDA search defaults to one worker; larger explicit worker
-counts share the selected GPU and may exhaust its memory.
+No automatic multi-GPU training occurs. Without --multiprocess, each guided-search
+worker loads its own model. Guided CUDA search then defaults to one worker;
+larger explicit worker counts share the selected GPU and may exhaust its memory.
+With --multiprocess, workers use one shared model as described below.
 
 Problems without both axioms and conjecture clauses fall back to the same
 unguided prover, with a guidance_fallback field in the per-problem result.
@@ -284,7 +285,8 @@ python axiom_predictor.py evaluate --model runs/DefaultFull/model/best-epoch-119
 Repeat the same command after interruption to resume. Completed run outcomes,
 including timeouts and unreadable problems, are retained and skipped; final
 summary totals include both previous and new results. A completed summary
-makes a subsequent invocation a no-op. An incomplete final record is removed
+makes a subsequent invocation a no-op, preserving a run's failure exit status.
+An incomplete final record is removed
 before appending, and simultaneous writers to the same file are rejected.
 
 Keep the companion `PATH.resume/` directory with the output. It stores command
@@ -292,7 +294,7 @@ settings and, for evaluation, collected examples/skips and prediction scores.
 Evaluation resumes collection and scoring from those checkpoints and computes
 aggregate metrics across the entire selection. Work interrupted before a
 checkpoint is committed is repeated. Settings must match the previous command;
-worker count, device, multiprocessing and tracking name may change. To rerun
+worker count, device, multiprocessing, tracking name and tracking on/off may change. To rerun
 completed failures or change the experiment, choose a new output path.
 
 Without `--output`, the existing stdout behavior is unchanged. Redirected old

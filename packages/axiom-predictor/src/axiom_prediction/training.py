@@ -5,6 +5,7 @@ from .choices import GraphInputKind, ProverPolicy, SplitKey, plain_values
 from typing import Any
 
 from dataclasses import asdict, dataclass, replace
+from functools import partial
 import json
 import math
 from pathlib import Path
@@ -23,6 +24,7 @@ from torch import nn
 from .data import AxiomTrainingExample
 from .dataset import NoParseableProblemsError, collect_problems_parallel, load_axiom_dataset
 from .graph import collate_axiom_graphs
+from .evaluation_resume import resume_collection, resume_predictions
 from .logs import log
 from .logs import progress as track_progress
 from .output import write_record
@@ -115,7 +117,7 @@ def collect_examples(
     tptp_root: str | Path | None,
     config: AxiomTrainingConfig,
     progress: Callable[[int, int, int, int, str, str], None] | None = None,
-    resume=None,
+    resume = None,
 ) -> tuple[list[AxiomTrainingExample], list[dict[str, str]]]:
     exs: list[AxiomTrainingExample] = []
     skipped: list[dict[str, str]] = []
@@ -126,27 +128,18 @@ def collect_examples(
         f"{'process' if workers == 1 else 'processes'} for proof collection"
     )
 
-    from .data import axiom_training_example_from_json, axiom_training_example_to_json
-    from .dataset import CollectedAxiomProblem
-    from itertools import chain
-    cached = {} if resume is None else {p: value for p in problems
-        if (value := resume.load("collection", p)) is not None}
-    restored = [CollectedAxiomProblem(p,
-        None if row["example"] is None else axiom_training_example_from_json(row["example"]),
-        row["outcome"], row["parseable"]) for p, row in cached.items()]
-    pending = [p for p in problems if p not in cached]
-    for result in chain(restored, collect_problems_parallel(
-        pending,
+    results = resume_collection(
+        problems,
+        collect_problems_parallel,
+        resume,
         tptp_root = tptp_root,
         step_limit = config.step_limit,
         timeout_seconds = config.timeout_seconds,
         sat_policy = label_policy(config.sat_policy),
         num_workers = workers,
-    )):
-        if resume is not None and result.problem not in cached:
-            resume.save("collection", result.problem, {"outcome": result.outcome,
-                "parseable": result.parseable, "example": None if result.example is None
-                else axiom_training_example_to_json(result.example)})
+    )
+
+    for result in results:
         problem = result.problem
         example = result.example
         outcome = result.outcome
@@ -648,7 +641,7 @@ def evaluate_axiom_predictor(
     problems: list[str] | tuple[str, ...] | None = None,
     *,
     multiprocess: bool = False,
-    resume=None,
+    resume = None,
     dataset: str | Path | None = None,
     tptp_root: str | Path | None = None,
     device: str = "cuda",
@@ -855,55 +848,32 @@ def evaluate_examples(
     _ = device
     return example_outputs(model, examples, batch_size = 43)[2]
 
+def predict_examples(model, examples, *, batch_size, adaptive):
+    from .multiprocess import AdaptiveBatches, adaptive_predictions, predict_graphs
+
+    if adaptive:
+        graphs = [example.graph for example in examples]
+        yield from adaptive_predictions(model, graphs, AdaptiveBatches(len(examples)))
+        return
+
+    batches = math.ceil(len(examples) / batch_size)
+    for chunk in track_progress(chunks(examples, batch_size), "evaluating batches", batches):
+        yield from predict_graphs(model, [example.graph for example in chunk])
+
 def example_outputs(
     model: AxiomPredictionNetwork,
     examples: list[AxiomTrainingExample],
     *,
     batch_size: int,
     adaptive: bool = False,
-    resume=None,
+    resume = None,
 ) -> tuple[list[int], list[float], dict[str, float | int | None]]:
     model.eval()
-    probabilities: list[float] = []
-    if resume is not None:
-        from .multiprocess import AdaptiveBatches, adaptive_predictions, predict_graphs
-        cached = {example.problem_path: value["probabilities"] for example in examples
-                  if (value := resume.load("predictions", example.problem_path)) is not None}
-        pending = [example for example in examples if example.problem_path not in cached]
-        if adaptive:
-            outputs = adaptive_predictions(model, [example.graph for example in pending],
-                                           AdaptiveBatches(len(pending)))
-        else:
-            outputs = (values for chunk in chunks(pending, batch_size)
-                       for values in predict_graphs(model, [example.graph for example in chunk]))
-        for example, values in zip(pending, outputs, strict=True):
-            resume.save("predictions", example.problem_path, {"probabilities": values})
-            cached[example.problem_path] = values
-        for example in examples:
-            values = cached[example.problem_path]
-            if len(values) != len(example.labels):
-                raise ValueError("cached prediction size does not match example")
-            probabilities.extend(values)
-    elif adaptive:
-        from .multiprocess import AdaptiveBatches, adaptive_predictions
-        tuner = AdaptiveBatches(len(examples))
-        for values in adaptive_predictions(model, [example.graph for example in examples], tuner):
-            probabilities.extend(values)
-    else:
-        with torch.no_grad():
-            batches = math.ceil(len(examples) / batch_size)
-            for chunk in track_progress(chunks(examples, batch_size), "evaluating batches", batches):
-                batch = collate_axiom_graphs(
-                    [(example.graph, example.labels) for example in chunk]
-                )
-
-                logits = model(batch)
-                if not torch.isfinite(logits).all():
-                    raise FloatingPointError("model produced non-finite logits")
-
-                probabilities.extend(torch.sigmoid(logits).cpu().tolist())
-
+    predict = partial(predict_examples, model, batch_size = batch_size, adaptive = adaptive)
+    outputs = predict(examples) if resume is None else resume_predictions(examples, predict, resume)
+    probabilities = [value for values in outputs for value in values]
     labels = [int(label) for example in examples for label in example.labels]
+
     log_message(f"computing prediction metrics for {len(labels)} axiom scores")
     metrics = prediction_metrics(
         labels,

@@ -38,9 +38,10 @@ class RunConfig:
     policy: ProverPolicy | str | None = None
     checkpoint: str | None = None
     device: str = "cuda"
+
     multiprocess: bool = False
-    inference_address: tuple[str, int] | None = field(default=None, repr=False)
-    inference_key: str | None = field(default=None, repr=False)
+    inference_address: tuple[str, int] | None = field(default = None, repr = False)
+    inference_key: str | None = field(default = None, repr = False)
 
     temperature: float = 1.0
     top_k: int | None = None
@@ -57,13 +58,18 @@ class RunConfig:
         if not isinstance(state, dict):
             names = [item.name for item in fields(self)]
             if len(state) == 9:
-                names = ["mode", "policy", "checkpoint", "device", "temperature",
-                         "top_k", "seed", "step_limit", "timeout_seconds"]
+                names = (
+                    "mode policy checkpoint device temperature top_k seed step_limit timeout_seconds"
+                ).split()
+
             if len(state) != len(names):
                 raise ValueError("unsupported serialized RunConfig layout")
-            state = dict(zip(names, state, strict=True))
+
+            state = dict(zip(names, state, strict = True))
+
         for item in fields(self):
             object.__setattr__(self, item.name, state.get(item.name, item.default))
+
         self.__post_init__()
 
     def __post_init__(self):
@@ -114,10 +120,12 @@ def run_problem(
 def search_problem(problem, *, tptp_root, config):
     if config.inference_address is not None:
         from .multiprocess import shared_predictor
+
         predictor = shared_predictor(config.inference_address, config.inference_key)
     else:
         predictor = None if config.mode == GuidanceMode.Base else cached_predictor(
-            config.checkpoint, config.device,
+            config.checkpoint,
+            config.device,
         )
 
     from .training import label_policy
@@ -263,12 +271,16 @@ def run_problems(
     workers = determine_worker_count(len(problems), num_workers)
     if config.multiprocess and config.mode != GuidanceMode.Base and workers:
         from .multiprocess import inference_service
+
         with inference_service(config.checkpoint, config.device, workers) as (address, key):
-            shared = replace(config, inference_address=address, inference_key=key)
+            shared = replace(config, inference_address = address, inference_key = key)
             yield from supervised_results(
-                run_one, ((p, tptp_root, shared) for p in problems),
-                workers=workers, timeout=config.timeout_seconds,
+                run_one,
+                ((p, tptp_root, shared) for p in problems),
+                workers = workers,
+                timeout = config.timeout_seconds,
             )
+
         return
 
     if config.mode != GuidanceMode.Base and num_workers is None:
