@@ -50,6 +50,10 @@ class OutputJournal:
         lines = content.splitlines(keepends=True)
         boundary = 0
         if self.use_csv:
+            expected_header = ','.join(self.fields) + '\n'
+            if content and '\n' not in content and expected_header.startswith(content):
+                self.stream.truncate(0)
+                return
             reader = csv.reader(lines, strict=True)
             try:
                 header = next(reader)
