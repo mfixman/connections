@@ -115,6 +115,7 @@ def collect_examples(
     tptp_root: str | Path | None,
     config: AxiomTrainingConfig,
     progress: Callable[[int, int, int, int, str, str], None] | None = None,
+    resume=None,
 ) -> tuple[list[AxiomTrainingExample], list[dict[str, str]]]:
     exs: list[AxiomTrainingExample] = []
     skipped: list[dict[str, str]] = []
@@ -125,14 +126,27 @@ def collect_examples(
         f"{'process' if workers == 1 else 'processes'} for proof collection"
     )
 
-    for result in collect_problems_parallel(
-        problems,
+    from .data import axiom_training_example_from_json, axiom_training_example_to_json
+    from .dataset import CollectedAxiomProblem
+    from itertools import chain
+    cached = {} if resume is None else {p: value for p in problems
+        if (value := resume.load("collection", p)) is not None}
+    restored = [CollectedAxiomProblem(p,
+        None if row["example"] is None else axiom_training_example_from_json(row["example"]),
+        row["outcome"], row["parseable"]) for p, row in cached.items()]
+    pending = [p for p in problems if p not in cached]
+    for result in chain(restored, collect_problems_parallel(
+        pending,
         tptp_root = tptp_root,
         step_limit = config.step_limit,
         timeout_seconds = config.timeout_seconds,
         sat_policy = label_policy(config.sat_policy),
         num_workers = workers,
-    ):
+    )):
+        if resume is not None and result.problem not in cached:
+            resume.save("collection", result.problem, {"outcome": result.outcome,
+                "parseable": result.parseable, "example": None if result.example is None
+                else axiom_training_example_to_json(result.example)})
         problem = result.problem
         example = result.example
         outcome = result.outcome
@@ -634,6 +648,7 @@ def evaluate_axiom_predictor(
     problems: list[str] | tuple[str, ...] | None = None,
     *,
     multiprocess: bool = False,
+    resume=None,
     dataset: str | Path | None = None,
     tptp_root: str | Path | None = None,
     device: str = "cuda",
@@ -720,6 +735,7 @@ def evaluate_axiom_predictor(
                 tptp_root = tptp_root,
                 config = collection_config,
                 progress = None if tracker is None else tracker.log_collection,
+                resume = resume,
             )
         else:
             examples, skipped = dataset_examples, dataset_skipped
@@ -734,6 +750,7 @@ def evaluate_axiom_predictor(
             examples,
             batch_size = collection_config.batch_size,
             adaptive = multiprocess,
+            resume = resume,
         )
 
         metrics: dict[str, Any] = dict(raw_metrics)
@@ -844,10 +861,30 @@ def example_outputs(
     *,
     batch_size: int,
     adaptive: bool = False,
+    resume=None,
 ) -> tuple[list[int], list[float], dict[str, float | int | None]]:
     model.eval()
     probabilities: list[float] = []
-    if adaptive:
+    if resume is not None:
+        from .multiprocess import AdaptiveBatches, adaptive_predictions, predict_graphs
+        cached = {example.problem_path: value["probabilities"] for example in examples
+                  if (value := resume.load("predictions", example.problem_path)) is not None}
+        pending = [example for example in examples if example.problem_path not in cached]
+        if adaptive:
+            outputs = adaptive_predictions(model, [example.graph for example in pending],
+                                           AdaptiveBatches(len(pending)))
+        else:
+            outputs = (values for chunk in chunks(pending, batch_size)
+                       for values in predict_graphs(model, [example.graph for example in chunk]))
+        for example, values in zip(pending, outputs, strict=True):
+            resume.save("predictions", example.problem_path, {"probabilities": values})
+            cached[example.problem_path] = values
+        for example in examples:
+            values = cached[example.problem_path]
+            if len(values) != len(example.labels):
+                raise ValueError("cached prediction size does not match example")
+            probabilities.extend(values)
+    elif adaptive:
         from .multiprocess import AdaptiveBatches, adaptive_predictions
         tuner = AdaptiveBatches(len(examples))
         for values in adaptive_predictions(model, [example.graph for example in examples], tuner):

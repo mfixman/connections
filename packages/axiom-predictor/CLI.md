@@ -269,3 +269,32 @@ python axiom_predictor.py evaluate --model runs/DefaultFull/model/best-epoch-119
 ```
 
 Each command uses one GPU. No additional Python dependencies are required.
+
+## Output files and automatic resume
+
+`run` and `evaluate` accept `--output PATH`. Results go to that file instead
+of stdout, as JSON Lines by default or CSV with `--csv` (the extension does
+not select the format). Progress and errors still go to stderr.
+
+```bash
+python axiom_predictor.py run --model runs/DefaultFull/model/best-epoch-119.pt --multiprocess --splits 10 --parts 8 9 --output results/run.jsonl
+python axiom_predictor.py evaluate --model runs/DefaultFull/model/best-epoch-119.pt --multiprocess --splits 10 --parts 8 9 --csv --output results/evaluate.csv
+```
+
+Repeat the same command after interruption to resume. Completed run outcomes,
+including timeouts and unreadable problems, are retained and skipped; final
+summary totals include both previous and new results. A completed summary
+makes a subsequent invocation a no-op. An incomplete final record is removed
+before appending, and simultaneous writers to the same file are rejected.
+
+Keep the companion `PATH.resume/` directory with the output. It stores command
+settings and, for evaluation, collected examples/skips and prediction scores.
+Evaluation resumes collection and scoring from those checkpoints and computes
+aggregate metrics across the entire selection. Work interrupted before a
+checkpoint is committed is repeated. Settings must match the previous command;
+worker count, device, multiprocessing and tracking name may change. To rerun
+completed failures or change the experiment, choose a new output path.
+
+Without `--output`, the existing stdout behavior is unchanged. Redirected old
+stdout files may contain an HPC `nvidia-smi` preamble; they are not clean
+result files and must not be used directly as resume files.

@@ -13,7 +13,7 @@ from .models import available_models
 from .limits import DEFAULT_STEP_LIMIT, DEFAULT_TIMEOUT_SECONDS
 from .logs import log, monitor_progress
 from .split import ProblemSplit
-from .output import output_format, write_record
+from .output import output_format, write_record, journal
 
 if TYPE_CHECKING:
     from .wandb_tracking import WandbConfig
@@ -295,6 +295,9 @@ def build_parser() -> argparse.ArgumentParser:
             if action.help is None and action.dest in common_help:
                 action.help = common_help[action.dest]
 
+    for name in ("run", "evaluate"):
+        subparsers.choices[name].add_argument("--output", type=Path, help="write results to this file and resume existing results; --csv selects CSV")
+
     return parser
 
 def add_device_argument(parser):
@@ -307,8 +310,17 @@ def add_device_argument(parser):
 @monitor_progress()
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
-    with output_format(args.command, args.csv):
-        return execute_command(args)
+    identity = {key: value for key, value in vars(args).items()
+                if key not in {"output", "num_workers", "device", "multiprocess", "run_name", "no_wandb"}}
+    try:
+        with output_format(args.command, args.csv, getattr(args, "output", None), identity) as session:
+            if session is not None and session.complete:
+                log("output already contains a completed summary; nothing to resume")
+                return 0
+            return execute_command(args)
+    except (OSError, ValueError) as error:
+        log(f"axiom-predictor: error: {error}")
+        return 2
 
 def execute_command(args: argparse.Namespace) -> int:
     log(f"axiom-predictor: starting {args.command}")
@@ -422,6 +434,7 @@ def execute_command(args: argparse.Namespace) -> int:
                 checkpoint,
                 list(problems),
                 multiprocess = args.multiprocess,
+                resume = journal.get(),
                 dataset = dataset,
                 split = selected_split(args),
 
@@ -579,11 +592,15 @@ def run_command(args: argparse.Namespace) -> int:
         },
     )
 
-    results: list[dict[str, Any]] = []
-    proved = 0
+    session = journal.get()
+    results = [] if session is None else [row for row in session.records if row.get("problem")]
+    completed = {row["problem"] for row in results}
+    if completed - set(problems):
+        raise ValueError("output contains problems outside this selection; use a new --output")
+    proved = sum(bool(row.get("proved")) for row in results)
     try:
         for result in run_problems(
-            problems,
+            [problem for problem in problems if problem not in completed],
             tptp_root = args.tptp,
             config = config,
             num_workers = args.num_workers,
