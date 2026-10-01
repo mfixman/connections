@@ -244,3 +244,28 @@ Previously the split default grouped TPTP families. The current CLI always
 hashes the complete filename. Old checkpoint split metadata is retained
 for warnings, so a family-trained checkpoint is not reported as using a
 compatible filename split merely because the part numbers match.
+
+## Parallel run and evaluate on one GPU
+
+Add `--multiprocess` to `run` or `evaluate`. CPU worker counts follow the
+allocated CPUs (or `--num-workers`). Guided runs keep one shared model on the
+selected GPU; CPU workers parse and search concurrently, submitting graphs to
+that model. Requests arriving together are combined into prediction batches.
+Evaluation collects proofs and builds graphs in CPU processes, then scores
+those graphs in adaptive GPU batches. Training and prediction commands do not
+accept this flag.
+
+Batch sizes start at 1, double after success, and bisect the last successful
+and failed sizes after CUDA OOM (for example 8, 16 OOM, 12). Failed batches are
+retried without dropping results. Every batch is checked because graph sizes
+vary. A run problem that cannot fit alone reports an error; evaluation stops
+with the OOM. This tunes problem count, so it cannot guarantee a fixed GPU
+memory footprint or eliminate per-problem timeouts. Run timeouts include
+parsing, waiting for shared inference, and proof search.
+
+```bash
+python axiom_predictor.py run --model runs/DefaultFull/model/best-epoch-119.pt --multiprocess --splits 10 --parts 8 9
+python axiom_predictor.py evaluate --model runs/DefaultFull/model/best-epoch-119.pt --multiprocess --splits 10 --parts 8 9
+```
+
+Each command uses one GPU. No additional Python dependencies are required.

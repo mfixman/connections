@@ -34,6 +34,21 @@ def test_single_graph_oom_is_reported(monkeypatch):
         list(adaptive_predictions(None, [1], AdaptiveBatches(8)))
 
 
+
+def test_large_singleton_does_not_discard_other_results(monkeypatch):
+    import axiom_prediction.multiprocess as module
+    def predict(model, graphs):
+        if 3 in graphs:
+            raise torch.cuda.OutOfMemoryError('large graph')
+        return [[graph] for graph in graphs]
+    monkeypatch.setattr(module, 'predict_graphs', predict)
+    results = list(adaptive_predictions(None, list(range(8)), AdaptiveBatches(8),
+                                       tolerate_singleton_oom=True))
+    assert len(results) == 8
+    assert isinstance(results[3], RuntimeError)
+    assert [value for value in results if not isinstance(value, Exception)] == [[i] for i in range(8) if i != 3]
+
+
 def test_flag_is_only_for_run_and_evaluate():
     parser = build_parser()
     for command in ('run', 'evaluate'):
