@@ -8,6 +8,7 @@ from connections.syntax.formula import (
     Eq,
     Formula,
     Function,
+    Impl,
     Not,
     Or,
     Prefixed,
@@ -19,9 +20,31 @@ from connections.syntax.matrix import Literal
 
 
 def cnf_formula_to_literals(formula: Formula) -> tuple[Literal, ...]:
-    if isinstance(formula, Or):
-        return tuple(formula_to_literal(part) for part in flatten_or(formula))
-    return (formula_to_literal(formula),)
+    parts = flatten_or(formula) if isinstance(formula, Or) else [formula]
+    literals = []
+    for part in parts:
+        constant = _cnf_constant(part)
+        if constant is True:
+            truth = Atom("true___")
+            return (Literal(atom=truth, polarity=True), Literal(atom=truth, polarity=False))
+        if constant is None:
+            literals.append(formula_to_literal(part))
+
+    return tuple(literals)
+
+
+def _cnf_constant(formula: Formula) -> bool | None:
+    if isinstance(formula, Not):
+        value = _cnf_constant(formula.formula)
+        return None if value is None else not value
+    if isinstance(formula, And) and formula.left == Atom("false___"):
+        if formula.right == Not(formula.left):
+            return False
+    if isinstance(formula, Impl) and formula.left == Atom("true___"):
+        if formula.right == formula.left:
+            return True
+
+    return None
 
 
 def dnf(formula: Formula) -> Formula:

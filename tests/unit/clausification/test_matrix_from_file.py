@@ -40,6 +40,23 @@ def test_matrix_from_file_python_initializes_all_indices(tmp_path):
     _assert_matrix_indices_consistent(matrix)
 
 
+@pytest.mark.parametrize("formula, symbols", [
+    ("$false", []),
+    ("p | $false", [("p", True)]),
+    ("~$true | p", [("p", True)]),
+    ("$true", [("true___", True), ("true___", False)]),
+    ("~$false", [("true___", True), ("true___", False)]),
+])
+def test_cnf_truth_constants(tmp_path, formula, symbols):
+    problem = tmp_path / "constant.p"
+    problem.write_text(f"cnf(a,axiom,({formula})).\n", encoding = "utf-8")
+    matrix = matrix_from_file(problem)
+    assert len(matrix.clauses) == 1
+    literals = matrix.clauses[0].literals
+    assert [(literal.atom.symbol, literal.polarity) for literal in literals] == symbols
+    _assert_matrix_indices_consistent(matrix)
+
+
 def test_matrix_from_file_uses_direct_cnf_matrix_construction(tmp_path):
     problem = tmp_path / "cnf_problem.p"
     problem.write_text(
