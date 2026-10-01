@@ -172,7 +172,7 @@ def test_policy_and_network_experiments(tmp_path, policy, capsys, monkeypatch):
             == 0
         )
 
-        metrics = json.loads(capsys.readouterr().out.strip().splitlines()[-1])
+        metrics = json.loads(capsys.readouterr().err.strip().splitlines()[-1])
         assert metrics["sat_policy"] == policy
         assert metrics["model_config"] == expected
 

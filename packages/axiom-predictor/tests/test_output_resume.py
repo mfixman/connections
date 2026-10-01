@@ -33,6 +33,7 @@ def test_journal_repairs_torn_tail_and_preserves_multiline(tmp_path, use_csv, ca
     assert journal.records[0]["problem"] == row["problem"]
     assert journal.records[0]["proved"] is False
     assert journal.records[0]["seconds"] == 1.25
+    assert journal.records[0]["outcome"] == "Timeout"
     journal.write(row)
     journal.close()
 
@@ -322,7 +323,7 @@ def test_format_mismatch_fails_without_changing_existing_file(
 
 def test_partial_csv_header_can_resume(tmp_path):
     path = tmp_path / "results"
-    path.write_text("problem,part,out")
+    path.write_text("problem,part,tptp_sta")
     journal = open_journal(path, use_csv = True)
     journal.write({"problem": "a.p", "proved": True})
     journal.close()
@@ -330,7 +331,7 @@ def test_partial_csv_header_can_resume(tmp_path):
         rows = list(csv.DictReader(stream))
 
     assert len(rows) == 1
-    assert rows[0]["problem"] == "a.p"
+    assert rows[0]["problem"] == "a"
 
 @pytest.mark.parametrize("use_csv", [False, True])
 def test_journal_recovers_torn_utf8(tmp_path, use_csv):
@@ -404,3 +405,102 @@ def test_completion_marker_rejects_truncated_output(tmp_path, use_csv):
     journal = open_journal(path, use_csv = use_csv)
     assert not journal.complete
     journal.close()
+
+@pytest.mark.parametrize("use_csv", [False, True])
+def test_problem_names_preserve_distinct_paths_for_resume(tmp_path, use_csv):
+    path = tmp_path / "results"
+    problems = ["/first/SYN001-1.p", "/second/SYN001-1.p"]
+    journal = open_journal(path, use_csv = use_csv)
+    for problem in problems:
+        journal.write({"problem": problem, "proved": True})
+
+    journal.close()
+    contents = path.read_text()
+    rows = (
+        list(csv.DictReader(io.StringIO(contents)))
+        if use_csv
+        else [json.loads(line) for line in contents.splitlines()]
+    )
+
+    assert [row["problem"] for row in rows] == ["SYN001-1", "SYN001-1"]
+    journal = open_journal(path, use_csv = use_csv)
+    assert [row["problem"] for row in journal.records] == problems
+    for problem in problems:
+        journal.write({"problem": problem, "proved": True})
+
+    journal.close()
+    assert path.read_text() == contents
+
+@pytest.mark.parametrize("use_csv", [False, True])
+@pytest.mark.parametrize("guided", [False, True])
+def test_resumed_timeouts_keep_run_metadata(tmp_path, monkeypatch, use_csv, guided):
+    from axiom_prediction import cli, run
+
+    path = tmp_path / "results"
+    monkeypatch.setattr(cli, "selected_problems", lambda args: ["a.p", "b.p"])
+    requested = []
+
+    def interrupted(function, arguments, **kwargs):
+        requested.append([args[0] for args in arguments])
+        yield {"problem": "a.p", "outcome": "Timeout", "proved": False, "seconds": 1.0}
+        raise KeyboardInterrupt()
+
+    monkeypatch.setattr(run, "supervised_results", interrupted)
+    args = ["run", "--output", str(path), "--seed", "42", "--no-wandb", "--device", "cpu"]
+    if guided:
+        from axiom_prediction.model import AxiomPredictor
+
+        predictor = SimpleNamespace(training_config = {"sat_policy": "satcop"})
+        monkeypatch.setattr(AxiomPredictor, "load", lambda *args, **kwargs: predictor)
+        args.extend(["--model", str(tmp_path / "model.pt")])
+
+    if use_csv:
+        args.append("--csv")
+
+    with pytest.raises(KeyboardInterrupt):
+        cli.main(args)
+
+    def finish(function, arguments, **kwargs):
+        requested.append([args[0] for args in arguments])
+        yield {"problem": "b.p", "outcome": "Timeout", "proved": False, "seconds": 1.0}
+
+    monkeypatch.setattr(run, "supervised_results", finish)
+    assert cli.main(args) == 0
+    assert requested == [["a.p", "b.p"], ["b.p"]]
+    text = path.read_text()
+    rows = (
+        list(csv.DictReader(io.StringIO(text)))
+        if use_csv
+        else [json.loads(line) for line in text.splitlines()]
+    )
+
+    assert len(rows) == 2
+    assert all(int(row["seed"]) == 42 for row in rows)
+    assert all(row["mode"] == ("weighted" if guided else "base") for row in rows)
+    assert all(row["policy"] == ("satcop" if guided else "satresetcop") for row in rows)
+    assert cli.main(args) == 0
+    assert path.read_text() == text
+
+@pytest.mark.parametrize("use_csv", [False, True])
+def test_declared_status_survives_timeout_and_resume(tmp_path, use_csv):
+    problem = tmp_path / "SYN001-1.p"
+    problem.write_text("% Status : Theorem\nfof(a, axiom, p).\n")
+    path = tmp_path / "results"
+    row = {"problem": str(problem), "outcome": "Timeout", "proved": False}
+    journal = open_journal(path, use_csv = use_csv)
+    journal.write(row)
+    journal.close()
+    contents = path.read_text()
+    records = (
+        list(csv.DictReader(io.StringIO(contents)))
+        if use_csv
+        else [json.loads(line) for line in contents.splitlines()]
+    )
+
+    assert records[0]["tptp_status"] == "Theorem"
+    assert "outcome" not in records[0]
+    journal = open_journal(path, use_csv = use_csv)
+    assert journal.records[0]["outcome"] == "Timeout"
+    journal.write(row)
+    journal.close()
+    assert path.read_text() == contents

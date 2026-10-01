@@ -266,7 +266,7 @@ def test_policy_inheritance_fallback_and_fresh_evaluation(
     common = ["--device", "cpu", "--num-workers", "1", "--no-wandb"]
     capsys.readouterr()
     assert main(["evaluate", str(tmp_path), str(tiny_problem_path), *common]) == 0
-    metrics = json.loads(capsys.readouterr().out.strip().splitlines()[-1])
+    metrics = json.loads(capsys.readouterr().err.strip().splitlines()[-1])
     assert metrics["sat_policy"] == "satcop"
     run_dir = tmp_path / "run"
     run_dir.mkdir()
@@ -275,7 +275,7 @@ def test_policy_inheritance_fallback_and_fresh_evaluation(
         ["evaluate", "--data-dir", str(run_dir), str(tiny_problem_path), *common]
     ) == 0
 
-    metrics = json.loads(capsys.readouterr().out.strip().splitlines()[-1])
+    metrics = json.loads(capsys.readouterr().err.strip().splitlines()[-1])
     assert metrics["sat_policy"] == "satcop"
     assert main(
         [
@@ -311,3 +311,48 @@ def test_policy_inheritance_fallback_and_fresh_evaluation(
             "--policy", "SatResetCoP",
         ]
     ) == 2
+
+def test_alarm_timeout_keeps_run_metadata(monkeypatch):
+    from axiom_prediction import run
+    from axiom_prediction.limits import CollectionTimeout
+
+    def timed_out(*args, **kwargs):
+        raise CollectionTimeout()
+
+    monkeypatch.setattr(run, "search_problem", timed_out)
+    config = RunConfig(mode = "base", policy = "satcop", seed = 42)
+    result = run_problem("SYN001-1", tptp_root = None, config = config)
+    assert result["outcome"] == "Timeout"
+    assert result["seed"] == 42
+    assert result["mode"] == "base"
+    assert result["policy"] == "satcop"
+
+@pytest.mark.parametrize("shared", [False, True])
+@pytest.mark.parametrize("outcome", ["Timeout", "WorkerExited", "RuntimeError: failed"])
+def test_supervised_failures_keep_run_metadata(monkeypatch, shared, outcome):
+    from contextlib import contextmanager
+    from axiom_prediction import run, multiprocess
+
+    @contextmanager
+    def inference_service(*args):
+        yield ("localhost", 1234), "key"
+
+    monkeypatch.setattr(multiprocess, "inference_service", inference_service)
+    monkeypatch.setattr(
+        run,
+        "supervised_results",
+        lambda *args, **kwargs: iter([{"problem": "SYN001-1", "outcome": outcome}]),
+    )
+
+    config = RunConfig(
+        checkpoint = "model.pt",
+        multiprocess = shared,
+        policy = "satcop",
+        seed = 42,
+    )
+
+    result, = run_problems(["SYN001-1"], tptp_root = None, config = config, num_workers = 1)
+    assert result["outcome"] == outcome
+    assert result["seed"] == 42
+    assert result["mode"] == "weighted"
+    assert result["policy"] == "satcop"
