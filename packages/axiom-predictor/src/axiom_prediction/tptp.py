@@ -16,7 +16,7 @@ from connections.syntax.matrix import Matrix
 
 from .data import AxiomTrainingExample, sat_core_clause_ids, training_example_from_sat_core
 
-from .limits import DEFAULT_STEP_LIMIT, DEFAULT_TIMEOUT_SECONDS, collection_budget
+from .limits import DEFAULT_COLLECTION_STEP_LIMIT, DEFAULT_COLLECTION_TIMEOUT_SECONDS, DEFAULT_STEP_LIMIT, DEFAULT_TIMEOUT_SECONDS, collection_budget
 
 _TPTP_CATEGORY = re.compile(r"[A-Z]{3}")
 _STATUS = re.compile(r"^\s*%\s*Status\s*:\s*(\S+)", re.IGNORECASE)
@@ -251,8 +251,8 @@ def collect_proof_example(
     problem: str | Path,
     *,
     tptp_root: str | Path | None = None,
-    step_limit: int = DEFAULT_STEP_LIMIT,
-    timeout_seconds: float = DEFAULT_TIMEOUT_SECONDS,
+    step_limit: int = DEFAULT_COLLECTION_STEP_LIMIT,
+    timeout_seconds: float = DEFAULT_COLLECTION_TIMEOUT_SECONDS,
     sat_policy: str = ProverPolicy.SatResetCoP,
 ) -> tuple[AxiomTrainingExample | None, str]:
     policies = {ProverPolicy.SatCoP: SATCoPCon, ProverPolicy.SatResetCoP: SATResetCoP}

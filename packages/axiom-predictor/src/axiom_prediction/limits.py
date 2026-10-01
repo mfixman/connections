@@ -5,6 +5,8 @@ import threading
 
 DEFAULT_STEP_LIMIT = 1_000_000
 DEFAULT_TIMEOUT_SECONDS = 120.0
+DEFAULT_COLLECTION_STEP_LIMIT = 1_000_000_000
+DEFAULT_COLLECTION_TIMEOUT_SECONDS = 900.0
 
 class CollectionTimeout(BaseException):
     """Escape parser and policy handlers that catch ordinary exceptions."""
