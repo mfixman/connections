@@ -633,6 +633,7 @@ def evaluate_axiom_predictor(
     checkpoint: str | Path,
     problems: list[str] | tuple[str, ...] | None = None,
     *,
+    multiprocess: bool = False,
     dataset: str | Path | None = None,
     tptp_root: str | Path | None = None,
     device: str = "cuda",
@@ -732,6 +733,7 @@ def evaluate_axiom_predictor(
             predictor.model,
             examples,
             batch_size = collection_config.batch_size,
+            adaptive = multiprocess,
         )
 
         metrics: dict[str, Any] = dict(raw_metrics)
@@ -841,21 +843,28 @@ def example_outputs(
     examples: list[AxiomTrainingExample],
     *,
     batch_size: int,
+    adaptive: bool = False,
 ) -> tuple[list[int], list[float], dict[str, float | int | None]]:
     model.eval()
     probabilities: list[float] = []
-    with torch.no_grad():
-        batches = math.ceil(len(examples) / batch_size)
-        for chunk in track_progress(chunks(examples, batch_size), "evaluating batches", batches):
-            batch = collate_axiom_graphs(
-                [(example.graph, example.labels) for example in chunk]
-            )
+    if adaptive:
+        from .multiprocess import AdaptiveBatches, adaptive_predictions
+        tuner = AdaptiveBatches(len(examples))
+        for values in adaptive_predictions(model, [example.graph for example in examples], tuner):
+            probabilities.extend(values)
+    else:
+        with torch.no_grad():
+            batches = math.ceil(len(examples) / batch_size)
+            for chunk in track_progress(chunks(examples, batch_size), "evaluating batches", batches):
+                batch = collate_axiom_graphs(
+                    [(example.graph, example.labels) for example in chunk]
+                )
 
-            logits = model(batch)
-            if not torch.isfinite(logits).all():
-                raise FloatingPointError("model produced non-finite logits")
+                logits = model(batch)
+                if not torch.isfinite(logits).all():
+                    raise FloatingPointError("model produced non-finite logits")
 
-            probabilities.extend(torch.sigmoid(logits).cpu().tolist())
+                probabilities.extend(torch.sigmoid(logits).cpu().tolist())
 
     labels = [int(label) for example in examples for label in example.labels]
     log_message(f"computing prediction metrics for {len(labels)} axiom scores")

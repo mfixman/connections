@@ -202,6 +202,7 @@ def build_parser() -> argparse.ArgumentParser:
         help = "inherit checkpoint policy; dataset and explicit policy must agree",
     )
 
+    evaluate.add_argument("--multiprocess", action="store_true", help="parallel CPU proof search with adaptive GPU batching")
     add_worker_argument(evaluate)
     add_wandb_arguments(evaluate)
 
@@ -244,6 +245,7 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--timeout-seconds", type = float, default = DEFAULT_TIMEOUT_SECONDS)
 
     add_split_arguments(run)
+    run.add_argument("--multiprocess", action="store_true", help="parallel CPU proof search with shared adaptive GPU batching")
     add_worker_argument(run)
     add_wandb_arguments(run)
 
@@ -419,6 +421,7 @@ def execute_command(args: argparse.Namespace) -> int:
             metrics = evaluate_axiom_predictor(
                 checkpoint,
                 list(problems),
+                multiprocess = args.multiprocess,
                 dataset = dataset,
                 split = selected_split(args),
 
@@ -549,6 +552,7 @@ def run_command(args: argparse.Namespace) -> int:
         policy = label_policy(policy, {"collection": predictor.training_config})
 
     config = RunConfig(
+        multiprocess = args.multiprocess,
         mode = GuidanceMode.Base if model is None else GuidanceMode.Weighted,
         policy = policy or ProverPolicy.SatResetCoP,
         checkpoint = None if model is None else str(model),
