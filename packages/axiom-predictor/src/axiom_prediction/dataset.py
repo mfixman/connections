@@ -19,7 +19,8 @@ from .logs import log
 from .logs import progress as track_progress
 from .parallel import determine_worker_count
 from .search_workers import supervised_results
-from .tptp import DEFAULT_STEP_LIMIT, DEFAULT_TIMEOUT_SECONDS, collect_proof_example, find_tptp_root
+from .limits import DEFAULT_COLLECTION_STEP_LIMIT, DEFAULT_COLLECTION_TIMEOUT_SECONDS
+from .tptp import collect_proof_example, find_tptp_root
 
 AXIOM_DATASET_SCHEMA = "learncop.axiom_prediction.dataset.v2"
 AXIOM_DATASET_SHARD_SCHEMA = "learncop.axiom_prediction.dataset-shard.v2"
@@ -48,8 +49,8 @@ def collect_axiom_dataset(
     output_dir: str | Path,
 
     tptp_root: str | Path | None = None,
-    step_limit: int = DEFAULT_STEP_LIMIT,
-    timeout_seconds: float = DEFAULT_TIMEOUT_SECONDS,
+    step_limit: int = DEFAULT_COLLECTION_STEP_LIMIT,
+    timeout_seconds: float = DEFAULT_COLLECTION_TIMEOUT_SECONDS,
     sat_policy: str = ProverPolicy.SatResetCoP,
 
     num_workers: int | None = None,
@@ -217,8 +218,8 @@ def collect_axiom_dataset_shard(
     shard_name: str,
     tptp_root: str | Path | None = None,
 
-    step_limit: int = DEFAULT_STEP_LIMIT,
-    timeout_seconds: float = DEFAULT_TIMEOUT_SECONDS,
+    step_limit: int = DEFAULT_COLLECTION_STEP_LIMIT,
+    timeout_seconds: float = DEFAULT_COLLECTION_TIMEOUT_SECONDS,
     sat_policy: str = ProverPolicy.SatResetCoP,
     num_workers: int | None = None,
 ) -> tuple[Path, dict[str, Any]]:

@@ -10,7 +10,7 @@ from pathlib import Path
 import re
 
 from .models import available_models
-from .limits import DEFAULT_STEP_LIMIT, DEFAULT_TIMEOUT_SECONDS
+from .limits import DEFAULT_COLLECTION_STEP_LIMIT, DEFAULT_COLLECTION_TIMEOUT_SECONDS, DEFAULT_STEP_LIMIT, DEFAULT_TIMEOUT_SECONDS
 from .logs import log, monitor_progress
 from .split import ProblemSplit
 from .output import output_format, write_record, report_metrics, journal
@@ -132,13 +132,13 @@ def build_parser() -> argparse.ArgumentParser:
     collect.add_argument(
         "--step-limit",
         type = nonnegative_int,
-        default = DEFAULT_STEP_LIMIT,
+        default = DEFAULT_COLLECTION_STEP_LIMIT,
     )
 
     collect.add_argument(
         "--timeout-seconds",
         type = float,
-        default = DEFAULT_TIMEOUT_SECONDS,
+        default = DEFAULT_COLLECTION_TIMEOUT_SECONDS,
     )
 
     collect.add_argument(
