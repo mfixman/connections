@@ -115,7 +115,7 @@ def run_problem(
         result = {"problem": problem, "outcome": "Timeout", "proved": False}
 
     result["seconds"] = time.monotonic() - started
-    return result
+    return with_run_metadata(result, config)
 
 def search_problem(problem, *, tptp_root, config):
     if config.inference_address is not None:
@@ -274,12 +274,7 @@ def run_problems(
 
         with inference_service(config.checkpoint, config.device, workers) as (address, key):
             shared = replace(config, inference_address = address, inference_key = key)
-            yield from supervised_results(
-                run_one,
-                ((p, tptp_root, shared) for p in problems),
-                workers = workers,
-                timeout = config.timeout_seconds,
-            )
+            yield from configured_results(problems, tptp_root, shared, workers)
 
         return
 
@@ -292,12 +287,24 @@ def run_problems(
     if workers == 0:
         return
 
-    yield from supervised_results(
+    yield from configured_results(problems, tptp_root, config, workers)
+
+def configured_results(problems, tptp_root, config, workers):
+    for result in supervised_results(
         run_one,
         ((p, tptp_root, config) for p in problems),
         workers = workers,
         timeout = config.timeout_seconds,
-    )
+    ):
+        yield with_run_metadata(result, config)
+
+def with_run_metadata(result, config):
+    result.setdefault("seed", config.seed)
+    result.setdefault("mode", config.mode.wire_value)
+    if config.policy is not None:
+        result.setdefault("policy", config.policy.wire_value)
+
+    return result
 
 def run_one(
     problem: str,

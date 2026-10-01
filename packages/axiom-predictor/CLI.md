@@ -181,10 +181,15 @@ results, without an `event` column. Final aggregate metrics are stored in
 otherwise; they are not rows in CSV or JSONL output.
 Collect emits its collection summary. Predict emits one row per axiom.
 Filter by `event` when processing streams with different record types.
+The `problem` field contains the filename without its directory or extension
+(e.g. `SYN001-1`). Full paths are retained in resume checkpoints.
 Run's per-problem results include `part`, calculated using the active `--split`.
 Evaluate also emits `event=problem` rows containing `problem`, `part`, and
-per-problem metrics (`outcome=evaluated`), or the collection failure outcome
-for skipped problems. W&B per-problem tables include `part` too. Without an
+per-problem metrics, including rows for skipped problems. The `outcome`
+column is replaced by `tptp_status`, copied from the problem file's `% Status :`
+declaration (e.g. `Theorem` or `Satisfiable`). It is blank when the declaration
+is missing or the file is unavailable. This is the declared status, including
+when proof search times out; `proved` still records proof-search success for run. W&B per-problem tables include `part` too. Without an
 explicit split, `part` is 0. Aggregate summaries still combine all selected parts.
 The same records and fields are emitted with and without `--csv`; CSV headers
 include the union of possible fields, with irrelevant cells left empty.
@@ -289,7 +294,7 @@ including timeouts and unreadable problems, are retained and skipped; final
 aggregate metrics include both previous and new results. An atomic
 `PATH.resume/completion.json` marker makes a subsequent invocation a no-op,
 preserving a run's failure exit status. The marker records the output size,
-exit status, and aggregate metrics. Older `run` CSVs with an `event` column
+exit status, and aggregate metrics. Older CSVs with an `outcome` column (or `run` CSVs with an `event` column)
 have an incompatible header; use a new output path for those runs.
 An incomplete final record is removed
 before appending, and simultaneous writers to the same file are rejected.

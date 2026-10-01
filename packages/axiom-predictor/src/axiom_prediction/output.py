@@ -2,6 +2,7 @@ import csv
 from contextlib import contextmanager
 from contextvars import ContextVar
 import json
+from pathlib import Path
 import sys
 
 METRIC_FIELDS = (
@@ -29,14 +30,14 @@ COMMAND_FIELDS = {
         "problems_unparseable dataset_shard"
     ).split(),
     "run": (
-        "problem part outcome proved seconds mode policy seed steps proof_size "
+        "problem part tptp_status proved seconds mode policy seed steps proof_size "
         "axioms kept_axioms prediction_seconds guidance_fallback parseable error"
     ).split(),
     "train": ["event", *DATASET_FIELDS, *METRIC_FIELDS, *RESULT_FIELDS, *(
         "shards collection failures parameters device config epoch epochs batch batches "
         "loss seconds labels eval_seconds grad_norm_mean grad_norm_max metrics"
     ).split()],
-    "evaluate": ["event", "problem", "part", "outcome", *DATASET_FIELDS, *METRIC_FIELDS, *RESULT_FIELDS],
+    "evaluate": ["event", "problem", "part", "tptp_status", *DATASET_FIELDS, *METRIC_FIELDS, *RESULT_FIELDS],
 }
 
 journal = ContextVar("output_journal", default = None)
@@ -47,12 +48,32 @@ def write_record(record):
         journal.get().write(record)
         return
 
+    record = display_record(record)
     output = writer.get()
     if output is None:
         print(json.dumps(record, sort_keys = True, default = str), flush = True)
     else:
         output.writerow({key: csv_value(value) for key, value in record.items()})
         sys.stdout.flush()
+
+def display_record(record):
+    if not record.get("problem"):
+        return record
+
+    record = dict(record)
+    problem = record["problem"]
+    record.pop("outcome", None)
+    record["problem"] = Path(str(problem)).stem
+    record["tptp_status"] = problem_status(problem)
+    return record
+
+def problem_status(problem):
+    from .tptp import declared_tptp_status
+
+    try:
+        return declared_tptp_status(problem) or ""
+    except OSError:
+        return ""
 
 def report_metrics(metrics):
     session = journal.get()

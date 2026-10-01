@@ -9,7 +9,7 @@ from pathlib import Path
 
 from .io import write_json_atomic
 
-TEXT_FIELDS = {"event", "problem", "outcome", "mode", "policy", "guidance_fallback"}
+TEXT_FIELDS = {"event", "problem", "outcome", "tptp_status", "mode", "policy", "guidance_fallback"}
 RESUME_OPTIONS = {
     "output",
     "num_workers",
@@ -145,12 +145,19 @@ class OutputJournal:
             csv_records(content, self.fields) if self.use_csv else json_records(content)
         )
 
+        self.restore_problem_paths()
         self.keys = {self.key(row) for row in self.records}
         self.directory.mkdir(parents = True, exist_ok = True)
         write_json_atomic(metadata, expected)
         # A torn final record may include an incomplete UTF-8 character.
         self.stream.truncate(boundary)
         self.stream.flush()
+
+    def restore_problem_paths(self):
+        for index, row in enumerate(self.records):
+            saved = self.load("output-path", index)
+            if saved and row.get("problem") == Path(saved["problem"]).stem:
+                row.update(saved)
 
     def check_format(self, content):
         if not content.strip():
@@ -204,19 +211,28 @@ class OutputJournal:
         )
 
     def write(self, row):
+        from .output import csv_value, display_record
+
         key = self.key(row)
         if key in self.keys:
             return
 
-        if self.use_csv:
-            from .output import csv_value
+        if row.get("problem"):
+            metadata = {"problem": str(row["problem"])}
+            if "outcome" in row:
+                metadata["outcome"] = row["outcome"]
 
-            self.writer.writerow({key: csv_value(value) for key, value in row.items()})
+            self.save("output-path", len(self.records), metadata)
+
+        record = display_record(row)
+        if self.use_csv:
+            self.writer.writerow({key: csv_value(value) for key, value in record.items()})
         else:
-            self.stream.write(json.dumps(row, sort_keys = True, default = str) + "\n")
+            self.stream.write(json.dumps(record, sort_keys = True, default = str) + "\n")
 
         self.stream.flush()
         self.keys.add(key)
+        self.records.append(dict(row))
 
     def cache_path(self, stage, problem):
         key = hashlib.sha256(str(problem).encode()).hexdigest()
