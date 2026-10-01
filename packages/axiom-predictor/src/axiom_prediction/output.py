@@ -40,9 +40,14 @@ COMMAND_FIELDS = {
     "evaluate": ["event", "problem", "part", "outcome", *DATASET_FIELDS, *METRIC_FIELDS, *RESULT_FIELDS],
 }
 
+journal = ContextVar("output_journal", default=None)
+
 writer = ContextVar("output_writer", default = None)
 
 def write_record(record):
+    if journal.get() is not None:
+        journal.get().write(record)
+        return
     output = writer.get()
     if output is None:
         print(json.dumps(record, sort_keys = True, default = str), flush = True)
@@ -54,7 +59,18 @@ def csv_value(value):
     return value if isinstance(value, str) else json.dumps(value, default = str)
 
 @contextmanager
-def output_format(command, use_csv):
+def output_format(command, use_csv, path=None, identity=None):
+    if path is not None:
+        from .output_resume import OutputJournal
+        session = OutputJournal(path, command, use_csv,
+                                list(dict.fromkeys(COMMAND_FIELDS[command])), identity)
+        token = journal.set(session)
+        try:
+            yield session
+        finally:
+            journal.reset(token)
+            session.close()
+        return
     output = None
     if use_csv:
         fields = list(dict.fromkeys(COMMAND_FIELDS[command]))
