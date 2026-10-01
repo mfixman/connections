@@ -5,7 +5,7 @@ from .choices import GuidanceMode, ProverPolicy, plain_values
 from typing import Any
 
 from collections.abc import Iterator
-from dataclasses import asdict, dataclass, field, replace
+from dataclasses import asdict, dataclass, field, fields, replace
 from functools import lru_cache
 
 import math
@@ -48,6 +48,23 @@ class RunConfig:
     seed: int = 0
     step_limit: int = DEFAULT_STEP_LIMIT
     timeout_seconds: float = DEFAULT_TIMEOUT_SECONDS
+
+    def __getstate__(self):
+        # Named state stays stable when optional fields are added for new workers.
+        return {item.name: getattr(self, item.name) for item in fields(self)}
+
+    def __setstate__(self, state):
+        if not isinstance(state, dict):
+            names = [item.name for item in fields(self)]
+            if len(state) == 9:
+                names = ["mode", "policy", "checkpoint", "device", "temperature",
+                         "top_k", "seed", "step_limit", "timeout_seconds"]
+            if len(state) != len(names):
+                raise ValueError("unsupported serialized RunConfig layout")
+            state = dict(zip(names, state, strict=True))
+        for item in fields(self):
+            object.__setattr__(self, item.name, state.get(item.name, item.default))
+        self.__post_init__()
 
     def __post_init__(self):
         object.__setattr__(self, "mode", GuidanceMode(self.mode))

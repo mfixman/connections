@@ -89,3 +89,20 @@ def test_shared_inference_and_parallel_search(tmp_path, tiny_problem_path, devic
     assert {r['problem'] for r in results} == set(paths)
     assert all(r['proved'] == expected_result['proved'] for r in results)
     assert all(r['outcome'] == expected_result['outcome'] for r in results)
+
+
+def test_run_config_reads_old_worker_state_without_shifting_fields():
+    import pickle
+    old = ['base', 'satresetcop', None, 'cpu', 0.7, None, 42, 500, 12.5]
+    config = object.__new__(RunConfig)
+    config.__setstate__(old)
+    assert config.timeout_seconds == 12.5
+    assert config.seed == 42
+    assert config.temperature == 0.7
+    assert config.multiprocess is False
+    assert config.inference_address is None
+    assert pickle.loads(pickle.dumps(config)) == config
+    current_positional = [getattr(config, item.name) for item in __import__('dataclasses').fields(config)]
+    restored = object.__new__(RunConfig)
+    restored.__setstate__(current_positional)
+    assert restored == config
