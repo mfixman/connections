@@ -10,37 +10,37 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass, field
 from typing import Any
 
-NODE_TYPES: tuple[str, ...] = (
+NODE_TYPES: list[str] = [
     "symbol",
     "clause",
     "literal",
     "term",
     "var",
     "goal",
-)
+]
 
 # Per node type: the cardinality of each categorical feature, in order.
 
-NODE_FEATURE_SIZES: dict[str, tuple[int, ...]] = {
+NODE_FEATURE_SIZES: dict[str, list[int]] = {
     # kind (predicate/function/constant), arity bucket
-    "symbol": (3, 5),
+    "symbol": [3, 5],
     # size bucket, role (axiom/conjecture/other), is_ground, is_start
-    "clause": (5, 3, 2, 2),
+    "clause": [5, 3, 2, 2],
 
     # polarity
-    "literal": (2,),
+    "literal": [2],
     # is_ground
-    "term": (2,),
+    "term": [2],
 
     # single dummy category: identity comes from edges alone
-    "var": (1,),
+    "var": [1],
     # is_open, depth bucket
-    "goal": (2, 8),
+    "goal": [2, 8],
 }
 
 # (name, source node type, destination node type, has positional feature)
 
-RELATIONS: tuple[tuple[str, str, str, bool], ...] = (
+RELATIONS: list[tuple[str, str, str, bool]] = [
     ("contains", "clause", "literal", False),
     ("atom", "literal", "term", False),
 
@@ -54,22 +54,22 @@ RELATIONS: tuple[tuple[str, str, str, bool], ...] = (
     ("instance_of", "goal", "literal", False),
     ("parent", "goal", "goal", False),
     ("path", "goal", "goal", False),
-)
+]
 
 ARG_POSITION_BUCKETS = 6
 
-ACTION_KINDS: tuple[str, ...] = (
+ACTION_KINDS: list[str] = [
     "start",
     "extension",
     "reduction",
     "factorization",
     "backtrack",
-)
+]
 
 # Target node type per action row; "none" means the kind embedding and the
 # source goal carry the whole description (backtrack).
 
-ACTION_TARGET_TYPES: tuple[str, ...] = ("none", "clause", "literal", "goal")
+ACTION_TARGET_TYPES: list[str] = ["none", "clause", "literal", "goal"]
 
 @dataclass(frozen = True, slots = True)
 class GraphInput:

@@ -162,8 +162,8 @@ _BUILTINS: dict[str, type[ModelPolicy]] = {
 }
 
 
-def builtin_model_policy_names() -> tuple[str, ...]:
-    return tuple(_BUILTINS)
+def builtin_model_policy_names() -> list[str]:
+    return list(_BUILTINS)
 
 
 def resolve_model_policy(specification: str) -> ModelPolicySelection:

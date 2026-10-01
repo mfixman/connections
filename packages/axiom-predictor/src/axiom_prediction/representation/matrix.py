@@ -74,7 +74,7 @@ class MatrixGraph:
     _term_index: dict[tuple[Any, ...], int] = field(default_factory = dict)
     _var_index: dict[tuple[int, Variable], int] = field(default_factory = dict)
 
-def matrix_graph(matrix: Matrix, start_clause_ids: tuple[int, ...]) -> MatrixGraph:
+def matrix_graph(matrix: Matrix, start_clause_ids: list[int] | tuple[int, ...]) -> MatrixGraph:
     key = (id(matrix), tuple(start_clause_ids))
     cached = _MATRIX_GRAPH_CACHE.get(key)
     if cached is not None and cached[0]() is matrix:

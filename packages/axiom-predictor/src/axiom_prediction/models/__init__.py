@@ -15,14 +15,12 @@ def __getattr__(name):
 
     raise AttributeError(name)
 
-def available_models() -> tuple[str, ...]:
-    return tuple(
-        sorted(
+def available_models() -> list[str]:
+    return sorted(
             p.stem
             for p in Path(__file__).parent.glob("*.py")
             if p.stem not in ("base", "__init__")
         )
-    )
 
 def load_model_class(name: str) -> type[AxiomPredictionNetwork]:
     from .base import AxiomPredictionNetwork

@@ -135,11 +135,11 @@ def test_dataset_training_uses_only_the_requested_split(tmp_path):
 
     examples, _, _ = load_axiom_dataset(dataset)
     split = next(
-        ProblemSplit(4, (part,))
+        ProblemSplit(4, [part])
         for part in range(4)
         if 0
         < len(
-            ProblemSplit(4, (part,)).select(
+            ProblemSplit(4, [part]).select(
                 [example.problem_path for example in examples]
             )
         )
@@ -191,10 +191,10 @@ def test_evaluate_scores_a_dataset_split_without_proof_search(
     train_part = next(
         part
         for part in range(4)
-        if 0 < len(ProblemSplit(4, (part,)).select(names)) < len(names)
+        if 0 < len(ProblemSplit(4, [part]).select(names)) < len(names)
     )
 
-    held_out = ProblemSplit(4, tuple(part for part in range(4) if part != train_part))
+    held_out = ProblemSplit(4, [part for part in range(4) if part != train_part])
     train_axiom_predictor(
         dataset = dataset,
         output_dir = tmp_path / "model",
@@ -206,7 +206,7 @@ def test_evaluate_scores_a_dataset_split_without_proof_search(
             device = "cpu",
         ),
         wandb_config = WandbConfig(enabled = False),
-        split = ProblemSplit(4, (train_part,)),
+        split = ProblemSplit(4, [train_part]),
     )
 
     monkeypatch.setattr(
@@ -228,14 +228,14 @@ def test_evaluate_scores_a_dataset_split_without_proof_search(
 
     assert metrics["problems_proved"] == len(held_out.select(names))
     assert metrics["split"] == held_out.to_dict()
-    assert metrics["training_split"] == ProblemSplit(4, (train_part,)).to_dict()
+    assert metrics["training_split"] == ProblemSplit(4, [train_part]).to_dict()
     assert "not held-out" not in capsys.readouterr().err
 
     evaluate_axiom_predictor(
         tmp_path / "model",
         dataset = dataset,
         device = "cpu",
-        split = ProblemSplit(4, (train_part,)),
+        split = ProblemSplit(4, [train_part]),
         wandb_config = WandbConfig(enabled = False),
     )
 

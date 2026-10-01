@@ -33,7 +33,7 @@ with --model or --data-dir and supply only problem paths.
 | `--model-name NAME` | train, evaluate, predict, run | Optional saved-run name: use DATA_DIR/models/NAME rather than DATA_DIR/model. Separate from the network implementation. Existing checkpoints require --resume. |
 | `--resume` | train | Continue the selected checkpoint, restoring optimizer and RNG state. Requires the same data and training configuration; --epochs is the total target, not additional epochs. Older checkpoints without training state cannot resume. |
 | `--tptp PATH` | All | Optional explicit corpus root. Otherwise discover it as described below. |
-| `--split N` | All | **1**. Partition by a stable hash of the complete filename, including .p but not its directory. |
+| `--split N` | All | **1**. Partition by a stable hash of the problem prefix, such as `ABC123`; variants stay together. |
 | `--parts P ...`, `--part P ...` | All | All parts. Select zero-based parts. Keep training/validation/test parts disjoint with the same N. |
 | `--evaluate PART ...` | train | Score these held-out parts during training, e.g. `--split 10 --parts 0 1 2 3 4 5 6 7 --evaluate 8`. Overlapping or empty evaluation selections fail. |
 | `--evaluate-every N` | train | **1**: evaluate every epoch. Positive N evaluates every N epochs after the first evaluation. Set 0 to measure evaluation cost and space evaluations to target 10% extra training time. First/final epochs always evaluate. |
@@ -181,8 +181,9 @@ results, without an `event` column. Final aggregate metrics are stored in
 otherwise; they are not rows in CSV or JSONL output.
 Collect emits its collection summary. Predict emits one row per axiom.
 Filter by `event` when processing streams with different record types.
-The `problem` field contains the filename without its directory or extension
-(e.g. `SYN001-1`). Full paths are retained in resume checkpoints.
+The `problem` field (and prediction output’s `problem_path`) contains the
+filename including its extension, without its directory (e.g. `SYN001-1.p`).
+Full paths are retained in resume checkpoints.
 Run's per-problem results include `part`, calculated using the active `--split`.
 Evaluate also emits `event=problem` rows containing `problem`, `part`, and
 per-problem metrics, including rows for skipped problems. The `outcome`
@@ -248,10 +249,10 @@ new run. Every epoch's checkpoint is retained locally; `model.pt` selects the
 latest epoch for prediction and resuming. W&B uploads the final model.
 These are prediction metrics, not guided proof-search success rates.
 
-Previously the split default grouped TPTP families. The current CLI always
-hashes the complete filename. Old checkpoint split metadata is retained
-for warnings, so a family-trained checkpoint is not reported as using a
-compatible filename split merely because the part numbers match.
+Splits always hash the problem prefix: `ABC123+1.p` and `ABC123-2.p`
+belong to the same part. Non-TPTP filenames use their name without the
+directory or extension. Evaluation warns about checkpoints using older
+split schemes, whose part assignments may differ.
 
 ## Parallel run and evaluate on one GPU
 

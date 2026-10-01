@@ -47,8 +47,8 @@ def test_evaluation_run_name_uses_checkpoint_network(tmp_path, tiny_problem_path
 def test_held_out_logging(tmp_path, tiny_problem_path, monkeypatch, interval, slow, expected):
     example, _ = collect_proof_example(str(tiny_problem_path), step_limit = 100)
     assert example is not None
-    split = ProblemSplit(10, tuple(range(8)))
-    held = ProblemSplit(10, (8,))
+    split = ProblemSplit(10, list(range(8)))
+    held = ProblemSplit(10, [8])
     names = [f"problem{i}.p" for i in range(100)]
     train_name = next(name for name in names if split.contains(name))
     eval_name = next(name for name in names if held.contains(name))
@@ -117,7 +117,7 @@ def test_evaluation_split_validation(tmp_path, monkeypatch):
     with pytest.raises(ValueError, match = "no evaluation examples"):
         training.train_axiom_predictor(
             dataset = tmp_path, output_dir = tmp_path / "model", config = config,
-            split = ProblemSplit(10, (0,)), evaluation_split = ProblemSplit(10, (8,)),
+            split = ProblemSplit(10, [0]), evaluation_split = ProblemSplit(10, [8]),
             wandb_config = WandbConfig(enabled = False),
         )
 
@@ -133,8 +133,8 @@ def test_evaluation_cli():
 def test_fresh_input_evaluation_without_wandb(tmp_path, tiny_problem_path, monkeypatch):
     example, _ = collect_proof_example(str(tiny_problem_path), step_limit = 100)
     assert example is not None
-    split = ProblemSplit(10, tuple(range(8)))
-    held = ProblemSplit(10, (8,))
+    split = ProblemSplit(10, list(range(8)))
+    held = ProblemSplit(10, [8])
     names = [f"problem{i}.p" for i in range(100)]
     train_name = next(name for name in names if split.contains(name))
     eval_name = next(name for name in names if held.contains(name))

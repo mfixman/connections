@@ -25,8 +25,8 @@ from .tptp import DEFAULT_STEP_LIMIT, DEFAULT_TIMEOUT_SECONDS, load_tptp_problem
 from .tptp import declared_tptp_status
 from .graph import UnsupportedAxiomProblem
 
-RUN_MODES = tuple(GuidanceMode)
-RUN_POLICIES = tuple(ProverPolicy)
+RUN_MODES = list(GuidanceMode)
+RUN_POLICIES = list(ProverPolicy)
 _NON_REFUTABLE = {
     "satisfiable": "DeclaredSatisfiable",
     "countersatisfiable": "DeclaredCounterSatisfiable",
@@ -175,11 +175,9 @@ def search_problem(problem, *, tptp_root, config):
             weights.update({i: 1.0 for i in loaded.conjecture_clause_ids})
             allowed = None
             if config.top_k is not None:
-                allowed = tuple(
-                    sorted(
-                        {p.clause_index for p in predictions if p.rank <= config.top_k}
-                        | set(loaded.conjecture_clause_ids)
-                    )
+                allowed = sorted(
+                    {p.clause_index for p in predictions if p.rank <= config.top_k}
+                    | set(loaded.conjecture_clause_ids)
                 )
 
             policy_class = {

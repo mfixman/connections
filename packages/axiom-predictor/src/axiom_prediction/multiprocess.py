@@ -218,10 +218,10 @@ class SharedPredictor:
             key = lambda item: (-item[1], item[0]),
         )
 
-        return tuple(
+        return [
             AxiomPrediction(index, str(matrix.clauses[index]), float(value), rank)
             for rank, (index, value) in enumerate(ranked, start = 1)
-        )
+        ]
 
 @lru_cache(maxsize = 1)
 def shared_predictor(address, key):

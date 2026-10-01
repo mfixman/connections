@@ -29,8 +29,8 @@ from axiom_prediction.representation.schema import (
     RELATIONS,
 )
 
-MATRIX_NODE_TYPES: tuple[str, ...] = ("symbol", "clause", "literal", "term", "var")
-MATRIX_RELATIONS: tuple[str, ...] = (
+MATRIX_NODE_TYPES: list[str] = ["symbol", "clause", "literal", "term", "var"]
+MATRIX_RELATIONS: list[str] = [
     "contains",
     "atom",
     "arg_term",
@@ -39,9 +39,9 @@ MATRIX_RELATIONS: tuple[str, ...] = (
     "sym",
     "lit_sym",
     "complement",
-)
+]
 
-TABLEAU_RELATIONS: tuple[str, ...] = ("instance_of", "parent", "path")
+TABLEAU_RELATIONS: list[str] = ["instance_of", "parent", "path"]
 
 @dataclass(frozen = True, slots = True)
 class GraphModelConfig:
@@ -149,7 +149,7 @@ class GraphNetwork(nn.Module):
     def edge_tensors(
         self,
         graph: GraphInput | GraphTensors,
-        names: tuple[str, ...],
+        names: list[str],
     ) -> list[tuple[str, str, str, torch.Tensor, torch.Tensor | None]]:
         by_name = {name: (src, dst, pos) for name, src, dst, pos in RELATIONS}
         tensors = []

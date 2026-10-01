@@ -28,17 +28,17 @@ class ModelLiteral:
 
 @dataclass(frozen=True, slots=True)
 class ModelClause:
-    literals: tuple[ModelLiteral, ...]
-    variables: tuple[Variable, ...]
+    literals: list[ModelLiteral]
+    variables: list[Variable]
     source: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
 class ModelProblem:
     path: str
-    statements: tuple[StmtFormula, ...]
-    clauses: tuple[ModelClause, ...]
-    asserted_formulas: tuple[Formula, ...]
+    statements: list[StmtFormula]
+    clauses: list[ModelClause]
+    asserted_formulas: list[Formula]
     conjecture_formula: Formula | None
     result_status: str
     function_signatures: Mapping[str, int]
@@ -68,8 +68,8 @@ class FiniteModel:
             raise ValueError("a finite model domain must be non-empty")
 
     @property
-    def domain(self) -> tuple[int, ...]:
-        return tuple(range(self.domain_size))
+    def domain(self) -> list[int]:
+        return list(range(self.domain_size))
 
     def restricted_to(self, problem: ModelProblem) -> "FiniteModel":
         return FiniteModel(
@@ -191,7 +191,7 @@ class ModelSearchResult:
     elapsed_seconds: float
     model: FiniteModel | None = None
     tptp_model: str | None = None
-    events: tuple[ModelSearchEvent, ...] = ()
+    events: list[ModelSearchEvent] = field(default_factory=list)
     error_type: str | None = None
     error_message: str | None = None
 

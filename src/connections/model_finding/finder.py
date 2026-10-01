@@ -91,7 +91,7 @@ class ModelFinder:
                         solved=False,
                         steps=active_budget.steps,
                         elapsed_seconds=active_budget.elapsed_seconds,
-                        events=tuple(events),
+                        events=list(events),
                         error_type="ModelValidationError",
                         error_message=str(exc),
                     )
@@ -106,7 +106,7 @@ class ModelFinder:
                     elapsed_seconds=active_budget.elapsed_seconds,
                     model=public_model,
                     tptp_model=render_tptp_model(public_model),
-                    events=tuple(events),
+                    events=list(events),
                 )
         except ModelSearchTimeout:
             return self._limited_result(
@@ -138,7 +138,7 @@ class ModelFinder:
             solved=False,
             steps=budget.steps,
             elapsed_seconds=budget.elapsed_seconds,
-            events=tuple(events),
+            events=list(events),
         )
 
 

@@ -481,7 +481,7 @@ def load_axiom_dataset(
     if root.is_file():
         return load_axiom_dataset_shards((root,), dataset_path = root)
 
-    shards = tuple(sorted(root.glob("*.jsonl")))
+    shards = sorted(root.glob("*.jsonl"))
     if shards:
         if (root / "metadata.json").exists() or (root / "examples").exists():
             raise ValueError(

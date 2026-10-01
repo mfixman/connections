@@ -4,7 +4,7 @@ from dataclasses import replace
 
 from .representation.schema import GraphInput
 
-GRAPH_INPUTS = tuple(GraphInputKind)
+GRAPH_INPUTS = list(GraphInputKind)
 
 def select_graph_input(graph: GraphInput, kind: str) -> GraphInput:
     kind = GraphInputKind(kind)

@@ -107,7 +107,7 @@ def build_parser() -> argparse.ArgumentParser:
     train.add_argument(
         "--policy",
         type = ProverPolicy,
-        choices = tuple(ProverPolicy),
+        choices = list(ProverPolicy),
         help = "label collection policy; defaults to dataset provenance or satresetcop",
     )
 
@@ -144,7 +144,7 @@ def build_parser() -> argparse.ArgumentParser:
     collect.add_argument(
         "--policy",
         type = ProverPolicy,
-        choices = tuple(ProverPolicy),
+        choices = list(ProverPolicy),
         default = ProverPolicy.SatResetCoP,
     )
 
@@ -198,7 +198,7 @@ def build_parser() -> argparse.ArgumentParser:
     evaluate.add_argument(
         "--policy",
         type = ProverPolicy,
-        choices = tuple(ProverPolicy),
+        choices = list(ProverPolicy),
         help = "inherit checkpoint policy; dataset and explicit policy must agree",
     )
 
@@ -233,7 +233,7 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument(
         "--policy",
         type = ProverPolicy,
-        choices = tuple(ProverPolicy),
+        choices = list(ProverPolicy),
         help = "checkpoint's training policy, or SatResetCoP for unguided search",
     )
 
@@ -402,13 +402,13 @@ def execute_command(args: argparse.Namespace) -> int:
             problems, dataset = training_request(args)
             evaluation_split = None if args.evaluate is None else ProblemSplit(
                 args.split,
-                tuple(args.evaluate),
+                list(args.evaluate),
             )
 
             evaluation_problems = None
             if evaluation_split is not None and dataset is None:
                 evaluation_problems = evaluation_split.select(
-                    expand_problem_inputs(tuple(args.problems), tptp_root = args.tptp)
+                    expand_problem_inputs(args.problems, tptp_root = args.tptp)
                 )
 
             args.data_dir.mkdir(parents = True, exist_ok = True)
@@ -683,16 +683,16 @@ def run_model(args: argparse.Namespace) -> Path | None:
     return model_directory(args.data_dir, args.model_name)
 
 def selected_split(args: argparse.Namespace) -> ProblemSplit:
-    parts = tuple(range(args.split)) if args.parts is None else tuple(args.parts)
+    parts = list(range(args.split)) if args.parts is None else list(args.parts)
     return ProblemSplit(args.split, parts)
 
-def selected_problems(args: argparse.Namespace) -> tuple[str, ...]:
+def selected_problems(args: argparse.Namespace) -> list[str]:
     from .tptp import expand_problem_inputs, tptp_problems
 
     split = selected_split(args)
     log("discovering problem files and selecting split")
     problems = (
-        expand_problem_inputs(tuple(args.problems), tptp_root = args.tptp)
+        expand_problem_inputs(args.problems, tptp_root = args.tptp)
         if args.problems
         else tptp_problems(tptp_root = args.tptp)
     )
@@ -707,12 +707,12 @@ def selected_problems(args: argparse.Namespace) -> tuple[str, ...]:
 
     return selected
 
-def training_request(args: argparse.Namespace) -> tuple[tuple[str, ...], Path | None]:
+def training_request(args: argparse.Namespace) -> tuple[list[str], Path | None]:
     if args.dataset is not None and args.problems:
         raise ValueError("train takes either --dataset or PROBLEM inputs, not both")
 
     if not args.problems:
-        return (), selected_dataset(args)
+        return [], selected_dataset(args)
 
     return selected_problems(args), None
 
@@ -772,7 +772,7 @@ def add_split_arguments(parser: argparse.ArgumentParser):
         type = positive_int,
         default = 1,
         metavar = "N",
-        help = "partition problems into N parts by a stable hash of their complete filename (including .p)",
+        help = "partition problems into N parts by a stable hash of their problem prefix (e.g. ABC123)",
     )
 
     parser.add_argument(
@@ -826,7 +826,7 @@ def wandb_config(args: argparse.Namespace) -> WandbConfig:
             getattr(args, "data_dir", None),
             getattr(args, "model_name", None),
         ),
-        tags = () if getattr(args, "model_name", None) is None else (args.model_name,),
+        tags = [] if getattr(args, "model_name", None) is None else [args.model_name],
     )
 
 def wandb_name_prefix(

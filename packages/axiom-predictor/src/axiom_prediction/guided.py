@@ -32,7 +32,7 @@ class _AxiomGuided(SATCoPCon):
         mode: str = GuidanceMode.Weighted,
         temperature: float = 1.0,
 
-        allowed_clause_ids: tuple[int, ...] | None = None,
+        allowed_clause_ids: list[int] | None = None,
         matrix_digest: str | None = None,
         **kwargs,
     ):

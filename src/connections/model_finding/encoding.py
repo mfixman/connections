@@ -12,7 +12,7 @@ from connections.syntax.formula import Atom, Eq, Term, Variable
 
 GroundInstance = tuple[int, tuple[int, ...]]
 TruthLiteral = int | bool
-ValueVector = tuple[TruthLiteral, ...]
+ValueVector = list[TruthLiteral]
 
 
 class FixedDomainEncoding:
@@ -30,7 +30,7 @@ class FixedDomainEncoding:
             raise ValueError("domain_size must be positive")
         self.problem = problem
         self.domain_size = domain_size
-        self.domain = tuple(range(domain_size))
+        self.domain = list(range(domain_size))
         self.budget = budget
         self.solver: Any = pydical.Solver()
         if hasattr(self.solver, "set"):
@@ -172,21 +172,22 @@ class FixedDomainEncoding:
     ) -> ValueVector:
         if isinstance(term, Variable):
             value = assignment[term]
-            return tuple(index == value for index in self.domain)
+            return [index == value for index in self.domain]
         key = _ground_term_key(term, assignment)
         cached = self._term_values.get(key)
         if cached is not None:
             return cached
         if not term.args:
-            result = tuple(
-                self.function_variables[(term.symbol, (), output)] for output in self.domain
-            )
+            result = [
+                self.function_variables[(term.symbol, (), output)]
+                for output in self.domain
+            ]
             self._term_values[key] = result
             return result
 
-        argument_vectors = tuple(self._term_value_vector(arg, assignment) for arg in term.args)
-        result = tuple(self.new_variable() for _ in self.domain)
-        self._exactly_one(list(result))
+        argument_vectors = [self._term_value_vector(arg, assignment) for arg in term.args]
+        result = [self.new_variable() for _ in self.domain]
+        self._exactly_one(result)
         for arguments in product(self.domain, repeat=len(term.args)):
             condition = _condition(argument_vectors, arguments)
             if condition is None:
@@ -217,29 +218,29 @@ class FixedDomainEncoding:
                 result: TruthLiteral = self.predicate_variables[(atom.symbol, ())]
                 self._atom_variables[key] = result
                 return result
-            vectors = tuple(self._term_value_vector(term, assignment) for term in atom.args)
+            vectors = [self._term_value_vector(term, assignment) for term in atom.args]
             result = self.new_variable()
             for arguments in product(self.domain, repeat=len(atom.args)):
                 condition = _condition(vectors, arguments)
                 if condition is None:
                     continue
                 predicate = self.predicate_variables[(atom.symbol, arguments)]
-                prefix = tuple(-literal for literal in condition)
+                prefix = [-literal for literal in condition]
                 self.add_clause((*prefix, -result, predicate))
                 self.add_clause((*prefix, result, -predicate))
             self._atom_variables[key] = result
             return result
 
-        vectors = (
+        vectors = [
             self._term_value_vector(atom.left, assignment),
             self._term_value_vector(atom.right, assignment),
-        )
+        ]
         result = self.new_variable()
         for values in product(self.domain, repeat=2):
             condition = _condition(vectors, values)
             if condition is None:
                 continue
-            prefix = tuple(-literal for literal in condition)
+            prefix = [-literal for literal in condition]
             self.add_clause((*prefix, result if values[0] == values[1] else -result))
         self._atom_variables[key] = result
         return result
@@ -285,7 +286,7 @@ def evaluate_term(
     return model.functions[term.symbol][arguments]
 
 
-def _condition(vectors: tuple[ValueVector, ...], values: tuple[int, ...]) -> tuple[int, ...] | None:
+def _condition(vectors: list[ValueVector], values: tuple[int, ...]) -> list[int] | None:
     literals: list[int] = []
     for vector, value in zip(vectors, values, strict=True):
         truth = vector[value]
@@ -293,7 +294,7 @@ def _condition(vectors: tuple[ValueVector, ...], values: tuple[int, ...]) -> tup
             return None
         if truth is not True:
             literals.append(truth)
-    return tuple(literals)
+    return literals
 
 
 def _ground_term_key(term: Term, assignment: Mapping[Variable, int]) -> object:

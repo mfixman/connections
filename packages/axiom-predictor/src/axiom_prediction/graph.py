@@ -18,9 +18,9 @@ def validate_clause_ids(
     *,
     axiom_clause_ids: tuple[int, ...] | list[int],
     conjecture_clause_ids: tuple[int, ...] | list[int],
-) -> tuple[tuple[int, ...], tuple[int, ...]]:
-    axs = tuple(axiom_clause_ids)
-    conjs = tuple(conjecture_clause_ids)
+) -> tuple[list[int], list[int]]:
+    axs = list(axiom_clause_ids)
+    conjs = list(conjecture_clause_ids)
     if not axs:
         raise UnsupportedAxiomProblem("axiom_clause_ids must be nonempty")
 
@@ -46,8 +46,8 @@ def validate_clause_ids(
 @dataclass(frozen = True, slots = True)
 class AxiomGraph:
     graph: GraphInput
-    axiom_clause_ids: tuple[int, ...]
-    conjecture_clause_ids: tuple[int, ...]
+    axiom_clause_ids: list[int]
+    conjecture_clause_ids: list[int]
 
 def build_axiom_graph(
     matrix: Matrix,
@@ -92,10 +92,10 @@ class AxiomGraphBatch:
     conjecture_batch: torch.Tensor
 
     labels: torch.Tensor | None
-    axiom_counts: tuple[int, ...]
+    axiom_counts: list[int]
 
 def collate_axiom_graphs(
-    examples: list[tuple[AxiomGraph, tuple[float, ...] | None]]
+    examples: list[tuple[AxiomGraph, list[float] | None]]
 ) -> AxiomGraphBatch:
     import torch
 
@@ -168,7 +168,7 @@ def collate_axiom_graphs(
         conjecture_batch = torch.tensor(conjecture_batch, dtype = torch.long),
 
         labels = torch.tensor(labels, dtype = torch.float32) if label_mode else None,
-        axiom_counts = tuple(counts),
+        axiom_counts = counts,
     )
 
 __all__ = [
