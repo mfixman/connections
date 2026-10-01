@@ -31,6 +31,7 @@ The available names appear in both top-level and training `--help`.
 | Small | SmallFull | SmallNoComplements | SmallNoTerms | 32 / 2 / 1 |
 | Default | DefaultFull | DefaultNoComplements | DefaultNoTerms | 64 / 3 / 2 |
 | Large | LargeFull | LargeNoComplements | LargeNoTerms | 128 / 4 / 3 |
+| Extra large | ExtraLargeFull | — | — | 256 / 5 / 4 |
 
 All use ReLU. `DefaultFull` is the original network and the default choice.
 The input variants retain axioms, conjectures, and pooled scoring contexts.
