@@ -71,6 +71,14 @@ def test_flag_is_only_for_run_and_evaluate():
         with pytest.raises(SystemExit):
             parser.parse_args([command, "--multiprocess"])
 
+def test_cpu_flag_selects_cpu_for_parallel_commands():
+    parser = build_parser()
+    for command in ("run", "evaluate"):
+        args = parser.parse_args([command, "--cpu", "--multiprocess"])
+        assert args.device == "cpu"
+        with pytest.raises(SystemExit):
+            parser.parse_args([command, "--cpu", "--device", "cuda"])
+
 @pytest.mark.parametrize(
     "device",
     [

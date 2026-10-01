@@ -315,10 +315,18 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 def add_device_argument(parser):
-    parser.add_argument(
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument(
         "--device",
         default = "cuda",
         help = "cuda/cuda:N requires a GPU; auto selects CUDA if available and CPU otherwise; cpu forces CPU",
+    )
+    group.add_argument(
+        "--cpu",
+        dest = "device",
+        action = "store_const",
+        const = "cpu",
+        help = "run model inference on CPU",
     )
 
 @monitor_progress()
