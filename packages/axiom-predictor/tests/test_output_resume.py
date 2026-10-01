@@ -177,7 +177,7 @@ def test_evaluate_cli_resumes_after_interrupted_collection(tmp_path, tiny_proble
 
 
 @pytest.mark.parametrize('existing_csv', [False, True])
-def test_format_mismatch_fails_without_changing_existing_file(tmp_path, existing_csv):
+def test_format_mismatch_fails_without_changing_existing_file(tmp_path, existing_csv, capsys):
     path = tmp_path / 'results'
     first = open_journal(path, use_csv=existing_csv)
     first.write({'problem': 'a.p', 'proved': True, 'seconds': 1.0})
@@ -186,3 +186,22 @@ def test_format_mismatch_fails_without_changing_existing_file(tmp_path, existing
     with pytest.raises(ValueError, match='JSONL.*CSV|CSV.*JSONL'):
         open_journal(path, use_csv=not existing_csv)
     assert path.read_bytes() == original
+
+    from axiom_prediction.cli import main
+    args = ['run', '--output', str(path)] + ([] if existing_csv else ['--csv'])
+    assert main(args) == 2
+    assert path.read_bytes() == original
+    error = capsys.readouterr().err
+    assert 'JSONL' in error and 'CSV' in error
+
+
+def test_partial_csv_header_can_resume(tmp_path):
+    path = tmp_path / 'results'
+    path.write_text('event,problem,part,out')
+    journal = open_journal(path, use_csv=True)
+    journal.write({'problem': 'a.p', 'proved': True})
+    journal.close()
+    with path.open() as stream:
+        rows = list(csv.DictReader(stream))
+    assert len(rows) == 1
+    assert rows[0]['problem'] == 'a.p'
