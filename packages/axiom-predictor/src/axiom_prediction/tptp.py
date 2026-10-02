@@ -13,6 +13,7 @@ from connections.interaction.run import Problem, run_schedule
 from connections.interaction.szs import SUCCESS
 from connections.interaction.strategy import MatrixOptions, PolicyOptions, Strategy, StrategySchedule
 from connections.syntax.matrix import Matrix
+from connections.recursion import deep_recursion
 
 from .data import AxiomTrainingExample, sat_core_clause_ids, training_example_from_sat_core
 
@@ -246,6 +247,7 @@ def tptp_problems(*, tptp_root: str | Path | None = None) -> list[str]:
 
     return problems
 
+@deep_recursion()
 @collection_budget
 def collect_proof_example(
     problem: str | Path,
