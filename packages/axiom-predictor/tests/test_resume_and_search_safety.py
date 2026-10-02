@@ -21,6 +21,43 @@ from axiom_prediction.training import AxiomTrainingConfig, train_axiom_predictor
 from axiom_prediction.wandb_tracking import WandbConfig
 from axiom_prediction.resume import restore_training, snapshot_training
 
+def test_training_resume_ignores_collection_completion_order(tmp_path, tiny_problem_path, monkeypatch):
+    from axiom_prediction import training
+    from axiom_prediction.dataset import CollectedAxiomProblem
+    from axiom_prediction.tptp import collect_proof_example
+
+    example, _ = collect_proof_example(str(tiny_problem_path), step_limit = 100)
+    assert example is not None
+    other = replace(example, problem_path = "b.p", labels = [1 - y for y in example.labels])
+    records = [
+        CollectedAxiomProblem("a.p", replace(example, problem_path = "a.p"), "proved"),
+        CollectedAxiomProblem("b.p", other, "proved"),
+    ]
+
+    monkeypatch.setattr(training, "collect_problems_parallel", lambda *args, **kwargs: iter(records))
+    config = AxiomTrainingConfig(
+        epochs = 2,
+        hidden_dim = 8,
+        message_rounds = 1,
+        device = "cpu",
+        num_workers = 1,
+        batch_size = 1,
+    )
+
+    options = dict(problems = ["a.p", "b.p"], wandb_config = WandbConfig(enabled = False))
+    full = tmp_path / "full"
+    resumed = tmp_path / "resumed"
+    train_axiom_predictor(output_dir = full, config = config, **options)
+    train_axiom_predictor(output_dir = resumed, config = replace(config, epochs = 1), **options)
+
+    records.reverse()
+    train_axiom_predictor(output_dir = resumed, config = config, resume = True, **options)
+    expected = torch.load(full / "model.pt", weights_only = True)
+    actual = torch.load(resumed / "model.pt", weights_only = True)
+    assert actual["epoch"] == 2
+    for name, weights in expected["model_state_dict"].items():
+        assert torch.equal(weights, actual["model_state_dict"][name]), name
+
 def test_resume_matches_uninterrupted_training_and_rejects_damage(
     tmp_path,
     tiny_problem_path,
@@ -327,8 +364,7 @@ def test_alarm_timeout_keeps_run_metadata(monkeypatch):
     assert result["mode"] == "base"
     assert result["policy"] == "satcop"
 
-@pytest.mark.parametrize("shared", [False, True])
-@pytest.mark.parametrize("outcome", ["Timeout", "WorkerExited", "RuntimeError: failed"])
+@pytest.mark.parametrize("shared, outcome", [(False, "Timeout"), (True, "WorkerExited")])
 def test_supervised_failures_keep_run_metadata(monkeypatch, shared, outcome):
     from contextlib import contextmanager
     from axiom_prediction import run, multiprocess

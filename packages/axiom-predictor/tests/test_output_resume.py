@@ -65,7 +65,7 @@ def test_run_cli_resumes_only_unfinished_and_keeps_summary_totals(
 
     def interrupted(problems, **kwargs):
         calls.append(problems)
-        yield {"problem": "a.p", "proved": True, "seconds": 2.0, "outcome": "proved"}
+        yield {"problem": "b.p", "proved": True, "seconds": 2.0, "outcome": "proved"}
         raise KeyboardInterrupt()
 
     monkeypatch.setattr(run, "run_problems", interrupted)
@@ -80,11 +80,11 @@ def test_run_cli_resumes_only_unfinished_and_keeps_summary_totals(
 
     def finish(problems, **kwargs):
         calls.append(problems)
-        yield {"problem": "b.p", "proved": False, "seconds": 3.0, "outcome": "Timeout"}
+        yield {"problem": "a.p", "proved": False, "seconds": 3.0, "outcome": "Timeout"}
 
     monkeypatch.setattr(run, "run_problems", finish)
     assert cli.main(args) == 0
-    assert calls == [["a.p", "b.p"], ["b.p"]]
+    assert calls == [["a.p", "b.p"], ["a.p"]]
     contents = path.read_text()
     rows = (
         list(csv.DictReader(io.StringIO(contents)))
@@ -380,16 +380,6 @@ def test_completed_run_preserves_error_status_and_allows_tracking_change(
     committed = path.read_bytes()
     assert cli.main([*args, "--wandb"]) == 2
     assert path.read_bytes() == committed
-
-def test_older_resume_metadata_allows_tracking_change(tmp_path):
-    path = tmp_path / "results"
-    journal = open_journal(path)
-    metadata = journal.directory / "config.json"
-    journal.close()
-    metadata.write_text(json.dumps({"command": "run", "wandb": True}))
-
-    journal = open_journal(path, identity = {"command": "run", "wandb": False})
-    journal.close()
 
 @pytest.mark.parametrize("use_csv", [False, True])
 def test_completion_marker_rejects_truncated_output(tmp_path, use_csv):

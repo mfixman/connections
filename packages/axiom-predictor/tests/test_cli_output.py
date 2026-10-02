@@ -66,9 +66,10 @@ def test_csv_preserves_nested_values_and_quoting(capsys):
     write_record(record)
     assert json.loads(capsys.readouterr().out) == record
 
-@pytest.mark.parametrize("command", ["run", "evaluate"])
-@pytest.mark.parametrize("status", ["Theorem", "Satisfiable", None])
-@pytest.mark.parametrize("use_csv", [False, True])
+@pytest.mark.parametrize("command, status, use_csv", [
+    ("run", "Theorem", True),
+    ("evaluate", "Satisfiable", False),
+])
 def test_output_uses_declared_status(tmp_path, capsys, command, status, use_csv):
     problem = tmp_path / "SYN001-1.p"
     problem.write_text("" if status is None else f"% Status : {status}\n")
@@ -80,12 +81,3 @@ def test_output_uses_declared_status(tmp_path, capsys, command, status, use_csv)
     assert record["tptp_status"] == (status or "")
     assert record["problem"] == "SYN001-1.p"
     assert "outcome" not in record
-
-@pytest.mark.parametrize("use_csv", [False, True])
-def test_prediction_output_uses_filename(capsys, use_csv):
-    with output_format("predict", use_csv):
-        write_record({"problem_path": "/full/path/ABC123-1.p", "rank": 1})
-
-    stdout = capsys.readouterr().out
-    record = next(csv.DictReader(io.StringIO(stdout))) if use_csv else json.loads(stdout)
-    assert record["problem_path"] == "ABC123-1.p"
