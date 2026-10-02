@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import sys
 from typing import Any
 from types import SimpleNamespace
@@ -14,7 +15,7 @@ from axiom_prediction.wandb_tracking import WandbConfig, WandbTracker
 pytestmark = pytest.mark.training
 
 @pytest.mark.parametrize("run_name", [None, "my-training-job"])
-def test_training_names_follow_model_and_resume_count(tmp_path, tiny_problem_path, monkeypatch, run_name):
+def test_training_resumes_saved_wandb_run(tmp_path, tiny_problem_path, monkeypatch, run_name):
     run = _FakeRun()
     init_arguments = {}
     monkeypatch.setitem(sys.modules, "wandb", fake_wandb(run, init_arguments))
@@ -34,12 +35,58 @@ def test_training_names_follow_model_and_resume_count(tmp_path, tiny_problem_pat
             resume = count > 1,
         )
 
-        expected = "DefaultNoTerms" if count == 1 else f"DefaultNoTerms-{count}"
-        assert init_arguments["name"] == (run_name or expected)
+        expected = (run_name or "DefaultNoTerms") if count == 1 else None
+        assert init_arguments["name"] == expected
         assert init_arguments["config"]["run_count"] == count
+        identity = json.loads((tmp_path / "wandb-run.json").read_text())
+        assert init_arguments["id"] == identity["id"]
+        assert init_arguments["resume"] == "allow"
 
         if count == 1:
+            initial_id = identity["id"]
             (tmp_path / "training_runs.json").unlink()
+        else:
+            assert identity["id"] == initial_id
+
+def test_failed_wandb_start_retains_identity_for_retry(tmp_path, monkeypatch):
+    run = _FakeRun()
+    arguments = {}
+    module = fake_wandb(run, arguments)
+    monkeypatch.setitem(sys.modules, "wandb", module)
+    monkeypatch.setenv("WANDB_API_KEY", "test-key")
+    initialize = module.init
+
+    def fail(**kwargs):
+        raise RuntimeError("connection interrupted")
+
+    module.init = fail
+    assert WandbTracker.start(WandbConfig(), job_type = "train", run_config = {}, output_dir = tmp_path) is None
+    identity = json.loads((tmp_path / "wandb-run.json").read_text())
+    module.init = initialize
+    tracker = WandbTracker.start(WandbConfig(), job_type = "train", run_config = {}, output_dir = tmp_path, resume = True)
+    assert tracker is not None
+    assert arguments["id"] == identity["id"]
+
+def test_resume_rejects_different_wandb_project(tmp_path, monkeypatch):
+    run = _FakeRun()
+    arguments = {}
+    monkeypatch.setitem(sys.modules, "wandb", fake_wandb(run, arguments))
+    monkeypatch.setenv("WANDB_API_KEY", "test-key")
+    WandbTracker.start(WandbConfig(), job_type = "train", run_config = {}, output_dir = tmp_path)
+    arguments.clear()
+    with pytest.raises(ValueError, match = "different project or command"):
+        WandbTracker.start(WandbConfig(project = "other"), job_type = "train", run_config = {}, output_dir = tmp_path, resume = True)
+
+    assert not arguments
+
+def test_resumed_best_evaluation_keeps_previous_peak():
+    run = _FakeRun()
+    run.summary.update({"evaluation/best_macro_average_precision": 0.8, "evaluation/best_epoch": 3})
+    tracker = WandbTracker(fake_wandb(run, {}), run)
+    tracker.log_epoch(4, loss = 0.1, evaluation = {"macro_average_precision": 0.5})
+    assert run.summary["evaluation/best_epoch"] == 3
+    tracker.log_epoch(5, loss = 0.1, evaluation = {"macro_average_precision": 0.9})
+    assert run.summary["evaluation/best_epoch"] == 5
 
 def test_best_evaluation_retains_peak_and_first_epoch_on_ties():
     run = _FakeRun()

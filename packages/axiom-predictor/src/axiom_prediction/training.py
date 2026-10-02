@@ -320,6 +320,7 @@ def train_axiom_predictor(
             "cli_arguments": dict(run_properties or {}),
         },
         output_dir = output,
+        resume = resume,
     )
 
     try:
@@ -719,6 +720,8 @@ def evaluate_axiom_predictor(
             "problems": problem_list,
             "cli_arguments": dict(run_properties or {}),
         },
+        output_dir = None if resume is None else resume.directory,
+        resume = resume is not None,
     )
 
     try:
