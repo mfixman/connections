@@ -622,6 +622,8 @@ def run_command(args: argparse.Namespace) -> int:
             "problems": list(problems),
             "cli_arguments": cli_properties(args),
         },
+        output_dir = None if session is None else session.directory,
+        resume = session is not None,
     )
 
     proved = sum(bool(row.get("proved")) for row in results)

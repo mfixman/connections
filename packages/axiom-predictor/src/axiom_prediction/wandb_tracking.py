@@ -2,18 +2,43 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 import importlib
+import json
 import os
 from pathlib import Path
 from typing import Any
+import uuid
 
 from .data import AxiomTrainingExample
 from .logs import log
+from .io import write_json_atomic
 from .metrics import prediction_metrics
 from .split import ProblemSplit
 
 DEFAULT_WANDB_ENTITY = "mfixman-phd-team"
 DEFAULT_WANDB_PROJECT = "axiom-prediction"
 SERVICE_WAIT_SECONDS = 300
+
+def run_identity(config, job_type, output_dir, resume):
+    if output_dir is None:
+        return None, False
+
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents = True, exist_ok = True)
+    path = output_dir / "wandb-run.json"
+    expected = dict(entity = config.entity, project = config.project, job_type = job_type)
+    if resume and path.is_file():
+        identity = json.loads(path.read_text(encoding = "utf-8"))
+        if any(identity.get(key) != value for key, value in expected.items()):
+            raise ValueError(f"saved W&B run belongs to a different project or command: {path}")
+
+        if not isinstance(identity.get("id"), str) or not identity["id"]:
+            raise ValueError(f"saved W&B run has no valid ID: {path}")
+
+        return identity, True
+
+    identity = {**expected, "id": uuid.uuid4().hex[:8]}
+    write_json_atomic(path, identity)
+    return identity, False
 
 @dataclass(frozen = True, slots = True)
 class WandbConfig:
@@ -32,7 +57,7 @@ class WandbTracker:
     def __init__(self, module: Any, run: Any):
         self.wandb = module
         self.run = run
-        self.best_evaluation = None
+        self.best_evaluation = run.summary.get("evaluation/best_macro_average_precision")
 
     @classmethod
     def start(
@@ -42,6 +67,7 @@ class WandbTracker:
         job_type: str,
         run_config: dict[str, Any],
         output_dir: Path | None = None,
+        resume: bool = False,
     ) -> "WandbTracker | None":
         if config.enabled is False:
             return None
@@ -79,6 +105,8 @@ class WandbTracker:
                 log(f"warning: W&B disabled because its key file is empty: {key_path}")
                 return None
 
+        identity, resuming = run_identity(config, job_type, output_dir, resume)
+        run_arguments = {} if identity is None else dict(id = identity["id"], resume = "allow")
         try:
             log(f"starting W&B {job_type} run {config.name or '(automatic name)'}")
             if file_key is not None:
@@ -87,13 +115,14 @@ class WandbTracker:
             run = wandb.init(
                 entity = config.entity,
                 project = config.project,
-                name = config.name,
+                name = None if resuming else config.name,
                 group = config.group,
                 tags = list(config.tags) or None,
 
                 job_type = job_type,
                 config = run_config,
                 dir = None if output_dir is None else str(output_dir),
+                **run_arguments,
             )
 
             if run is None:
@@ -107,7 +136,7 @@ class WandbTracker:
             return None
 
         name = getattr(run, "name", None)
-        if not config.name and config.name_prefix and name and not name.startswith(config.name_prefix):
+        if not resuming and not config.name and config.name_prefix and name and not name.startswith(config.name_prefix):
             try:
                 run.name = f"{config.name_prefix}-{name}"
             except Exception as error:
