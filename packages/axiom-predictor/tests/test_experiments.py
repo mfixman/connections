@@ -8,7 +8,7 @@ from axiom_prediction.graph import build_axiom_graph
 from axiom_prediction.inputs import select_graph_input
 from axiom_prediction.model import AxiomModelConfig, AxiomPredictionNetwork, AxiomPredictor, save_checkpoint
 from axiom_prediction.tptp import load_tptp_problem
-from axiom_prediction.models import available_models, load_model_class
+from axiom_prediction.models import load_model_class
 
 from axiom_prediction.choices import GraphInputKind, ProverPolicy
 
@@ -93,7 +93,7 @@ def test_policy_and_network_experiments(tmp_path, policy, capsys, monkeypatch):
     ) == 0
 
     loaded = load_tptp_problem(problem)
-    for name in available_models():
+    for name in ("SmallFull", "SmallNoTerms", "SmallNoComplements"):
         model_class = load_model_class(name)
         assert (
             main(

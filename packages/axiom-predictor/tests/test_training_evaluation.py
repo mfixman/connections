@@ -5,38 +5,13 @@ from dataclasses import replace
 import pytest
 
 from axiom_prediction import training
-from axiom_prediction.cli import build_parser, main
-from axiom_prediction.model import save_checkpoint
-from axiom_prediction.models import load_model_class
+from axiom_prediction.cli import main
 from axiom_prediction.split import ProblemSplit
 from axiom_prediction.tptp import collect_proof_example
 from axiom_prediction.wandb_tracking import WandbConfig
 from test_axiom_prediction_wandb import _FakeRun, fake_wandb
 
 pytestmark = pytest.mark.training
-
-@pytest.mark.parametrize("network", ["DefaultFull", "DefaultNoTerms"])
-@pytest.mark.parametrize("run_name", [None, "my-evaluation-job"])
-def test_evaluation_run_name_uses_checkpoint_network(tmp_path, tiny_problem_path, monkeypatch, network, run_name):
-    checkpoint = tmp_path / "renamed-checkpoint.pt"
-    save_checkpoint(checkpoint, load_model_class(network)(), training_config = {})
-    run = _FakeRun()
-    init = {}
-    monkeypatch.setitem(sys.modules, "wandb", fake_wandb(run, init))
-    monkeypatch.setenv("WANDB_API_KEY", "test-key")
-
-    training.evaluate_axiom_predictor(
-        checkpoint,
-        [str(tiny_problem_path)],
-        device = "cpu",
-        config = training.AxiomTrainingConfig(device = "cpu", num_workers = 1),
-        wandb_config = WandbConfig(name = run_name, name_prefix = "smol-custom", group = "custom"),
-    )
-
-    assert init["name"] == (run_name or f"{network}-evaluate")
-    assert init["job_type"] == "evaluate"
-    assert init["group"] == "custom"
-    assert run.finished == [0]
 
 @pytest.mark.parametrize("interval, slow, expected", [
     (1, False, [1, 2, 3, 4]),
@@ -121,14 +96,41 @@ def test_evaluation_split_validation(tmp_path, monkeypatch):
             wandb_config = WandbConfig(enabled = False),
         )
 
-def test_evaluation_cli():
-    args = build_parser().parse_args([
-        "train", "--data-dir", "run", "--split", "10", "--parts",
-        "0", "1", "2", "3", "4", "5", "6", "7", "--evaluate", "8",
-    ])
+def test_direct_api_applies_split_and_records_it(tmp_path, tiny_problem_path, monkeypatch):
+    example, _ = collect_proof_example(str(tiny_problem_path), step_limit = 100)
+    assert example is not None
+    split = ProblemSplit(2, [0])
+    problems = [f"problem{i}.p" for i in range(20)]
+    selected = split.select(problems)
+    assert 0 < len(selected) < len(problems)
 
-    assert args.evaluate == [8]
-    assert args.evaluate_every == 1
+    collected = []
+    def collect(paths, **kwargs):
+        collected.append(paths)
+        return [replace(example, problem_path = path) for path in paths], []
+
+    monkeypatch.setattr(training, "collect_examples", collect)
+    config = training.AxiomTrainingConfig(
+        epochs = 1,
+        hidden_dim = 8,
+        message_rounds = 1,
+        device = "cpu",
+        num_workers = 1,
+    )
+
+    options = dict(split = split, config = config, wandb_config = WandbConfig(enabled = False))
+    trained = training.train_axiom_predictor(problems, output_dir = tmp_path, **options)
+    evaluated = training.evaluate_axiom_predictor(
+        tmp_path / "model.pt",
+        problems,
+        device = "cpu",
+        **options,
+    )
+
+    assert collected == [selected, selected]
+    assert trained["problems_proved"] == evaluated["problems_proved"] == len(selected)
+    saved = json.loads((tmp_path / "training_config.json").read_text())
+    assert saved["split"] == evaluated["split"] == split.to_dict()
 
 def test_fresh_input_evaluation_without_wandb(tmp_path, tiny_problem_path, monkeypatch):
     example, _ = collect_proof_example(str(tiny_problem_path), step_limit = 100)

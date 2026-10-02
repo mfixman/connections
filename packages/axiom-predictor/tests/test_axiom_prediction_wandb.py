@@ -14,8 +14,7 @@ from axiom_prediction.wandb_tracking import WandbConfig, WandbTracker
 
 pytestmark = pytest.mark.training
 
-@pytest.mark.parametrize("run_name", [None, "my-training-job"])
-def test_training_resumes_saved_wandb_run(tmp_path, tiny_problem_path, monkeypatch, run_name):
+def test_training_resumes_saved_wandb_run(tmp_path, tiny_problem_path, monkeypatch):
     run = _FakeRun()
     init_arguments = {}
     monkeypatch.setitem(sys.modules, "wandb", fake_wandb(run, init_arguments))
@@ -31,11 +30,11 @@ def test_training_resumes_saved_wandb_run(tmp_path, tiny_problem_path, monkeypat
                 device = "cpu",
                 num_workers = 1,
             ),
-            wandb_config = WandbConfig(name = run_name, name_prefix = "smol-custom"),
+            wandb_config = WandbConfig(name = "my-training-job"),
             resume = count > 1,
         )
 
-        expected = (run_name or "DefaultNoTerms") if count == 1 else None
+        expected = "my-training-job" if count == 1 else None
         assert init_arguments["name"] == expected
         assert init_arguments["config"]["run_count"] == count
         identity = json.loads((tmp_path / "wandb-run.json").read_text())

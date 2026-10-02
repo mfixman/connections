@@ -174,6 +174,8 @@ def collect_examples(
             "none of the supplied problems produced a usable SAT core; no training examples"
         )
 
+    exs.sort(key = lambda example: example.problem_path)
+    skipped.sort(key = lambda item: item["problem"])
     return exs, skipped
 
 def train_axiom_predictor(
@@ -218,11 +220,12 @@ def train_axiom_predictor(
     if dataset is None and not problem_list:
         raise ValueError("training requires problem paths or a dataset")
 
-    if evaluation_split is not None and dataset is None:
-        problem_list = list(split.select(problem_list))
+    if dataset is None:
+        problem_list = split.select(problem_list)
         if not problem_list:
             raise ValueError("no training problems in the selected parts")
 
+    if evaluation_split is not None and dataset is None:
         evaluation_problems = evaluation_split.select(list(evaluation_problems or []))
         if not evaluation_problems:
             raise ValueError("no evaluation problems supplied for the held-out parts")
@@ -658,6 +661,11 @@ def evaluate_axiom_predictor(
 
     if dataset is None and not problem_list:
         raise ValueError("evaluation requires problem paths or a dataset")
+
+    if dataset is None:
+        problem_list = split.select(problem_list)
+        if not problem_list:
+            raise ValueError("no evaluation problems in the selected parts")
 
     predictor = AxiomPredictor.load(checkpoint, device = device)
     warn_on_training_overlap(predictor.training_config, split)
