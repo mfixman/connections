@@ -1,6 +1,6 @@
 from connections.environment.actions import UndoAction
 
-from .search import SATCoPCon
+from .reset_search import SATCoPCon
 
 
 class SATResetCoP(SATCoPCon):

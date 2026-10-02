@@ -48,9 +48,9 @@ def test_satcop_shadow_unsat_returns_proved():
     assert agent.status is AgentStatus.CLOSED
 
 
-def test_satcop_prefers_head_made_true_by_shadow_model():
+def test_satreset_prefers_head_made_true_by_shadow_model():
     state = _state(Clause((_lit("p"),)))
-    policy = SATCoPCon()
+    policy = SATResetCoP()
     policy._shadow.add_clause((policy._shadow.atom_id("p"),), clause_idx=0, from_tableau=False)
     assert policy._shadow.solve() is True
     policy._guidance_model = dict(policy._shadow.model)
@@ -66,18 +66,18 @@ def test_satcop_prefers_head_made_true_by_shadow_model():
     assert policy._next_action(state, (negative, positive)) is positive
 
 
-def test_satcop_breaks_score_ties_randomly_unless_seed_is_none():
+def test_satreset_breaks_score_ties_randomly_unless_seed_is_none():
     clauses = tuple(Clause((_lit(f"p{index}"),)) for index in range(8))
     state = _state(*clauses)
     starts = tuple(ApplyAction(state.tableau.root_goal_id, rule) for rule in _start_rules(state))
 
-    seeded = SATCoPCon(seed=0)
+    seeded = SATResetCoP(seed=0)
     chosen = {seeded._next_action(state, starts) for _ in range(20)}
     assert len(chosen) > 1
-    assert [SATCoPCon(seed=3)._next_action(state, starts) for _ in range(5)] == [
-        SATCoPCon(seed=3)._next_action(state, starts) for _ in range(5)
+    assert [SATResetCoP(seed=3)._next_action(state, starts) for _ in range(5)] == [
+        SATResetCoP(seed=3)._next_action(state, starts) for _ in range(5)
     ]
-    assert SATCoPCon(seed=None)._next_action(state, starts) is starts[0]
+    assert SATResetCoP(seed=None)._next_action(state, starts) is starts[0]
 
 
 def test_sat_core_uses_source_selectors_and_excludes_irrelevant_clause():
@@ -110,7 +110,7 @@ def test_sat_policies_report_source_clause_core(policy_class):
         Matrix((positive, negative)),
         Tableau(),
     )
-    policy = policy_class(debug_sat_core=True)
+    policy = policy_class(AgentOptions(start="all"), debug_sat_core=True)
 
     assert policy(state) is None
     assert policy.status is AgentStatus.CLOSED
@@ -177,9 +177,9 @@ def _atom_literal(symbol: str, argument, *, positive: bool = True) -> Literal:
     return Literal(Atom(symbol, (argument,)), polarity=positive)
 
 
-def test_sat_guidance_only_values_ground_literals():
+def test_satreset_guidance_only_values_ground_literals():
     state = _state(Clause((_lit("p"),)))
-    policy = SATCoPCon()
+    policy = SATResetCoP()
     for key in ("p(__ground__)", "p(a)"):
         policy._shadow.add_clause((policy._shadow.atom_id(key),), clause_idx=0, from_tableau=False)
     assert policy._shadow.solve() is True
@@ -253,11 +253,11 @@ def test_empty_matrix_terminates_without_a_proof(agent_class):
     assert result.status is AgentStatus.GAVE_UP
 
 
-def test_depth_gate_blocks_even_ground_extensions():
+def test_satreset_depth_gate_blocks_even_ground_extensions():
     state = _state(Clause((_lit("p"),)), Clause((_lit("p", positive=False), _lit("q"))))
     start = next(iter(_start_rules(state)))
     state.apply_rule(parent_goal_id=state.tableau.root_goal_id, rule=start)
-    agent = SATCoPCon()
+    agent = SATResetCoP()
     assert not any(
         isinstance(action.rule, Extension)
         for action in agent._actions_for_goal(state, state.fringe[0].goal_id)
