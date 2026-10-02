@@ -387,6 +387,7 @@ def interrupted_record(partial_dir, result):
             "problem": problem,
             "outcome": result["outcome"],
             "parseable": True,
+            "error": bool(result.get("error", False)),
         },
     )
 
@@ -401,6 +402,7 @@ def collect_one_problem_to_partial(
     sat_policy: str,
 ) -> CollectedAxiomRecord:
     parseable = True
+    collection_error = False
     try:
         example, outcome = collect_proof_example(
             problem,
@@ -412,10 +414,12 @@ def collect_one_problem_to_partial(
     except TPTPParseError as error:
         example = None
         parseable = False
+        collection_error = True
         message = " ".join(str(error).split())
         outcome = f"{type(error).__name__}: {message}"
     except Exception as error:
         example = None
+        collection_error = True
         message = " ".join(str(error).split())
         outcome = f"{type(error).__name__}: {message}"
 
@@ -429,6 +433,7 @@ def collect_one_problem_to_partial(
                 "problem": problem,
                 "outcome": outcome,
                 "parseable": parseable,
+                "error": collection_error,
             },
         )
 
