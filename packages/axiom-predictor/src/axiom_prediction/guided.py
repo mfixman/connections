@@ -24,7 +24,7 @@ def matrix_digest(matrix: Matrix) -> str:
 
     return h.hexdigest()
 
-class _AxiomGuided(SATCoPCon):
+class _AxiomGuided:
     def __init__(
         self,
         *,
@@ -162,7 +162,7 @@ def clause_index(action: Action) -> int | None:
 class AxiomGuidedSATResetCoP(_AxiomGuided, SATResetCoP):
     pass
 
-class AxiomGuidedSATCoP(_AxiomGuided):
+class AxiomGuidedSATCoP(_AxiomGuided, SATCoPCon):
     pass
 
 __all__ = [
