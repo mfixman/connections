@@ -272,6 +272,35 @@ def test_parse_include_preserves_included_file_as_formula_group(tmp_path: Path):
     assert doc.axiom_formula.right.symbol == "r"
 
 
+def test_large_axiom_include_has_bounded_depth_and_preserves_clauses(tmp_path: Path):
+    from connections.clausification.files import matrix_from_file
+
+    count = 2048
+    inc = tmp_path / "large.ax"
+    inc.write_text("\n".join(f"fof(a{i},axiom,p{i})." for i in range(count)))
+    base = tmp_path / "base.p"
+    base.write_text("include('large.ax').\nfof(goal,conjecture,q).\n")
+
+    document = parse_tptp_file(base)
+    pending = [(document.axiom_formula, 0)]
+    symbols = []
+    while pending:
+        formula, depth = pending.pop()
+        assert depth < 600
+        if isinstance(formula, And):
+            pending.extend(((formula.right, depth + 1), (formula.left, depth + 1)))
+        else:
+            symbols.append(formula.symbol)
+
+    assert symbols == [f"p{i}" for i in range(count)]
+    matrix = matrix_from_file(base)
+    assert len(matrix.clauses) == count + 1
+    assert {literal.atom.symbol for clause in matrix.clauses for literal in clause} == {
+        *symbols,
+        "q",
+    }
+
+
 def test_tptp_axioms_source_dir_resolves_prefixed_include(tmp_path: Path):
     tptp_root = tmp_path / "TPTP-v-test"
     axioms = tptp_root / "Axioms"

@@ -211,6 +211,12 @@ def _read_tptp_text(path: Path) -> str:
 def _combine_with_conjunction(formulas: list[Formula]) -> Formula | None:
     if not formulas:
         return None
+    if len(formulas) > 512:
+        middle = len(formulas) // 2
+        return And(
+            _combine_with_conjunction(formulas[:middle]),
+            _combine_with_conjunction(formulas[middle:]),
+        )
     result = formulas[-1]
     for formula in reversed(formulas[:-1]):
         result = And(formula, result)
