@@ -82,5 +82,5 @@ Mansion (`PUZ001+1.p`) and tiny theorem examples.
 Run the tests with an installed `requirements.txt` environment:
 
 ```sh
-python -m pytest tests/unit packages/axiom-predictor/tests packages/pycop/tests
+python -m pytest tests/unit packages/axiom_prediction/tests packages/pycop/tests
 ```

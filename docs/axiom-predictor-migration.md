@@ -34,7 +34,7 @@ could be followed by cherry-picking the learning commits unchanged.
 | Source work | New location |
 | --- | --- |
 | SATCoP, SATResetCoP, selector-based native SAT cores | `src/connections/agent/sat/` |
-| Axiom collection, graph model, checkpoints, splits, W&B, guided runs | `packages/axiom-predictor/` |
+| Axiom collection, graph model, checkpoints, splits, W&B, guided runs | `packages/axiom_prediction/` |
 | Finite-model search, validation, rendering, model-policy selection | `src/connections/model_finding/` |
 | Corpus CLI, policy aliases, resumable comparisons, model CLI | `packages/pycop/src/pycop/` |
 | Standalone Python launchers | `axiom_predictor.py`, `run_pycop.py` |
@@ -87,7 +87,7 @@ uv run --all-packages ruff check .
 uv run --all-packages ty check
 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 uv run --all-packages pytest tests packages/pycop/tests
 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 uv run --all-packages pytest packages/imitation/tests
-OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 uv run --all-packages pytest packages/axiom-predictor/tests
+OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 uv run --all-packages pytest packages/axiom_prediction/tests
 uv build --all-packages
 uv run --group docs mkdocs build --strict -f docs/mkdocs.yml
 ```

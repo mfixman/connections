@@ -19,10 +19,10 @@ a C++ compiler. Install optional tracking with `python -m pip install wandb`.
 
 ## Models
 
-Each file in [src/axiom_prediction/models/](src/axiom_prediction/models/)
+Each file in [models/](models/)
 defines a class with the same TitleCase name. All inherit
 `AxiomPredictionNetwork`, the shared `torch.nn.Module` base in
-[base.py](src/axiom_prediction/models/base.py).
+[base.py](models/base.py).
 Select a file/class with `train --network SmallFull` or `--network SmallFull.py`.
 The available names appear in both top-level and training `--help`.
 

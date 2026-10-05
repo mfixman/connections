@@ -17,9 +17,9 @@ axiom-predictor = "axiom_prediction.cli:main"
 connections = { workspace = true }
 
 [build-system]
-requires = ["uv_build>=0.10.4,<0.11.0"]
-build-backend = "uv_build"
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
 
-[tool.uv.build-backend]
-module-name = "axiom_prediction"
-module-root = "src"
+[tool.setuptools]
+packages = ["axiom_prediction", "axiom_prediction.models", "axiom_prediction.representation"]
+package-dir = { axiom_prediction = "." }
