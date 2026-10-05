@@ -9,15 +9,6 @@ def prediction_metrics(
     *,
     problem_sizes: list[int] | None = None,
 ) -> dict[str, float | int | None]:
-    if len(labels) != len(probabilities) or not labels:
-        raise ValueError("labels and probabilities must have equal, nonzero length")
-
-    if any(label not in (0, 1) for label in labels):
-        raise ValueError("labels must be binary")
-
-    if any(not math.isfinite(p) or not 0 <= p <= 1 for p in probabilities):
-        raise ValueError("probabilities must be finite and between 0 and 1")
-
     eps = 1e-7
     clipped = [min(1.0 - eps, max(eps, float(value))) for value in probabilities]
     bce = -sum(

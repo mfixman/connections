@@ -27,7 +27,8 @@ axiom_dataset_shard_schema = "learncop.axiom_prediction.dataset-shard.v2"
 outdated_dataset_hint = "datasets collected before schema v2 label SAT cores against a different clausification; delete and re-collect them"
 
 class NoParseableProblemsError(RuntimeError):
-    """Every problem in a requested directory failed TPTP parsing."""
+    # Every problem in a requested directory failed TPTP parsing.
+    pass
 
 @dataclass(frozen = True, slots = True)
 class CollectedAxiomProblem:
@@ -56,7 +57,7 @@ def collect_axiom_dataset(
     num_workers: int | None = None,
     progress: Callable[[int, int, int, int, str, str], None] | None = None,
 ) -> dict[str, Any]:
-    """Save each problem atomically; resume skips recorded successes and failures."""
+    # Save each problem atomically; resume skips recorded successes and failures.
 
     log(f"preparing collection of {len(problems)} problems into {output_dir}")
     output = Path(output_dir)
@@ -219,7 +220,7 @@ def collect_axiom_dataset_shard(
     sat_policy: str = ProverPolicy.SatResetCoP,
     num_workers: int | None = None,
 ) -> tuple[Path, dict[str, Any]]:
-    """Resume from per-problem caches and publish the finished shard atomically."""
+    # Resume from per-problem caches and publish the finished shard atomically.
 
     if not shard_name or Path(shard_name).name != shard_name:
         raise ValueError(f"invalid axiom dataset shard name: {shard_name!r}")
@@ -570,7 +571,7 @@ def load_axiom_dataset_shards(
     metadata = {
         "schema": axiom_dataset_schema,
         "collection": collection or {},
-        "shards": [str(shard) for shard in shards],
+        "shards": list(map(str, shards)),
     }
 
     return (

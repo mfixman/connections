@@ -1,4 +1,4 @@
-"""W&B integration tests without making network requests."""
+# W&B integration tests without making network requests.
 
 from __future__ import annotations
 

@@ -8,7 +8,6 @@ from collections.abc import Iterator
 from dataclasses import asdict, dataclass, field, fields, replace
 from functools import lru_cache
 
-import math
 from pathlib import Path
 import time
 
@@ -84,15 +83,6 @@ class RunConfig:
         if self.mode != GuidanceMode.Base and self.checkpoint is None:
             raise ValueError(f"--mode {self.mode} needs --model")
 
-        if not math.isfinite(self.temperature) or self.temperature <= 0:
-            raise ValueError("--temperature must be finite and positive")
-
-        if not math.isfinite(self.timeout_s) or self.timeout_s <= 0:
-            raise ValueError("--timeout-seconds must be finite and positive")
-
-        if self.step_limit < 0:
-            raise ValueError("--step-limit must be nonnegative")
-
         if self.top_k is not None and self.top_k < 1:
             raise ValueError("--top-k must be at least 1")
 
@@ -143,7 +133,7 @@ def run_problem(
     return with_run_metadata(result, config)
 
 def search_problem(problem, *, tptp_root, config):
-    _non_refutable = {
+    non_refutable = {
         "satisfiable": "DeclaredSatisfiable",
         "countersatisfiable": "DeclaredCounterSatisfiable",
     }
@@ -174,7 +164,7 @@ def search_problem(problem, *, tptp_root, config):
     try:
         path, root = resolve_tptp_problem(problem, tptp_root = tptp_root)
         declared = declared_tptp_status(path)
-        skip = None if declared is None else _non_refutable.get(declared.casefold())
+        skip = None if declared is None else non_refutable.get(declared.casefold())
         if skip is not None:
             out.update(outcome = skip, proved = False, seconds = 0.0)
             return out

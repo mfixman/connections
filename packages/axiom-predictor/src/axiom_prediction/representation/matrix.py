@@ -1,4 +1,4 @@
-"""Cache matrix graphs. Ground terms are shared; variables stay local to each clause."""
+# Cache matrix graphs. Ground terms are shared; variables stay local to each clause.
 
 from __future__ import annotations
 
@@ -14,11 +14,11 @@ from connections.syntax.matrix import Matrix
 
 from axiom_prediction.representation.schema import arg_position_bucket
 
-_symbol_kind_predicate = 0
+symbol_kind_predicate = 0
 
-_matrix_key_counter = itertools.count()
+matrix_key_counter = itertools.count()
 
-_matrix_graph_cache: OrderedDict[
+matrix_graph_cache: OrderedDict[
     tuple[int, tuple[int, ...]], tuple[weakref.ReferenceType[Matrix], "MatrixGraph"]
 ] = OrderedDict()
 
@@ -51,31 +51,31 @@ class MatrixGraph:
 
     # Unlike id(), this key stays unique across worker processes.
     key: str = field(
-        default_factory = lambda: f"{os.getpid()}:{next(_matrix_key_counter)}"
+        default_factory = lambda: f"{os.getpid()}:{next(matrix_key_counter)}"
     )
 
-    _symbol_index: dict[tuple[str, int], int] = field(default_factory = dict)
-    _term_index: dict[tuple[Any, ...], int] = field(default_factory = dict)
-    _var_index: dict[tuple[int, Variable], int] = field(default_factory = dict)
+    symbol_index: dict[tuple[str, int], int] = field(default_factory = dict)
+    term_index: dict[tuple[Any, ...], int] = field(default_factory = dict)
+    var_index: dict[tuple[int, Variable], int] = field(default_factory = dict)
 
 def matrix_graph(matrix: Matrix, start_clause_ids: list[int] | tuple[int, ...]) -> MatrixGraph:
-    _matrix_graph_cache_max = 8
+    matrix_graph_cache_max = 8
 
     key = (id(matrix), tuple(start_clause_ids))
-    cached = _matrix_graph_cache.get(key)
+    cached = matrix_graph_cache.get(key)
     if cached is not None and cached[0]() is matrix:
-        _matrix_graph_cache.move_to_end(key)
+        matrix_graph_cache.move_to_end(key)
         return cached[1]
 
     graph = build_matrix_graph(matrix, frozenset(start_clause_ids))
-    _matrix_graph_cache[key] = (weakref.ref(matrix), graph)
-    while len(_matrix_graph_cache) > _matrix_graph_cache_max:
-        _matrix_graph_cache.popitem(last = False)
+    matrix_graph_cache[key] = (weakref.ref(matrix), graph)
+    while len(matrix_graph_cache) > matrix_graph_cache_max:
+        matrix_graph_cache.popitem(last = False)
 
     return graph
 
 def build_matrix_graph(matrix: Matrix, start_clause_ids: frozenset[int]) -> MatrixGraph:
-    _role_index = {"axiom": 0, "conjecture": 1}
+    role_index = {"axiom": 0, "conjecture": 1}
 
     graph = MatrixGraph()
     for clause_idx, clause in enumerate(matrix.clauses):
@@ -83,7 +83,7 @@ def build_matrix_graph(matrix: Matrix, start_clause_ids: frozenset[int]) -> Matr
         graph.nodes["clause"].append(
             [
                 max(0, min(clause.literal_count - 1, 4)),
-                _role_index.get(str(clause.role), 2),
+                role_index.get(str(clause.role), 2),
                 int(bool(clause.is_ground)),
                 int(clause_idx in start_clause_ids),
             ]
@@ -103,7 +103,7 @@ def build_matrix_graph(matrix: Matrix, start_clause_ids: frozenset[int]) -> Matr
                     intern_symbol(
                         graph,
                         literal.atom.symbol,
-                        kind = _symbol_kind_predicate,
+                        kind = symbol_kind_predicate,
                         arity = len(literal.atom.args),
                     ),
                 ]
@@ -119,20 +119,20 @@ def intern_atom(graph: MatrixGraph, atom: Atom, clause_idx: int) -> int:
     # Non-ground structure is clause-scoped (variable scope), ground is global.
     scope = -1 if atom.is_ground else clause_idx
     key = ("atom", scope, atom)
-    found = graph._term_index.get(key)
+    found = graph.term_index.get(key)
     if found is not None:
         return found
 
     node = len(graph.nodes["term"])
     graph.nodes["term"].append([int(atom.is_ground)])
-    graph._term_index[key] = node
+    graph.term_index[key] = node
     graph.edges["sym"].append(
         [
             node,
             intern_symbol(
                 graph,
                 atom.symbol,
-                kind = _symbol_kind_predicate,
+                kind = symbol_kind_predicate,
                 arity = len(atom.args),
             ),
         ]
@@ -142,20 +142,20 @@ def intern_atom(graph: MatrixGraph, atom: Atom, clause_idx: int) -> int:
     return node
 
 def intern_term(graph: MatrixGraph, term: Function, clause_idx: int) -> int:
-    _symbol_kind_constant = 2
+    symbol_kind_constant = 2
 
-    _symbol_kind_function = 1
+    symbol_kind_function = 1
 
     scope = -1 if term.is_ground else clause_idx
     key = ("term", scope, term)
-    found = graph._term_index.get(key)
+    found = graph.term_index.get(key)
     if found is not None:
         return found
 
     node = len(graph.nodes["term"])
     graph.nodes["term"].append([int(term.is_ground)])
-    graph._term_index[key] = node
-    kind = _symbol_kind_constant if not term.args else _symbol_kind_function
+    graph.term_index[key] = node
+    kind = symbol_kind_constant if not term.args else symbol_kind_function
     graph.edges["sym"].append(
         [node, intern_symbol(graph, term.symbol, kind = kind, arity = len(term.args))]
     )
@@ -182,22 +182,22 @@ def intern_args(
 
 def intern_var(graph: MatrixGraph, variable: Variable, clause_idx: int) -> int:
     key = (clause_idx, variable)
-    found = graph._var_index.get(key)
+    found = graph.var_index.get(key)
     if found is not None:
         return found
 
     node = len(graph.nodes["var"])
     graph.nodes["var"].append([0])
-    graph._var_index[key] = node
+    graph.var_index[key] = node
     return node
 
 def intern_symbol(graph: MatrixGraph, symbol: str, *, kind: int, arity: int) -> int:
     key = (symbol, kind)
-    found = graph._symbol_index.get(key)
+    found = graph.symbol_index.get(key)
     if found is not None:
         return found
 
     node = len(graph.nodes["symbol"])
     graph.nodes["symbol"].append([kind, min(arity, 4)])
-    graph._symbol_index[key] = node
+    graph.symbol_index[key] = node
     return node

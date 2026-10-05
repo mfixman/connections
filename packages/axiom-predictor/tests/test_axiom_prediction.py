@@ -81,10 +81,6 @@ def test_metrics_cover_ranking_and_degenerate_classes():
         tied = prediction_metrics(labels, [0.5, 0.5])
         assert tied["average_precision"] == 0.5
 
-    for value in (float("nan"), float("inf"), -0.1, 1.1):
-        with pytest.raises(ValueError, match = "finite and between"):
-            prediction_metrics([1, 0], [value, 0.5])
-
 def test_split_parts_are_disjoint_complete_and_path_independent(tmp_path):
     from axiom_prediction.split import ProblemSplit
 

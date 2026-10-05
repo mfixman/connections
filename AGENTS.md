@@ -20,6 +20,12 @@
 * Do not use `__all__` unless an actual import/export requirement needs it.
 * Prefer direct, simple code and short comments. Avoid unnecessary wrappers and boilerplate.
 * Keep only essential block comments and docstrings, usually one short sentence explaining non-obvious behavior. Remove commentary that repeats the code.
+* Use `#` comments instead of single-line docstrings.
+* Prefer `map` and `filter` for simple transformations using existing functions; materialize a list only when needed.
+* Avoid `TYPE_CHECKING` blocks; keep runtime imports local when lazy loading matters.
+* Do not prefix ordinary names with `_`. Preserve names required by Python or inherited interfaces.
+* Avoid routine hyperparameter validation. Keep checks for non-obvious combinations such as Base mode with top_k, and for data or checkpoint mismatches.
+* Trust internally produced clause IDs and data types; avoid separate validators for routine range, uniqueness, and type checks.
 
 ## Repository checkouts and synchronization
 

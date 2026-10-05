@@ -1,4 +1,4 @@
-"""Shared, adaptively batched inference for parallel run/evaluate workloads."""
+# Shared, adaptively batched inference for parallel run/evaluate workloads.
 
 from contextlib import contextmanager
 from functools import lru_cache
@@ -17,7 +17,7 @@ from .graph import build_axiom_graph, collate_axiom_graphs
 from .logs import log
 
 class AdaptiveBatches:
-    """Grow after success; bisect between successful and failed sizes after OOM."""
+    # Grow after success; bisect between successful and failed sizes after OOM.
 
     def __init__(self, maximum, initial = 1):
         self.maximum = max(1, maximum)
@@ -158,14 +158,14 @@ class InferenceService:
                 output.append(value)
                 done.set()
 
-_service = None
+service = None
 
 def initialize_service(checkpoint, device, maximum):
-    global _service
-    _service = InferenceService(checkpoint, device, maximum)
+    global service
+    service = InferenceService(checkpoint, device, maximum)
 
 def get_service():
-    return _service
+    return service
 
 class InferenceManager(BaseManager):
     pass
