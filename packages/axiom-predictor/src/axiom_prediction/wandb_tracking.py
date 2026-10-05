@@ -14,10 +14,6 @@ from .io import write_json_atomic
 from .metrics import prediction_metrics
 from .split import ProblemSplit
 
-DEFAULT_WANDB_ENTITY = "mfixman-phd-team"
-DEFAULT_WANDB_PROJECT = "axiom-prediction"
-SERVICE_WAIT_SECONDS = 300
-
 def run_identity(config, job_type, output_dir, resume):
     if output_dir is None:
         return None, False
@@ -43,8 +39,8 @@ def run_identity(config, job_type, output_dir, resume):
 @dataclass(frozen = True, slots = True)
 class WandbConfig:
     enabled: bool | None = True
-    entity: str = DEFAULT_WANDB_ENTITY
-    project: str = DEFAULT_WANDB_PROJECT
+    entity: str = "mfixman-phd-team"
+    project: str = "axiom-prediction"
 
     name: str | None = None
     key_file: Path = Path("secrets/wandb_key")
@@ -69,6 +65,8 @@ class WandbTracker:
         output_dir: Path | None = None,
         resume: bool = False,
     ) -> "WandbTracker | None":
+        service_wait_s = 300
+
         if config.enabled is False:
             return None
 
@@ -85,7 +83,7 @@ class WandbTracker:
         # wandb-core can take longer than the default 30s to start when it is
         # read from a slow shared filesystem, e.g. on a busy HPC node.
 
-        os.environ.setdefault("WANDB__SERVICE_WAIT", str(SERVICE_WAIT_SECONDS))
+        os.environ.setdefault("WANDB__SERVICE_WAIT", str(service_wait_s))
 
         try:
             wandb = importlib.import_module("wandb")
@@ -160,7 +158,7 @@ class WandbTracker:
         *,
 
         loss: float,
-        seconds: float | None = None,
+        duration_s: float | None = None,
         grad_norm: float | None = None,
         metrics: dict[str, float | int | None] | None = None,
         evaluation: dict[str, float | int | None] | None = None,
@@ -170,8 +168,8 @@ class WandbTracker:
             "train/loss": loss,
         }
 
-        if seconds is not None:
-            payload["train/epoch_seconds"] = seconds
+        if duration_s is not None:
+            payload["train/epoch_seconds"] = duration_s
 
         if grad_norm is not None:
             payload["train/grad_norm_mean"] = grad_norm
@@ -534,10 +532,3 @@ def precision_recall_points(labels: list[int], scores: list[float]) -> list[list
         points.append([true_positives / positives, true_positives / count])
 
     return points
-
-__all__ = [
-    "DEFAULT_WANDB_ENTITY",
-    "DEFAULT_WANDB_PROJECT",
-    "WandbConfig",
-    "WandbTracker",
-]

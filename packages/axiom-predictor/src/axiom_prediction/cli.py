@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from .choices import GuidanceMode, ProverPolicy
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING as type_checking, Any
 
 import argparse
 import json
@@ -10,12 +10,12 @@ from pathlib import Path
 import re
 
 from .models import available_models
-from .limits import DEFAULT_COLLECTION_STEP_LIMIT, DEFAULT_COLLECTION_TIMEOUT_SECONDS, DEFAULT_STEP_LIMIT, DEFAULT_TIMEOUT_SECONDS
+from .limits import default_collection_step_limit, default_collection_timeout_s, default_step_limit, default_timeout_s
 from .logs import log, monitor_progress
 from .split import ProblemSplit
 from .output import output_format, write_record, report_metrics, journal
 
-if TYPE_CHECKING:
+if type_checking:
     from .wandb_tracking import WandbConfig
 
 def build_parser() -> argparse.ArgumentParser:
@@ -95,13 +95,13 @@ def build_parser() -> argparse.ArgumentParser:
     train.add_argument(
         "--step-limit",
         type = nonnegative_int,
-        default = DEFAULT_STEP_LIMIT,
+        default = default_step_limit,
     )
 
     train.add_argument(
-        "--timeout-seconds",
+        "--timeout-seconds", dest = "timeout_s",
         type = float,
-        default = DEFAULT_TIMEOUT_SECONDS,
+        default = default_timeout_s,
     )
 
     train.add_argument(
@@ -132,13 +132,13 @@ def build_parser() -> argparse.ArgumentParser:
     collect.add_argument(
         "--step-limit",
         type = nonnegative_int,
-        default = DEFAULT_COLLECTION_STEP_LIMIT,
+        default = default_collection_step_limit,
     )
 
     collect.add_argument(
-        "--timeout-seconds",
+        "--timeout-seconds", dest = "timeout_s",
         type = float,
-        default = DEFAULT_COLLECTION_TIMEOUT_SECONDS,
+        default = default_collection_timeout_s,
     )
 
     collect.add_argument(
@@ -186,13 +186,13 @@ def build_parser() -> argparse.ArgumentParser:
     evaluate.add_argument(
         "--step-limit",
         type = nonnegative_int,
-        default = DEFAULT_STEP_LIMIT,
+        default = default_step_limit,
     )
 
     evaluate.add_argument(
-        "--timeout-seconds",
+        "--timeout-seconds", dest = "timeout_s",
         type = float,
-        default = DEFAULT_TIMEOUT_SECONDS,
+        default = default_timeout_s,
     )
 
     evaluate.add_argument(
@@ -244,10 +244,10 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument(
         "--step-limit",
         type = nonnegative_int,
-        default = DEFAULT_STEP_LIMIT,
+        default = default_step_limit,
     )
 
-    run.add_argument("--timeout-seconds", type = float, default = DEFAULT_TIMEOUT_SECONDS)
+    run.add_argument("--timeout-seconds", dest = "timeout_s", type = float, default = default_timeout_s)
 
     add_split_arguments(run)
     run.add_argument(
@@ -288,7 +288,7 @@ def build_parser() -> argparse.ArgumentParser:
         "tptp": "TPTP root; defaults to $TPTP, then conventional TPTP/corpora directories near the checkout or in your home",
         "seed": "random seed for model initialization and training shuffle, or proof-search choices",
         "step_limit": "maximum prover steps per problem (fresh proof search only)",
-        "timeout_seconds": "wall-clock budget in seconds per problem (fresh proof search only)",
+        "timeout_s": "wall-clock budget in seconds per problem (fresh proof search only)",
         "policy": "SAT policy used for proof search and label collection",
     }
 
@@ -333,11 +333,14 @@ def add_device_argument(parser):
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     identity = vars(args).copy()
+    if "timeout_s" in identity:
+        identity["timeout_seconds"] = identity.pop("timeout_s")
+
     try:
         with output_format(args.command, args.csv, getattr(args, "output", None), identity) as session:
-            if session is not None and session.complete:
+            if session is not None and session.complete():
                 log("output is already complete; nothing to resume")
-                return session.exit_code
+                return session.exit_code()
 
             exit_code = execute_command(args)
             if session is not None and session.metrics is not None:
@@ -371,7 +374,7 @@ def execute_command(args: argparse.Namespace) -> int:
                 "output_dir": dataset,
                 "tptp_root": args.tptp,
                 "step_limit": args.step_limit,
-                "timeout_seconds": args.timeout_seconds,
+                "timeout_s": args.timeout_s,
                 "sat_policy": args.policy,
                 "num_workers": args.num_workers,
             }
@@ -427,7 +430,7 @@ def execute_command(args: argparse.Namespace) -> int:
                     log_every = args.log_every,
 
                     step_limit = args.step_limit,
-                    timeout_seconds = args.timeout_seconds,
+                    timeout_s = args.timeout_s,
                     sat_policy = args.policy,
                     num_workers = args.num_workers,
                 ),
@@ -470,7 +473,7 @@ def execute_command(args: argparse.Namespace) -> int:
                     device = args.device,
                     batch_size = args.batch_size,
                     step_limit = args.step_limit,
-                    timeout_seconds = args.timeout_seconds,
+                    timeout_s = args.timeout_s,
                     sat_policy = args.policy,
                     num_workers = args.num_workers,
                 ),
@@ -599,7 +602,7 @@ def run_command(args: argparse.Namespace) -> int:
 
         seed = args.seed,
         step_limit = args.step_limit,
-        timeout_seconds = args.timeout_seconds,
+        timeout_s = args.timeout_s,
     )
 
     problems = selected_problems(args)

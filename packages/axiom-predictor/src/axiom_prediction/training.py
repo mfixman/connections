@@ -40,12 +40,12 @@ from .model import (
 
 from .parallel import determine_worker_count
 from .models import load_model_class
-from .split import SPLIT_SCHEME, ProblemSplit
-from .tptp import DEFAULT_STEP_LIMIT, DEFAULT_TIMEOUT_SECONDS
+from .split import split_scheme, ProblemSplit
+from .limits import default_step_limit, default_timeout_s
 from .wandb_tracking import WandbConfig, WandbTracker
 from .resume import check_training_target, dataset_fingerprint, next_training_run, restore_training, snapshot_training
 
-@dataclass(frozen = True, slots = True)
+@dataclass(frozen = True, slots = True, init = False)
 class AxiomTrainingConfig:
     epochs: int = 200
     batch_size: int = 43
@@ -62,14 +62,57 @@ class AxiomTrainingConfig:
     seed: int = 0
     device: str = "cuda"
 
-    step_limit: int = DEFAULT_STEP_LIMIT
-    timeout_seconds: float = DEFAULT_TIMEOUT_SECONDS
+    step_limit: int = default_step_limit
+    timeout_s: float = default_timeout_s
     sat_policy: ProverPolicy | str | None = None
 
     num_workers: int | None = None
     log_every: int = 10
 
-    def __post_init__(self):
+    def __init__(
+        self,
+        epochs: int = 200,
+        batch_size: int = 43,
+        learning_rate: float = 1e-3,
+        weight_decay: float = 0.0,
+        hidden_dim: int = 64,
+        message_rounds: int = 3,
+        num_hidden_layers: int = 2,
+        activation: str = "relu",
+        graph_input: str = GraphInputKind.Full,
+        model: str | None = None,
+        seed: int = 0,
+        device: str = "cuda",
+        step_limit: int = default_step_limit,
+        timeout_s: float = default_timeout_s,
+        sat_policy: ProverPolicy | str | None = None,
+        num_workers: int | None = None,
+        log_every: int = 10,
+    ):
+        object.__setattr__(self, "epochs", epochs)
+        object.__setattr__(self, "batch_size", batch_size)
+        object.__setattr__(self, "learning_rate", learning_rate)
+        object.__setattr__(self, "weight_decay", weight_decay)
+        object.__setattr__(self, "hidden_dim", hidden_dim)
+
+        object.__setattr__(self, "message_rounds", message_rounds)
+        object.__setattr__(self, "num_hidden_layers", num_hidden_layers)
+        object.__setattr__(self, "activation", activation)
+        object.__setattr__(self, "graph_input", graph_input)
+        object.__setattr__(self, "model", model)
+
+        object.__setattr__(self, "seed", seed)
+        object.__setattr__(self, "device", device)
+        object.__setattr__(self, "step_limit", step_limit)
+        object.__setattr__(self, "timeout_s", timeout_s)
+        object.__setattr__(self, "sat_policy", sat_policy)
+
+        object.__setattr__(self, "num_workers", num_workers)
+        object.__setattr__(self, "log_every", log_every)
+
+        self.validate()
+
+    def validate(self):
         self.network_config()
         if self.sat_policy is not None:
             object.__setattr__(self, "sat_policy", ProverPolicy(self.sat_policy))
@@ -109,8 +152,6 @@ def label_policy(requested, metadata = None):
 
     return ProverPolicy(recorded or requested or ProverPolicy.SatResetCoP)
 
-PROGRESS_SECONDS = 60.0
-
 def collect_examples(
     problems: list[str],
     *,
@@ -134,7 +175,7 @@ def collect_examples(
         resume,
         tptp_root = tptp_root,
         step_limit = config.step_limit,
-        timeout_seconds = config.timeout_seconds,
+        timeout_s = config.timeout_s,
         sat_policy = label_policy(config.sat_policy),
         num_workers = workers,
     )
@@ -194,6 +235,8 @@ def train_axiom_predictor(
     evaluate_every: int = 1,
     resume: bool = False,
 ) -> dict[str, Any]:
+    progress_interval_s = 60.0
+
     check_training_target(output_dir, resume)
     if evaluate_every < 0:
         raise ValueError("evaluate_every must be nonnegative")
@@ -255,7 +298,7 @@ def train_axiom_predictor(
             if not held_out:
                 raise ValueError(f"no evaluation examples in {evaluation_split.describe()}")
 
-        if not split.is_everything:
+        if not split.is_everything():
             total = len(dataset_examples)
             dataset_examples = [
                 example
@@ -298,9 +341,10 @@ def train_axiom_predictor(
     output.mkdir(parents = True, exist_ok = True)
 
     config_payload = plain_values(asdict(config))
+    config_payload["timeout_seconds"] = config_payload.pop("timeout_s")
     network_config = config.network_config()
     config_payload.update(network_config.to_dict())
-    config_payload["sat_policy"] = effective_sat_policy.wire_value
+    config_payload["sat_policy"] = effective_sat_policy.wire_value()
     config_payload["split"] = split.to_dict()
 
     run_count = next_training_run(output, resume)
@@ -412,7 +456,7 @@ def train_axiom_predictor(
         epoch_metrics: dict[str, float | int | None] | None = None
         evaluation_metrics = None
         evaluation_probabilities = []
-        evaluation_seconds = 0.0
+        evaluation_s = 0.0
         training_since_evaluation = 0.0
         last_evaluation = None
 
@@ -464,7 +508,7 @@ def train_axiom_predictor(
 
                 now = time.monotonic()
                 if index < batches and (
-                    (epoch == 1 and index == 1) or now - last_progress >= PROGRESS_SECONDS
+                    (epoch == 1 and index == 1) or now - last_progress >= progress_interval_s
                 ):
                     last_progress = now
                     report_progress(
@@ -474,7 +518,7 @@ def train_axiom_predictor(
                         batches,
 
                         loss = batch_loss,
-                        seconds = now - started,
+                        duration_s = now - started,
                         labels = len(labels),
                     )
 
@@ -487,15 +531,15 @@ def train_axiom_predictor(
                         )
 
             loss_value = total_loss / total_labels
-            train_seconds = time.monotonic() - started
-            training_since_evaluation += train_seconds
+            train_s = time.monotonic() - started
+            training_since_evaluation += train_s
             evaluation_due = held_out and (
                 last_evaluation is None
                 or epoch == config.epochs
                 or (
                     epoch - last_evaluation >= evaluate_every
                     if evaluate_every
-                    else training_since_evaluation >= 10 * evaluation_seconds
+                    else training_since_evaluation >= 10 * evaluation_s
                 )
             )
 
@@ -509,14 +553,14 @@ def train_axiom_predictor(
                     batch_size = config.batch_size,
                 )
 
-                evaluation_seconds = time.monotonic() - evaluated
+                evaluation_s = time.monotonic() - evaluated
                 current_evaluation = dict(evaluation_metrics)
 
                 last_evaluation = epoch
                 training_since_evaluation = 0.0
                 log_message(
                     f"epoch {epoch}: held-out {metric_text(evaluation_metrics)} "
-                    f"({len(held_out)} problems in {evaluation_seconds:.2f}s)"
+                    f"({len(held_out)} problems in {evaluation_s:.2f}s)"
                 )
 
                 emit("evaluation", epoch = epoch, **current_evaluation)
@@ -528,7 +572,7 @@ def train_axiom_predictor(
             )
 
             epoch_metrics = None
-            eval_seconds = None
+            eval_s = None
             if report:
                 log_message(f"epoch {epoch}: computing training-set metrics")
                 evaluated = time.monotonic()
@@ -538,15 +582,15 @@ def train_axiom_predictor(
                     batch_size = config.batch_size,
                 )
 
-                eval_seconds = time.monotonic() - evaluated
+                eval_s = time.monotonic() - evaluated
 
             report_epoch(
                 epoch,
                 config.epochs,
 
                 loss = loss_value,
-                seconds = train_seconds,
-                eval_seconds = eval_seconds,
+                duration_s = train_s,
+                eval_s = eval_s,
 
                 norms = norms,
                 metrics = epoch_metrics,
@@ -556,7 +600,7 @@ def train_axiom_predictor(
                 tracker.log_epoch(
                     epoch,
                     loss = loss_value,
-                    seconds = train_seconds,
+                    duration_s = train_s,
                     grad_norm = sum(norms) / len(norms) if norms else None,
                     metrics = epoch_metrics,
                     evaluation = current_evaluation,
@@ -587,7 +631,7 @@ def train_axiom_predictor(
             {
                 "evaluation_kind": "training-set overfit (not held-out generalization)",
                 "label_semantics": "native CaDiCaL failed-assumption SAT-core membership",
-                "sat_policy": effective_sat_policy.wire_value,
+                "sat_policy": effective_sat_policy.wire_value(),
                 "dataset": None if dataset is None else str(dataset),
 
                 "problems_proved": len(examples),
@@ -713,7 +757,7 @@ def evaluate_axiom_predictor(
             "model_config": predictor.model.config.to_dict(),
             "device": str(predictor.device),
 
-            "sat_policy": sat_policy.wire_value,
+            "sat_policy": sat_policy.wire_value(),
             "dataset": None if dataset is None else str(dataset),
             "split": split.to_dict(),
             "training_split": predictor.training_config.get("split"),
@@ -761,7 +805,7 @@ def evaluate_axiom_predictor(
                 "evaluation_kind": "labelled SAT-core-membership evaluation",
                 "model_config": predictor.model.config.to_dict(),
                 "label_semantics": "native CaDiCaL failed-assumption SAT-core membership",
-                "sat_policy": sat_policy.wire_value,
+                "sat_policy": sat_policy.wire_value(),
 
                 "dataset": None if dataset is None else str(dataset),
                 "split": split.to_dict(),
@@ -825,11 +869,11 @@ def warn_on_training_overlap(training_config: Mapping[str, Any], split: ProblemS
         [int(p) for p in trained.get("parts", (0,))],
     )
 
-    if not trained_split.is_everything and trained.get("scheme") != SPLIT_SCHEME:
+    if not trained_split.is_everything() and trained.get("scheme") != split_scheme:
         log_message(
             f"warning: the checkpoint was trained on {trained_split.describe()} with an older split hash; its parts are not the parts this version selects, so problems may overlap"
         )
-    elif trained_split.is_everything:
+    elif trained_split.is_everything():
         log_message(
             "warning: the checkpoint was trained on every problem of its dataset; metrics on problems from that dataset are not held-out"
         )
@@ -992,11 +1036,11 @@ def report_progress(
 
     *,
     loss: float,
-    seconds: float,
+    duration_s: float,
     labels: int,
 ):
     log_message(
-        f"epoch {epoch}/{epochs}: batch {index}/{batches} done after {seconds:.1f}s, batch loss {loss:.6f} over {labels} axiom clauses"
+        f"epoch {epoch}/{epochs}: batch {index}/{batches} done after {duration_s:.1f}s, batch loss {loss:.6f} over {labels} axiom clauses"
     )
 
     emit(
@@ -1007,7 +1051,7 @@ def report_progress(
         batches = batches,
 
         loss = loss,
-        seconds = seconds,
+        seconds = duration_s,
         labels = labels,
     )
 
@@ -1017,8 +1061,8 @@ def report_epoch(
     *,
 
     loss: float,
-    seconds: float,
-    eval_seconds: float | None,
+    duration_s: float,
+    eval_s: float | None,
 
     norms: list[float],
     metrics: dict[str, float | int | None] | None,
@@ -1028,11 +1072,11 @@ def report_epoch(
     suffix = (
         ""
         if metrics is None
-        else f"; train-set {metric_text(metrics)} (evaluated in {eval_seconds:.2f}s)"
+        else f"; train-set {metric_text(metrics)} (evaluated in {eval_s:.2f}s)"
     )
 
     log_message(
-        f"epoch {epoch}/{epochs}: loss {loss:.6f}, mean grad norm {'n/a' if norm is None else f'{norm:.4f}'}, {len(norms)} batches in {seconds:.2f}s{suffix}{warning}"
+        f"epoch {epoch}/{epochs}: loss {loss:.6f}, mean grad norm {'n/a' if norm is None else f'{norm:.4f}'}, {len(norms)} batches in {duration_s:.2f}s{suffix}{warning}"
     )
 
     emit(
@@ -1041,8 +1085,8 @@ def report_epoch(
         epochs = epochs,
 
         loss = loss,
-        seconds = seconds,
-        eval_seconds = eval_seconds,
+        seconds = duration_s,
+        eval_seconds = eval_s,
 
         batches = len(norms),
         grad_norm_mean = norm,
@@ -1103,11 +1147,3 @@ def write_json(path: Path, value: object):
         path,
         (json.dumps(value, indent = 2, sort_keys = True) + "\n").encode("utf-8"),
     )
-
-__all__ = [
-    "AxiomTrainingConfig",
-    "collect_examples",
-    "evaluate_axiom_predictor",
-    "evaluate_examples",
-    "train_axiom_predictor",
-]

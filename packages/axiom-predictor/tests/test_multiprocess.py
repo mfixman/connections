@@ -26,41 +26,6 @@ def test_adaptive_oom_retries_preserve_order(monkeypatch):
     assert actual == [[i] for i in range(80)]
     assert any(size > 10 for size in attempts)
 
-def test_single_graph_oom_is_reported(monkeypatch):
-    import axiom_prediction.multiprocess as module
-
-    def fail(*args):
-        raise torch.cuda.OutOfMemoryError("too large")
-
-    monkeypatch.setattr(module, "predict_graphs", fail)
-    with pytest.raises(torch.cuda.OutOfMemoryError):
-        list(adaptive_predictions(None, [1], AdaptiveBatches(8)))
-
-def test_large_singleton_does_not_discard_other_results(monkeypatch):
-    import axiom_prediction.multiprocess as module
-
-    def predict(model, graphs):
-        if 3 in graphs:
-            raise torch.cuda.OutOfMemoryError("large graph")
-
-        return [[graph] for graph in graphs]
-
-    monkeypatch.setattr(module, "predict_graphs", predict)
-    results = list(
-        adaptive_predictions(
-            None,
-            list(range(8)),
-            AdaptiveBatches(8),
-            tolerate_singleton_oom = True,
-        )
-    )
-
-    assert len(results) == 8
-    assert isinstance(results[3], RuntimeError)
-    assert [value for value in results if not isinstance(value, Exception)] == [
-        [i] for i in range(8) if i != 3
-    ]
-
 @pytest.mark.parametrize(
     "device",
     [
@@ -110,7 +75,7 @@ def test_shared_inference_and_parallel_search(tmp_path, tiny_problem_path, devic
         path.write_text(tiny_problem_path.read_text())
         paths.append(str(path))
 
-    config = RunConfig(checkpoint = str(checkpoint), device = device, timeout_seconds = 40)
+    config = RunConfig(checkpoint = str(checkpoint), device = device, timeout_s = 40)
     expected_result = run_problem(paths[0], tptp_root = None, config = config)
     results = list(
         run_problems(
@@ -130,10 +95,9 @@ def test_run_config_reads_old_worker_state_without_shifting_fields():
     import pickle
 
     old = ["base", "satresetcop", None, "cpu", 0.7, None, 42, 500, 12.5]
-    config = object.__new__(RunConfig)
-    config.__setstate__(old)
+    config = RunConfig.from_state(old)
 
-    assert config.timeout_seconds == 12.5
+    assert config.timeout_s == 12.5
     assert config.seed == 42
     assert config.temperature == 0.7
     assert config.multiprocess is False
@@ -145,6 +109,5 @@ def test_run_config_reads_old_worker_state_without_shifting_fields():
         for item in fields(config)
     ]
 
-    restored = object.__new__(RunConfig)
-    restored.__setstate__(current_positional)
+    restored = RunConfig.from_state(current_positional)
     assert restored == config

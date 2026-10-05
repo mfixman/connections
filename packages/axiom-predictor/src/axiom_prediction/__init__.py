@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING as type_checking, Any
 
-if TYPE_CHECKING:
+if type_checking:
     from .model import AxiomPrediction, AxiomPredictor
 
 def __getattr__(name: str) -> Any:
@@ -12,5 +12,3 @@ def __getattr__(name: str) -> Any:
         return getattr(model, name)
 
     raise AttributeError(name)
-
-__all__ = ["AxiomPrediction", "AxiomPredictor"]

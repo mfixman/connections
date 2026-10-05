@@ -1,21 +1,15 @@
 from enum import StrEnum
 
 class Choice(StrEnum):
-    @property
     def wire_value(self) -> str:
         return self.value.lower()
 
     @classmethod
     def _missing_(cls, value):
         if isinstance(value, str):
-            return next(
-                (
-                    item
-                    for item in cls
-                    if value.casefold() in (item.value.casefold(), item.wire_value)
-                ),
-                None,
-            )
+            for item in cls:
+                if value.casefold() in (item.value.casefold(), item.wire_value()):
+                    return item
 
         return None
 
@@ -28,7 +22,6 @@ class GraphInputKind(Choice):
     NoComplements = "NoComplements"
     NoTerms = "NoTerms"
 
-    @property
     def wire_value(self) -> str:
         return self.value.replace("No", "no-").lower()
 
@@ -39,7 +32,7 @@ class GuidanceMode(Choice):
 
 def plain_values(value):
     if isinstance(value, Choice):
-        return value.wire_value
+        return value.wire_value()
 
     if isinstance(value, dict):
         return {plain_values(key): plain_values(item) for key, item in value.items()}

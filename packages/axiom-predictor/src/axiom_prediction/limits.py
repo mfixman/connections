@@ -3,24 +3,21 @@ from functools import wraps
 import signal
 import threading
 
-DEFAULT_STEP_LIMIT = 1_000_000
-DEFAULT_TIMEOUT_SECONDS = 120.0
-DEFAULT_COLLECTION_STEP_LIMIT = 1_000_000_000
-DEFAULT_COLLECTION_TIMEOUT_SECONDS = 900.0
+default_step_limit = 1_000_000
+default_timeout_s = 120.0
+default_collection_step_limit = 1_000_000_000
+default_collection_timeout_s = 900.0
 
 class CollectionTimeout(BaseException):
     """Escape parser and policy handlers that catch ordinary exceptions."""
 
 @contextmanager
-def wall_clock(seconds):
-    if not hasattr(
-        signal,
-        "SIGALRM",
-    ) or threading.current_thread() is not threading.main_thread():
+def wall_clock(duration_s):
+    if not hasattr(signal, "SIGALRM") or threading.current_thread() is not threading.main_thread():
         yield
         return
 
-    if seconds <= 0:
+    if duration_s <= 0:
         raise CollectionTimeout
 
     if signal.getitimer(signal.ITIMER_REAL)[0]:
@@ -31,7 +28,7 @@ def wall_clock(seconds):
 
     previous = signal.signal(signal.SIGALRM, expired)
     try:
-        signal.setitimer(signal.ITIMER_REAL, seconds, 1.0)
+        signal.setitimer(signal.ITIMER_REAL, duration_s, 1.0)
         yield
     finally:
         signal.setitimer(signal.ITIMER_REAL, 0)
@@ -40,13 +37,13 @@ def wall_clock(seconds):
 def collection_budget(function):
     @wraps(function)
     def collect(*args, **kwargs):
-        seconds = kwargs.get(
-            "timeout_seconds",
-            function.__kwdefaults__["timeout_seconds"],
+        duration_s = kwargs.get(
+            "timeout_s",
+            function.__kwdefaults__["timeout_s"],
         )
 
         try:
-            with wall_clock(seconds):
+            with wall_clock(duration_s):
                 return function(*args, **kwargs)
         except CollectionTimeout:
             return None, "Timeout"

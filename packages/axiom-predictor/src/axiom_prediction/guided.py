@@ -13,9 +13,6 @@ from connections.environment.rules import Extension, Start
 from connections.environment.state import State
 from connections.syntax.matrix import Matrix
 
-GUIDED_MODES = (GuidanceMode.Weighted, GuidanceMode.Strict)
-MIN_WEIGHT = 1e-6
-
 def matrix_digest(matrix: Matrix) -> str:
     h = hashlib.sha256()
     for clause in matrix.clauses:
@@ -36,10 +33,14 @@ class _AxiomGuided:
         matrix_digest: str | None = None,
         **kwargs,
     ):
+        min_weight = 1e-6
+
+        guided_modes = (GuidanceMode.Weighted, GuidanceMode.Strict)
+
         super().__init__(**kwargs)
         mode = GuidanceMode(mode)
-        if mode not in GUIDED_MODES:
-            raise ValueError(f"unknown guided mode {mode!r}; choose from {', '.join(GUIDED_MODES)}")
+        if mode not in guided_modes:
+            raise ValueError(f"unknown guided mode {mode!r}; choose from {', '.join(guided_modes)}")
 
         if not math.isfinite(temperature) or temperature <= 0:
             raise ValueError("temperature must be finite and positive")
@@ -53,7 +54,7 @@ class _AxiomGuided:
             raise ValueError("clause probabilities must be finite and between 0 and 1")
 
         self._weights = {
-            int(i): max(MIN_WEIGHT, float(w))
+            int(i): max(min_weight, float(w))
             for i, w in clause_weights.items()
         }
 
@@ -139,7 +140,8 @@ class _AxiomGuided:
             return (repeats, -w, index)
 
         assert self._random is not None
-        u = max(1e-300, self._random.random())
+        min_uniform = 1e-300
+        u = max(min_uniform, self._random.random())
         return (self.temperature * math.log(-math.log(u)) - math.log(w),)
 
     def _next_action(self, state: State, actions: Sequence[Action]) -> Action:
@@ -164,10 +166,3 @@ class AxiomGuidedSATResetCoP(_AxiomGuided, SATResetCoP):
 
 class AxiomGuidedSATCoP(_AxiomGuided, SATCoPCon):
     pass
-
-__all__ = [
-    "AxiomGuidedSATCoP",
-    "AxiomGuidedSATResetCoP",
-    "GUIDED_MODES",
-    "matrix_digest",
-]

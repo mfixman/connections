@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING as type_checking
 
-if TYPE_CHECKING:
+if type_checking:
     import torch
 
 from connections.syntax.matrix import Matrix
-from axiom_prediction.representation.schema import GraphInput, NODE_TYPES, RELATIONS
+from axiom_prediction.representation.schema import GraphInput, node_types, relations
 from axiom_prediction.representation.matrix import matrix_graph
 
 class UnsupportedAxiomProblem(ValueError):
@@ -102,14 +102,14 @@ def collate_axiom_graphs(
     if not examples:
         raise ValueError("cannot collate an empty axiom graph batch")
 
-    nodes = {name: [] for name in NODE_TYPES if name != "goal"}
+    nodes = {name: [] for name in node_types if name != "goal"}
     edges = {
         name: []
-        for name, *_ in RELATIONS
+        for name, *_ in relations
         if name not in {"instance_of", "parent", "path"}
     }
 
-    relation_types = {name: (src, dst) for name, src, dst, _ in RELATIONS}
+    relation_types = {name: (src, dst) for name, src, dst, _ in relations}
 
     axiom_indices: list[int] = []
     conjecture_indices: list[int] = []
@@ -170,11 +170,3 @@ def collate_axiom_graphs(
         labels = torch.tensor(labels, dtype = torch.float32) if label_mode else None,
         axiom_counts = counts,
     )
-
-__all__ = [
-    "AxiomGraph",
-    "AxiomGraphBatch",
-    "build_axiom_graph",
-    "collate_axiom_graphs",
-    "validate_clause_ids",
-]

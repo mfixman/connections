@@ -10,31 +10,27 @@ import re
 from connections.clausification import matrix_from_file
 from connections.agent.sat import SATCoPCon, SATResetCoP
 from connections.interaction.run import Problem, run_schedule
-from connections.interaction.szs import SUCCESS
+from connections.interaction.szs import SUCCESS as success
 from connections.interaction.strategy import MatrixOptions, PolicyOptions, Strategy, StrategySchedule
 from connections.syntax.matrix import Matrix
 from connections.recursion import deep_recursion
 
 from .data import AxiomTrainingExample, sat_core_clause_ids, training_example_from_sat_core
 
-from .limits import DEFAULT_COLLECTION_STEP_LIMIT, DEFAULT_COLLECTION_TIMEOUT_SECONDS, DEFAULT_STEP_LIMIT, DEFAULT_TIMEOUT_SECONDS, collection_budget
+from .limits import default_collection_step_limit, default_collection_timeout_s, collection_budget
 
-_TPTP_CATEGORY = re.compile(r"[A-Z]{3}")
-_STATUS = re.compile(r"^\s*%\s*Status\s*:\s*(\S+)", re.IGNORECASE)
+_tptp_category = re.compile(r"[A-Z]{3}")
 
 def declared_tptp_status(path):
+    _status = re.compile(r"^\s*%\s*Status\s*:\s*(\S+)", re.IGNORECASE)
+
     with Path(path).open(encoding = "latin-1") as stream:
         for line in stream:
-            match = _STATUS.match(line)
+            match = _status.match(line)
             if match:
                 return match.group(1)
 
     return None
-
-_NON_REFUTABLE_DECLARED_OUTCOMES = {
-    "satisfiable": "DeclaredSatisfiable",
-    "countersatisfiable": "DeclaredCounterSatisfiable",
-}
 
 class NoProblemFilesError(FileNotFoundError):
     """A requested problem directory contains no immediate .p files."""
@@ -175,7 +171,7 @@ def find_tptp_problem_by_name(filename: str, *, root: Path | None) -> Path:
     problems_root = root / "Problems"
     category = filename[:3]
     direct = problems_root / category / filename
-    if _TPTP_CATEGORY.fullmatch(category) and direct.is_file():
+    if _tptp_category.fullmatch(category) and direct.is_file():
         return direct.resolve()
 
     matches = [
@@ -218,7 +214,7 @@ def tptp_input_directory(raw: str, *, root: Path | None) -> Path | None:
     if root_relative.is_dir():
         return root_relative.resolve()
 
-    if _TPTP_CATEGORY.fullmatch(raw):
+    if _tptp_category.fullmatch(raw):
         category = root / "Problems" / raw
         if category.is_dir():
             return category.resolve()
@@ -253,10 +249,15 @@ def collect_proof_example(
     problem: str | Path,
     *,
     tptp_root: str | Path | None = None,
-    step_limit: int = DEFAULT_COLLECTION_STEP_LIMIT,
-    timeout_seconds: float = DEFAULT_COLLECTION_TIMEOUT_SECONDS,
+    step_limit: int = default_collection_step_limit,
+    timeout_s: float = default_collection_timeout_s,
     sat_policy: str = ProverPolicy.SatResetCoP,
 ) -> tuple[AxiomTrainingExample | None, str]:
+    _non_refutable_declared_outcomes = {
+        "satisfiable": "DeclaredSatisfiable",
+        "countersatisfiable": "DeclaredCounterSatisfiable",
+    }
+
     policies = {ProverPolicy.SatCoP: SATCoPCon, ProverPolicy.SatResetCoP: SATResetCoP}
     sat_policy = ProverPolicy(sat_policy)
     if sat_policy not in policies:
@@ -267,7 +268,7 @@ def collect_proof_example(
     declared_outcome = (
         None
         if declared_status is None
-        else _NON_REFUTABLE_DECLARED_OUTCOMES.get(declared_status.casefold())
+        else _non_refutable_declared_outcomes.get(declared_status.casefold())
     )
 
     if declared_outcome is not None:
@@ -301,11 +302,11 @@ def collect_proof_example(
         schedule = StrategySchedule.single(
             strategy,
             steps = step_limit,
-            timeout_seconds = timeout_seconds,
+            timeout_seconds = timeout_s,
         ),
     )
 
-    if result.szs_status not in SUCCESS:
+    if result.szs_status not in success:
         outcome = "unknown" if result.szs_status is None else result.szs_status.value
         return None, outcome
     # Only successful searches need the matrix again for the training graph.
@@ -342,21 +343,3 @@ def check_sat_core_clauses(matrix: Matrix, core: list[int], texts: object):
             raise RuntimeError(
                 f"SAT-core clause {index} is {text!r} in the proof matrix but {str(matrix.clauses[index])!r} in the labelled matrix"
             )
-
-__all__ = [
-    "check_sat_core_clauses",
-    "collect_proof_example",
-
-    "DEFAULT_STEP_LIMIT",
-    "DEFAULT_TIMEOUT_SECONDS",
-
-    "expand_problem_inputs",
-    "find_tptp_root",
-    "load_tptp_problem",
-    "NoProblemFilesError",
-
-    "problem_input_directory",
-    "resolve_tptp_problem",
-    "TPTPProblem",
-    "tptp_problems",
-]

@@ -49,5 +49,3 @@ def process_cpu_count() -> int | None:
         return len(os.sched_getaffinity(0))
     except AttributeError:
         return os.cpu_count()
-
-__all__ = ["determine_worker_count"]

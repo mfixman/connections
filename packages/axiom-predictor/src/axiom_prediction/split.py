@@ -5,15 +5,20 @@ import hashlib
 from pathlib import Path
 import re
 
-SPLIT_SCHEME = 3
-_TPTP_NAME = re.compile(r"[A-Z]{3}\d{3}")
+split_scheme = 3
 
-@dataclass(frozen = True, slots = True)
+@dataclass(frozen = True, slots = True, init = False)
 class ProblemSplit:
     split: int = 1
     parts: list[int] = field(default_factory = lambda: [0])
 
-    def __post_init__(self):
+    def __init__(self, split: int = 1, parts: list[int] | None = None):
+        object.__setattr__(self, "split", split)
+        object.__setattr__(self, "parts", [0] if parts is None else parts)
+
+        self.validate()
+
+    def validate(self):
         if self.split < 1:
             raise ValueError("--split must be at least 1")
 
@@ -32,7 +37,6 @@ class ProblemSplit:
     def everything(cls) -> "ProblemSplit":
         return cls()
 
-    @property
     def is_everything(self) -> bool:
         return len(self.parts) == self.split
 
@@ -49,13 +53,13 @@ class ProblemSplit:
         return int.from_bytes(digest, "big") % self.split
 
     def contains(self, problem: str | Path) -> bool:
-        return self.is_everything or self.part(problem) in self.parts
+        return self.is_everything() or self.part(problem) in self.parts
 
     def select(self, problems: list[str] | tuple[str, ...]) -> list[str]:
         return [p for p in problems if self.contains(p)]
 
     def describe(self) -> str:
-        if self.is_everything:
+        if self.is_everything():
             return "every problem"
 
         return f"part{'s' if len(self.parts) > 1 else ''} {' '.join(map(str, self.parts))} of {self.split} (by problem prefix)"
@@ -64,12 +68,12 @@ class ProblemSplit:
         return {
             "split": self.split,
             "parts": list(self.parts),
-            "scheme": SPLIT_SCHEME,
+            "scheme": split_scheme,
         }
 
 def split_key(problem: str | Path) -> str:
-    name = Path(problem).stem
-    match = _TPTP_NAME.match(name)
-    return match.group() if match else name
+    _tptp_name = re.compile(r"[A-Z]{3}\d{3}")
 
-__all__ = ["ProblemSplit", "SPLIT_SCHEME", "split_key"]
+    name = Path(problem).stem
+    match = _tptp_name.match(name)
+    return match.group() if match else name

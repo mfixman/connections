@@ -19,12 +19,12 @@ from .logs import log
 from .logs import progress as track_progress
 from .parallel import determine_worker_count
 from .search_workers import supervised_results
-from .limits import DEFAULT_COLLECTION_STEP_LIMIT, DEFAULT_COLLECTION_TIMEOUT_SECONDS
+from .limits import default_collection_step_limit, default_collection_timeout_s
 from .tptp import collect_proof_example, find_tptp_root
 
-AXIOM_DATASET_SCHEMA = "learncop.axiom_prediction.dataset.v2"
-AXIOM_DATASET_SHARD_SCHEMA = "learncop.axiom_prediction.dataset-shard.v2"
-OUTDATED_DATASET_HINT = "datasets collected before schema v2 label SAT cores against a different clausification; delete and re-collect them"
+axiom_dataset_schema = "learncop.axiom_prediction.dataset.v2"
+axiom_dataset_shard_schema = "learncop.axiom_prediction.dataset-shard.v2"
+outdated_dataset_hint = "datasets collected before schema v2 label SAT cores against a different clausification; delete and re-collect them"
 
 class NoParseableProblemsError(RuntimeError):
     """Every problem in a requested directory failed TPTP parsing."""
@@ -49,8 +49,8 @@ def collect_axiom_dataset(
     output_dir: str | Path,
 
     tptp_root: str | Path | None = None,
-    step_limit: int = DEFAULT_COLLECTION_STEP_LIMIT,
-    timeout_seconds: float = DEFAULT_COLLECTION_TIMEOUT_SECONDS,
+    step_limit: int = default_collection_step_limit,
+    timeout_s: float = default_collection_timeout_s,
     sat_policy: str = ProverPolicy.SatResetCoP,
 
     num_workers: int | None = None,
@@ -77,9 +77,9 @@ def collect_axiom_dataset(
     partial_failures_dir.mkdir(parents = True, exist_ok = True)
 
     collection = {
-        "sat_policy": ProverPolicy(sat_policy).wire_value,
+        "sat_policy": ProverPolicy(sat_policy).wire_value(),
         "step_limit": step_limit,
-        "timeout_seconds": timeout_seconds,
+        "timeout_seconds": timeout_s,
         "tptp_root": (
             None if (resolved_root := find_tptp_root(tptp_root)) is None else str(
                 resolved_root
@@ -90,9 +90,9 @@ def collect_axiom_dataset(
     metadata_path = output / "metadata.json"
     if metadata_path.exists():
         metadata = read_object(metadata_path)
-        if metadata.get("schema") != AXIOM_DATASET_SCHEMA:
+        if metadata.get("schema") != axiom_dataset_schema:
             raise ValueError(
-                f"unsupported axiom dataset {output} (schema {metadata.get('schema')!r}); {OUTDATED_DATASET_HINT}"
+                f"unsupported axiom dataset {output} (schema {metadata.get('schema')!r}); {outdated_dataset_hint}"
             )
 
         if collection_settings(metadata.get("collection", {})) != collection_settings(collection):
@@ -103,7 +103,7 @@ def collect_axiom_dataset(
     else:
         write_json_atomic(
             metadata_path,
-            {"schema": AXIOM_DATASET_SCHEMA, "collection": collection},
+            {"schema": axiom_dataset_schema, "collection": collection},
         )
 
     proved = 0
@@ -183,7 +183,7 @@ def collect_axiom_dataset(
         tptp_root = tptp_root,
 
         step_limit = step_limit,
-        timeout_seconds = timeout_seconds,
+        timeout_s = timeout_s,
         sat_policy = sat_policy,
         num_workers = workers,
     ):
@@ -200,7 +200,7 @@ def collect_axiom_dataset(
     promote_partial_records(partial_failures_dir, failures_dir)
 
     summary: dict[str, Any] = {
-        "schema": AXIOM_DATASET_SCHEMA,
+        "schema": axiom_dataset_schema,
         "problems_requested": total,
         "problems_proved": proved,
         "problems_failed": failed,
@@ -218,8 +218,8 @@ def collect_axiom_dataset_shard(
     shard_name: str,
     tptp_root: str | Path | None = None,
 
-    step_limit: int = DEFAULT_COLLECTION_STEP_LIMIT,
-    timeout_seconds: float = DEFAULT_COLLECTION_TIMEOUT_SECONDS,
+    step_limit: int = default_collection_step_limit,
+    timeout_s: float = default_collection_timeout_s,
     sat_policy: str = ProverPolicy.SatResetCoP,
     num_workers: int | None = None,
 ) -> tuple[Path, dict[str, Any]]:
@@ -241,7 +241,7 @@ def collect_axiom_dataset_shard(
         tptp_root = tptp_root,
 
         step_limit = step_limit,
-        timeout_seconds = timeout_seconds,
+        timeout_s = timeout_s,
         sat_policy = sat_policy,
         num_workers = num_workers,
     )
@@ -269,7 +269,7 @@ def shard_rows(
     summary: Mapping[str, object],
 ) -> Iterator[Mapping[str, Any]]:
     yield {
-        "schema": AXIOM_DATASET_SHARD_SCHEMA,
+        "schema": axiom_dataset_shard_schema,
         "record": "metadata",
         "collection": metadata.get("collection", {}),
         "summary": dict(summary),
@@ -287,7 +287,7 @@ def collect_problems_parallel(
     tptp_root: str | Path | None,
     step_limit: int,
 
-    timeout_seconds: float,
+    timeout_s: float,
     sat_policy: str,
     num_workers: int | None = None,
 ) -> Iterator[CollectedAxiomProblem]:
@@ -296,7 +296,7 @@ def collect_problems_parallel(
         return
 
     arguments = (
-        (problem, tptp_root, step_limit, timeout_seconds, sat_policy)
+        (problem, tptp_root, step_limit, timeout_s, sat_policy)
         for problem in problems
     )
 
@@ -304,7 +304,7 @@ def collect_problems_parallel(
         collect_one_problem,
         arguments,
         workers = workers,
-        timeout = timeout_seconds,
+        timeout = timeout_s,
     ):
         yield result.get("collected") or CollectedAxiomProblem(
             result["problem"],
@@ -319,7 +319,7 @@ def collect_problem_records_parallel(
     tptp_root: str | Path | None,
     step_limit: int,
 
-    timeout_seconds: float,
+    timeout_s: float,
     sat_policy: str,
     num_workers: int | None = None,
 ) -> Iterator[CollectedAxiomRecord]:
@@ -335,7 +335,7 @@ def collect_problem_records_parallel(
             partial_dir,
             tptp_root,
             step_limit,
-            timeout_seconds,
+            timeout_s,
             sat_policy,
         )
         for problem in problems
@@ -345,7 +345,7 @@ def collect_problem_records_parallel(
         collect_one_problem_to_partial,
         arguments,
         workers = workers,
-        timeout = timeout_seconds,
+        timeout = timeout_s,
     ):
         yield result.get("collected") or interrupted_record(partial_dir, result)
 
@@ -383,7 +383,7 @@ def interrupted_record(partial_dir, result):
     write_json_atomic(
         failure,
         {
-            "schema": AXIOM_DATASET_SCHEMA,
+            "schema": axiom_dataset_schema,
             "problem": problem,
             "outcome": result["outcome"],
             "parseable": True,
@@ -398,7 +398,7 @@ def collect_one_problem_to_partial(
     partial_dir: str | Path,
     tptp_root: str | Path | None,
     step_limit: int,
-    timeout_seconds: float,
+    timeout_s: float,
     sat_policy: str,
 ) -> CollectedAxiomRecord:
     parseable = True
@@ -408,7 +408,7 @@ def collect_one_problem_to_partial(
             problem,
             tptp_root = tptp_root,
             step_limit = step_limit,
-            timeout_seconds = timeout_seconds,
+            timeout_s = timeout_s,
             sat_policy = sat_policy,
         )
     except TPTPParseError as error:
@@ -429,7 +429,7 @@ def collect_one_problem_to_partial(
         write_json_atomic(
             partial / "failures" / f"{key}.json",
             {
-                "schema": AXIOM_DATASET_SCHEMA,
+                "schema": axiom_dataset_schema,
                 "problem": problem,
                 "outcome": outcome,
                 "parseable": parseable,
@@ -450,7 +450,7 @@ def collect_one_problem(
     problem: str,
     tptp_root: str | Path | None,
     step_limit: int,
-    timeout_seconds: float,
+    timeout_s: float,
     sat_policy: str,
 ) -> CollectedAxiomProblem:
     parseable = True
@@ -459,7 +459,7 @@ def collect_one_problem(
             problem,
             tptp_root = tptp_root,
             step_limit = step_limit,
-            timeout_seconds = timeout_seconds,
+            timeout_s = timeout_s,
             sat_policy = sat_policy,
         )
     except TPTPParseError as error:
@@ -501,9 +501,9 @@ def load_axiom_dataset(
         raise FileNotFoundError(f"axiom dataset metadata not found: {metadata_path}")
 
     metadata = read_object(metadata_path)
-    if metadata.get("schema") != AXIOM_DATASET_SCHEMA:
+    if metadata.get("schema") != axiom_dataset_schema:
         raise ValueError(
-            f"unsupported axiom dataset {root} (schema {metadata.get('schema')!r}); {OUTDATED_DATASET_HINT}"
+            f"unsupported axiom dataset {root} (schema {metadata.get('schema')!r}); {outdated_dataset_hint}"
         )
 
     examples = [
@@ -543,12 +543,12 @@ def load_axiom_dataset_shards(
             raise ValueError(f"empty axiom dataset shard: {shard}") from None
 
         if (
-            header.get("schema") != AXIOM_DATASET_SHARD_SCHEMA
+            header.get("schema") != axiom_dataset_shard_schema
             or header.get("record") != "metadata"
             or not isinstance(header.get("collection"), Mapping)
         ):
             raise ValueError(
-                f"unsupported axiom dataset shard {shard} (schema {header.get('schema')!r}); {OUTDATED_DATASET_HINT}"
+                f"unsupported axiom dataset shard {shard} (schema {header.get('schema')!r}); {outdated_dataset_hint}"
             )
 
         shard_collection = dict(header["collection"])
@@ -558,7 +558,7 @@ def load_axiom_dataset_shards(
             raise ValueError(f"axiom dataset shards have different collection settings: {shard}")
 
         for row in track_progress(rows, f"reading {shard.name}"):
-            if row.get("schema") == AXIOM_DATASET_SCHEMA:
+            if row.get("schema") == axiom_dataset_schema:
                 problem = str(row.get("problem", ""))
                 if problem and problem not in examples_by_problem:
                     failures_by_problem.setdefault(
@@ -579,7 +579,7 @@ def load_axiom_dataset_shards(
         raise RuntimeError(f"axiom dataset contains no training examples: {dataset_path}")
 
     metadata = {
-        "schema": AXIOM_DATASET_SCHEMA,
+        "schema": axiom_dataset_schema,
         "collection": collection or {},
         "shards": [str(shard) for shard in shards],
     }
@@ -626,20 +626,3 @@ def promote_partial_records(source: Path, destination: Path):
             record.unlink()
         else:
             record.replace(target)
-
-__all__ = [
-    "AXIOM_DATASET_SCHEMA",
-    "AXIOM_DATASET_SHARD_SCHEMA",
-
-    "collect_axiom_dataset",
-    "collect_axiom_dataset_shard",
-
-    "CollectedAxiomProblem",
-    "CollectedAxiomRecord",
-
-    "collect_problem_records_parallel",
-    "collect_problems_parallel",
-    "load_axiom_dataset",
-
-    "NoParseableProblemsError",
-]

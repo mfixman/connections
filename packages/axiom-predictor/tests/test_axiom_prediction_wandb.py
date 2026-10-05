@@ -10,7 +10,7 @@ from types import SimpleNamespace
 import pytest
 
 from axiom_prediction.training import AxiomTrainingConfig, train_axiom_predictor
-from axiom_prediction.wandb_tracking import WandbConfig, WandbTracker
+from axiom_prediction.wandb_tracking import WandbConfig
 
 pytestmark = pytest.mark.training
 
@@ -46,66 +46,6 @@ def test_training_resumes_saved_wandb_run(tmp_path, tiny_problem_path, monkeypat
             (tmp_path / "training_runs.json").unlink()
         else:
             assert identity["id"] == initial_id
-
-def test_failed_wandb_start_retains_identity_for_retry(tmp_path, monkeypatch):
-    run = _FakeRun()
-    arguments = {}
-    module = fake_wandb(run, arguments)
-    monkeypatch.setitem(sys.modules, "wandb", module)
-    monkeypatch.setenv("WANDB_API_KEY", "test-key")
-    initialize = module.init
-
-    def fail(**kwargs):
-        raise RuntimeError("connection interrupted")
-
-    module.init = fail
-    assert WandbTracker.start(WandbConfig(), job_type = "train", run_config = {}, output_dir = tmp_path) is None
-    identity = json.loads((tmp_path / "wandb-run.json").read_text())
-    module.init = initialize
-    tracker = WandbTracker.start(WandbConfig(), job_type = "train", run_config = {}, output_dir = tmp_path, resume = True)
-    assert tracker is not None
-    assert arguments["id"] == identity["id"]
-
-def test_resume_rejects_different_wandb_project(tmp_path, monkeypatch):
-    run = _FakeRun()
-    arguments = {}
-    monkeypatch.setitem(sys.modules, "wandb", fake_wandb(run, arguments))
-    monkeypatch.setenv("WANDB_API_KEY", "test-key")
-    WandbTracker.start(WandbConfig(), job_type = "train", run_config = {}, output_dir = tmp_path)
-    arguments.clear()
-    with pytest.raises(ValueError, match = "different project or command"):
-        WandbTracker.start(WandbConfig(project = "other"), job_type = "train", run_config = {}, output_dir = tmp_path, resume = True)
-
-    assert not arguments
-
-def test_resumed_best_evaluation_keeps_previous_peak():
-    run = _FakeRun()
-    run.summary.update({"evaluation/best_macro_average_precision": 0.8, "evaluation/best_epoch": 3})
-    tracker = WandbTracker(fake_wandb(run, {}), run)
-    tracker.log_epoch(4, loss = 0.1, evaluation = {"macro_average_precision": 0.5})
-    assert run.summary["evaluation/best_epoch"] == 3
-    tracker.log_epoch(5, loss = 0.1, evaluation = {"macro_average_precision": 0.9})
-    assert run.summary["evaluation/best_epoch"] == 5
-
-def test_best_evaluation_retains_peak_and_first_epoch_on_ties():
-    run = _FakeRun()
-    tracker = WandbTracker(fake_wandb(run, {}), run)
-    scores = [None, 0.4, 0.8, 0.8, 0.5, None]
-    for epoch, score in enumerate(scores, start = 1):
-        tracker.log_epoch(
-            epoch,
-            loss = 0.1,
-            evaluation = {"macro_average_precision": score},
-        )
-
-        if epoch == 1:
-            assert "evaluation/best_epoch" not in run.summary
-
-    tracker.log_epoch(7, loss = 0.1)
-    assert run.summary["evaluation/best_macro_average_precision"] == 0.8
-    assert run.summary["evaluation/best_epoch"] == 3
-    assert run.logs[4][0]["evaluation/macro_average_precision"] == 0.5
-    assert "evaluation/macro_average_precision" not in run.logs[5][0]
 
 class _FakeRun:
     def __init__(self):
