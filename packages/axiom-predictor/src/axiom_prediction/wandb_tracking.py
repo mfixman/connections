@@ -180,7 +180,7 @@ class WandbTracker:
             {
                 f"train/{name}": value
                 for name, value in (metrics or {}).items()
-                if name not in {"examples", "positives"} and value is not None
+                if value is not None
             }
         )
 

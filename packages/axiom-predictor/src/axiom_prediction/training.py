@@ -510,12 +510,7 @@ def train_axiom_predictor(
                 )
 
                 evaluation_seconds = time.monotonic() - evaluated
-                current_evaluation = {
-                    **evaluation_metrics,
-                    "seconds": evaluation_seconds,
-                    "problems": len(held_out),
-                    "problems_skipped": len(held_out_skipped),
-                }
+                current_evaluation = dict(evaluation_metrics)
 
                 last_evaluation = epoch
                 training_since_evaluation = 0.0
@@ -608,9 +603,7 @@ def train_axiom_predictor(
                 "evaluation_kind": "held-out SAT-core-membership evaluation",
                 "split": evaluation_split.to_dict(),
                 "epoch": last_evaluation,
-                "seconds": evaluation_seconds,
                 "problems_proved": len(held_out),
-                "problems_skipped": len(held_out_skipped),
                 "skipped": held_out_skipped,
             }
 
@@ -1064,7 +1057,6 @@ def metric_text(metrics: Mapping[str, object]) -> str:
         "roc_auc",
         "average_precision",
         "macro_average_precision",
-        "f1_at_0.5",
 
         "macro_recall_at_1",
         "macro_recall_at_5",
