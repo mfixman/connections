@@ -169,14 +169,19 @@ def substitute_literal(
     *,
     instance_id: int | None,
 ) -> Literal:
-    args = tuple(
-        substitute_term(state, arg, instance_id = instance_id)
-        for arg in literal.atom.args
-    )
     return Literal(
-        atom = Atom(literal.atom.symbol, args),
-        prefix = literal.prefix,
-        polarity = literal.polarity,
+        atom=Atom(
+            literal.atom.symbol,
+            cast(
+                tuple[Term, ...],
+                tuple(
+                    substitute_term(state, arg, instance_id=instance_id)
+                    for arg in literal.atom.args
+                ),
+            ),
+        ),
+        prefix=literal.prefix,
+        polarity=literal.polarity,
     )
 
 
@@ -206,13 +211,17 @@ def substitute_term(
             vid=resolved.vid,
         )
     else:
-        function = cast(Function, resolved)
-        args = tuple(
-            substitute_term(state, arg, instance_id = resolved_instance)
-            for arg in function.args
+        substituted = Function(
+            cast(Function, resolved).symbol,
+            cast(
+                tuple[Term, ...],
+                tuple(
+                    substitute_term(state, arg, instance_id=resolved_instance)
+                    for arg in cast(Function, resolved).args
+                ),
+            ),
+            cast(Function, resolved).prefix,
         )
-        substituted = Function(function.symbol, args, function.prefix)
-
     state._term_cache[cache_key] = ResolveCacheEntry(state.revision, substituted)
     return substituted
 
@@ -243,17 +252,22 @@ def substitute_term_with_pending(
             ),
             vid=resolved.vid,
         )
-    function = cast(Function, resolved)
-    args = tuple(
-        substitute_term_with_pending(
-            state,
-            arg,
-            instance_id = resolved_instance,
-            pending_bindings = pending_bindings,
-        )
-        for arg in function.args
+    return Function(
+        cast(Function, resolved).symbol,
+        cast(
+            tuple[Term, ...],
+            tuple(
+                substitute_term_with_pending(
+                    state,
+                    arg,
+                    instance_id=resolved_instance,
+                    pending_bindings=pending_bindings,
+                )
+                for arg in cast(Function, resolved).args
+            ),
+        ),
+        cast(Function, resolved).prefix,
     )
-    return Function(function.symbol, args, function.prefix)
 
 
 def bindings_to_dict(

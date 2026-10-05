@@ -75,18 +75,29 @@ def is_ground(item: Any) -> bool:
         return False
     if item_type is tuple and len(item) == 2 and type(item[0]) is int:
         return False
+    if item_type is Function or item_type is Atom:
+        return item.is_ground
     return item.is_ground
 
 
 def same_structure(left: Any, right: Any) -> bool:
     left = unification_view(left)
     right = unification_view(right)
-    return (
-        type(left) in (Atom, Function)
-        and type(right) is type(left)
-        and left.symbol == right.symbol
-        and len(left.args) == len(right.args)
-    )
+    left_type = type(left)
+    right_type = type(right)
+    if left_type is Atom:
+        return (
+            right_type is Atom
+            and left.symbol == right.symbol
+            and len(left.args) == len(right.args)
+        )
+    if left_type is Function:
+        return (
+            right_type is Function
+            and left.symbol == right.symbol
+            and len(left.args) == len(right.args)
+        )
+    return False
 
 
 def unification_view(item: Any) -> Any:

@@ -2,6 +2,7 @@
 
 * Read ~/AGENTS.md to start.
 * This is a repo modified by multiple people. Focus on areas modified by myself.
+* Keep changes within `packages/axiom-predictor/`. Only make small changes elsewhere when necessary for the axiom predictor; do not perform unrelated cleanup outside it.
 * I prefer to have simple Python invocation:
     * Requirements should be in requirements.txt and be installable by pip.
     * The programs should be launchable by `python some/directory/file.py`, rather than using uv or the like.
