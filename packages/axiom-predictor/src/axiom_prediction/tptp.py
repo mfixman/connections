@@ -19,21 +19,22 @@ from .data import AxiomTrainingExample, sat_core_clause_ids, training_example_fr
 
 from .limits import default_collection_step_limit, default_collection_timeout_s, collection_budget
 
-_tptp_category = re.compile(r"[A-Z]{3}")
+tptp_category = re.compile(r"[A-Z]{3}")
 
 def declared_tptp_status(path):
-    _status = re.compile(r"^\s*%\s*Status\s*:\s*(\S+)", re.IGNORECASE)
+    status = re.compile(r"^\s*%\s*Status\s*:\s*(\S+)", re.IGNORECASE)
 
     with Path(path).open(encoding = "latin-1") as stream:
         for line in stream:
-            match = _status.match(line)
+            match = status.match(line)
             if match:
                 return match.group(1)
 
     return None
 
 class NoProblemFilesError(FileNotFoundError):
-    """A requested problem directory contains no immediate .p files."""
+    # A requested problem directory contains no immediate .p files.
+    pass
 
 @dataclass(frozen = True, slots = True)
 class TPTPProblem:
@@ -70,7 +71,7 @@ def default_tptp_roots() -> list[Path]:
         candidates.extend(
             sorted(
                 (base / "corpora").glob("TPTP*"),
-                key = lambda path: [int(n) for n in re.findall(r"\d+", path.name)],
+                key = lambda path: list(map(int, re.findall(r"\d+", path.name))),
                 reverse = True,
             )
         )
@@ -96,13 +97,10 @@ def load_tptp_problem(
     conjectures = list(matrix.conjecture_clauses)
     conjecture_set = frozenset(conjectures)
     axioms = [index for index in range(len(matrix)) if index not in conjecture_set]
-    from .graph import validate_clause_ids
+    if not axioms or not conjectures:
+        from .graph import UnsupportedAxiomProblem
 
-    validate_clause_ids(
-        matrix,
-        axiom_clause_ids = axioms,
-        conjecture_clause_ids = conjectures,
-    )
+        raise UnsupportedAxiomProblem("axiom prediction needs axioms and a conjecture")
 
     return TPTPProblem(requested, path, root, matrix, axioms, conjectures)
 
@@ -125,7 +123,7 @@ def expand_problem_inputs(
     *,
     tptp_root: str | Path | None = None,
 ) -> list[str]:
-    """Resolve files, flat directories, TPTP filenames, and category codes."""
+    # Resolve files, flat directories, TPTP filenames, and category codes.
 
     root = find_tptp_root(tptp_root)
     problems: list[str] = []
@@ -171,7 +169,7 @@ def find_tptp_problem_by_name(filename: str, *, root: Path | None) -> Path:
     problems_root = root / "Problems"
     category = filename[:3]
     direct = problems_root / category / filename
-    if _tptp_category.fullmatch(category) and direct.is_file():
+    if tptp_category.fullmatch(category) and direct.is_file():
         return direct.resolve()
 
     matches = [
@@ -186,7 +184,7 @@ def find_tptp_problem_by_name(filename: str, *, root: Path | None) -> Path:
     if len(matches) > 1:
         raise ValueError(
             f"TPTP problem filename {filename!r} is ambiguous: "
-            + ", ".join(str(path) for path in matches)
+            + ", ".join(map(str, matches))
         )
 
     return matches[0]
@@ -196,7 +194,7 @@ def problem_input_directory(
     *,
     tptp_root: str | Path | None = None,
 ) -> Path | None:
-    """Return the resolved directory denoted by one CLI problem input."""
+    # Return the resolved directory denoted by one CLI problem input.
 
     root = find_tptp_root(tptp_root)
     direct = Path(problem).expanduser()
@@ -214,7 +212,7 @@ def tptp_input_directory(raw: str, *, root: Path | None) -> Path | None:
     if root_relative.is_dir():
         return root_relative.resolve()
 
-    if _tptp_category.fullmatch(raw):
+    if tptp_category.fullmatch(raw):
         category = root / "Problems" / raw
         if category.is_dir():
             return category.resolve()
@@ -253,7 +251,7 @@ def collect_proof_example(
     timeout_s: float = default_collection_timeout_s,
     sat_policy: str = ProverPolicy.SatResetCoP,
 ) -> tuple[AxiomTrainingExample | None, str]:
-    _non_refutable_declared_outcomes = {
+    non_refutable_declared_outcomes = {
         "satisfiable": "DeclaredSatisfiable",
         "countersatisfiable": "DeclaredCounterSatisfiable",
     }
@@ -268,7 +266,7 @@ def collect_proof_example(
     declared_outcome = (
         None
         if declared_status is None
-        else _non_refutable_declared_outcomes.get(declared_status.casefold())
+        else non_refutable_declared_outcomes.get(declared_status.casefold())
     )
 
     if declared_outcome is not None:
@@ -312,7 +310,7 @@ def collect_proof_example(
 
     loaded = load_tptp_problem(problem, tptp_root = tptp_root)
     try:
-        core = sat_core_clause_ids(agent.diagnostics(), matrix_size = len(loaded.matrix))
+        core = sat_core_clause_ids(agent.diagnostics())
     except ValueError as error:
         return None, f"invalid SAT core: {error}"
 

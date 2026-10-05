@@ -1,9 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING as type_checking, Any
-
-if type_checking:
-    from .model import AxiomPrediction, AxiomPredictor
+from typing import Any
 
 def __getattr__(name: str) -> Any:
     if name in {"AxiomPrediction", "AxiomPredictor"}:

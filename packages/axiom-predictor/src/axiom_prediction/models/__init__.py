@@ -2,10 +2,6 @@ from __future__ import annotations
 
 from importlib import import_module
 from pathlib import Path
-from typing import TYPE_CHECKING as type_checking
-
-if type_checking:
-    from .base import AxiomPredictionNetwork
 
 def __getattr__(name):
     if name == "AxiomPredictionNetwork":
@@ -22,7 +18,7 @@ def available_models() -> list[str]:
             if p.stem not in ("base", "__init__")
         )
 
-def load_model_class(name: str) -> type[AxiomPredictionNetwork]:
+def load_model_class(name: str):
     from .base import AxiomPredictionNetwork
 
     module_name = name.removesuffix(".py")

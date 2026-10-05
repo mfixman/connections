@@ -1,4 +1,4 @@
-"""Training-level checks for the axiom predictor."""
+# Training-level checks for the axiom predictor.
 
 from __future__ import annotations
 

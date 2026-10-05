@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from .choices import GuidanceMode, ProverPolicy
 
-from typing import TYPE_CHECKING as type_checking, Any
+from typing import Any
 
 import argparse
 import json
@@ -14,9 +14,6 @@ from .limits import default_collection_step_limit, default_collection_timeout_s,
 from .logs import log, monitor_progress
 from .split import ProblemSplit
 from .output import output_format, write_record, report_metrics, journal
-
-if type_checking:
-    from .wandb_tracking import WandbConfig
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
@@ -817,7 +814,7 @@ def positive_int(value: str) -> int:
 
     return parsed
 
-def wandb_config(args: argparse.Namespace) -> WandbConfig:
+def wandb_config(args: argparse.Namespace):
     from .wandb_tracking import WandbConfig
 
     return WandbConfig(

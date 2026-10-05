@@ -9,7 +9,8 @@ default_collection_step_limit = 1_000_000_000
 default_collection_timeout_s = 900.0
 
 class CollectionTimeout(BaseException):
-    """Escape parser and policy handlers that catch ordinary exceptions."""
+    # Escape parser and policy handlers that catch ordinary exceptions.
+    pass
 
 @contextmanager
 def wall_clock(duration_s):
@@ -23,7 +24,7 @@ def wall_clock(duration_s):
     if signal.getitimer(signal.ITIMER_REAL)[0]:
         raise RuntimeError("axiom collection cannot replace an active wall-clock alarm")
 
-    def expired(_signum, _frame):
+    def expired(signum, frame):
         raise CollectionTimeout
 
     previous = signal.signal(signal.SIGALRM, expired)

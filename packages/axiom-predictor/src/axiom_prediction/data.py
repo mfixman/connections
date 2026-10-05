@@ -9,21 +9,11 @@ from axiom_prediction.representation.schema import GraphInput
 
 from .graph import AxiomGraph, build_axiom_graph
 
-def sat_core_clause_ids(diagnostics: object, *, matrix_size: int) -> list[int]:
+def sat_core_clause_ids(diagnostics: Mapping[str, Any]) -> list[int]:
     if not isinstance(diagnostics, Mapping) or "sat_core_clause_ids" not in diagnostics:
         raise ValueError("SAT result is missing SAT-core clause provenance")
 
-    value = diagnostics["sat_core_clause_ids"]
-    if not isinstance(value, list) or any(type(index) is not int for index in value):
-        raise ValueError("SAT-core clause provenance must be a list of integers")
-
-    ids = list(value)
-    if ids != sorted(set(ids)):
-        raise ValueError("SAT-core clause provenance must be sorted and unique")
-
-    if any(index < 0 or index >= matrix_size for index in ids):
-        raise ValueError("SAT-core clause provenance contains an out-of-range index")
-
+    ids = list(diagnostics["sat_core_clause_ids"])
     return ids
 
 @dataclass(frozen = True, slots = True)
@@ -82,46 +72,23 @@ def axiom_training_example_from_json(payload: Mapping[str, Any]) -> AxiomTrainin
     if payload.get("schema") != axiom_example_schema:
         raise ValueError(f"unsupported axiom-example schema: {payload.get('schema')!r}")
 
-    raw_graph = payload.get("graph")
-    if not isinstance(raw_graph, Mapping):
-        raise TypeError("axiom-example graph must be an object")
-
-    graph_input = GraphInput.from_dict(dict(raw_graph))
+    graph_input = GraphInput.from_dict(payload["graph"])
     if graph_input.preprocessor != "axiom_prediction" or graph_input.version != "1":
         raise ValueError(
             "unsupported axiom graph format: "
             f"{graph_input.preprocessor!r} version {graph_input.version!r}"
         )
 
-    axiom_ids = integer_list(payload.get("axiom_clause_ids"), "axiom_clause_ids")
-    conjecture_ids = integer_list(
-        payload.get("conjecture_clause_ids"),
-        "conjecture_clause_ids",
-    )
+    axiom_ids = list(payload["axiom_clause_ids"])
+    conjecture_ids = list(payload["conjecture_clause_ids"])
+    labels = list(map(float, payload["labels"]))
+    texts = list(payload.get("axiom_clause_texts", []))
 
-    labels = number_list(payload.get("labels"), "labels")
-    if any(label not in (0.0, 1.0) for label in labels):
-        raise ValueError("labels must contain only 0 or 1")
-
-    raw_texts = payload.get("axiom_clause_texts", [])
-    if not isinstance(raw_texts, list) or any(
-        not isinstance(value, str) for value in raw_texts
-    ):
-        raise TypeError("axiom_clause_texts must be a list of strings")
-
-    texts = list(raw_texts)
     if len(labels) != len(axiom_ids):
         raise ValueError("label count must match axiom clause count")
 
     if texts and len(texts) != len(axiom_ids):
         raise ValueError("axiom clause text count must match axiom clause count")
-
-    clause_count = len(graph_input.nodes.get("clause", []))
-    if any(index < 0 or index >= clause_count for index in (*axiom_ids, *conjecture_ids)):
-        raise ValueError("axiom-example clause ID is out of range")
-
-    if set(axiom_ids).intersection(conjecture_ids):
-        raise ValueError("axiom and conjecture clause IDs must be disjoint")
 
     return AxiomTrainingExample(
         problem_path = str(payload["problem_path"]),
@@ -130,21 +97,3 @@ def axiom_training_example_from_json(payload: Mapping[str, Any]) -> AxiomTrainin
         labels = labels,
         axiom_clause_texts = texts,
     )
-
-def integer_list(value: object, name: str) -> list[int]:
-    if not isinstance(value, list) or any(type(item) is not int for item in value):
-        raise TypeError(f"{name} must be a list of integers")
-
-    result = list(value)
-    if len(set(result)) != len(result):
-        raise ValueError(f"{name} must not contain duplicates")
-
-    return result
-
-def number_list(value: object, name: str) -> list[float]:
-    if not isinstance(value, list) or any(
-        isinstance(item, bool) or not isinstance(item, int | float) for item in value
-    ):
-        raise TypeError(f"{name} must be a list of numbers")
-
-    return [float(item) for item in value]

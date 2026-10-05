@@ -1,4 +1,4 @@
-"""Node features and edge types shared by preprocessing and the model."""
+# Node features and edge types shared by preprocessing and the model.
 
 from __future__ import annotations
 
@@ -36,7 +36,7 @@ arg_position_buckets = 6
 
 @dataclass(frozen = True, slots = True)
 class GraphInput:
-    """Graph tables stored as lists for JSON serialization."""
+    # Graph tables stored as lists for JSON serialization.
 
     nodes: dict[str, list[list[int]]]
     edges: dict[str, list[list[int]]]
@@ -52,14 +52,14 @@ class GraphInput:
     def from_dict(cls, payload: dict[str, Any]) -> "GraphInput":
         return cls(
             nodes = {
-                key: [list(f) for f in val]
+                key: list(map(list, val))
                 for key, val in payload["nodes"].items()
             },
             edges = {
-                key: [list(e) for e in val]
+                key: list(map(list, val))
                 for key, val in payload["edges"].items()
             },
-            actions = [list(a) for a in payload["actions"]],
+            actions = list(map(list, payload["actions"])),
             preprocessor = payload.get("preprocessor", "graph"),
             version = payload.get("version", "1"),
             metadata = dict(payload.get("metadata", {})),
@@ -67,7 +67,7 @@ class GraphInput:
 
 @dataclass(frozen = True, slots = True)
 class GraphTensors:
-    """Graph tables converted to tensors for training."""
+    # Graph tables converted to tensors for training.
 
     nodes: dict[str, Any]  # node type -> LongTensor [n, n_features]
     edges: dict[str, Any]  # relation -> LongTensor [n, 2 or 3]

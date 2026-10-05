@@ -458,7 +458,7 @@ class WandbTracker:
         for example in examples:
             size = len(example.labels)
             scores = probabilities[offset : offset + size]
-            labels = [int(label) for label in example.labels]
+            labels = list(map(int, example.labels))
             metrics = prediction_metrics(labels, scores, problem_sizes = [size])
             rows.append(
                 [
@@ -505,7 +505,7 @@ def roc_points(labels: list[int], scores: list[float]) -> list[list[float]]:
     points = [[0.0, 0.0]]
     true_positives = 0
     false_positives = 0
-    for _score, label in sorted(
+    for score, label in sorted(
         zip(scores, labels, strict = True),
         key = lambda item: item[0],
         reverse = True,
@@ -520,7 +520,7 @@ def precision_recall_points(labels: list[int], scores: list[float]) -> list[list
     positives = sum(labels)
     points = [[0.0, 1.0]]
     true_positives = 0
-    for count, (_score, label) in enumerate(
+    for count, (score, label) in enumerate(
         sorted(
             zip(scores, labels, strict = True),
             key = lambda item: item[0],

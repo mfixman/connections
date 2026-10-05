@@ -56,7 +56,7 @@ class ProblemSplit:
         return self.is_everything() or self.part(problem) in self.parts
 
     def select(self, problems: list[str] | tuple[str, ...]) -> list[str]:
-        return [p for p in problems if self.contains(p)]
+        return list(filter(self.contains, problems))
 
     def describe(self) -> str:
         if self.is_everything():
@@ -72,8 +72,8 @@ class ProblemSplit:
         }
 
 def split_key(problem: str | Path) -> str:
-    _tptp_name = re.compile(r"[A-Z]{3}\d{3}")
+    tptp_name = re.compile(r"[A-Z]{3}\d{3}")
 
     name = Path(problem).stem
-    match = _tptp_name.match(name)
+    match = tptp_name.match(name)
     return match.group() if match else name

@@ -117,12 +117,6 @@ class AxiomTrainingConfig:
         if self.sat_policy is not None:
             self.sat_policy = ProverPolicy(self.sat_policy)
 
-        if not math.isfinite(self.learning_rate) or self.learning_rate <= 0:
-            raise ValueError("learning_rate must be finite and positive")
-
-        if not math.isfinite(self.weight_decay) or self.weight_decay < 0:
-            raise ValueError("weight_decay must be finite and nonnegative")
-
     def network_config(self) -> AxiomModelConfig:
         if self.model is not None:
             return replace(load_model_class(self.model).default_config)
@@ -240,9 +234,6 @@ def train_axiom_predictor(
     config = AxiomTrainingConfig() if config is None else config
     split = ProblemSplit() if split is None else split
     check_training_target(output_dir, resume)
-    if evaluate_every < 0:
-        raise ValueError("evaluate_every must be nonnegative")
-
     if evaluation_split is not None and (
         split.split != evaluation_split.split
         or set(split.parts) & set(evaluation_split.parts)
@@ -251,12 +242,6 @@ def train_axiom_predictor(
 
     if evaluation_problems is not None and (evaluation_split is None or dataset is not None):
         raise ValueError("evaluation_problems requires evaluation_split and no dataset")
-
-    if config.epochs < 1:
-        raise ValueError("epochs must be at least 1")
-
-    if config.batch_size < 1:
-        raise ValueError("batch_size must be at least 1")
 
     problem_list = list(problems or [])
     if dataset is not None and problem_list:
@@ -840,7 +825,7 @@ def report_problem_predictions(examples, probabilities, skipped, split):
         size = len(example.labels)
         scores = probabilities[offset : offset + size]
         metrics = prediction_metrics(
-            [int(label) for label in example.labels],
+            list(map(int, example.labels)),
             scores,
             problem_sizes = [size],
         )
@@ -869,7 +854,7 @@ def warn_on_training_overlap(training_config: Mapping[str, Any], split: ProblemS
 
     trained_split = ProblemSplit(
         int(trained.get("split", 1)),
-        [int(p) for p in trained.get("parts", (0,))],
+        list(map(int, trained.get("parts", (0,)))),
     )
 
     if not trained_split.is_everything() and trained.get("scheme") != split_scheme:
@@ -1139,9 +1124,6 @@ def outcome_kind(outcome: str) -> str:
     return head if code is None else f"{head} {code.group(1)}"
 
 def chunks(examples: list[AxiomTrainingExample], size: int):
-    if size < 1:
-        raise ValueError("batch size must be at least 1")
-
     for start in range(0, len(examples), size):
         yield examples[start : start + size]
 

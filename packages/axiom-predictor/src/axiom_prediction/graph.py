@@ -1,10 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING as type_checking
-
-if type_checking:
-    import torch
+from typing import Any
 
 from connections.syntax.matrix import Matrix
 from axiom_prediction.representation.schema import GraphInput, node_types, relations
@@ -12,36 +9,6 @@ from axiom_prediction.representation.matrix import matrix_graph
 
 class UnsupportedAxiomProblem(ValueError):
     pass
-
-def validate_clause_ids(
-    matrix: Matrix,
-    *,
-    axiom_clause_ids: tuple[int, ...] | list[int],
-    conjecture_clause_ids: tuple[int, ...] | list[int],
-) -> tuple[list[int], list[int]]:
-    axs = list(axiom_clause_ids)
-    conjs = list(conjecture_clause_ids)
-    if not axs:
-        raise UnsupportedAxiomProblem("axiom_clause_ids must be nonempty")
-
-    if not conjs:
-        raise UnsupportedAxiomProblem("conjecture_clause_ids must be nonempty")
-
-    if len(set(axs)) != len(axs):
-        raise ValueError("axiom_clause_ids must not contain duplicates")
-
-    if len(set(conjs)) != len(conjs):
-        raise ValueError("conjecture_clause_ids must not contain duplicates")
-
-    invalid = [index for index in (*axs, *conjs) if not 0 <= index < len(matrix)]
-    if invalid:
-        raise ValueError(f"clause IDs out of range for matrix of size {len(matrix)}: {invalid}")
-
-    overlap = sorted(set(axs).intersection(conjs))
-    if overlap:
-        raise ValueError(f"axiom and conjecture clause IDs must be disjoint: {overlap}")
-
-    return axs, conjs
 
 @dataclass(frozen = True, slots = True)
 class AxiomGraph:
@@ -55,16 +22,13 @@ def build_axiom_graph(
     axiom_clause_ids: tuple[int, ...] | list[int],
     conjecture_clause_ids: tuple[int, ...] | list[int],
 ) -> AxiomGraph:
-    axs, conjs = validate_clause_ids(
-        matrix,
-        axiom_clause_ids = axiom_clause_ids,
-        conjecture_clause_ids = conjecture_clause_ids,
-    )
+    axs = list(axiom_clause_ids)
+    conjs = list(conjecture_clause_ids)
 
     base = matrix_graph(matrix, conjs)
     axiom_set = frozenset(axs)
     conjecture_set = frozenset(conjs)
-    nodes = {name: [list(row) for row in rows] for name, rows in base.nodes.items()}
+    nodes = {name: list(map(list, rows)) for name, rows in base.nodes.items()}
     for clause_index, row in enumerate(nodes["clause"]):
         if clause_index in axiom_set:
             row[1] = 0
@@ -77,7 +41,7 @@ def build_axiom_graph(
 
     graph = GraphInput(
         nodes = nodes,
-        edges = {name: [list(row) for row in rows] for name, rows in base.edges.items()},
+        edges = {name: list(map(list, rows)) for name, rows in base.edges.items()},
         actions = [],
         preprocessor = "axiom_prediction",
         version = "1",
@@ -88,13 +52,13 @@ def build_axiom_graph(
 @dataclass(frozen = True, slots = True)
 class AxiomGraphBatch:
     graph: GraphInput
-    axiom_clause_indices: torch.Tensor
-    conjecture_clause_indices: torch.Tensor
+    axiom_clause_indices: Any
+    conjecture_clause_indices: Any
 
-    axiom_batch: torch.Tensor
-    conjecture_batch: torch.Tensor
+    axiom_batch: Any
+    conjecture_batch: Any
 
-    labels: torch.Tensor | None
+    labels: Any | None
     axiom_counts: list[int]
 
 def collate_axiom_graphs(

@@ -1,4 +1,4 @@
-"""Locked output journals and atomic evaluation checkpoints."""
+# Locked output journals and atomic evaluation checkpoints.
 
 import csv
 import fcntl

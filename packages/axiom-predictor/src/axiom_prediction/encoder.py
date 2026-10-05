@@ -1,4 +1,4 @@
-"""Typed message passing and action scoring with plain PyTorch."""
+# Typed message passing and action scoring with plain PyTorch.
 
 from __future__ import annotations
 
@@ -238,7 +238,7 @@ class GraphNetwork(nn.Module):
         return h
 
     def encode_matrix(self, graph: GraphInput | GraphTensors) -> dict[str, torch.Tensor]:
-        """Encode the static tier: reusable across every decision of a problem."""
+        # Encode the static tier: reusable across every decision of a problem.
 
         matrix_relations: list[str] = [
             "contains",

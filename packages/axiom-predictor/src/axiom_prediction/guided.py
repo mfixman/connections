@@ -21,7 +21,7 @@ def matrix_digest(matrix: Matrix) -> str:
 
     return h.hexdigest()
 
-class _AxiomGuided:
+class AxiomGuided:
     def __init__(
         self,
         *,
@@ -42,89 +42,83 @@ class _AxiomGuided:
         if mode not in guided_modes:
             raise ValueError(f"unknown guided mode {mode!r}; choose from {', '.join(guided_modes)}")
 
-        if not math.isfinite(temperature) or temperature <= 0:
-            raise ValueError("temperature must be finite and positive")
-
         if self._random is None and mode == GuidanceMode.Weighted:
             raise ValueError("weighted mode needs a seed")
 
         self.mode = mode
         self.temperature = temperature
-        if any(not math.isfinite(w) or not 0 <= w <= 1 for w in clause_weights.values()):
-            raise ValueError("clause probabilities must be finite and between 0 and 1")
-
-        self._weights = {
+        self.weights = {
             int(i): max(min_weight, float(w))
             for i, w in clause_weights.items()
         }
 
-        logs = [math.log(w) for w in self._weights.values()]
-        self._neutral = math.exp(sum(logs) / len(logs)) if logs else 1.0
+        logs = list(map(math.log, self.weights.values()))
+        self.neutral = math.exp(sum(logs) / len(logs)) if logs else 1.0
 
-        self._allowed = None if allowed_clause_ids is None else frozenset(
+        self.allowed = None if allowed_clause_ids is None else frozenset(
             allowed_clause_ids
         )
 
-        self._digest = matrix_digest
-        self._checked = False
+        self.digest = matrix_digest
+        self.checked = False
 
-        self._starts_used: set[int] = set()
-        self._starts_depth = None
-        self._start_count = None
-        self._clause_uses: Counter[int] = Counter()
+        self.starts_used: set[int] = set()
+        self.starts_depth = None
+        self.start_count = None
+        self.clause_uses: Counter[int] = Counter()
 
     def __call__(self, state: State):
         if state is not self._episode:
-            self._checked = False
-            self._starts_used.clear()
-            self._clause_uses.clear()
-            self._starts_depth = None
+            self.checked = False
+            self.starts_used.clear()
+            self.clause_uses.clear()
+            self.starts_depth = None
 
-        if not self._checked:
+        if not self.checked:
             self.check_matrix(state)
 
         return super().__call__(state)
 
     def check_matrix(self, state: State):
-        if self._digest is not None and matrix_digest(state.matrix) != self._digest:
+        if self.digest is not None and matrix_digest(state.matrix) != self.digest:
             raise RuntimeError(
                 "the prover's matrix differs from the matrix the axiom predictor scored"
             )
 
         ids = super()._shadow_seed_clause_ids(state)
-        self._start_count = len(
-            ids if self._allowed is None else [i for i in ids if i in self._allowed]
+        self.start_count = len(
+            ids if self.allowed is None else [i for i in ids if i in self.allowed]
         )
 
-        self._checked = True
+        self.checked = True
 
     def _shadow_seed_clause_ids(self, state: State) -> tuple[int, ...]:
         ids = super()._shadow_seed_clause_ids(state)
-        return ids if self._allowed is None else tuple(
-            i for i in ids if i in self._allowed
+        return ids if self.allowed is None else tuple(
+            i for i in ids if i in self.allowed
         )
 
     def _actions_for_goal(self, state: State, goal_id: int) -> tuple[Action, ...]:
         actions = super()._actions_for_goal(state, goal_id)
-        if self._allowed is None:
+        if self.allowed is None:
             return actions
 
         return tuple(
-            a for a in actions if (i := clause_index(a)) is None or i in self._allowed
+            a for a in actions if (i := clause_index(a)) is None or i in self.allowed
         )
 
     def _start_next_depth(self):
         super()._start_next_depth()
-        if self._starts_depth != self.depth_limit:
-            self._clause_uses.clear()
-            self._starts_depth = self.depth_limit
+        if self.starts_depth != self.depth_limit:
+            self.clause_uses.clear()
+            self.starts_depth = self.depth_limit
 
-        if self._start_count is not None and len(self._starts_used) >= self._start_count:
-            self._starts_used.clear()
+        if self.start_count is not None and len(self.starts_used) >= self.start_count:
+            self.starts_used.clear()
 
     def weight(self, action: Action) -> float:
         i = clause_index(action)
-        return self._neutral if i is None else self._weights.get(i, self._neutral)
+        return self.neutral if i is None else self.weights.get(i, self.neutral)
 
     def _tie_break_key(self, state: State, action: Action, index: int):
         w = self.weight(action)
@@ -133,9 +127,9 @@ class _AxiomGuided:
             if i is None:
                 repeats = 0
             elif isinstance(action, ApplyAction) and isinstance(action.rule, Start):
-                repeats = int(i in self._starts_used)
+                repeats = int(i in self.starts_used)
             else:
-                repeats = self._clause_uses[i]
+                repeats = self.clause_uses[i]
 
             return (repeats, -w, index)
 
@@ -149,9 +143,9 @@ class _AxiomGuided:
         i = clause_index(action)
         if i is not None:
             if isinstance(action, ApplyAction) and isinstance(action.rule, Start):
-                self._starts_used.add(i)
+                self.starts_used.add(i)
             else:
-                self._clause_uses[i] += 1
+                self.clause_uses[i] += 1
 
         return action
 
@@ -161,8 +155,8 @@ def clause_index(action: Action) -> int | None:
 
     return None
 
-class AxiomGuidedSATResetCoP(_AxiomGuided, SATResetCoP):
+class AxiomGuidedSATResetCoP(AxiomGuided, SATResetCoP):
     pass
 
-class AxiomGuidedSATCoP(_AxiomGuided, SATCoPCon):
+class AxiomGuidedSATCoP(AxiomGuided, SATCoPCon):
     pass

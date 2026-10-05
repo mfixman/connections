@@ -1,4 +1,4 @@
-"""Restore and checkpoint evaluation collection and prediction work."""
+# Restore and checkpoint evaluation collection and prediction work.
 
 from . import data
 from .dataset import CollectedAxiomProblem
