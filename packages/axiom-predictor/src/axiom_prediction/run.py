@@ -14,25 +14,19 @@ import time
 
 from connections.parsing.tptp import TPTPParseError
 from connections.agent.sat import SATCoPCon, SATResetCoP
-from connections.interaction.szs import SUCCESS
+from connections.interaction.szs import SUCCESS as success
 from connections.interaction.run import Problem, run_schedule
 from connections.interaction.strategy import MatrixOptions, PolicyOptions, Strategy, StrategySchedule
 
 from .search_workers import supervised_results
 from .limits import CollectionTimeout, wall_clock
 from .parallel import determine_worker_count
-from .tptp import DEFAULT_STEP_LIMIT, DEFAULT_TIMEOUT_SECONDS, load_tptp_problem, resolve_tptp_problem
+from .limits import default_step_limit, default_timeout_s
+from .tptp import load_tptp_problem, resolve_tptp_problem
 from .tptp import declared_tptp_status
 from .graph import UnsupportedAxiomProblem
 
-RUN_MODES = list(GuidanceMode)
-RUN_POLICIES = list(ProverPolicy)
-_NON_REFUTABLE = {
-    "satisfiable": "DeclaredSatisfiable",
-    "countersatisfiable": "DeclaredCounterSatisfiable",
-}
-
-@dataclass(frozen = True, slots = True)
+@dataclass(frozen = True, init = False)
 class RunConfig:
     mode: GuidanceMode | str = GuidanceMode.Weighted
     policy: ProverPolicy | str | None = None
@@ -47,32 +41,42 @@ class RunConfig:
     top_k: int | None = None
 
     seed: int = 0
-    step_limit: int = DEFAULT_STEP_LIMIT
-    timeout_seconds: float = DEFAULT_TIMEOUT_SECONDS
+    step_limit: int = default_step_limit
+    timeout_s: float = default_timeout_s
 
-    def __getstate__(self):
-        # Named state stays stable when optional fields are added for new workers.
-        return {item.name: getattr(self, item.name) for item in fields(self)}
+    def __init__(
+        self,
+        mode: GuidanceMode | str = GuidanceMode.Weighted,
+        policy: ProverPolicy | str | None = None,
+        checkpoint: str | None = None,
+        device: str = "cuda",
+        multiprocess: bool = False,
+        inference_address: tuple[str, int] | None = None,
+        inference_key: str | None = None,
+        temperature: float = 1.0,
+        top_k: int | None = None,
+        seed: int = 0,
+        step_limit: int = default_step_limit,
+        timeout_s: float = default_timeout_s,
+    ):
+        object.__setattr__(self, "mode", mode)
+        object.__setattr__(self, "policy", policy)
+        object.__setattr__(self, "checkpoint", checkpoint)
+        object.__setattr__(self, "device", device)
+        object.__setattr__(self, "multiprocess", multiprocess)
 
-    def __setstate__(self, state):
-        if not isinstance(state, dict):
-            names = [item.name for item in fields(self)]
-            if len(state) == 9:
-                names = (
-                    "mode policy checkpoint device temperature top_k seed step_limit timeout_seconds"
-                ).split()
+        object.__setattr__(self, "inference_address", inference_address)
+        object.__setattr__(self, "inference_key", inference_key)
+        object.__setattr__(self, "temperature", temperature)
+        object.__setattr__(self, "top_k", top_k)
+        object.__setattr__(self, "seed", seed)
 
-            if len(state) != len(names):
-                raise ValueError("unsupported serialized RunConfig layout")
+        object.__setattr__(self, "step_limit", step_limit)
+        object.__setattr__(self, "timeout_s", timeout_s)
 
-            state = dict(zip(names, state, strict = True))
+        self.validate()
 
-        for item in fields(self):
-            object.__setattr__(self, item.name, state.get(item.name, item.default))
-
-        self.__post_init__()
-
-    def __post_init__(self):
+    def validate(self):
         object.__setattr__(self, "mode", GuidanceMode(self.mode))
         if self.policy is not None:
             object.__setattr__(self, "policy", ProverPolicy(self.policy))
@@ -83,7 +87,7 @@ class RunConfig:
         if not math.isfinite(self.temperature) or self.temperature <= 0:
             raise ValueError("--temperature must be finite and positive")
 
-        if not math.isfinite(self.timeout_seconds) or self.timeout_seconds <= 0:
+        if not math.isfinite(self.timeout_s) or self.timeout_s <= 0:
             raise ValueError("--timeout-seconds must be finite and positive")
 
         if self.step_limit < 0:
@@ -95,8 +99,29 @@ class RunConfig:
         if self.mode == GuidanceMode.Base and self.top_k is not None:
             raise ValueError("--top-k needs a model; it cannot be used with --mode base")
 
+    @classmethod
+    def from_state(cls, state):
+        if isinstance(state, dict):
+            values = dict(state)
+            if "timeout_seconds" in values:
+                values["timeout_s"] = values.pop("timeout_seconds")
+
+            return cls(**values)
+
+        names = [item.name for item in fields(cls)]
+        if len(state) == 9:
+            names = (
+                "mode policy checkpoint device temperature top_k seed step_limit timeout_s"
+            ).split()
+
+        if len(state) != len(names):
+            raise ValueError("unsupported serialized RunConfig layout")
+
+        return cls(**dict(zip(names, state, strict = True)))
+
     def to_dict(self) -> dict[str, Any]:
         values = asdict(self)
+        values["timeout_seconds"] = values.pop("timeout_s")
         values.pop("inference_address")
         values.pop("inference_key")
         return plain_values(values)
@@ -109,7 +134,7 @@ def run_problem(
 ) -> dict[str, Any]:
     started = time.monotonic()
     try:
-        with wall_clock(config.timeout_seconds):
+        with wall_clock(config.timeout_s):
             result = search_problem(problem, tptp_root = tptp_root, config = config)
     except CollectionTimeout:
         result = {"problem": problem, "outcome": "Timeout", "proved": False}
@@ -118,6 +143,11 @@ def run_problem(
     return with_run_metadata(result, config)
 
 def search_problem(problem, *, tptp_root, config):
+    _non_refutable = {
+        "satisfiable": "DeclaredSatisfiable",
+        "countersatisfiable": "DeclaredCounterSatisfiable",
+    }
+
     if config.inference_address is not None:
         from .multiprocess import shared_predictor
 
@@ -135,8 +165,8 @@ def search_problem(problem, *, tptp_root, config):
     config = replace(config, policy = policy)
     out: dict[str, Any] = {
         "problem": problem,
-        "mode": GuidanceMode(config.mode).wire_value,
-        "policy": ProverPolicy(config.policy).wire_value,
+        "mode": GuidanceMode(config.mode).wire_value(),
+        "policy": ProverPolicy(config.policy).wire_value(),
         "seed": config.seed,
     }
 
@@ -144,7 +174,7 @@ def search_problem(problem, *, tptp_root, config):
     try:
         path, root = resolve_tptp_problem(problem, tptp_root = tptp_root)
         declared = declared_tptp_status(path)
-        skip = None if declared is None else _NON_REFUTABLE.get(declared.casefold())
+        skip = None if declared is None else _non_refutable.get(declared.casefold())
         if skip is not None:
             out.update(outcome = skip, proved = False, seconds = 0.0)
             return out
@@ -202,14 +232,14 @@ def search_problem(problem, *, tptp_root, config):
 
             del loaded, predictions
 
-        prediction_seconds = time.monotonic() - started
-        remaining = config.timeout_seconds - prediction_seconds
+        prediction_s = time.monotonic() - started
+        remaining = config.timeout_s - prediction_s
         if remaining <= 0:
             out.update(
                 outcome = "Timeout",
                 proved = False,
-                seconds = prediction_seconds,
-                prediction_seconds = prediction_seconds,
+                seconds = prediction_s,
+                prediction_seconds = prediction_s,
             )
 
             return out
@@ -234,14 +264,14 @@ def search_problem(problem, *, tptp_root, config):
         strategy = result.strategy_results[0] if result.strategy_results else None
         out.update(
             outcome = "unknown" if result.szs_status is None else result.szs_status.value,
-            proved = result.szs_status in SUCCESS,
+            proved = result.szs_status in success,
             steps = None if strategy is None else strategy.steps,
             proof_size = None if strategy is None else strategy.proof_size,
             seconds = time.monotonic() - started,
         )
 
         if predictor is not None:
-            out["prediction_seconds"] = prediction_seconds
+            out["prediction_seconds"] = prediction_s
     except TPTPParseError as error:
         out.update(
             outcome = f"{type(error).__name__}: {' '.join(str(error).split())}",
@@ -292,15 +322,15 @@ def configured_results(problems, tptp_root, config, workers):
         run_one,
         ((p, tptp_root, config) for p in problems),
         workers = workers,
-        timeout = config.timeout_seconds,
+        timeout = config.timeout_s,
     ):
         yield with_run_metadata(result, config)
 
 def with_run_metadata(result, config):
     result.setdefault("seed", config.seed)
-    result.setdefault("mode", config.mode.wire_value)
+    result.setdefault("mode", config.mode.wire_value())
     if config.policy is not None:
-        result.setdefault("policy", config.policy.wire_value)
+        result.setdefault("policy", config.policy.wire_value())
 
     return result
 
@@ -331,5 +361,3 @@ def cached_predictor(checkpoint: str | None, device: str):
         raise ValueError("guided search requires a checkpoint")
 
     return AxiomPredictor.load(checkpoint, device = device)
-
-__all__ = ["RUN_MODES", "RUN_POLICIES", "RunConfig", "run_problem", "run_problems"]

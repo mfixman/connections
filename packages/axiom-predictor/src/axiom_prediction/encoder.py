@@ -1,10 +1,4 @@
-"""Connection-graph action model: typed message passing + action-edge scoring.
-
-Plain torch (no PyG): each relation is a pair of Linear transforms (forward
-and reverse direction), messages are mean-aggregated per relation and summed,
-node updates are gated through tanh with a per-type self transform. Actions
-are scored from (kind embedding, source goal embedding, target embedding).
-"""
+"""Typed message passing and action scoring with plain PyTorch."""
 
 from __future__ import annotations
 
@@ -14,43 +8,32 @@ from typing import Any, cast
 import torch
 from torch import nn
 
-from .aggregation import SPARSE_EDGE_THRESHOLD, sparse_relation_mean, sparse_relations
+from .aggregation import sparse_relation_mean, sparse_relations
 
-from axiom_prediction.representation.schema import (
-    GraphTensors,
-    ACTION_KINDS,
+from .representation.schema import GraphTensors, GraphInput, arg_position_buckets, node_types, relations
 
-    ACTION_TARGET_TYPES,
-    ARG_POSITION_BUCKETS,
-    GraphInput,
-
-    NODE_FEATURE_SIZES,
-    NODE_TYPES,
-    RELATIONS,
-)
-
-MATRIX_NODE_TYPES: list[str] = ["symbol", "clause", "literal", "term", "var"]
-MATRIX_RELATIONS: list[str] = [
-    "contains",
-    "atom",
-    "arg_term",
-    "arg_var",
-
-    "sym",
-    "lit_sym",
-    "complement",
-]
-
-TABLEAU_RELATIONS: list[str] = ["instance_of", "parent", "path"]
-
-@dataclass(frozen = True, slots = True)
+@dataclass(frozen = True, slots = True, init = False)
 class GraphModelConfig:
     hidden_dim: int = 64
     message_rounds: int = 3
     num_hidden_layers: int = 2
     activation: str = "tanh"
 
-    def __post_init__(self):
+    def __init__(
+        self,
+        hidden_dim: int = 64,
+        message_rounds: int = 3,
+        num_hidden_layers: int = 2,
+        activation: str = "tanh",
+    ):
+        object.__setattr__(self, "hidden_dim", hidden_dim)
+        object.__setattr__(self, "message_rounds", message_rounds)
+        object.__setattr__(self, "num_hidden_layers", num_hidden_layers)
+        object.__setattr__(self, "activation", activation)
+
+        self.validate()
+
+    def validate(self):
         if self.activation not in {"tanh", "relu"}:
             raise ValueError(f"unsupported graph activation: {self.activation!r}")
 
@@ -58,54 +41,65 @@ class GraphModelConfig:
         return asdict(self)
 
 class GraphNetwork(nn.Module):
-    config: GraphModelConfig
-    activation: nn.Module
-
-    feature_embeddings: nn.ModuleDict
-    position_embedding: nn.Embedding
-
-    relation_fwd: nn.ModuleDict
-    relation_rev: nn.ModuleDict
-
-    self_transform: nn.ModuleDict
-    update_norm: nn.ModuleDict
-
-    kind_embedding: nn.Embedding
-    missing_target: nn.Parameter
-    scorer: nn.Sequential
+    matrix_node_types: list[str] = ["symbol", "clause", "literal", "term", "var"]
 
     def __init__(self, config: GraphModelConfig):
+        action_kinds: list[str] = [
+            "start",
+            "extension",
+            "reduction",
+            "factorization",
+            "backtrack",
+        ]
+
+        node_feature_sizes: dict[str, list[int]] = {
+            # kind (predicate/function/constant), arity bucket
+            "symbol": [3, 5],
+            # size bucket, role (axiom/conjecture/other), is_ground, is_start
+            "clause": [5, 3, 2, 2],
+
+            # polarity
+            "literal": [2],
+            # is_ground
+            "term": [2],
+
+            # single dummy category: identity comes from edges alone
+            "var": [1],
+            # is_open, depth bucket
+            "goal": [2, 8],
+        }
+
         super().__init__()
         self.config = config
         dim = config.hidden_dim
         self.activation = nn.Tanh() if config.activation == "tanh" else nn.ReLU()
         self.feature_embeddings = nn.ModuleDict(
             {
-                node_type: nn.ModuleList( nn.Embedding(size, dim) for size in NODE_FEATURE_SIZES[node_type] )
-                for node_type in NODE_TYPES
+                node_type: nn.ModuleList( nn.Embedding(size, dim) for size in node_feature_sizes[node_type] )
+                for node_type in node_types
             }
         )
 
-        self.position_embedding = nn.Embedding(ARG_POSITION_BUCKETS, dim)
+        self.position_embedding = nn.Embedding(arg_position_buckets, dim)
         self.relation_fwd = nn.ModuleDict(
-            {name: nn.Linear(dim, dim) for name, _, _, _ in RELATIONS}
+            {name: nn.Linear(dim, dim) for name, _, _, _ in relations}
         )
 
         self.relation_rev = nn.ModuleDict(
-            {name: nn.Linear(dim, dim) for name, _, _, _ in RELATIONS}
+            {name: nn.Linear(dim, dim) for name, _, _, _ in relations}
         )
 
         self.self_transform = nn.ModuleDict(
-            {node_type: nn.Linear(dim, dim) for node_type in NODE_TYPES}
+            {node_type: nn.Linear(dim, dim) for node_type in node_types}
         )
         # Residual + LayerNorm updates: the naked tanh(W h + messages)
         # recurrence diverges under per-example SGD once graphs are deep.
 
         self.update_norm = nn.ModuleDict(
-            {node_type: nn.LayerNorm(dim) for node_type in NODE_TYPES}
+            {node_type: nn.LayerNorm(dim) for node_type in node_types}
         )
 
-        self.kind_embedding = nn.Embedding(len(ACTION_KINDS), dim)
+        self.kind_embedding = nn.Embedding(len(action_kinds), dim)
         self.missing_target = nn.Parameter(torch.zeros(dim))
         layers: list[nn.Module] = []
         input_dim = dim * 3
@@ -117,17 +111,13 @@ class GraphNetwork(nn.Module):
         layers.append(nn.Linear(input_dim, 1))
         self.scorer = nn.Sequential(*layers)
 
-    @property
-    def device(self) -> torch.device:
-        return self.missing_target.device
-
     def embed_features(
         self,
         node_type: str,
         rows: list[list[int]] | torch.Tensor,
     ) -> torch.Tensor:
         dim = self.config.hidden_dim
-        device = self.device
+        device = self.missing_target.device
         if isinstance(rows, torch.Tensor):
             if rows.shape[0] == 0:
                 return torch.zeros((0, dim), device = device)
@@ -151,7 +141,7 @@ class GraphNetwork(nn.Module):
         graph: GraphInput | GraphTensors,
         names: list[str],
     ) -> list[tuple[str, str, str, torch.Tensor, torch.Tensor | None]]:
-        by_name = {name: (src, dst, pos) for name, src, dst, pos in RELATIONS}
+        by_name = {name: (src, dst, pos) for name, src, dst, pos in relations}
         tensors = []
         for name in names:
             rows = graph.edges.get(name, [])
@@ -163,9 +153,9 @@ class GraphNetwork(nn.Module):
 
             src_type, dst_type, has_position = by_name[name]
             tensor = (
-                rows.to(self.device)
+                rows.to(self.missing_target.device)
                 if isinstance(rows, torch.Tensor)
-                else torch.tensor(rows, dtype = torch.long, device = self.device)
+                else torch.tensor(rows, dtype = torch.long, device = self.missing_target.device)
             )
 
             position = tensor[:, 2] if has_position else None
@@ -179,11 +169,12 @@ class GraphNetwork(nn.Module):
         edge_tensors: list[tuple[str, str, str, torch.Tensor, torch.Tensor | None]],
         *,
         frozen: frozenset[str] = frozenset(),
+        sparse_edge_threshold: int = 65_536,
     ) -> dict[str, torch.Tensor]:
         sparse = {
             name: sparse_relations(tensor, h[src], h[dst])
             for name, src, dst, tensor, position in edge_tensors
-            if position is None and len(tensor) >= SPARSE_EDGE_THRESHOLD
+            if position is None and len(tensor) >= sparse_edge_threshold
         }
 
         for _ in range(self.config.message_rounds):
@@ -250,24 +241,32 @@ class GraphNetwork(nn.Module):
     def encode_matrix(self, graph: GraphInput | GraphTensors) -> dict[str, torch.Tensor]:
         """Encode the static tier: reusable across every decision of a problem."""
 
+        matrix_relations: list[str] = [
+            "contains",
+            "atom",
+            "arg_term",
+            "arg_var",
+
+            "sym",
+            "lit_sym",
+            "complement",
+        ]
+
         h = {
             node_type: self.embed_features(node_type, graph.nodes.get(node_type, []))
-            for node_type in MATRIX_NODE_TYPES
+            for node_type in self.matrix_node_types
         }
 
-        return self.message_rounds(h, self.edge_tensors(graph, MATRIX_RELATIONS))
+        return self.message_rounds(h, self.edge_tensors(graph, matrix_relations))
 
     def encode(
         self,
         graph: GraphInput | GraphTensors,
         matrix_h: dict[str, torch.Tensor] | None = None,
     ) -> dict[str, torch.Tensor]:
-        """Two-phase encode: frozen matrix tier, per-decision goal tier.
+        """Encode goals with fixed matrix embeddings."""
 
-        Matrix embeddings never receive tableau messages (matrix -> tableau
-        only, per the design doc), so `matrix_h` computed once per problem is
-        exact, not an approximation.
-        """
+        tableau_relations: list[str] = ["instance_of", "parent", "path"]
 
         if matrix_h is None:
             matrix_h = self.encode_matrix(graph)
@@ -276,8 +275,8 @@ class GraphNetwork(nn.Module):
         h["goal"] = self.embed_features("goal", graph.nodes.get("goal", []))
         return self.message_rounds(
             h,
-            self.edge_tensors(graph, TABLEAU_RELATIONS),
-            frozen = frozenset(MATRIX_NODE_TYPES),
+            self.edge_tensors(graph, tableau_relations),
+            frozen = frozenset(self.matrix_node_types),
         )
 
     def forward(
@@ -285,17 +284,19 @@ class GraphNetwork(nn.Module):
         graph: GraphInput | GraphTensors,
         matrix_h: dict[str, torch.Tensor] | None = None,
     ) -> torch.Tensor:
+        action_target_types: list[str] = ["none", "clause", "literal", "goal"]
+
         h = self.encode(graph, matrix_h)
         actions = (
-            graph.actions.to(self.device)
+            graph.actions.to(self.missing_target.device)
             if isinstance(graph.actions, torch.Tensor)
-            else torch.tensor(graph.actions, dtype = torch.long, device = self.device)
+            else torch.tensor(graph.actions, dtype = torch.long, device = self.missing_target.device)
         )
 
         kind = self.kind_embedding(actions[:, 0])
         source = h["goal"][actions[:, 1]]
         target = self.missing_target.expand(actions.shape[0], -1).clone()
-        for type_index, type_name in enumerate(ACTION_TARGET_TYPES):
+        for type_index, type_name in enumerate(action_target_types):
             if type_name == "none":
                 continue
 
@@ -306,8 +307,7 @@ class GraphNetwork(nn.Module):
         return self.scorer(torch.cat([kind, source, target], dim = 1)).squeeze(1)
 
     def score_batch(self, batch: Any) -> torch.Tensor:
-        """PCScorer hook: the collated batch is one merged disconnected
-        graph, so a single forward yields all examples' action logits."""
+        """Score the merged graph for a batch."""
 
         return self(batch.graph)
 
@@ -317,8 +317,3 @@ def scatter_mean(output: torch.Tensor, index: torch.Tensor, values: torch.Tensor
     summed = torch.zeros_like(output)
     summed.index_add_(0, index, values)
     output += summed / counts.clamp(min = 1.0).unsqueeze(1)
-
-__all__ = [
-    "GraphModelConfig",
-    "GraphNetwork",
-]

@@ -26,7 +26,7 @@ def test_trained_checkpoint_guides_search(tmp_path, tiny_problem_path, policy, c
     config = RunConfig(
         policy = policy,
         checkpoint = str(tmp_path),
-        timeout_seconds = 10,
+        timeout_s = 10,
         device = "cpu",
     )
 

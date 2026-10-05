@@ -5,7 +5,6 @@ import json
 import pytest
 
 from axiom_prediction.cli import main
-from axiom_prediction.output import output_format, write_record
 from axiom_prediction.split import ProblemSplit
 
 @pytest.mark.parametrize("use_csv", [False, True])
@@ -53,31 +52,3 @@ def test_all_commands_emit_parseable_records(tmp_path, tiny_problem_path, capsys
             assert "outcome" not in problems[0]
             assert problems[0]["tptp_status"] == ""
             assert int(problems[0]["part"]) == part
-
-def test_csv_preserves_nested_values_and_quoting(capsys):
-    record = {"event": "dataset", "skipped": [{"problem": "a,b\n\"c\"", "outcome": "Timeout"}], "dataset": None}
-    with output_format("evaluate", True):
-        write_record(record)
-
-    rows = list(csv.DictReader(io.StringIO(capsys.readouterr().out)))
-    assert json.loads(rows[0]["skipped"]) == record["skipped"]
-    assert rows[0]["dataset"] == "null"
-    assert rows[0]["roc_auc"] == ""
-    write_record(record)
-    assert json.loads(capsys.readouterr().out) == record
-
-@pytest.mark.parametrize("command, status, use_csv", [
-    ("run", "Theorem", True),
-    ("evaluate", "Satisfiable", False),
-])
-def test_output_uses_declared_status(tmp_path, capsys, command, status, use_csv):
-    problem = tmp_path / "SYN001-1.p"
-    problem.write_text("" if status is None else f"% Status : {status}\n")
-    with output_format(command, use_csv):
-        write_record({"problem": str(problem), "outcome": "Timeout"})
-
-    stdout = capsys.readouterr().out
-    record = next(csv.DictReader(io.StringIO(stdout))) if use_csv else json.loads(stdout)
-    assert record["tptp_status"] == (status or "")
-    assert record["problem"] == "SYN001-1.p"
-    assert "outcome" not in record

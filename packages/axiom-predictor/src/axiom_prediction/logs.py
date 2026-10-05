@@ -6,7 +6,7 @@ import sys
 from threading import Event, Thread
 from time import monotonic
 
-PROGRESS_SECONDS = 60.0
+progress_interval_s = 60.0
 logger = logging.getLogger("axiom_prediction")
 logger.setLevel(logging.INFO)
 
@@ -26,10 +26,10 @@ def log(message: str):
     logger.log(level, message)
 
 def watch_progress(stopped):
-    while not stopped.wait(PROGRESS_SECONDS):
+    while not stopped.wait(progress_interval_s):
         updated, message = latest
         elapsed = monotonic() - updated
-        if elapsed >= PROGRESS_SECONDS:
+        if elapsed >= progress_interval_s:
             logger.info("No new progress for %.0fs; last update: %s", elapsed, message)
 
 @contextmanager
@@ -52,10 +52,8 @@ def progress(items, label, total = None):
         yield item
         count += 1
         now = monotonic()
-        if now - last_report >= PROGRESS_SECONDS:
+        if now - last_report >= progress_interval_s:
             log(f"{label}: {count}{target} completed in {now - started:.0f}s")
             last_report = now
 
     log(f"{label}: completed {count}{target} in {monotonic() - started:.1f}s")
-
-__all__ = ["log", "monitor_progress", "progress"]

@@ -5,7 +5,7 @@ from multiprocessing.connection import Connection, wait
 from multiprocessing.process import BaseProcess
 import time
 
-from .logs import PROGRESS_SECONDS, log
+from .logs import progress_interval_s, log
 
 @dataclass
 class SearchWorker:
@@ -40,7 +40,8 @@ def stop_worker(worker):
     if worker.process.is_alive():
         worker.process.terminate()
 
-    worker.process.join(timeout = 0.2)
+    shutdown_grace_s = 0.2
+    worker.process.join(timeout = shutdown_grace_s)
     if worker.process.is_alive():
         worker.process.kill()
         worker.process.join()
@@ -70,6 +71,7 @@ def supervised_results(function, arguments, *, workers, timeout):
     if not math.isfinite(timeout) or timeout <= 0:
         raise ValueError("timeout_seconds must be finite and positive")
 
+    max_problems_per_worker = 25
     pending = iter(arguments)
     active = []
     completed = 0
@@ -85,9 +87,9 @@ def supervised_results(function, arguments, *, workers, timeout):
 
         while active:
             delay = min(w.started + timeout for w in active) - time.monotonic()
-            ready = wait([w.pipe for w in active], timeout = max(0, min(delay, PROGRESS_SECONDS)))
+            ready = wait([w.pipe for w in active], timeout = max(0, min(delay, progress_interval_s)))
             now = time.monotonic()
-            if now - last_report >= PROGRESS_SECONDS:
+            if now - last_report >= progress_interval_s:
                 oldest = min(active, key = lambda worker: worker.started)
                 log(
                     f"proof search: {completed} completed, {len(active)} active; "
@@ -118,7 +120,7 @@ def supervised_results(function, arguments, *, workers, timeout):
                 worker.completed += 1
                 completed += 1
                 args = next(pending, None)
-                if reusable and args is not None and worker.completed < 25:
+                if reusable and args is not None and worker.completed < max_problems_per_worker:
                     worker.problem = args[0]
                     worker.started = time.monotonic()
                     worker.pipe.send(args)

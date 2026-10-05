@@ -32,19 +32,15 @@ class AxiomPredictionNetwork(nn.Module):
         layers.append(nn.Linear(input_dim, 1))
         self.scorer = nn.Sequential(*layers)
 
-    @property
-    def device(self) -> torch.device:
-        return next(self.parameters()).device
-
     def forward(self, batch: AxiomGraphBatch) -> torch.Tensor:
         graph = select_graph_input(batch.graph, self.config.graph_input)
         encoded = self.encoder.encode_matrix(graph)
         clauses = encoded["clause"]
 
-        axiom_indices = batch.axiom_clause_indices.to(self.device)
-        conjecture_indices = batch.conjecture_clause_indices.to(self.device)
-        axiom_batch = batch.axiom_batch.to(self.device)
-        conjecture_batch = batch.conjecture_batch.to(self.device)
+        axiom_indices = batch.axiom_clause_indices.to(clauses.device)
+        conjecture_indices = batch.conjecture_clause_indices.to(clauses.device)
+        axiom_batch = batch.axiom_batch.to(clauses.device)
+        conjecture_batch = batch.conjecture_batch.to(clauses.device)
         batch_size = len(batch.axiom_counts)
 
         conjecture_context = pool_mean(
@@ -58,16 +54,7 @@ class AxiomPredictionNetwork(nn.Module):
 
         conj = conjecture_context[axiom_batch]
         all_ax = axiom_context[axiom_batch]
-        x = torch.cat(
-            (
-                cand,
-                conj,
-                all_ax,
-                cand * conj,
-                cand - conj,
-            ),
-            dim = 1,
-        )
+        x = torch.cat((cand, conj, all_ax, cand * conj, cand - conj), dim = 1)
 
         return self.scorer(x).squeeze(1)
 

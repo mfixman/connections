@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from importlib import import_module
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING as type_checking
 
-if TYPE_CHECKING:
+if type_checking:
     from .base import AxiomPredictionNetwork
 
 def __getattr__(name):

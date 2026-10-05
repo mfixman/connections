@@ -9,31 +9,32 @@ from pathlib import Path
 
 from .io import write_json_atomic
 
-TEXT_FIELDS = {"event", "problem", "outcome", "tptp_status", "mode", "policy", "guidance_fallback"}
-RESUME_OPTIONS = {
-    "output",
-    "num_workers",
-    "device",
-    "multiprocess",
-
-    "run_name",
-    "wandb",
-    "no_wandb",
-}
-
 def resume_identity(identity):
+    resume_options = {
+        "output",
+        "num_workers",
+        "device",
+        "multiprocess",
+
+        "run_name",
+        "wandb",
+        "no_wandb",
+    }
+
     if not isinstance(identity, dict):
         return identity
 
-    return {key: value for key, value in identity.items() if key not in RESUME_OPTIONS}
+    return {key: value for key, value in identity.items() if key not in resume_options}
 
 def csv_record(header, values):
+    text_fields = {"event", "problem", "outcome", "tptp_status", "mode", "policy", "guidance_fallback"}
+
     if len(values) != len(header):
         raise ValueError("corrupt CSV output record")
 
     row = dict(zip(header, values))
     for key, value in row.items():
-        if key in TEXT_FIELDS or value == "":
+        if key in text_fields or value == "":
             continue
 
         try:
@@ -180,7 +181,6 @@ class OutputJournal:
     def key(row):
         return row.get("event") or "problem", row.get("problem") or ""
 
-    @property
     def complete(self):
         path = self.directory / "completion.json"
         if not path.exists():
@@ -189,9 +189,8 @@ class OutputJournal:
         completion = json.loads(path.read_text())
         return completion["output_bytes"] == self.path.stat().st_size
 
-    @property
     def exit_code(self):
-        if self.complete:
+        if self.complete():
             return json.loads((self.directory / "completion.json").read_text())["exit_code"]
 
         return (

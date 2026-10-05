@@ -1,7 +1,5 @@
 import torch
 
-SPARSE_EDGE_THRESHOLD = 65_536
-
 def sparse_relations(edges, sources, targets):
     indices = torch.stack((edges[:, 1], edges[:, 0]))
     weights = torch.ones(len(edges), device = sources.device, dtype = sources.dtype)

@@ -116,5 +116,3 @@ def recall_at_k(labels: list[int], scores: list[float], k: int) -> float | None:
 
     indices = sorted(range(len(labels)), key = lambda index: (-scores[index], index))[:k]
     return sum(labels[index] for index in indices) / positives
-
-__all__ = ["prediction_metrics"]

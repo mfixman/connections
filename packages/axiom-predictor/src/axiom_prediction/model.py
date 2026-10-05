@@ -16,8 +16,8 @@ from .models import AxiomPredictionNetwork, load_model_class
 from .choices import plain_values
 from .logs import log
 
-CHECKPOINT_FORMAT = "learncop.axiom-predictor"
-CHECKPOINT_VERSION = 3
+checkpoint_format = "learncop.axiom-predictor"
+checkpoint_version = 3
 
 @dataclass(frozen = True, slots = True)
 class AxiomPrediction:
@@ -65,10 +65,10 @@ class AxiomPredictor:
                 f"could not load axiom predictor checkpoint {checkpoint_path}: {error}"
             ) from error
 
-        if not isinstance(payload, dict) or payload.get("format") != CHECKPOINT_FORMAT:
+        if not isinstance(payload, dict) or payload.get("format") != checkpoint_format:
             raise ValueError(f"not an axiom predictor checkpoint: {checkpoint_path}")
 
-        if payload.get("version") not in (2, CHECKPOINT_VERSION):
+        if payload.get("version") not in (2, checkpoint_version):
             raise ValueError(
                 f"unsupported axiom predictor checkpoint version: {payload.get('version')!r}"
             )
@@ -149,8 +149,8 @@ def save_checkpoint(
     buffer = io.BytesIO()
     torch.save(
         {
-            "format": CHECKPOINT_FORMAT,
-            "version": CHECKPOINT_VERSION,
+            "format": checkpoint_format,
+            "version": checkpoint_version,
 
             "model_name": None
             if type(model) is AxiomPredictionNetwork
@@ -215,15 +215,3 @@ def device_description(device: str | torch.device) -> str:
         return "CPU"
 
     return f"{resolved.type.upper()} ({resolved})"
-
-__all__ = [
-    "AxiomModelConfig",
-    "AxiomPrediction",
-    "AxiomPredictionNetwork",
-    "AxiomPredictor",
-
-    "device_description",
-    "resolve_device",
-    "save_checkpoint",
-    "write_durably",
-]

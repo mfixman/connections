@@ -41,8 +41,6 @@ def test_batched_axiom_logits_match_individual_graphs(tiny_problem_path, monkeyp
     assert torch.allclose(batched[: len(axioms)], individual, atol = 1e-6)
     assert torch.allclose(batched[len(axioms) :], individual, atol = 1e-6)
 
-    import axiom_prediction.encoder as encoder
-
     dense = model.encoder.double()
     sparse = deepcopy(dense)
     states = {"literal": torch.randn(5, 8, dtype = torch.double, requires_grad = True)}
@@ -55,8 +53,7 @@ def test_batched_axiom_logits_match_individual_graphs(tiny_problem_path, monkeyp
     expected_grad = states["literal"].grad.clone()
 
     states["literal"].grad = None
-    monkeypatch.setattr(encoder, "SPARSE_EDGE_THRESHOLD", 0)
-    actual = sparse.message_rounds(states, relations)["literal"]
+    actual = sparse.message_rounds(states, relations, sparse_edge_threshold = 0)["literal"]
     (actual * probe).sum().backward()
     torch.testing.assert_close(actual, expected)
     torch.testing.assert_close(states["literal"].grad, expected_grad)

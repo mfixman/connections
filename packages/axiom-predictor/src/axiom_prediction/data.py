@@ -56,7 +56,7 @@ def training_example_from_sat_core(
         axiom_clause_texts = [str(matrix.clauses[index]) for index in axiom_clause_ids],
     )
 
-AXIOM_EXAMPLE_SCHEMA = "learncop.axiom_prediction.example.v2"
+axiom_example_schema = "learncop.axiom_prediction.example.v2"
 
 def axiom_training_example_to_json(example: AxiomTrainingExample) -> dict[str, Any]:
     texts = example.axiom_clause_texts
@@ -67,7 +67,7 @@ def axiom_training_example_to_json(example: AxiomTrainingExample) -> dict[str, A
         ]
 
     return {
-        "schema": AXIOM_EXAMPLE_SCHEMA,
+        "schema": axiom_example_schema,
         "problem_path": example.problem_path,
 
         "graph": example.graph.graph.to_dict(),
@@ -79,7 +79,7 @@ def axiom_training_example_to_json(example: AxiomTrainingExample) -> dict[str, A
     }
 
 def axiom_training_example_from_json(payload: Mapping[str, Any]) -> AxiomTrainingExample:
-    if payload.get("schema") != AXIOM_EXAMPLE_SCHEMA:
+    if payload.get("schema") != axiom_example_schema:
         raise ValueError(f"unsupported axiom-example schema: {payload.get('schema')!r}")
 
     raw_graph = payload.get("graph")
@@ -148,12 +148,3 @@ def number_list(value: object, name: str) -> list[float]:
         raise TypeError(f"{name} must be a list of numbers")
 
     return [float(item) for item in cast(list[int | float], value)]
-
-__all__ = [
-    "AxiomTrainingExample",
-    "AXIOM_EXAMPLE_SCHEMA",
-    "axiom_training_example_from_json",
-    "axiom_training_example_to_json",
-    "sat_core_clause_ids",
-    "training_example_from_sat_core",
-]

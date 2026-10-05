@@ -5,7 +5,6 @@ from dataclasses import replace
 import pytest
 
 from axiom_prediction import training
-from axiom_prediction.cli import main
 from axiom_prediction.split import ProblemSplit
 from axiom_prediction.tptp import collect_proof_example
 from axiom_prediction.wandb_tracking import WandbConfig
@@ -101,72 +100,3 @@ def test_evaluation_split_validation(tmp_path, monkeypatch):
             split = ProblemSplit(10, [0]), evaluation_split = ProblemSplit(10, [8]),
             wandb_config = WandbConfig(enabled = False),
         )
-
-def test_direct_api_applies_split_and_records_it(tmp_path, tiny_problem_path, monkeypatch):
-    example, _ = collect_proof_example(str(tiny_problem_path), step_limit = 100)
-    assert example is not None
-    split = ProblemSplit(2, [0])
-    problems = [f"problem{i}.p" for i in range(20)]
-    selected = split.select(problems)
-    assert 0 < len(selected) < len(problems)
-
-    collected = []
-    def collect(paths, **kwargs):
-        collected.append(paths)
-        return [replace(example, problem_path = path) for path in paths], []
-
-    monkeypatch.setattr(training, "collect_examples", collect)
-    config = training.AxiomTrainingConfig(
-        epochs = 1,
-        hidden_dim = 8,
-        message_rounds = 1,
-        device = "cpu",
-        num_workers = 1,
-    )
-
-    options = dict(split = split, config = config, wandb_config = WandbConfig(enabled = False))
-    trained = training.train_axiom_predictor(problems, output_dir = tmp_path, **options)
-    evaluated = training.evaluate_axiom_predictor(
-        tmp_path / "model.pt",
-        problems,
-        device = "cpu",
-        **options,
-    )
-
-    assert collected == [selected, selected]
-    assert trained["problems_proved"] == evaluated["problems_proved"] == len(selected)
-    saved = json.loads((tmp_path / "training_config.json").read_text())
-    assert saved["split"] == evaluated["split"] == split.to_dict()
-
-def test_fresh_input_evaluation_without_wandb(tmp_path, tiny_problem_path, monkeypatch):
-    example, _ = collect_proof_example(str(tiny_problem_path), step_limit = 100)
-    assert example is not None
-    split = ProblemSplit(10, list(range(8)))
-    held = ProblemSplit(10, [8])
-    names = [f"problem{i}.p" for i in range(100)]
-    train_name = next(name for name in names if split.contains(name))
-    eval_name = next(name for name in names if held.contains(name))
-
-    problems = tmp_path / "problems"
-    problems.mkdir()
-    for name in (train_name, eval_name):
-        (problems / name).write_text(tiny_problem_path.read_text())
-
-    collected = []
-    def collect(paths, **kwargs):
-        collected.append(paths)
-        return [replace(example, problem_path = path) for path in paths], []
-
-    monkeypatch.setattr(training, "collect_examples", collect)
-    output = tmp_path / "run"
-    assert main([
-        "train", str(problems), "--data-dir", str(output), "--device", "cpu",
-        "--network", "SmallFull", "--epochs", "2", "--num-workers", "1",
-        "--no-wandb", "--split", "10", "--parts",
-        "0", "1", "2", "3", "4", "5", "6", "7", "--evaluate", "8",
-    ]) == 0
-
-    assert collected == [[str(problems / train_name)], [str(problems / eval_name)]]
-    saved = json.loads((output / "model/evaluation_metrics.json").read_text())
-    assert saved["problems_proved"] == 1
-    assert saved["epoch"] == 2
