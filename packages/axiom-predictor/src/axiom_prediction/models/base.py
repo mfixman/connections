@@ -1,3 +1,5 @@
+from dataclasses import replace
+
 import torch
 from torch import nn
 
@@ -11,7 +13,7 @@ class AxiomPredictionNetwork(nn.Module):
 
     def __init__(self, config: AxiomModelConfig | None = None):
         super().__init__()
-        config = config or self.default_config
+        config = replace(self.default_config) if config is None else config
         self.config = config
         self.encoder = GraphNetwork(
             GraphModelConfig(

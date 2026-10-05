@@ -3,15 +3,10 @@ from __future__ import annotations
 import json
 from collections.abc import Mapping
 from pathlib import Path
-from typing import cast
 
 from connections.syntax.logic import Logic
 from pycop.settings_codec import LeancopSettingsCodec
 from connections.interaction.strategy import Strategy, WeightedStrategy
-
-
-def _entry(tokens: list[str], weight: int) -> WeightedStrategy[Strategy]:
-    return WeightedStrategy(strategy=LeancopSettingsCodec.from_tokens(tokens), weight=weight)
 
 
 _SCHEDULE_DIR = Path(__file__).with_name("schedules")
@@ -23,19 +18,17 @@ _BUILTIN_SCHEDULE_PATHS = {
 
 
 def load_schedule_entries(path_or_name: str | Path) -> list[WeightedStrategy[Strategy]]:
+    path = Path(path_or_name)
     if isinstance(path_or_name, str) and path_or_name in _BUILTIN_SCHEDULE_PATHS:
-        return _load_schedule_file(_BUILTIN_SCHEDULE_PATHS[path_or_name])
-    return _load_schedule_file(Path(path_or_name))
+        path = _BUILTIN_SCHEDULE_PATHS[path_or_name]
+
+    data = json.loads(path.read_text(encoding = "utf-8"))
+    return schedule_entries(data)
 
 
-def _load_schedule_file(path: Path) -> list[WeightedStrategy[Strategy]]:
-    return _entries_from_json(json.loads(path.read_text(encoding="utf-8")))
-
-
-def _entries_from_json(data: object) -> list[WeightedStrategy[Strategy]]:
+def schedule_entries(data: object) -> list[WeightedStrategy[Strategy]]:
     if isinstance(data, Mapping):
-        root = cast(Mapping[str, object], data)
-        data = root.get("entries")
+        data = data.get("entries")
     if not isinstance(data, list):
         raise ValueError("schedule file must contain a list or an object with entries")
 
@@ -43,29 +36,24 @@ def _entries_from_json(data: object) -> list[WeightedStrategy[Strategy]]:
     for index, item in enumerate(data, start=1):
         if not isinstance(item, Mapping):
             raise ValueError(f"schedule entry {index} must be an object")
-        entry = cast(Mapping[str, object], item)
-        tokens = entry.get("settings")
+        tokens = item.get("settings")
         if tokens is None:
-            tokens = entry.get("tokens", [])
+            tokens = item.get("tokens", [])
         if not isinstance(tokens, list) or not all(
             isinstance(token, str) for token in tokens
         ):
             raise ValueError(f"schedule entry {index} settings must be a string list")
-        token_list = cast(list[str], tokens)
-        weight = entry.get("weight", 1)
+        weight = item.get("weight", 1)
         if not isinstance(weight, int):
             raise ValueError(f"schedule entry {index} weight must be an integer")
-        entries.append(_entry(token_list, weight))
+        strategy = LeancopSettingsCodec.from_tokens(tokens)
+        entries.append(WeightedStrategy(strategy = strategy, weight = weight))
     return entries
 
 
-def _load_builtin_schedule(name: str) -> list[WeightedStrategy[Strategy]]:
-    return _load_schedule_file(_BUILTIN_SCHEDULE_PATHS[name])
-
-
-_CLASSICAL_SCHEDULE = _load_builtin_schedule("classical")
-_INTUITIONISTIC_SCHEDULE = _load_builtin_schedule("intuitionistic")
-_MODAL_SCHEDULE = _load_builtin_schedule("modal")
+_CLASSICAL_SCHEDULE = load_schedule_entries("classical")
+_INTUITIONISTIC_SCHEDULE = load_schedule_entries("intuitionistic")
+_MODAL_SCHEDULE = load_schedule_entries("modal")
 
 SCHEDULE_BY_LOGIC: dict[Logic, list[WeightedStrategy[Strategy]]] = {
     "classical": _CLASSICAL_SCHEDULE,

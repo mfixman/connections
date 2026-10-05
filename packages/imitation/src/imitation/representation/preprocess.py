@@ -1,13 +1,4 @@
-"""Live state -> GraphInput: the percept serialized for the model.
-
-The percept is already [s, omega]: the state carries its matrix, so the
-static tier comes from the state itself and the goal tier is rebuilt per
-decision. Proof-replay tableaux hold only proof steps, so the overlay is
-tens of nodes and the cost is dwarfed by the model call; incremental
-maintenance is an inference-time optimization layered on later without
-changing the schema. The ``start`` mode is part of the preprocessor because
-it changes the start-clause feature, and with it the surface.
-"""
+"""Combine the cached matrix graph with current goals and candidate actions."""
 
 from __future__ import annotations
 
@@ -47,8 +38,7 @@ class GraphPreprocessor:
 
         goal_index: dict[int, int] = {}
         goal_nodes: list[list[int]] = []
-        for goal_id in tableau.goals:
-            goal = tableau.goals[goal_id]
+        for goal_id, goal in tableau.goals.items():
             goal_index[goal_id] = len(goal_nodes)
             goal_nodes.append(
                 [
@@ -142,20 +132,10 @@ def _action_row(
             _TARGET["literal"],
             literal_index[(rule.clause_idx, rule.lit_idx)],
         ]
-    if isinstance(rule, Reduction):
-        return [
-            _KIND["reduction"],
-            source,
-            _TARGET["goal"],
-            goal_index[rule.source_goal_id],
-        ]
-    if isinstance(rule, Factorization):
-        return [
-            _KIND["factorization"],
-            source,
-            _TARGET["goal"],
-            goal_index[rule.source_goal_id],
-        ]
+    if isinstance(rule, (Reduction, Factorization)):
+        kind = "reduction" if isinstance(rule, Reduction) else "factorization"
+        return [_KIND[kind], source, _TARGET["goal"], goal_index[rule.source_goal_id]]
+
     raise TypeError(f"unsupported rule: {rule!r}")
 
 

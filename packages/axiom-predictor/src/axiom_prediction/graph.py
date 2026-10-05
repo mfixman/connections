@@ -66,10 +66,13 @@ def build_axiom_graph(
     conjecture_set = frozenset(conjs)
     nodes = {name: [list(row) for row in rows] for name, rows in base.nodes.items()}
     for clause_index, row in enumerate(nodes["clause"]):
-        row[1] = (
-            0 if clause_index in axiom_set
-            else (1 if clause_index in conjecture_set else 2)
-        )
+        if clause_index in axiom_set:
+            row[1] = 0
+        elif clause_index in conjecture_set:
+            row[1] = 1
+        else:
+            row[1] = 2
+
         row[3] = int(clause_index in conjecture_set)
 
     graph = GraphInput(

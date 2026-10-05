@@ -1,12 +1,4 @@
-"""The trainer: fit the network to the critic's feedback, checkpoint it.
-
-No DataLoader machinery: a seeded permutation into collated chunks is the
-whole batching story, which keeps runs deterministic per seed. The
-checkpoint is ``model.pt`` plus ``metrics.json``, written last as the
-commit marker -- its presence implies a complete checkpoint -- and it
-carries the dataset's ``surface_key``, so what a model was trained to
-choose over is never ambient knowledge.
-"""
+"""Train on seeded batches. Write model.pt first, then metrics.json to mark completion."""
 
 from __future__ import annotations
 
