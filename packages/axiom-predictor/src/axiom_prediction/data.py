@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass, field
-from typing import Any, cast
+from typing import Any
 
 from connections.syntax.matrix import Matrix
 from axiom_prediction.representation.schema import GraphInput
@@ -13,11 +13,11 @@ def sat_core_clause_ids(diagnostics: object, *, matrix_size: int) -> list[int]:
     if not isinstance(diagnostics, Mapping) or "sat_core_clause_ids" not in diagnostics:
         raise ValueError("SAT result is missing SAT-core clause provenance")
 
-    value = cast(Mapping[str, Any], diagnostics)["sat_core_clause_ids"]
+    value = diagnostics["sat_core_clause_ids"]
     if not isinstance(value, list) or any(type(index) is not int for index in value):
         raise ValueError("SAT-core clause provenance must be a list of integers")
 
-    ids = list(cast(list[int], value))
+    ids = list(value)
     if ids != sorted(set(ids)):
         raise ValueError("SAT-core clause provenance must be sorted and unique")
 
@@ -135,7 +135,7 @@ def integer_list(value: object, name: str) -> list[int]:
     if not isinstance(value, list) or any(type(item) is not int for item in value):
         raise TypeError(f"{name} must be a list of integers")
 
-    result = list(cast(list[int], value))
+    result = list(value)
     if len(set(result)) != len(result):
         raise ValueError(f"{name} must not contain duplicates")
 
@@ -147,4 +147,4 @@ def number_list(value: object, name: str) -> list[float]:
     ):
         raise TypeError(f"{name} must be a list of numbers")
 
-    return [float(item) for item in cast(list[int | float], value)]
+    return [float(item) for item in value]

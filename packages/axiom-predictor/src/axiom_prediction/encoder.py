@@ -12,12 +12,12 @@ from .aggregation import sparse_relation_mean, sparse_relations
 
 from .representation.schema import GraphTensors, GraphInput, arg_position_buckets, node_types, relations
 
-@dataclass(frozen = True, slots = True, init = False)
+@dataclass(slots = True, init = False)
 class GraphModelConfig:
-    hidden_dim: int = 64
-    message_rounds: int = 3
-    num_hidden_layers: int = 2
-    activation: str = "tanh"
+    hidden_dim: int
+    message_rounds: int
+    num_hidden_layers: int
+    activation: str
 
     def __init__(
         self,
@@ -26,10 +26,10 @@ class GraphModelConfig:
         num_hidden_layers: int = 2,
         activation: str = "tanh",
     ):
-        object.__setattr__(self, "hidden_dim", hidden_dim)
-        object.__setattr__(self, "message_rounds", message_rounds)
-        object.__setattr__(self, "num_hidden_layers", num_hidden_layers)
-        object.__setattr__(self, "activation", activation)
+        self.hidden_dim = hidden_dim
+        self.message_rounds = message_rounds
+        self.num_hidden_layers = num_hidden_layers
+        self.activation = activation
 
         self.validate()
 

@@ -26,23 +26,23 @@ from .tptp import load_tptp_problem, resolve_tptp_problem
 from .tptp import declared_tptp_status
 from .graph import UnsupportedAxiomProblem
 
-@dataclass(frozen = True, init = False)
+@dataclass(init = False)
 class RunConfig:
-    mode: GuidanceMode | str = GuidanceMode.Weighted
-    policy: ProverPolicy | str | None = None
-    checkpoint: str | None = None
-    device: str = "cuda"
+    mode: GuidanceMode | str
+    policy: ProverPolicy | str | None
+    checkpoint: str | None
+    device: str
 
-    multiprocess: bool = False
-    inference_address: tuple[str, int] | None = field(default = None, repr = False)
-    inference_key: str | None = field(default = None, repr = False)
+    multiprocess: bool
+    inference_address: tuple[str, int] | None = field(repr = False)
+    inference_key: str | None = field(repr = False)
 
-    temperature: float = 1.0
-    top_k: int | None = None
+    temperature: float
+    top_k: int | None
 
-    seed: int = 0
-    step_limit: int = default_step_limit
-    timeout_s: float = default_timeout_s
+    seed: int
+    step_limit: int
+    timeout_s: float
 
     def __init__(
         self,
@@ -59,27 +59,27 @@ class RunConfig:
         step_limit: int = default_step_limit,
         timeout_s: float = default_timeout_s,
     ):
-        object.__setattr__(self, "mode", mode)
-        object.__setattr__(self, "policy", policy)
-        object.__setattr__(self, "checkpoint", checkpoint)
-        object.__setattr__(self, "device", device)
-        object.__setattr__(self, "multiprocess", multiprocess)
+        self.mode = mode
+        self.policy = policy
+        self.checkpoint = checkpoint
+        self.device = device
+        self.multiprocess = multiprocess
 
-        object.__setattr__(self, "inference_address", inference_address)
-        object.__setattr__(self, "inference_key", inference_key)
-        object.__setattr__(self, "temperature", temperature)
-        object.__setattr__(self, "top_k", top_k)
-        object.__setattr__(self, "seed", seed)
+        self.inference_address = inference_address
+        self.inference_key = inference_key
+        self.temperature = temperature
+        self.top_k = top_k
+        self.seed = seed
 
-        object.__setattr__(self, "step_limit", step_limit)
-        object.__setattr__(self, "timeout_s", timeout_s)
+        self.step_limit = step_limit
+        self.timeout_s = timeout_s
 
         self.validate()
 
     def validate(self):
-        object.__setattr__(self, "mode", GuidanceMode(self.mode))
+        self.mode = GuidanceMode(self.mode)
         if self.policy is not None:
-            object.__setattr__(self, "policy", ProverPolicy(self.policy))
+            self.policy = ProverPolicy(self.policy)
 
         if self.mode != GuidanceMode.Base and self.checkpoint is None:
             raise ValueError(f"--mode {self.mode} needs --model")

@@ -2,9 +2,6 @@ from __future__ import annotations
 
 import re
 
-from collections.abc import Mapping
-from typing import Any, cast
-
 from pycop.leancop import leancop_agent
 from connections.interaction.strategy import MatrixOptions, PolicyOptions, Strategy
 
@@ -16,7 +13,10 @@ class LeancopSettingsCodec:
     def to_tokens(strategy: Strategy | None = None) -> list[str]:
         normalized = strategy if strategy is not None else LeancopSettingsCodec.from_tokens(None)
         matrix = normalized.matrix
-        args = _policy_args(normalized)
+        if normalized.policy.policy_class is not leancop_agent:
+            raise TypeError("leanCoP settings codec requires the leanCoP agent factory")
+
+        args = normalized.policy.args or {}
         tokens: list[str] = []
 
         if matrix.translation in {"def", "nodef"}:
@@ -76,16 +76,7 @@ class LeancopSettingsCodec:
         scut = False
         comp: int | None = None
 
-        if tokens is None:
-            return Strategy(
-                matrix=MatrixOptions(),
-                policy=PolicyOptions(
-                    policy_class=leancop_agent,
-                    args=_leancop_policy_args(),
-                ),
-            )
-
-        for token in tokens:
+        for token in tokens or []:
             if token == "nodef":
                 translation = "nodef"
                 continue
@@ -120,36 +111,15 @@ class LeancopSettingsCodec:
             ),
             policy=PolicyOptions(
                 policy_class=leancop_agent,
-                args=_leancop_policy_args(
-                    cut=cut,
-                    scut=scut,
-                    comp=comp,
-                    start="conjecture" if conjecture else "positive",
-                ),
+                args = {
+                    "cut": cut,
+                    "scut": scut,
+                    "comp": comp,
+                    "start": "conjecture" if conjecture else "positive",
+                    "factorization": "equal",
+                },
             ),
         )
-
-
-def _leancop_policy_args(
-    *,
-    cut: bool = False,
-    scut: bool = False,
-    comp: int | None = None,
-    start: str = "positive",
-) -> dict[str, object]:
-    return {
-        "cut": cut,
-        "scut": scut,
-        "comp": comp,
-        "start": start,
-        "factorization": "equal",
-    }
-
-
-def _policy_args(strategy: Strategy) -> Mapping[str, Any]:
-    if strategy.policy.policy_class is not leancop_agent:
-        raise TypeError("leanCoP settings codec requires the leanCoP agent factory")
-    return cast(Mapping[str, Any], strategy.policy.args or {})
 
 
 __all__ = ["LeancopSettingsCodec"]

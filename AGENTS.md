@@ -6,6 +6,7 @@
     * Requirements should be in requirements.txt and be installable by pip.
     * The programs should be launchable by `python some/directory/file.py`, rather than using uv or the like.
 * I will likely ask you to work on the axiom selection.
+* Prefer clear, direct code over exhaustive edge-case machinery. Keep checks that protect proof correctness and saved results.
 
 ## Axiom predictor style
 
@@ -13,6 +14,7 @@
 * Declare constants in the narrowest scope that uses them; keep only shared constants at module scope.
 * Use unit symbols in names, such as `default_timeout_s` and `poll_interval_ms`, rather than spelling out seconds or milliseconds. Preserve established external field names when needed for compatibility.
 * Do not use `@property`; use ordinary methods or attributes.
+* Avoid `object` for initialization or attribute assignment; use ordinary `self` assignments and simple classes.
 * Do not define `__getstate__`, `__setstate__`, or `__post_init__`; use explicit constructors and named helpers instead.
 * Do not use `__all__` unless an actual import/export requirement needs it.
 * Prefer direct, simple code and short comments. Avoid unnecessary wrappers and boilerplate.

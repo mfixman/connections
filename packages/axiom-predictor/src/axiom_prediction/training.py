@@ -45,29 +45,29 @@ from .limits import default_step_limit, default_timeout_s
 from .wandb_tracking import WandbConfig, WandbTracker
 from .resume import check_training_target, dataset_fingerprint, next_training_run, restore_training, snapshot_training
 
-@dataclass(frozen = True, slots = True, init = False)
+@dataclass(slots = True, init = False)
 class AxiomTrainingConfig:
-    epochs: int = 200
-    batch_size: int = 43
-    learning_rate: float = 1e-3
-    weight_decay: float = 0.0
+    epochs: int
+    batch_size: int
+    learning_rate: float
+    weight_decay: float
 
-    hidden_dim: int = 64
-    message_rounds: int = 3
-    num_hidden_layers: int = 2
-    activation: str = "relu"
-    graph_input: str = GraphInputKind.Full
-    model: str | None = None
+    hidden_dim: int
+    message_rounds: int
+    num_hidden_layers: int
+    activation: str
+    graph_input: str
+    model: str | None
 
-    seed: int = 0
-    device: str = "cuda"
+    seed: int
+    device: str
 
-    step_limit: int = default_step_limit
-    timeout_s: float = default_timeout_s
-    sat_policy: ProverPolicy | str | None = None
+    step_limit: int
+    timeout_s: float
+    sat_policy: ProverPolicy | str | None
 
-    num_workers: int | None = None
-    log_every: int = 10
+    num_workers: int | None
+    log_every: int
 
     def __init__(
         self,
@@ -89,33 +89,33 @@ class AxiomTrainingConfig:
         num_workers: int | None = None,
         log_every: int = 10,
     ):
-        object.__setattr__(self, "epochs", epochs)
-        object.__setattr__(self, "batch_size", batch_size)
-        object.__setattr__(self, "learning_rate", learning_rate)
-        object.__setattr__(self, "weight_decay", weight_decay)
-        object.__setattr__(self, "hidden_dim", hidden_dim)
+        self.epochs = epochs
+        self.batch_size = batch_size
+        self.learning_rate = learning_rate
+        self.weight_decay = weight_decay
+        self.hidden_dim = hidden_dim
 
-        object.__setattr__(self, "message_rounds", message_rounds)
-        object.__setattr__(self, "num_hidden_layers", num_hidden_layers)
-        object.__setattr__(self, "activation", activation)
-        object.__setattr__(self, "graph_input", graph_input)
-        object.__setattr__(self, "model", model)
+        self.message_rounds = message_rounds
+        self.num_hidden_layers = num_hidden_layers
+        self.activation = activation
+        self.graph_input = graph_input
+        self.model = model
 
-        object.__setattr__(self, "seed", seed)
-        object.__setattr__(self, "device", device)
-        object.__setattr__(self, "step_limit", step_limit)
-        object.__setattr__(self, "timeout_s", timeout_s)
-        object.__setattr__(self, "sat_policy", sat_policy)
+        self.seed = seed
+        self.device = device
+        self.step_limit = step_limit
+        self.timeout_s = timeout_s
+        self.sat_policy = sat_policy
 
-        object.__setattr__(self, "num_workers", num_workers)
-        object.__setattr__(self, "log_every", log_every)
+        self.num_workers = num_workers
+        self.log_every = log_every
 
         self.validate()
 
     def validate(self):
         self.network_config()
         if self.sat_policy is not None:
-            object.__setattr__(self, "sat_policy", ProverPolicy(self.sat_policy))
+            self.sat_policy = ProverPolicy(self.sat_policy)
 
         if not math.isfinite(self.learning_rate) or self.learning_rate <= 0:
             raise ValueError("learning_rate must be finite and positive")
@@ -125,7 +125,7 @@ class AxiomTrainingConfig:
 
     def network_config(self) -> AxiomModelConfig:
         if self.model is not None:
-            return load_model_class(self.model).default_config
+            return replace(load_model_class(self.model).default_config)
 
         return AxiomModelConfig(
             hidden_dim = self.hidden_dim,
@@ -226,10 +226,10 @@ def train_axiom_predictor(
     output_dir: str | Path,
     tptp_root: str | Path | None = None,
 
-    config: AxiomTrainingConfig = AxiomTrainingConfig(),
+    config: AxiomTrainingConfig | None = None,
     wandb_config: WandbConfig = WandbConfig(),
     run_properties: Mapping[str, object] | None = None,
-    split: ProblemSplit = ProblemSplit(),
+    split: ProblemSplit | None = None,
     evaluation_split: ProblemSplit | None = None,
     evaluation_problems: list[str] | tuple[str, ...] | None = None,
     evaluate_every: int = 1,
@@ -237,6 +237,8 @@ def train_axiom_predictor(
 ) -> dict[str, Any]:
     progress_interval_s = 60.0
 
+    config = AxiomTrainingConfig() if config is None else config
+    split = ProblemSplit() if split is None else split
     check_training_target(output_dir, resume)
     if evaluate_every < 0:
         raise ValueError("evaluate_every must be nonnegative")
@@ -690,8 +692,9 @@ def evaluate_axiom_predictor(
     config: AxiomTrainingConfig | None = None,
     wandb_config: WandbConfig = WandbConfig(),
     run_properties: Mapping[str, object] | None = None,
-    split: ProblemSplit = ProblemSplit(),
+    split: ProblemSplit | None = None,
 ) -> dict[str, Any]:
+    split = ProblemSplit() if split is None else split
     problem_list = list(problems or [])
     if dataset is not None and problem_list:
         raise ValueError("evaluate takes either PROBLEM inputs or --data-dir, not both")

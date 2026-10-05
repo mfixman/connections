@@ -1,20 +1,20 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 import hashlib
 from pathlib import Path
 import re
 
 split_scheme = 3
 
-@dataclass(frozen = True, slots = True, init = False)
+@dataclass(slots = True, init = False)
 class ProblemSplit:
-    split: int = 1
-    parts: list[int] = field(default_factory = lambda: [0])
+    split: int
+    parts: list[int]
 
     def __init__(self, split: int = 1, parts: list[int] | None = None):
-        object.__setattr__(self, "split", split)
-        object.__setattr__(self, "parts", [0] if parts is None else parts)
+        self.split = split
+        self.parts = [0] if parts is None else parts
 
         self.validate()
 

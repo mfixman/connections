@@ -41,27 +41,27 @@ def prediction_metrics(
         for size in problem_sizes:
             per_problem.append(
                 (
-                    list(labels[offset : offset + size]),
-                    list(probabilities[offset : offset + size]),
+                    labels[offset : offset + size],
+                    probabilities[offset : offset + size],
                 )
             )
 
             offset += size
 
-        precisions = [average_precision(y, p) for y, p in per_problem]
-        defined = [value for value in precisions if value is not None]
-        result["macro_average_precision"] = (
-            sum(defined) / len(defined) if defined else None
+        result["macro_average_precision"] = mean_defined(
+            average_precision(y, p) for y, p in per_problem
         )
 
         for k in (1, 3, 5, 10):
-            recalls = [recall_at_k(y, p, k) for y, p in per_problem]
-            defined = [value for value in recalls if value is not None]
-            result[f"macro_recall_at_{k}"] = sum(
-                defined
-            ) / len(defined) if defined else None
+            result[f"macro_recall_at_{k}"] = mean_defined(
+                recall_at_k(y, p, k) for y, p in per_problem
+            )
 
     return result
+
+def mean_defined(values):
+    defined = [value for value in values if value is not None]
+    return sum(defined) / len(defined) if defined else None
 
 def roc_auc(labels: list[int], scores: list[float]) -> float | None:
     positives = [score for label, score in zip(labels, scores, strict = True) if label]

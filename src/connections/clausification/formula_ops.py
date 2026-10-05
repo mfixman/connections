@@ -51,50 +51,21 @@ def univar(formula: Formula) -> Formula:
             return Eq(map_term(current.left, mapping), map_term(current.right, mapping))
         if isinstance(current, Not):
             return Not(map_formula(current.formula, mapping))
-        if isinstance(current, And):
-            return And(
+        if isinstance(current, (And, Or, Impl, Iff)):
+            return type(current)(
                 map_formula(current.left, mapping),
                 map_formula(current.right, mapping),
             )
-        if isinstance(current, Or):
-            return Or(
-                map_formula(current.left, mapping),
-                map_formula(current.right, mapping),
-            )
-        if isinstance(current, Impl):
-            return Impl(
-                map_formula(current.left, mapping),
-                map_formula(current.right, mapping),
-            )
-        if isinstance(current, Iff):
-            return Iff(
-                map_formula(current.left, mapping),
-                map_formula(current.right, mapping),
-            )
-        if isinstance(current, Exists):
+
+        if isinstance(current, (Exists, Forall)):
             renamed = fresh()
-            next_mapping = dict(mapping)
-            next_mapping[current.variable.symbol] = renamed
-            return Exists(renamed, map_formula(current.body, next_mapping))
-        if isinstance(current, Forall):
-            renamed = fresh()
-            next_mapping = dict(mapping)
-            next_mapping[current.variable.symbol] = renamed
-            return Forall(renamed, map_formula(current.body, next_mapping))
-        if isinstance(current, Box):
-            index = (
-                map_term(current.index, mapping)
-                if current.index is not None
-                else None
-            )
-            return Box(map_formula(current.body, mapping), index=index)
-        if isinstance(current, Diamond):
-            index = (
-                map_term(current.index, mapping)
-                if current.index is not None
-                else None
-            )
-            return Diamond(map_formula(current.body, mapping), index=index)
+            next_mapping = {**mapping, current.variable.symbol: renamed}
+            return type(current)(renamed, map_formula(current.body, next_mapping))
+
+        if isinstance(current, (Box, Diamond)):
+            index = map_term(current.index, mapping) if current.index is not None else None
+            return type(current)(map_formula(current.body, mapping), index = index)
+
         raise TypeError(f"Unsupported formula node: {type(current)!r}")
 
     return map_formula(formula, {})
@@ -138,49 +109,25 @@ def substitute_variable(formula: Formula, var_name: str, replacement: Term) -> F
         return Eq(subst_term(formula.left), subst_term(formula.right))
     if isinstance(formula, Not):
         return Not(substitute_variable(formula.formula, var_name, replacement))
-    if isinstance(formula, And):
-        return And(
+    if isinstance(formula, (And, Or, Impl, Iff)):
+        return type(formula)(
             substitute_variable(formula.left, var_name, replacement),
             substitute_variable(formula.right, var_name, replacement),
         )
-    if isinstance(formula, Or):
-        return Or(
-            substitute_variable(formula.left, var_name, replacement),
-            substitute_variable(formula.right, var_name, replacement),
-        )
-    if isinstance(formula, Impl):
-        return Impl(
-            substitute_variable(formula.left, var_name, replacement),
-            substitute_variable(formula.right, var_name, replacement),
-        )
-    if isinstance(formula, Iff):
-        return Iff(
-            substitute_variable(formula.left, var_name, replacement),
-            substitute_variable(formula.right, var_name, replacement),
-        )
-    if isinstance(formula, Exists):
+
+    if isinstance(formula, (Exists, Forall)):
         if formula.variable.symbol == var_name:
             return formula
-        return Exists(
+
+        return type(formula)(
             formula.variable,
             substitute_variable(formula.body, var_name, replacement),
         )
-    if isinstance(formula, Forall):
-        if formula.variable.symbol == var_name:
-            return formula
-        return Forall(
-            formula.variable,
-            substitute_variable(formula.body, var_name, replacement),
-        )
-    if isinstance(formula, Box):
+
+    if isinstance(formula, (Box, Diamond)):
         index = subst_term(formula.index) if formula.index is not None else None
-        return Box(substitute_variable(formula.body, var_name, replacement), index)
-    if isinstance(formula, Diamond):
-        index = subst_term(formula.index) if formula.index is not None else None
-        return Diamond(
-            substitute_variable(formula.body, var_name, replacement),
-            index,
-        )
+        return type(formula)(substitute_variable(formula.body, var_name, replacement), index)
+
     raise TypeError(f"Unsupported formula node: {type(formula)!r}")
 
 

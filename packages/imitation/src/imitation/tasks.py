@@ -1,11 +1,4 @@
-"""Task assignment: the harness's enumeration of p_Omega.
-
-Which problem to attempt next is the environment's draw, not the agent's
-choice: the corpus is the task distribution, and this module enumerates it
--- one episode per problem per round, n = 1 per omega. The holdout split is
-the seam for generalization and transfer measurement, both of which happen
-above the agent.
-"""
+"""Assign corpus problems to episodes and split training from holdout data."""
 
 from __future__ import annotations
 
@@ -18,12 +11,7 @@ from connections.interaction.run import Problem
 
 @dataclass(frozen=True, slots=True)
 class EpisodeTask:
-    """One episode: a task omega, the budgets, and which attempt this is.
-
-    ``trajectory_index`` numbers the episodes a pass spends on one problem;
-    more than one per pass only earns its compute under a stochastic
-    chooser, and it is what the conditional measures' estimation needs.
-    """
+    """One problem attempt, with its budgets, round, and trajectory index."""
 
     problem: Problem
     round_index: int

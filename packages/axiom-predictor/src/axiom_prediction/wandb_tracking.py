@@ -208,7 +208,7 @@ class WandbTracker:
             }
         )
 
-    def log_evaluation_results(self, examples, probabilities, metrics, *, split = ProblemSplit()):
+    def log_evaluation_results(self, examples, probabilities, metrics, *, split = None):
         self.run.summary.update(
             {
                 f"evaluation/{name}": value
@@ -271,7 +271,7 @@ class WandbTracker:
         probabilities: list[float],
         metrics: dict[str, Any],
         *,
-        split: ProblemSplit = ProblemSplit(),
+        split: ProblemSplit | None = None,
     ):
         labels = [int(label) for example in examples for label in example.labels]
         self.run.summary.update(
@@ -451,8 +451,9 @@ class WandbTracker:
         self,
         examples: list[AxiomTrainingExample],
         probabilities: list[float],
-        split: ProblemSplit = ProblemSplit(),
+        split: ProblemSplit | None = None,
     ) -> Any:
+        split = ProblemSplit() if split is None else split
         rows: list[list[object]] = []
         offset = 0
         for example in examples:
