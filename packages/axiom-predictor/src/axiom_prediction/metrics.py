@@ -25,26 +25,11 @@ def prediction_metrics(
         for label, probability in zip(labels, clipped, strict = True)
     ) / len(labels)
 
-    predicted = [int(value >= 0.5) for value in probabilities]
-    tp = sum(p == 1 and y == 1 for p, y in zip(predicted, labels, strict = True))
-    fp = sum(p == 1 and y == 0 for p, y in zip(predicted, labels, strict = True))
-    fn = sum(p == 0 and y == 1 for p, y in zip(predicted, labels, strict = True))
-
-    precision = tp / (tp + fp) if tp + fp else 0.0
-    recall = tp / (tp + fn) if tp + fn else 0.0
-    f1 = 2 * precision * recall / (precision + recall) if precision + recall else 0.0
-
     result: dict[str, float | int | None] = {
-        "examples": len(labels),
-        "positives": sum(labels),
         "bce": bce,
 
         "roc_auc": roc_auc(labels, probabilities),
         "average_precision": average_precision(labels, probabilities),
-
-        "precision_at_0.5": precision,
-        "recall_at_0.5": recall,
-        "f1_at_0.5": f1,
     }
 
     if problem_sizes is not None:

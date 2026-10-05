@@ -65,7 +65,13 @@ def test_held_out_logging(tmp_path, tiny_problem_path, monkeypatch, interval, sl
     assert init["config"]["problems"] == [train_name]
     evaluations = [payload for payload, _ in run.logs if "evaluation/bce" in payload]
     assert [payload["epoch"] for payload in evaluations] == expected
-    assert all(payload["evaluation/problems"] == 1 for payload in evaluations)
+    expected_metrics = {
+        "bce", "average_precision", "macro_average_precision",
+        "macro_recall_at_1", "macro_recall_at_3", "macro_recall_at_5", "macro_recall_at_10",
+    }
+    for payload in evaluations:
+        names = {key.removeprefix("evaluation/") for key in payload if key.startswith("evaluation/")}
+        assert names == expected_metrics
     scores = [payload["evaluation/macro_average_precision"] for payload in evaluations]
     assert run.summary["evaluation/best_macro_average_precision"] == max(scores)
     assert run.summary["evaluation/best_epoch"] == expected[scores.index(max(scores))]

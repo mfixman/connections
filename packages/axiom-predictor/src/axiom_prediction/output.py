@@ -6,8 +6,7 @@ from pathlib import Path
 import sys
 
 METRIC_FIELDS = (
-    "examples positives bce roc_auc average_precision precision_at_0.5 "
-    "recall_at_0.5 f1_at_0.5 macro_average_precision macro_recall_at_1 "
+    "bce roc_auc average_precision macro_average_precision macro_recall_at_1 "
     "macro_recall_at_3 macro_recall_at_5 macro_recall_at_10"
 ).split()
 
@@ -34,7 +33,7 @@ COMMAND_FIELDS = {
         "axioms kept_axioms prediction_seconds guidance_fallback parseable error"
     ).split(),
     "train": ["event", *DATASET_FIELDS, *METRIC_FIELDS, *RESULT_FIELDS, *(
-        "shards collection failures parameters device config epoch epochs batch batches "
+        "examples shards collection failures parameters device config epoch epochs batch batches "
         "loss seconds labels eval_seconds grad_norm_mean grad_norm_max metrics"
     ).split()],
     "evaluate": ["event", "problem", "part", "tptp_status", *DATASET_FIELDS, *METRIC_FIELDS, *RESULT_FIELDS],
