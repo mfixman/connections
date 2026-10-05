@@ -19,6 +19,7 @@
 * Do not define `__getstate__`, `__setstate__`, or `__post_init__`; use explicit constructors and named helpers instead.
 * Do not use `__all__` unless an actual import/export requirement needs it.
 * Prefer direct, simple code and short comments. Avoid unnecessary wrappers and boilerplate.
+* Keep only essential block comments and docstrings, usually one short sentence explaining non-obvious behavior. Remove commentary that repeats the code.
 
 ## Repository checkouts and synchronization
 

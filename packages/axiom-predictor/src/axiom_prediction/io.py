@@ -18,14 +18,10 @@ def read_jsonl(path: str | Path) -> Iterator[dict[str, Any]]:
             yield dict(row)
 
 def tmp_path(output: Path) -> Path:
-    # Unique per writer: duplicated tasks (worker-loss recompute, work
-    # stealing) writing the same target must not truncate each other's
-    # in-progress temp file; last replace wins with a complete file.
+    # Concurrent writers need separate temporary files.
     return output.with_suffix(f"{output.suffix}.{os.getpid()}.{uuid.uuid4().hex[:8]}.tmp")
 
 def write_jsonl(path: str | Path, rows: Iterable[Mapping[str, Any]]):
-    """Write rows as JSONL via tmp+replace, so readers never see a torn file."""
-
     output = Path(path)
     tmp = tmp_path(output)
     try:
@@ -44,8 +40,6 @@ def write_json_atomic(
     *,
     default: Any = None,
 ):
-    """Write one JSON object via tmp+replace; presence implies complete content."""
-
     output = Path(path)
     tmp = tmp_path(output)
     try:

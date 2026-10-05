@@ -272,8 +272,7 @@ def collect_proof_example(
     )
 
     if declared_outcome is not None:
-        # Validate parsing before skipping so unsupported typed problems still
-        # count as unparseable rather than as ordinary search failures.
+        # Report parse errors even for problems we skip.
         matrix_from_file(
             path,
             mark_conjecture = True,
@@ -309,10 +308,7 @@ def collect_proof_example(
     if result.szs_status not in success:
         outcome = "unknown" if result.szs_status is None else result.szs_status.value
         return None, outcome
-    # Only successful searches need the matrix again for the training graph.
-    # Keeping the proof state's matrix alive during search roughly doubled the
-    # footprint of every timeout and failed problem. Both use the same
-    # clausification, so SAT-core clause IDs index the graph's clauses.
+    # Reload after search to avoid holding a second matrix in memory.
 
     loaded = load_tptp_problem(problem, tptp_root = tptp_root)
     try:

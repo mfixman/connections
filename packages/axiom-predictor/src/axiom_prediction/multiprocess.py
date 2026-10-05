@@ -17,11 +17,7 @@ from .graph import build_axiom_graph, collate_axiom_graphs
 from .logs import log
 
 class AdaptiveBatches:
-    """Double after success; bisect the successful/failed interval after OOM.
-
-    Graph sizes vary, so every batch (including singletons) is checked again.
-    A failed batch never commits partial output.
-    """
+    """Grow after success; bisect between successful and failed sizes after OOM."""
 
     def __init__(self, maximum, initial = 1):
         self.maximum = max(1, maximum)

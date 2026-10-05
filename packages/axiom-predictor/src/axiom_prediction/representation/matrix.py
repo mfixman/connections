@@ -24,8 +24,6 @@ _matrix_graph_cache: OrderedDict[
 
 @dataclass(slots = True)
 class MatrixGraph:
-    """Node/edge lists for the static tier plus lookup indices."""
-
     nodes: dict[str, list[list[int]]] = field(
         default_factory = lambda: {
             "symbol": [],
@@ -51,9 +49,7 @@ class MatrixGraph:
 
     literal_index: dict[tuple[int, int], int] = field(default_factory = dict)
 
-    # Cross-process-safe identity: collated batches share matrix tiers by
-    # this key, and examples may be collected by different worker processes,
-    # where id() values can collide across different problems.
+    # Unlike id(), this key stays unique across worker processes.
     key: str = field(
         default_factory = lambda: f"{os.getpid()}:{next(_matrix_key_counter)}"
     )

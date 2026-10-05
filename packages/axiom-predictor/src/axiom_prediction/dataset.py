@@ -56,11 +56,7 @@ def collect_axiom_dataset(
     num_workers: int | None = None,
     progress: Callable[[int, int, int, int, str, str], None] | None = None,
 ) -> dict[str, Any]:
-    """Collect model-ready SAT-core examples, committing each problem atomically.
-
-    Existing success and failure records are left untouched, so rerunning the
-    same command resumes rather than repeating proof search.
-    """
+    """Save each problem atomically; resume skips recorded successes and failures."""
 
     log(f"preparing collection of {len(problems)} problems into {output_dir}")
     output = Path(output_dir)
@@ -223,12 +219,7 @@ def collect_axiom_dataset_shard(
     sat_policy: str = ProverPolicy.SatResetCoP,
     num_workers: int | None = None,
 ) -> tuple[Path, dict[str, Any]]:
-    """Collect one independently writable, model-ready dataset shard.
-
-    The public artifact is one atomic JSONL file named after the input
-    directory. Per-problem cache records live below ``.cache`` so an
-    interrupted SLURM job can resume without exposing a partial shard.
-    """
+    """Resume from per-problem caches and publish the finished shard atomically."""
 
     if not shard_name or Path(shard_name).name != shard_name:
         raise ValueError(f"invalid axiom dataset shard name: {shard_name!r}")
@@ -323,8 +314,6 @@ def collect_problem_records_parallel(
     sat_policy: str,
     num_workers: int | None = None,
 ) -> Iterator[CollectedAxiomRecord]:
-    """Collect directly to durable partial files and return small receipts."""
-
     workers = determine_worker_count(len(problems), num_workers)
     if workers == 0:
         return
@@ -614,8 +603,7 @@ def failure_is_parseable(payload: Mapping[str, Any]) -> bool:
     value = payload.get("parseable")
     if isinstance(value, bool):
         return value
-    # Backward compatibility for failure records written before parseability
-    # was stored explicitly.
+    # Older failure records omit parseability.
 
     return not str(payload.get("outcome", "")).startswith("TPTPParseError:")
 
