@@ -1,4 +1,12 @@
-"""Proof-replay examples stored as atomic JSONL files. The chosen action indexes model_input.actions."""
+"""Example records: the critic's feedback, durable as JSONL.
+
+An ``Example`` is one choicepoint on a replayed proof. The chosen action is
+not stored separately: it is ``model_input.actions[chosen_index]``, and the
+label space is exactly the candidate sequence the chooser was shown, named
+by ``surface_key``. JSONL files of examples are the interface between
+collection and training, so writes are atomic -- a reader never sees a torn
+file.
+"""
 
 from __future__ import annotations
 
@@ -15,7 +23,14 @@ from imitation.representation.schema import GraphInput
 
 @dataclass(frozen=True, slots=True)
 class Example:
-    """One replayed choicepoint, its selected action, and collection provenance."""
+    """One learner-facing choice on a replayed proof.
+
+    ``trajectory_step_index`` orders the choice within its replay;
+    ``proof_step_index`` names the closed-tableau goal it expanded.
+    ``behavior_name`` records which policy found the proof; ``round_index``
+    which round of the loop it was found in. Both are provenance --
+    identity, for deduplication, is ``choicepoint_key``.
+    """
 
     problem_path: str
     trajectory_step_index: int
@@ -53,8 +68,6 @@ def example_to_json(example: Example) -> dict[str, Any]:
 
 
 def example_from_json(payload: Mapping[str, Any]) -> Example:
-    round_index = payload.get("round_index")
-    behavior_name = payload.get("behavior_name")
     return Example(
         problem_path=str(payload["problem_path"]),
         trajectory_step_index=int(payload["trajectory_step_index"]),
@@ -62,13 +75,25 @@ def example_from_json(payload: Mapping[str, Any]) -> Example:
         surface_key=str(payload["surface_key"]),
         model_input=GraphInput.from_dict(dict(payload["model_input"])),
         chosen_index=int(payload["chosen_index"]),
-        round_index = None if round_index is None else int(round_index),
-        behavior_name = None if behavior_name is None else str(behavior_name),
+        round_index=(
+            None if payload.get("round_index") is None else int(payload["round_index"])
+        ),
+        behavior_name=(
+            None
+            if payload.get("behavior_name") is None
+            else str(payload["behavior_name"])
+        ),
     )
 
 
 def choicepoint_key(example: Example) -> tuple[object, ...]:
-    """Identify a choicepoint by its surface and graph, excluding process-local metadata."""
+    """Canonical identity of a choicepoint: same shown decision, same key.
+
+    Identity is the surface plus the decision content -- nodes, edges and
+    action rows -- serialized stably. ``metadata`` is excluded: it carries
+    process-local provenance such as the matrix key, and identity must
+    survive crossing processes.
+    """
 
     graph = example.model_input
     return (

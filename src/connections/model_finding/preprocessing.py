@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
+from dataclasses import dataclass
 from pathlib import Path
 
 from connections.model_finding.core import InputError, ModelClause, ModelLiteral, ModelProblem
@@ -130,12 +131,15 @@ def preprocess_model_problem(
     )
 
 
+@dataclass
 class _Clausifier:
-    def __init__(self, occupied_symbols, variable_counter = 0, skolem_counter = 0, definition_counter = 0):
-        self.occupied_symbols = set(occupied_symbols)
-        self.variable_counter = variable_counter
-        self.skolem_counter = skolem_counter
-        self.definition_counter = definition_counter
+    occupied_symbols: set[str]
+    variable_counter: int = 0
+    skolem_counter: int = 0
+    definition_counter: int = 0
+
+    def __post_init__(self):
+        self.occupied_symbols = set(self.occupied_symbols)
         self.hidden_functions: set[str] = set()
         self.hidden_predicates: set[str] = set()
 
@@ -144,14 +148,10 @@ class _Clausifier:
         return Variable(f"M{self.variable_counter}", vid=self.variable_counter)
 
     def fresh_symbol(self, stem: str) -> str:
+        counter_name = "skolem_counter" if stem == "model_skolem" else "definition_counter"
         while True:
-            if stem == "model_skolem":
-                self.skolem_counter += 1
-                value = self.skolem_counter
-            else:
-                self.definition_counter += 1
-                value = self.definition_counter
-
+            value = getattr(self, counter_name) + 1
+            setattr(self, counter_name, value)
             symbol = f"{stem}_{value}"
             if symbol not in self.occupied_symbols:
                 self.occupied_symbols.add(symbol)

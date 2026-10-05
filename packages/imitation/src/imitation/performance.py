@@ -1,4 +1,13 @@
-"""Use model predictions to choose among a proof-search agent's available actions."""
+"""The performance element: choosers for connections' agents.
+
+A learned agent is a different chooser. ``ModelChooser`` preprocesses the
+candidates it is shown, asks the model for an index, and returns that
+candidate -- composed into ``MarkovAgent``, ``OnlineDFSAgent`` or
+``OnlineIDAgent`` it makes each of them a learned performance element
+without subclassing. ``AllActionsMarkovAgent`` is the one agent this
+package defines directly: the whole surface A(s), undo included, for the
+memoryless policy that can learn to backtrack.
+"""
 
 from __future__ import annotations
 
@@ -23,7 +32,14 @@ class ActionModel(Protocol):
 
 @dataclass(frozen=True, slots=True)
 class ModelChooser:
-    """Score candidate actions; skip inference when only one action is available."""
+    """A learned chooser: preprocess the shown candidates, index back.
+
+    A singleton candidate list short-circuits without a model call -- the
+    search agents hand the chooser forced moves, backtracks among them, and
+    a forced move carries no decision. An index outside the shown list is an
+    error, never wrapped: the model's label space is exactly what it was
+    shown.
+    """
 
     preprocess: GraphPreprocessor
     model: ActionModel
@@ -80,9 +96,16 @@ class AllActionsMarkovAgent(Agent):
 
 @dataclass(frozen=True, slots=True)
 class PerformanceRecipe:
-    """Build acting and replay agents with the same options and preprocessor.
+    """The single source of truth for the action surface.
 
-    The surface key excludes initial_depth because replay adjusts it to cover the proof.
+    Acting, replay and pickled strategies all build their agents here, from
+    the same agent class, options and preprocessor -- which is the whole
+    label-space-consistency argument: the chooser interface is where
+    candidates are shown, and every side shows them the same way.
+    ``surface_key`` names that surface; datasets refuse to mix keys.
+    ``initial_depth`` stays out of the key because replay normalizes it to
+    cover the proof, and the contract is conditioned on the shown list, not
+    on how deep the search was allowed to look.
     """
 
     agent_class: Callable[..., Agent]
