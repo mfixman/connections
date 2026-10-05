@@ -18,8 +18,8 @@ pytestmark = pytest.mark.training
 
 def test_real_multiprocess_collection():
     problems = [
-        "packages/axiom-predictor/tests/fixtures/problems/tiny_theorem.p",
-        "packages/axiom-predictor/tests/fixtures/problems/t11_wellord1.p",
+        "packages/axiom_prediction/tests/fixtures/problems/tiny_theorem.p",
+        "packages/axiom_prediction/tests/fixtures/problems/t11_wellord1.p",
     ]
 
     results = list(
@@ -46,9 +46,9 @@ def test_evaluate_scores_a_dataset_split_without_proof_search(
     from axiom_prediction.training import evaluate_axiom_predictor
 
     problems = [
-        "packages/axiom-predictor/tests/fixtures/problems/tiny_theorem.p",
-        "packages/axiom-predictor/tests/fixtures/problems/marked_conjecture_clausification.p",
-        "packages/axiom-predictor/tests/fixtures/problems/t11_wellord1.p",
+        "packages/axiom_prediction/tests/fixtures/problems/tiny_theorem.p",
+        "packages/axiom_prediction/tests/fixtures/problems/marked_conjecture_clausification.p",
+        "packages/axiom_prediction/tests/fixtures/problems/t11_wellord1.p",
     ]
 
     dataset = tmp_path / "dataset"

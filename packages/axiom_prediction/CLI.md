@@ -28,7 +28,7 @@ with --model or --data-dir and supply only problem paths.
 | `-h`, `--help` | All | Show help. Root and training help list the available network classes. |
 | `--data-dir PATH` | All | Required for train; required for collect only without --dataset. Holds model/ or models/NAME/ and the default dataset/. For evaluate it selects the checkpoint and default dataset; for predict/run it selects a checkpoint. |
 | `--dataset PATH` | collect, train, evaluate | Override DATA_DIR/dataset. Collect writes resumable JSONL shards directly here; train/evaluate read the shared dataset without copying or modifying it. Cannot accompany PROBLEM inputs in train/evaluate. |
-| `--network NAME` | train | **DefaultFull**. Select a Python file/class from src/axiom_prediction/models/. The optional .py suffix is accepted. |
+| `--network NAME` | train | **DefaultFull**. Select a Python file/class from models/. The optional .py suffix is accepted. |
 | `--model PATH` | run, evaluate | Explicit trained checkpoint or directory. Otherwise use --data-dir; without either, run the unguided baseline. |
 | `--model-name NAME` | train, evaluate, predict, run | Optional saved-run name: use DATA_DIR/models/NAME rather than DATA_DIR/model. Separate from the network implementation. Existing checkpoints require --resume. |
 | `--resume` | train | Continue the selected checkpoint, restoring optimizer and RNG state. Requires the same data and training configuration; --epochs is the total target, not additional epochs. Older checkpoints without training state cannot resume. |

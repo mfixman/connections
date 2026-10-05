@@ -39,7 +39,7 @@ jobs:
         run: |
           uv run --all-packages pytest tests packages/pycop/tests
           uv run --all-packages pytest packages/imitation/tests
-          uv run --all-packages pytest packages/axiom-predictor/tests
+          uv run --all-packages pytest packages/axiom_prediction/tests
 
       - name: Build package
         run: uv build --all-packages

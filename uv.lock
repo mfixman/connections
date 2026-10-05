@@ -22,7 +22,7 @@ wheels = [
 [[package]]
 name = "axiom-predictor"
 version = "0.1.0"
-source = { editable = "packages/axiom-predictor" }
+source = { editable = "packages/axiom_prediction" }
 dependencies = [
     { name = "connections", extra = ["sat"] },
     { name = "numpy" },

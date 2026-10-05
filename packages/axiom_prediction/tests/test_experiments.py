@@ -12,7 +12,7 @@ from axiom_prediction.choices import GraphInputKind, ProverPolicy
 
 @pytest.mark.parametrize("policy", ["satcop", "satresetcop"])
 def test_policy_and_network_experiments(tmp_path, policy, capsys, monkeypatch):
-    problem = "packages/axiom-predictor/tests/fixtures/problems/marked_conjecture_clausification.p"
+    problem = "packages/axiom_prediction/tests/fixtures/problems/marked_conjecture_clausification.p"
     common = ["--data-dir", str(tmp_path), "--num-workers", "1"]
     assert main(
         ["collect", problem, *common, "--policy", ProverPolicy(policy).value]

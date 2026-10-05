@@ -100,7 +100,7 @@ For the library and its calculi:
 
 The `axiom_predictor` branch restores SATCoP/SATResetCoP as
 `connections.agent.sat` agents, finite-model finding, and the
-[`axiom-predictor` workspace package](packages/axiom-predictor/README.md).
+[`axiom-predictor` workspace package](packages/axiom_prediction/README.md).
 See the [migration notes](docs/axiom-predictor-migration.md) for the API mapping
 and validation commands. Your corpus tools are available as `run-pycop` and
 `compare-strategies`; the existing `pycop` entry point retains its behavior.
