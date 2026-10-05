@@ -229,3 +229,12 @@ def test_problem_names_preserve_distinct_paths_for_resume(tmp_path, use_csv):
 
     journal.close()
     assert path.read_text() == contents
+
+@pytest.mark.parametrize("use_csv", [False, True])
+def test_run_resume_rejects_changed_model(tmp_path, use_csv):
+    path = tmp_path / "results"
+    identity = {"command": "run", "model": "epoch-0001.pt", "policy": "SatResetCoP"}
+    first = open_journal(path, use_csv = use_csv, identity = identity)
+    first.close()
+    with pytest.raises(ValueError, match = "different command/configuration"):
+        open_journal(path, use_csv = use_csv, identity = {**identity, "model": "epoch-0002.pt"})
