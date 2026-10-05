@@ -92,8 +92,7 @@ class GraphNetwork(nn.Module):
         self.self_transform = nn.ModuleDict(
             {node_type: nn.Linear(dim, dim) for node_type in node_types}
         )
-        # Residual + LayerNorm updates: the naked tanh(W h + messages)
-        # recurrence diverges under per-example SGD once graphs are deep.
+        # Residuals and LayerNorm stabilize training on deep graphs.
 
         self.update_norm = nn.ModuleDict(
             {node_type: nn.LayerNorm(dim) for node_type in node_types}
@@ -264,8 +263,6 @@ class GraphNetwork(nn.Module):
         graph: GraphInput | GraphTensors,
         matrix_h: dict[str, torch.Tensor] | None = None,
     ) -> dict[str, torch.Tensor]:
-        """Encode goals with fixed matrix embeddings."""
-
         tableau_relations: list[str] = ["instance_of", "parent", "path"]
 
         if matrix_h is None:
@@ -307,8 +304,6 @@ class GraphNetwork(nn.Module):
         return self.scorer(torch.cat([kind, source, target], dim = 1)).squeeze(1)
 
     def score_batch(self, batch: Any) -> torch.Tensor:
-        """Score the merged graph for a batch."""
-
         return self(batch.graph)
 
 def scatter_mean(output: torch.Tensor, index: torch.Tensor, values: torch.Tensor):

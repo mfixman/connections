@@ -80,8 +80,7 @@ class WandbTracker:
 
             return None
 
-        # wandb-core can take longer than the default 30s to start when it is
-        # read from a slow shared filesystem, e.g. on a busy HPC node.
+        # Allow for slow startup on shared HPC storage.
 
         os.environ.setdefault("WANDB__SERVICE_WAIT", str(service_wait_s))
 
