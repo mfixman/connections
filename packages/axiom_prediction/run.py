@@ -317,6 +317,7 @@ def configured_results(problems, tptp_root, config, workers):
         yield with_run_metadata(result, config)
 
 def with_run_metadata(result, config):
+    result.setdefault("error", False)
     result.setdefault("seed", config.seed)
     result.setdefault("mode", config.mode.wire_value())
     if config.policy is not None:
