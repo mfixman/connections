@@ -45,6 +45,7 @@ def test_all_commands_emit_parseable_records(tmp_path, tiny_problem_path, capsys
             assert all("event" not in record for record in records)
             assert all(record["error"] == ("false" if use_csv else False) for record in records)
             assert all("kept_axioms" not in record for record in records)
+            assert all("guidance_fallback" not in record for record in records)
         if command[0] == "predict":
             assert 0 <= float(records[0]["probability"]) <= 1
         if command[0] in ("evaluate", "run"):

@@ -280,7 +280,7 @@ def test_supervisor_terminates_unresponsive_workers(tmp_path, monkeypatch):
     assert json.loads(failure.read_text())["outcome"] == "Timeout"
     assert {child.pid for child in mp.active_children()} == before
 
-def test_policy_inheritance_fallback_and_fresh_evaluation(
+def test_policy_inheritance_and_fresh_evaluation(
     tmp_path,
     tiny_problem_path,
     capsys,
@@ -362,8 +362,52 @@ def test_policy_inheritance_fallback_and_fresh_evaluation(
     assert "warning: dataset labels were collected" in captured.err
     assert json.loads(captured.out.splitlines()[0])["policy"] == "satresetcop"
 
-    no_axioms = tmp_path / "no_axioms.p"
-    no_axioms.write_text("fof(a, axiom, $true).\nfof(goal, conjecture, p).\n")
-    result = run_problem(str(no_axioms), tptp_root = None, config = search)
-    assert result["guidance_fallback"] == "axiom prediction needs axiom clauses"
-    assert not result["error"]
+@pytest.mark.parametrize("empty_only", [False, True])
+def test_training_and_evaluation_without_axioms(tmp_path, tiny_problem_path, empty_only):
+    from axiom_prediction.training import evaluate_axiom_predictor
+
+    problem = tmp_path / "no_axioms.p"
+    problem.write_text("cnf(a, negated_conjecture, p).\ncnf(b, negated_conjecture, ~p).\n")
+    problems = [str(problem)] if empty_only else [str(problem), str(tiny_problem_path)]
+    config = AxiomTrainingConfig(
+        epochs = 1,
+        hidden_dim = 8,
+        batch_size = 1,
+        device = "cpu",
+        num_workers = 1,
+    )
+
+    trained = train_axiom_predictor(
+        problems,
+        output_dir = tmp_path,
+        config = config,
+        wandb_config = WandbConfig(enabled = False),
+    )
+
+    assert trained["problems_proved"] == len(problems)
+    assert (trained["bce"] is None) == empty_only
+    checkpoint = torch.load(tmp_path / "model.pt", weights_only = True)
+    assert bool(checkpoint["training_state"]["optimizer"]["state"]) != empty_only
+
+    evaluated = evaluate_axiom_predictor(
+        tmp_path,
+        [str(problem)],
+        config = config,
+        device = "cpu",
+        multiprocess = True,
+        wandb_config = WandbConfig(enabled = False),
+    )
+
+    assert evaluated["problems_proved"] == 1
+    assert evaluated["problems_skipped"] == 0
+    assert evaluated["bce"] is None
+    assert evaluated["macro_average_precision"] is None
+
+    result = run_problem(
+        str(problem),
+        tptp_root = None,
+        config = RunConfig(checkpoint = str(tmp_path), device = "cpu", timeout_s = 10),
+    )
+
+    assert result["proved"] and not result["error"]
+    assert result["axioms"] == 0

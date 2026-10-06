@@ -471,6 +471,9 @@ def train_axiom_predictor(
                 if labels is None:
                     raise RuntimeError("training batch unexpectedly has no labels")
 
+                if len(labels) == 0:
+                    continue
+
                 labels = labels.to(device)
                 optimizer.zero_grad()
 
@@ -518,7 +521,7 @@ def train_axiom_predictor(
                             batches_total = batches,
                         )
 
-            loss_value = total_loss / total_labels
+            loss_value = total_loss / total_labels if total_labels else None
             train_s = time.monotonic() - started
             training_since_evaluation += train_s
             evaluation_due = held_out and (
@@ -1049,7 +1052,7 @@ def report_epoch(
     epochs: int,
     *,
 
-    loss: float,
+    loss: float | None,
     duration_s: float,
     eval_s: float | None,
 
@@ -1057,7 +1060,8 @@ def report_epoch(
     metrics: dict[str, float | int | None] | None,
 ):
     norm = sum(norms) / len(norms) if norms else None
-    warning = "" if math.isfinite(loss) else " WARNING: non-finite loss"
+    warning = " WARNING: non-finite loss" if loss is not None and not math.isfinite(loss) else ""
+    loss_text = "n/a" if loss is None else f"{loss:.6f}"
     suffix = (
         ""
         if metrics is None
@@ -1065,7 +1069,7 @@ def report_epoch(
     )
 
     log_message(
-        f"epoch {epoch}/{epochs}: loss {loss:.6f}, mean grad norm {'n/a' if norm is None else f'{norm:.4f}'}, {len(norms)} batches in {duration_s:.2f}s{suffix}{warning}"
+        f"epoch {epoch}/{epochs}: loss {loss_text}, mean grad norm {'n/a' if norm is None else f'{norm:.4f}'}, {len(norms)} batches in {duration_s:.2f}s{suffix}{warning}"
     )
 
     emit(
