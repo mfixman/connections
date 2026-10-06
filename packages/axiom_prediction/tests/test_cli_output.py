@@ -46,6 +46,7 @@ def test_all_commands_emit_parseable_records(tmp_path, tiny_problem_path, capsys
             assert all(record["error"] == ("false" if use_csv else False) for record in records)
             assert all("kept_axioms" not in record for record in records)
             assert all("guidance_fallback" not in record for record in records)
+            assert all("parseable" not in record for record in records)
         if command[0] == "predict":
             assert 0 <= float(records[0]["probability"]) <= 1
         if command[0] in ("evaluate", "run"):
@@ -55,3 +56,30 @@ def test_all_commands_emit_parseable_records(tmp_path, tiny_problem_path, capsys
             assert "outcome" not in problems[0]
             assert problems[0]["tptp_status"] == ""
             assert int(problems[0]["part"]) == part
+
+@pytest.mark.parametrize("use_csv", [False, True])
+def test_parse_failure_is_an_error_with_stdout_diagnostic(tmp_path, capfd, use_csv):
+    problem = tmp_path / "broken.p"
+    problem.write_text("fof(broken, axiom, ).\n")
+    output = tmp_path / "results"
+    flags = ["--csv"] if use_csv else []
+    args = [
+        "run", str(problem), "--output", str(output), "--num-workers", "1",
+        "--no-wandb", *flags,
+    ]
+
+    assert main(args) == 2
+
+    captured = capfd.readouterr()
+    assert str(problem) in captured.out
+    assert "TPTPParseError:" in captured.out
+    text = output.read_text()
+    if use_csv:
+        rows = list(csv.DictReader(io.StringIO(text)))
+    else:
+        rows = list(map(json.loads, text.splitlines()))
+
+    assert len(rows) == 1
+    assert rows[0]["error"] == ("true" if use_csv else True)
+    assert rows[0]["proved"] == ("false" if use_csv else False)
+    assert "parseable" not in rows[0]

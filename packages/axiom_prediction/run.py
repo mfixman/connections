@@ -242,9 +242,11 @@ def search_problem(problem, *, tptp_root, config):
         out.update(
             outcome = f"{type(error).__name__}: {' '.join(str(error).split())}",
             proved = False,
-            parseable = False,
+            error = True,
             seconds = time.monotonic() - started,
         )
+
+        print(f"{problem}: {out['outcome']}", flush = True)
     except Exception as error:
         out.update(
             outcome = f"{type(error).__name__}: {' '.join(str(error).split())}",
