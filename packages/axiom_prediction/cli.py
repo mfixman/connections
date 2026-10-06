@@ -588,8 +588,11 @@ def run_command(args: argparse.Namespace) -> int:
 
         print_device(args.device)
         predictor = AxiomPredictor.load(model, device = "cpu")
-        if policy is None:
-            policy = label_policy(None, {"collection": predictor.training_config})
+        policy = label_policy(
+            policy,
+            {"collection": predictor.training_config},
+            allow_mismatch = True,
+        )
 
     config = RunConfig(
         multiprocess = args.multiprocess,

@@ -39,18 +39,36 @@ def test_trained_checkpoint_guides_search(tmp_path, tiny_problem_path, policy, c
 
         assert result["proved"], result
 
+    other = "satcop" if policy == "satresetcop" else "satresetcop"
+    capsys.readouterr()
+    result = run_problem(
+        str(tiny_problem_path),
+        tptp_root = None,
+        config = replace(config, policy = other),
+    )
+
+    assert result["proved"], result
+    assert result["policy"] == other
+    assert not result.get("error")
+    assert "warning: dataset labels were collected" in capsys.readouterr().err
+
     for model_args in ([], ["--model", str(tmp_path), "--device", "cpu"]):
         capsys.readouterr()
         assert main(
             [
-            "run", str(tiny_problem_path), "--policy", policy,
+            "run", str(tiny_problem_path), "--policy", other,
             "--num-workers", "1", "--no-wandb", *model_args,
         ]
         ) == 0
 
-        records = [json.loads(line) for line in capsys.readouterr().out.splitlines()]
+        captured = capsys.readouterr()
+        if model_args:
+            assert "warning: dataset labels were collected" in captured.err
+
+        records = [json.loads(line) for line in captured.out.splitlines()]
         result = records[0]
         assert len(records) == 1
         assert "event" not in result
         assert result["proved"]
+        assert result["policy"] == other
         assert result["mode"] == ("weighted" if model_args else "base")
