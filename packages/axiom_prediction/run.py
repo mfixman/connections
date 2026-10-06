@@ -151,7 +151,7 @@ def search_problem(problem, *, tptp_root, config):
     from .training import label_policy
 
     metadata = {} if predictor is None else predictor.training_config
-    policy = label_policy(config.policy, {"collection": metadata})
+    policy = label_policy(config.policy, {"collection": metadata}, allow_mismatch = True)
     config = replace(config, policy = policy)
     out: dict[str, Any] = {
         "problem": problem,

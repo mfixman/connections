@@ -129,7 +129,7 @@ class AxiomTrainingConfig:
             graph_input = self.graph_input,
         )
 
-def label_policy(requested, metadata = None):
+def label_policy(requested, metadata = None, *, allow_mismatch = False):
     collection = (metadata or {}).get("collection", {})
     recorded = collection.get("sat_policy") if isinstance(collection, Mapping) else None
     if requested is not None:
@@ -139,12 +139,13 @@ def label_policy(requested, metadata = None):
         recorded = ProverPolicy(recorded)
 
     if requested is not None and recorded is not None and requested != recorded:
-        raise ValueError(
-            f"dataset labels were collected with {recorded}, but --policy requests {requested}; "
-            "collect a separate dataset to change the label policy"
-        )
+        message = f"dataset labels were collected with {recorded}, but --policy requests {requested}"
+        if not allow_mismatch:
+            raise ValueError(message + "; collect a separate dataset to change the label policy")
 
-    return ProverPolicy(recorded or requested or ProverPolicy.SatResetCoP)
+        log(f"warning: {message}; running with {requested}")
+
+    return ProverPolicy(requested or recorded or ProverPolicy.SatResetCoP)
 
 def collect_examples(
     problems: list[str],
