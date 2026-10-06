@@ -229,6 +229,8 @@ zero vector, during training, evaluation, and guided search. An empty axiom set
 produces no predictions and contributes no training loss or ranking metrics.
 If an entire training batch has no axioms, no optimizer step is taken. Metrics
 without any labels are null.
+Parsing failures print the problem and diagnostic to stdout and set error to
+true. Use --output to keep saved CSV/JSONL records separate from these messages.
 Unexpected search errors produce a nonzero command exit status.
 
 Evaluate reports SAT-core label prediction, not improved theorem proving.
