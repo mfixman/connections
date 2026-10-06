@@ -224,8 +224,10 @@ worker loads its own model. Guided CUDA search then defaults to one worker;
 larger explicit worker counts share the selected GPU and may exhaust its memory.
 With --multiprocess, workers use one shared model as described below.
 
-Problems without both axioms and conjecture clauses fall back to the same
-unguided prover, with a guidance_fallback field in the per-problem result.
+Problems without conjecture clauses use an empty conjecture set, pooled to a
+zero vector, during training, evaluation, and guided search. Problems without
+axiom clauses fall back to the same unguided prover, with a guidance_fallback
+field in the per-problem result.
 Unexpected search errors produce a nonzero command exit status.
 
 Evaluate reports SAT-core label prediction, not improved theorem proving.

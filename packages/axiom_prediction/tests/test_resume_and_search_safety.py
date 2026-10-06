@@ -285,6 +285,8 @@ def test_policy_inheritance_fallback_and_fresh_evaluation(
     tiny_problem_path,
     capsys,
 ):
+    cnf = tmp_path / "plain.p"
+    cnf.write_text("cnf(a, axiom, p).\ncnf(b, axiom, ~p).\n")
     config = AxiomTrainingConfig(
         epochs = 1,
         hidden_dim = 8,
@@ -293,13 +295,14 @@ def test_policy_inheritance_fallback_and_fresh_evaluation(
         sat_policy = "SatCoP",
     )
 
-    train_axiom_predictor(
-        [str(tiny_problem_path)],
+    trained = train_axiom_predictor(
+        [str(tiny_problem_path), str(cnf)],
         output_dir = tmp_path,
         config = config,
         wandb_config = WandbConfig(enabled = False),
     )
 
+    assert trained["problems_proved"] == 2
     common = ["--device", "cpu", "--num-workers", "1", "--no-wandb"]
     capsys.readouterr()
     assert main(["evaluate", str(tmp_path), str(tiny_problem_path), *common]) == 0
@@ -321,12 +324,18 @@ def test_policy_inheritance_fallback_and_fresh_evaluation(
         ]
     ) == 2
 
-    cnf = tmp_path / "plain.p"
-    cnf.write_text("cnf(a, axiom, p).\ncnf(b, axiom, ~p).\n")
+    capsys.readouterr()
+    assert main(["evaluate", str(tmp_path), str(cnf), *common]) == 0
+    metrics = json.loads(capsys.readouterr().err.strip().splitlines()[-1])
+    assert metrics["problems_proved"] == 1
+    assert metrics["problems_skipped"] == 0
+    assert metrics["bce"] >= 0
+
     search = RunConfig(checkpoint = str(tmp_path), device = "cpu", timeout_s = 10)
     result = run_problem(str(cnf), tptp_root = None, config = search)
     assert result["proved"] and result["policy"] == "satcop"
-    assert "conjecture" in result["guidance_fallback"]
+    assert "guidance_fallback" not in result
+    assert result["axioms"] == 2
 
     result = list(
         run_problems(
@@ -337,7 +346,7 @@ def test_policy_inheritance_fallback_and_fresh_evaluation(
         )
     )[0]
 
-    assert result["proved"] and result["guidance_fallback"]
+    assert result["proved"] and "guidance_fallback" not in result
     capsys.readouterr()
     assert main(["run", str(cnf), "--model", str(tmp_path), *common]) == 0
     assert json.loads(capsys.readouterr().out.splitlines()[0])["policy"] == "satcop"
@@ -352,3 +361,9 @@ def test_policy_inheritance_fallback_and_fresh_evaluation(
     captured = capsys.readouterr()
     assert "warning: dataset labels were collected" in captured.err
     assert json.loads(captured.out.splitlines()[0])["policy"] == "satresetcop"
+
+    no_axioms = tmp_path / "no_axioms.p"
+    no_axioms.write_text("fof(a, axiom, $true).\nfof(goal, conjecture, p).\n")
+    result = run_problem(str(no_axioms), tptp_root = None, config = search)
+    assert result["guidance_fallback"] == "axiom prediction needs axiom clauses"
+    assert not result["error"]

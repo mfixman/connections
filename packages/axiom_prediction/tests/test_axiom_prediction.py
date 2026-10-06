@@ -20,6 +20,34 @@ def fixture_problem(path):
     axioms = tuple(index for index in range(len(matrix)) if index not in conjectures)
     return matrix, axioms, conjectures
 
+def test_empty_conjecture_context_in_mixed_batch(tiny_problem_path):
+    matrix, axioms, conjectures = fixture_problem(tiny_problem_path)
+    guided = build_axiom_graph(
+        matrix,
+        axiom_clause_ids = axioms,
+        conjecture_clause_ids = conjectures,
+    )
+    plain = build_axiom_graph(
+        matrix,
+        axiom_clause_ids = list(range(len(matrix))),
+        conjecture_clause_ids = [],
+    )
+
+    model = AxiomPredictionNetwork(AxiomModelConfig(hidden_dim = 8, message_rounds = 1))
+    captured = []
+    handle = model.scorer.register_forward_pre_hook(lambda module, args: captured.append(args[0]))
+    individual = model(collate_axiom_graphs([(plain, None)]))
+    mixed = model(collate_axiom_graphs([(guided, None), (plain, None)]))
+    handle.remove()
+
+    assert torch.count_nonzero(captured[0][:, 8:16]) == 0
+    assert torch.count_nonzero(captured[1][len(axioms):, 8:16]) == 0
+    torch.testing.assert_close(mixed[len(axioms):], individual)
+    assert torch.isfinite(mixed).all()
+
+    mixed.sum().backward()
+    assert all(torch.isfinite(p.grad).all() for p in model.parameters() if p.grad is not None)
+
 def test_batched_axiom_logits_match_individual_graphs(tiny_problem_path, monkeypatch):
     matrix, axioms, conjectures = fixture_problem(tiny_problem_path)
     example = build_axiom_graph(
