@@ -29,7 +29,6 @@ class AxiomGuided:
         mode: str = GuidanceMode.Weighted,
         temperature: float = 1.0,
 
-        allowed_clause_ids: list[int] | None = None,
         matrix_digest: str | None = None,
         **kwargs,
     ):
@@ -54,10 +53,6 @@ class AxiomGuided:
 
         logs = list(map(math.log, self.weights.values()))
         self.neutral = math.exp(sum(logs) / len(logs)) if logs else 1.0
-
-        self.allowed = None if allowed_clause_ids is None else frozenset(
-            allowed_clause_ids
-        )
 
         self.digest = matrix_digest
         self.checked = False
@@ -86,26 +81,9 @@ class AxiomGuided:
             )
 
         ids = super()._shadow_seed_clause_ids(state)
-        self.start_count = len(
-            ids if self.allowed is None else [i for i in ids if i in self.allowed]
-        )
+        self.start_count = len(ids)
 
         self.checked = True
-
-    def _shadow_seed_clause_ids(self, state: State) -> tuple[int, ...]:
-        ids = super()._shadow_seed_clause_ids(state)
-        return ids if self.allowed is None else tuple(
-            i for i in ids if i in self.allowed
-        )
-
-    def _actions_for_goal(self, state: State, goal_id: int) -> tuple[Action, ...]:
-        actions = super()._actions_for_goal(state, goal_id)
-        if self.allowed is None:
-            return actions
-
-        return tuple(
-            a for a in actions if (i := clause_index(a)) is None or i in self.allowed
-        )
 
     def _start_next_depth(self):
         super()._start_next_depth()

@@ -347,4 +347,8 @@ def test_policy_inheritance_fallback_and_fresh_evaluation(
             "run", str(cnf), "--model", str(tmp_path), *common,
             "--policy", "SatResetCoP",
         ]
-    ) == 2
+    ) == 0
+
+    captured = capsys.readouterr()
+    assert "warning: dataset labels were collected" in captured.err
+    assert json.loads(captured.out.splitlines()[0])["policy"] == "satresetcop"
