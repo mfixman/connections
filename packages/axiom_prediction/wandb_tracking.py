@@ -156,7 +156,7 @@ class WandbTracker:
         epoch: int,
         *,
 
-        loss: float,
+        loss: float | None,
         duration_s: float | None = None,
         grad_norm: float | None = None,
         metrics: dict[str, float | int | None] | None = None,

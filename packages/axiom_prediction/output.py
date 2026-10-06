@@ -34,7 +34,7 @@ def output_fields(command):
         ).split(),
         "run": (
             "problem part tptp_status proved seconds mode policy seed steps proof_size "
-            "axioms prediction_seconds guidance_fallback parseable error"
+            "axioms prediction_seconds parseable error"
         ).split(),
         "train": ["event", *dataset_fields, *metric_fields, *result_fields, *(
             "examples shards collection failures parameters device config epoch epochs batch batches "

@@ -9,12 +9,15 @@ def prediction_metrics(
     *,
     problem_sizes: list[int] | None = None,
 ) -> dict[str, float | int | None]:
+    if len(labels) != len(probabilities):
+        raise ValueError("label and prediction counts differ")
+
     eps = 1e-7
     clipped = [min(1.0 - eps, max(eps, float(value))) for value in probabilities]
     bce = -sum(
         label * math.log(probability) + (1 - label) * math.log(1 - probability)
         for label, probability in zip(labels, clipped, strict = True)
-    ) / len(labels)
+    ) / len(labels) if labels else None
 
     result: dict[str, float | int | None] = {
         "bce": bce,
@@ -24,8 +27,8 @@ def prediction_metrics(
     }
 
     if problem_sizes is not None:
-        if sum(problem_sizes) != len(labels) or any(size <= 0 for size in problem_sizes):
-            raise ValueError("problem_sizes must be positive and sum to the label count")
+        if sum(problem_sizes) != len(labels) or any(size < 0 for size in problem_sizes):
+            raise ValueError("problem_sizes must be nonnegative and sum to the label count")
 
         offset = 0
         per_problem: list[tuple[list[int], list[float]]] = []

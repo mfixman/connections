@@ -97,11 +97,6 @@ def load_tptp_problem(
     conjectures = list(matrix.conjecture_clauses)
     conjecture_set = frozenset(conjectures)
     axioms = [index for index in range(len(matrix)) if index not in conjecture_set]
-    if not axioms:
-        from .graph import UnsupportedAxiomProblem
-
-        raise UnsupportedAxiomProblem("axiom prediction needs axiom clauses")
-
     return TPTPProblem(requested, path, root, matrix, axioms, conjectures)
 
 def resolve_tptp_problem(

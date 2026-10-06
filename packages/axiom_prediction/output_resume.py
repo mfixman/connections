@@ -27,7 +27,7 @@ def resume_identity(identity):
     return {key: value for key, value in identity.items() if key not in resume_options}
 
 def csv_record(header, values):
-    text_fields = {"event", "problem", "outcome", "tptp_status", "mode", "policy", "guidance_fallback"}
+    text_fields = {"event", "problem", "outcome", "tptp_status", "mode", "policy"}
 
     if len(values) != len(header):
         raise ValueError("corrupt CSV output record")

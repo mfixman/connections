@@ -23,7 +23,6 @@ from .parallel import determine_worker_count
 from .limits import default_step_limit, default_timeout_s
 from .tptp import load_tptp_problem, resolve_tptp_problem
 from .tptp import declared_tptp_status
-from .graph import UnsupportedAxiomProblem
 
 @dataclass(init = False)
 class RunConfig:
@@ -172,13 +171,7 @@ def search_problem(problem, *, tptp_root, config):
 
         args: dict[str, Any] = {"seed": config.seed}
         if predictor is not None:
-            try:
-                loaded = load_tptp_problem(problem, tptp_root = tptp_root)
-            except UnsupportedAxiomProblem as error:
-                predictor = None
-                out["guidance_fallback"] = str(error)
-
-        if predictor is not None:
+            loaded = load_tptp_problem(problem, tptp_root = tptp_root)
             from .guided import AxiomGuidedSATCoP, AxiomGuidedSATResetCoP, matrix_digest
 
             predictions = predictor.predict(

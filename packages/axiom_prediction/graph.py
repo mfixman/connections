@@ -7,9 +7,6 @@ from connections.syntax.matrix import Matrix
 from axiom_prediction.representation.schema import GraphInput, node_types, relations
 from axiom_prediction.representation.matrix import matrix_graph
 
-class UnsupportedAxiomProblem(ValueError):
-    pass
-
 @dataclass(frozen = True, slots = True)
 class AxiomGraph:
     graph: GraphInput

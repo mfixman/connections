@@ -225,9 +225,10 @@ larger explicit worker counts share the selected GPU and may exhaust its memory.
 With --multiprocess, workers use one shared model as described below.
 
 Problems without conjecture clauses use an empty conjecture set, pooled to a
-zero vector, during training, evaluation, and guided search. Problems without
-axiom clauses fall back to the same unguided prover, with a guidance_fallback
-field in the per-problem result.
+zero vector, during training, evaluation, and guided search. An empty axiom set
+produces no predictions and contributes no training loss or ranking metrics.
+If an entire training batch has no axioms, no optimizer step is taken. Metrics
+without any labels are null.
 Unexpected search errors produce a nonzero command exit status.
 
 Evaluate reports SAT-core label prediction, not improved theorem proving.
