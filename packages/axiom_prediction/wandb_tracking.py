@@ -376,7 +376,6 @@ class WandbTracker:
 
             "prediction_seconds",
             "axioms",
-            "kept_axioms",
             "part",
         ]
 

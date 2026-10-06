@@ -37,7 +37,6 @@ class RunConfig:
     inference_key: str | None = field(repr = False)
 
     temperature: float
-    top_k: int | None
 
     seed: int
     step_limit: int
@@ -53,7 +52,6 @@ class RunConfig:
         inference_address: tuple[str, int] | None = None,
         inference_key: str | None = None,
         temperature: float = 1.0,
-        top_k: int | None = None,
         seed: int = 0,
         step_limit: int = default_step_limit,
         timeout_s: float = default_timeout_s,
@@ -67,7 +65,6 @@ class RunConfig:
         self.inference_address = inference_address
         self.inference_key = inference_key
         self.temperature = temperature
-        self.top_k = top_k
         self.seed = seed
 
         self.step_limit = step_limit
@@ -83,16 +80,13 @@ class RunConfig:
         if self.mode != GuidanceMode.Base and self.checkpoint is None:
             raise ValueError(f"--mode {self.mode} needs --model")
 
-        if self.top_k is not None and self.top_k < 1:
-            raise ValueError("--top-k must be at least 1")
-
-        if self.mode == GuidanceMode.Base and self.top_k is not None:
-            raise ValueError("--top-k needs a model; it cannot be used with --mode base")
-
     @classmethod
     def from_state(cls, state):
         if isinstance(state, dict):
             values = dict(state)
+            if values.pop("top_k", None) is not None:
+                raise ValueError("top-k filtering is no longer supported")
+
             if "timeout_seconds" in values:
                 values["timeout_s"] = values.pop("timeout_seconds")
 
@@ -103,11 +97,13 @@ class RunConfig:
             names = (
                 "mode policy checkpoint device temperature top_k seed step_limit timeout_s"
             ).split()
+        elif len(state) == 12:
+            names.insert(8, "top_k")
 
         if len(state) != len(names):
             raise ValueError("unsupported serialized RunConfig layout")
 
-        return cls(**dict(zip(names, state, strict = True)))
+        return cls.from_state(dict(zip(names, state, strict = True)))
 
     def to_dict(self) -> dict[str, Any]:
         values = asdict(self)
@@ -193,13 +189,6 @@ def search_problem(problem, *, tptp_root, config):
 
             weights = {p.clause_index: p.probability for p in predictions}
             weights.update({i: 1.0 for i in loaded.conjecture_clause_ids})
-            allowed = None
-            if config.top_k is not None:
-                allowed = sorted(
-                    {p.clause_index for p in predictions if p.rank <= config.top_k}
-                    | set(loaded.conjecture_clause_ids)
-                )
-
             policy_class = {
                 ProverPolicy.SatResetCoP: AxiomGuidedSATResetCoP,
                 ProverPolicy.SatCoP: AxiomGuidedSATCoP,
@@ -209,16 +198,10 @@ def search_problem(problem, *, tptp_root, config):
                 clause_weights = weights,
                 mode = config.mode,
                 temperature = config.temperature,
-                allowed_clause_ids = allowed,
                 matrix_digest = matrix_digest(loaded.matrix),
             )
 
-            out.update(
-                axioms = len(loaded.axiom_clause_ids),
-                kept_axioms = len(loaded.axiom_clause_ids)
-                if allowed is None
-                else len(allowed) - len(loaded.conjecture_clause_ids),
-            )
+            out["axioms"] = len(loaded.axiom_clause_ids)
 
             del loaded, predictions
 
