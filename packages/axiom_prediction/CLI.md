@@ -185,6 +185,9 @@ The `problem` field (and prediction output’s `problem_path`) contains the
 filename including its extension, without its directory (e.g. `SYN001-1.p`).
 Full paths are retained in resume checkpoints.
 Run's per-problem results include `part`, calculated using the active `--split`.
+Run, prediction, evaluation problem rows, and training's `event=model` include
+`network_size`: the number of feedforward scorer parameters (weights and biases),
+excluding the GNN encoder. NoModel reports 0.
 Evaluate also emits `event=problem` rows containing `problem`, `part`, and
 per-problem metrics, including rows for skipped problems. The `outcome`
 column is replaced by `tptp_status`, copied from the problem file's `% Status :`

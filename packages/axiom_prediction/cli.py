@@ -513,6 +513,7 @@ def execute_command(args: argparse.Namespace) -> int:
                         "clause_text": prediction.clause_text,
                         "probability": prediction.probability,
                         "rank": prediction.rank,
+                        "network_size": predictor.model.network_size(),
                     },
                 )
 
@@ -581,6 +582,7 @@ def run_command(args: argparse.Namespace) -> int:
     from .wandb_tracking import WandbTracker
 
     model = run_model(args)
+    network_size = 0
     policy = args.policy
     if model is not None:
         from .model import AxiomPredictor
@@ -588,6 +590,7 @@ def run_command(args: argparse.Namespace) -> int:
 
         print_device(args.device)
         predictor = AxiomPredictor.load(model, device = "cpu")
+        network_size = predictor.model.network_size()
         policy = label_policy(
             policy,
             {"collection": predictor.training_config},
@@ -639,6 +642,7 @@ def run_command(args: argparse.Namespace) -> int:
             num_workers = args.num_workers,
         ):
             result["part"] = selected_split(args).part(result["problem"])
+            result["network_size"] = network_size
             results.append(result)
             proved += int(bool(result.get("proved")))
             write_record(result)

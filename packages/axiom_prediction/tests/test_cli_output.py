@@ -41,6 +41,16 @@ def test_all_commands_emit_parseable_records(tmp_path, tiny_problem_path, capsys
 
         assert records
         assert all(record.get("event") != "summary" for record in records)
+        model_records = [
+            record
+            for record in records
+            if command[0] in ("run", "predict")
+            or record.get("event") in ("model", "problem")
+        ]
+
+        # SmallFull's scorer is Linear(160, 32), ReLU, Linear(32, 1).
+        expected_size = 0 if command[0] == "run" and "--model" not in command else 5185
+        assert all(int(record["network_size"]) == expected_size for record in model_records)
         if command[0] == "run":
             assert all("event" not in record for record in records)
             assert all(record["error"] == ("false" if use_csv else False) for record in records)
@@ -82,4 +92,5 @@ def test_parse_failure_is_an_error_with_stdout_diagnostic(tmp_path, capfd, use_c
     assert len(rows) == 1
     assert rows[0]["error"] == ("true" if use_csv else True)
     assert rows[0]["proved"] == ("false" if use_csv else False)
+    assert int(rows[0]["network_size"]) == 0
     assert "parseable" not in rows[0]
