@@ -382,7 +382,10 @@ class WandbTracker:
         self.run.log(
             {
                 "run/results": self.wandb.Table(
-                    data = [[r.get(c) for c in columns] for r in results],
+                    data = [
+                        [None if r.get(c) == "" else r.get(c) for c in columns]
+                        for r in results
+                    ],
                     columns = columns,
                 )
             }

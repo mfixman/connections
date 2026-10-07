@@ -10,7 +10,7 @@ from types import SimpleNamespace
 import pytest
 
 from axiom_prediction.training import AxiomTrainingConfig, train_axiom_predictor
-from axiom_prediction.wandb_tracking import WandbConfig
+from axiom_prediction.wandb_tracking import WandbConfig, WandbTracker
 
 pytestmark = pytest.mark.training
 
@@ -82,6 +82,37 @@ def fake_wandb(run: _FakeRun, init_arguments: dict) -> Any:
     )
 
     return module
+
+def test_run_results_logs_blank_numeric_values_as_null():
+    run = _FakeRun()
+    tables = []
+    module = SimpleNamespace(
+        Table = lambda data, columns: tables.append((data, columns)) or "table"
+    )
+    tracker = WandbTracker(module, run)
+    tracker.log_run_results(
+        [{
+            "problem": "example.p",
+            "outcome": "Timeout",
+            "proved": False,
+            "seconds": 1.0,
+            "steps": "",
+            "proof_size": "",
+            "prediction_seconds": "",
+            "axioms": "",
+            "part": 9,
+        }],
+        {},
+    )
+
+    data, columns = tables[0]
+    assert columns == [
+        "problem", "outcome", "proved", "seconds", "steps", "proof_size",
+        "prediction_seconds", "axioms", "part",
+    ]
+    assert data[0] == [
+        "example.p", "Timeout", False, 1.0, None, None, None, None, 9,
+    ]
 
 def test_training_logs_progress_results_and_model(
     tmp_path,
