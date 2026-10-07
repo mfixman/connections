@@ -410,6 +410,7 @@ def train_axiom_predictor(
         emit(
             "model",
             parameters = parameters,
+            network_size = model.network_size(),
             device = str(device),
             config = config_payload,
         )
@@ -787,7 +788,8 @@ def evaluate_axiom_predictor(
         )
 
         metrics: dict[str, Any] = dict(raw_metrics)
-        report_problem_predictions(examples, probabilities, skipped, split)
+        network_size = predictor.model.network_size()
+        report_problem_predictions(examples, probabilities, skipped, split, network_size)
         log_message(
             f"evaluated {len(examples)} problems in {time.monotonic() - started:.1f}s: {metric_text(metrics)}"
         )
@@ -795,6 +797,7 @@ def evaluate_axiom_predictor(
         metrics.update(
             {
                 "evaluation_kind": "labelled SAT-core-membership evaluation",
+                "network_size": network_size,
                 "model_config": predictor.model.config.to_dict(),
                 "label_semantics": "native CaDiCaL failed-assumption SAT-core membership",
                 "sat_policy": sat_policy.wire_value(),
@@ -823,7 +826,7 @@ def evaluate_axiom_predictor(
         if tracker is not None:
             tracker.finish()
 
-def report_problem_predictions(examples, probabilities, skipped, split):
+def report_problem_predictions(examples, probabilities, skipped, split, network_size):
     offset = 0
     for example in examples:
         size = len(example.labels)
@@ -839,13 +842,19 @@ def report_problem_predictions(examples, probabilities, skipped, split):
             problem = example.problem_path,
             part = split.part(example.problem_path),
             outcome = "evaluated",
+            network_size = network_size,
             **metrics,
         )
 
         offset += size
 
     for item in skipped:
-        emit("problem", **item, part = split.part(item["problem"]))
+        emit(
+            "problem",
+            **item,
+            part = split.part(item["problem"]),
+            network_size = network_size,
+        )
 
 def warn_on_training_overlap(training_config: Mapping[str, Any], split: ProblemSplit):
     trained = training_config.get("split")

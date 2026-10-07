@@ -34,6 +34,9 @@ class AxiomPredictionNetwork(nn.Module):
         layers.append(nn.Linear(input_dim, 1))
         self.scorer = nn.Sequential(*layers)
 
+    def network_size(self) -> int:
+        return sum(parameter.numel() for parameter in self.scorer.parameters())
+
     def forward(self, batch: AxiomGraphBatch) -> torch.Tensor:
         graph = select_graph_input(batch.graph, self.config.graph_input)
         encoded = self.encoder.encode_matrix(graph)
