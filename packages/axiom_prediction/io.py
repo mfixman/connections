@@ -2,8 +2,8 @@ from collections.abc import Iterable, Iterator, Mapping
 import json
 import os
 from pathlib import Path
+import tempfile
 from typing import Any
-import uuid
 
 def read_jsonl(path: str | Path) -> Iterator[dict[str, Any]]:
     with Path(path).open("r", encoding = "utf-8") as file:
@@ -18,8 +18,13 @@ def read_jsonl(path: str | Path) -> Iterator[dict[str, Any]]:
             yield dict(row)
 
 def tmp_path(output: Path) -> Path:
-    # Concurrent writers need separate temporary files.
-    return output.with_suffix(f"{output.suffix}.{os.getpid()}.{uuid.uuid4().hex[:8]}.tmp")
+    descriptor, path = tempfile.mkstemp(
+        dir = output.parent,
+        prefix = f".{output.name}.",
+        suffix = ".tmp",
+    )
+    os.close(descriptor)
+    return Path(path)
 
 def write_jsonl(path: str | Path, rows: Iterable[Mapping[str, Any]]):
     output = Path(path)
