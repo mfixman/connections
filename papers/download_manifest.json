@@ -1,0 +1,108 @@
+{
+  "irving2016deepmath": {
+    "source_url": "https://proceedings.neurips.cc/paper_files/paper/2016/file/f197002b9a0853eca5e046d9ca4663d5-Paper.pdf",
+    "resolved_url": "https://proceedings.neurips.cc/paper_files/paper/2016/file/f197002b9a0853eca5e046d9ca4663d5-Paper.pdf",
+    "file": "irving2016deepmath.pdf",
+    "sha256": "cc8a4f5818bb8305d78de741e31a3b34ed43f48d3851ab3e7f2edccb70c17deb",
+    "bytes": 1222157
+  },
+  "wang2017formulanet": {
+    "source_url": "https://proceedings.neurips.cc/paper_files/paper/2017/file/18d10dc6e666eab6de9215ae5b3d54df-Paper.pdf",
+    "resolved_url": "https://proceedings.neurips.cc/paper_files/paper/2017/file/18d10dc6e666eab6de9215ae5b3d54df-Paper.pdf",
+    "file": "wang2017formulanet.pdf",
+    "sha256": "8ecc3064cdd7d76c045c7dc20b529ec28effec44a82992c2cdc05e62a8007138",
+    "bytes": 1731243
+  },
+  "piotrowski2020stateful": {
+    "source_url": "https://easychair.org/publications/paper/g38n/open",
+    "resolved_url": "https://easychair.org/publications/paper/g38n/open",
+    "file": "piotrowski2020stateful.pdf",
+    "sha256": "66ebdf04475e2eca774f1b46b9d56770d72d8410c33a924917d4928066fa8ca2",
+    "bytes": 730136
+  },
+  "holden2023graphsequence_aitp": {
+    "source_url": "https://aitp-conference.org/2023/abstract/AITP_2023_paper_27.pdf",
+    "resolved_url": "https://aitp-conference.org/2023/abstract/AITP_2023_paper_27.pdf",
+    "file": "holden2023graphsequence_aitp.pdf",
+    "sha256": "9723363c8bad86659754a0f0948ad202b6a49699201591922f4eb4168b1913c0",
+    "bytes": 208405
+  },
+  "holden2023graphsequence_preprint": {
+    "source_url": "https://arxiv.org/pdf/2303.15642",
+    "resolved_url": "https://arxiv.org/pdf/2303.15642",
+    "file": "holden2023graphsequence_preprint.pdf",
+    "sha256": "a66ac90a211c5fdf46e1ac35449583172b5c33f1d82047362ba7933dde6394e2",
+    "bytes": 587026,
+    "version_note": "2023 full preprint; not the 2025 journal version."
+  },
+  "holden2025graphsequence": {
+    "errors": [
+      {
+        "url": "https://www.sciencedirect.com/science/article/pii/S0747717124000804/pdf",
+        "error": "HTTP Error 403: Forbidden"
+      }
+    ],
+    "substitute_file": "holden2023graphsequence_preprint.pdf",
+    "version_note": "Journal PDF unavailable from publisher in this session; journal abstract checked, full comparison uses 2023 preprint."
+  },
+  "aitp2022_proceedings": {
+    "source_url": "https://aitp-conference.org/2022/aitp22-proceedings.pdf",
+    "resolved_url": "https://aitp-conference.org/2022/aitp22-proceedings.pdf",
+    "file": "aitp2022_proceedings.pdf",
+    "sha256": "fbeb2772e9f92742b18ccdd736e0dcb20d0d7bd18b864d2bd7eb3b75624d1fd3",
+    "bytes": 10190334
+  },
+  "rabe2021automaticmathematician": {
+    "source_url": "https://link.springer.com/content/pdf/10.1007/978-3-030-79876-5_2.pdf",
+    "resolved_url": "https://link.springer.com/content/pdf/10.1007/978-3-030-79876-5_2.pdf?error=cookies_not_supported&code=fd4aa09c-e603-487c-9ff9-3190db69936e",
+    "file": "rabe2021automaticmathematician.pdf",
+    "sha256": "02c44a0e706cb4e3068925380a87ba2c91ba23dce841ba751cf8421105733ddb",
+    "bytes": 306059
+  },
+  "selsam2019neurocore": {
+    "source_url": "https://arxiv.org/pdf/1903.04671",
+    "resolved_url": "https://arxiv.org/pdf/1903.04671",
+    "file": "selsam2019neurocore.pdf",
+    "sha256": "f6183c0f8acf9ce599c25d2256e9416370bc7c5fe4310cfb33d8282f93d3dc95",
+    "bytes": 593622,
+    "version_note": "Downloaded arXiv version includes corrected random-refocusing ablations in section 5."
+  },
+  "shi2023satformer_authorversion": {
+    "source_url": "https://arxiv.org/pdf/2209.00953v2",
+    "resolved_url": "https://arxiv.org/pdf/2209.00953v2",
+    "file": "shi2023satformer_authorversion.pdf",
+    "sha256": "4a36d42bda550732860f604566ed32ab981879d93a357f9cf4f130ed14d1d9a9",
+    "bytes": 993311,
+    "version_note": "arXiv v2, 2024 author version; not the four-page ICCAD 2023 proceedings PDF."
+  },
+  "abdulla2024mushypernet": {
+    "source_url": "https://chenchengliang.com/assets/paper-pdf/VMCAI-2024.pdf",
+    "resolved_url": "https://chenchengliang.com/assets/paper-pdf/VMCAI-2024.pdf",
+    "file": "abdulla2024mushypernet.pdf",
+    "sha256": "6b5acf55eb6f4369077e646ef1e8372d7dde0a5482e66555972afca6b5d49a95",
+    "bytes": 1367946
+  },
+  "korovin2008iprover": {
+    "source_url": "https://korovin.gitlab.io/pub/iprover_descr_08.pdf",
+    "resolved_url": "https://korovin.gitlab.io/pub/iprover_descr_08.pdf",
+    "file": "korovin2008iprover.pdf",
+    "sha256": "87e45a8afc0db1523e8bc5fe62ac0f3fcff1cb635d17ddc26ff146c8f15e9a88",
+    "bytes": 68227
+  },
+  "chvalovsky2023iprover_gnn": {
+    "source_url": "https://easychair.org/publications/paper/5z94/open",
+    "file": "chvalovsky2023iprover_gnn.pdf",
+    "sha256": "bdd820c6ca1f73ed37c0d9f3dd1cc41deeeb5017d7f920b0cdde007079e65564",
+    "bytes": 342981
+  },
+  "tworkowski2022formal_premise_selection": {
+    "source_url": "https://aitp-conference.org/2022/aitp22-proceedings.pdf",
+    "file": "tworkowski2022formal_premise_selection.pdf",
+    "extracted_pages": [
+      122,
+      128
+    ],
+    "sha256": "9bcd9ddd5e2511475d1550eb69068bb6733883a7261d541d7ae66c594a0407b4",
+    "bytes": 294300
+  }
+}
