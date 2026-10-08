@@ -76,13 +76,21 @@ class RunConfig:
         if self.policy is not None:
             self.policy = ProverPolicy(self.policy)
 
-        if self.mode != GuidanceMode.Base and self.checkpoint is None:
+        if self.mode == GuidanceMode.Sine and self.checkpoint is not None:
+            raise ValueError("SInE does not use a checkpoint")
+
+        if self.mode == GuidanceMode.Sine:
+            self.temperature = 1.0
+
+        if self.mode not in (GuidanceMode.Base, GuidanceMode.Sine) and self.checkpoint is None:
             raise ValueError(f"--mode {self.mode} needs --model")
 
     @classmethod
     def from_state(cls, state):
         if isinstance(state, dict):
             values = dict(state)
+            values.pop("sine", None)
+            values.pop("sine_settings", None)
             if values.pop("top_k", None) is not None:
                 raise ValueError("top-k filtering is no longer supported")
 
@@ -109,6 +117,11 @@ class RunConfig:
         values["timeout_seconds"] = values.pop("timeout_s")
         values.pop("inference_address")
         values.pop("inference_key")
+        if self.mode == GuidanceMode.Sine:
+            from .sine import settings
+
+            values.update(settings())
+
         return plain_values(values)
 
 def run_problem(
@@ -138,7 +151,7 @@ def search_problem(problem, *, tptp_root, config):
 
         predictor = shared_predictor(config.inference_address, config.inference_key)
     else:
-        predictor = None if config.mode == GuidanceMode.Base else cached_predictor(
+        predictor = None if config.mode in (GuidanceMode.Base, GuidanceMode.Sine) else cached_predictor(
             config.checkpoint,
             config.device,
         )
@@ -170,17 +183,25 @@ def search_problem(problem, *, tptp_root, config):
         }[config.policy]
 
         args: dict[str, Any] = {"seed": config.seed}
-        if predictor is not None:
+        if predictor is not None or config.mode == GuidanceMode.Sine:
             loaded = load_tptp_problem(problem, tptp_root = tptp_root)
             from .guided import AxiomGuidedSATCoP, AxiomGuidedSATResetCoP, matrix_digest
 
-            predictions = predictor.predict(
-                loaded.matrix,
-                axiom_clause_ids = loaded.axiom_clause_ids,
-                conjecture_clause_ids = loaded.conjecture_clause_ids,
-            )
+            if config.mode == GuidanceMode.Sine:
+                from .sine import score_matrix
 
-            weights = {p.clause_index: p.probability for p in predictions}
+                scores = score_matrix(
+                    loaded.matrix, loaded.axiom_clause_ids, loaded.conjecture_clause_ids,
+                )
+                weights = dict(zip(loaded.axiom_clause_ids, scores, strict = True))
+            else:
+                predictions = predictor.predict(
+                    loaded.matrix,
+                    axiom_clause_ids = loaded.axiom_clause_ids,
+                    conjecture_clause_ids = loaded.conjecture_clause_ids,
+                )
+                weights = {p.clause_index: p.probability for p in predictions}
+
             weights.update({i: 1.0 for i in loaded.conjecture_clause_ids})
             policy_class = {
                 ProverPolicy.SatResetCoP: AxiomGuidedSATResetCoP,
@@ -189,14 +210,14 @@ def search_problem(problem, *, tptp_root, config):
 
             args.update(
                 clause_weights = weights,
-                mode = config.mode,
+                mode = GuidanceMode.Weighted if config.mode == GuidanceMode.Sine else config.mode,
                 temperature = config.temperature,
                 matrix_digest = matrix_digest(loaded.matrix),
             )
 
             out["axioms"] = len(loaded.axiom_clause_ids)
 
-            del loaded, predictions
+            del loaded
 
         prediction_s = time.monotonic() - started
         remaining = config.timeout_s - prediction_s
@@ -236,7 +257,7 @@ def search_problem(problem, *, tptp_root, config):
             seconds = time.monotonic() - started,
         )
 
-        if predictor is not None:
+        if predictor is not None or config.mode == GuidanceMode.Sine:
             out["prediction_seconds"] = prediction_s
     except TPTPParseError as error:
         out.update(
@@ -265,7 +286,7 @@ def run_problems(
     num_workers: int | None = None,
 ) -> Iterator[dict[str, Any]]:
     workers = determine_worker_count(len(problems), num_workers)
-    if config.multiprocess and config.mode != GuidanceMode.Base and workers:
+    if config.multiprocess and config.mode not in (GuidanceMode.Base, GuidanceMode.Sine) and workers:
         from .multiprocess import inference_service
 
         with inference_service(config.checkpoint, config.device, workers) as (address, key):
@@ -274,7 +295,7 @@ def run_problems(
 
         return
 
-    if config.mode != GuidanceMode.Base and num_workers is None:
+    if config.mode not in (GuidanceMode.Base, GuidanceMode.Sine) and num_workers is None:
         from .model import resolve_device
 
         if resolve_device(config.device).type == "cuda":
@@ -308,7 +329,7 @@ def run_one(
     tptp_root: str | Path | None,
     config: RunConfig,
 ) -> dict[str, Any]:
-    init_worker(config.mode != GuidanceMode.Base)
+    init_worker(config.mode not in (GuidanceMode.Base, GuidanceMode.Sine))
     return run_problem(problem, tptp_root = tptp_root, config = config)
 
 def init_worker(uses_model: bool):

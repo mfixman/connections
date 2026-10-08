@@ -157,10 +157,12 @@ def build_parser() -> argparse.ArgumentParser:
         metavar = "CHECKPOINT",
         type = Path,
         nargs = "?",
-        help = "model.pt or its directory; with --model or --data-dir, all positional inputs are problems instead",
+        help = "model.pt or its directory; with --sine, --model or --data-dir, all positional inputs are problems instead",
     )
 
-    evaluate.add_argument("--model", type = Path, help = "explicit evaluation checkpoint")
+    evaluation_source = evaluate.add_mutually_exclusive_group()
+    add_sine_argument(evaluation_source)
+    evaluation_source.add_argument("--model", type = Path, help = "explicit evaluation checkpoint")
     evaluate.add_argument("problems", metavar = "PROBLEM", nargs = "*")
     evaluate.add_argument(
         "--data-dir",
@@ -214,7 +216,9 @@ def build_parser() -> argparse.ArgumentParser:
     )
 
     run.add_argument("problems", metavar = "PROBLEM", nargs = "*")
-    run.add_argument(
+    run_source = run.add_mutually_exclusive_group()
+    add_sine_argument(run_source)
+    run_source.add_argument(
         "--model",
         type = Path,
         help = "trained checkpoint (model.pt or its directory); without a model, run the unguided baseline",
@@ -334,6 +338,17 @@ def main(argv: list[str] | None = None) -> int:
         identity["timeout_seconds"] = identity.pop("timeout_s")
 
     try:
+        if getattr(args, "sine", False):
+            from .sine import settings
+
+            if args.model_name is not None:
+                raise ValueError("--sine is incompatible with --model-name")
+
+            if args.command == "run" and args.data_dir is not None:
+                raise ValueError("run --sine is incompatible with --data-dir")
+
+            identity.update(settings())
+
         with output_format(args.command, args.csv, getattr(args, "output", None), identity) as session:
             if session is not None and session.complete():
                 log("output is already complete; nothing to resume")
@@ -395,7 +410,9 @@ def execute_command(args: argparse.Namespace) -> int:
         if args.command == "run":
             return run_command(args)
 
-        print_device(args.device)
+        if not getattr(args, "sine", False):
+            print_device(args.device)
+
         if args.command == "train":
             from .training import AxiomTrainingConfig, train_axiom_predictor
 
@@ -446,7 +463,7 @@ def execute_command(args: argparse.Namespace) -> int:
         if args.command == "evaluate":
             from .training import AxiomTrainingConfig, evaluate_axiom_predictor
 
-            if (args.data_dir is not None or args.model is not None) and args.checkpoint is not None:
+            if (args.sine or args.data_dir is not None or args.model is not None) and args.checkpoint is not None:
                 args.problems = [str(args.checkpoint), *args.problems]
                 args.checkpoint = None
 
@@ -454,11 +471,12 @@ def execute_command(args: argparse.Namespace) -> int:
             if dataset is not None and args.problems:
                 raise ValueError("evaluate takes PROBLEM inputs or a dataset, not both")
 
-            checkpoint = selected_checkpoint(args)
+            checkpoint = None if args.sine else selected_checkpoint(args)
             problems = () if dataset is not None else selected_problems(args)
             metrics = evaluate_axiom_predictor(
                 checkpoint,
                 list(problems),
+                sine = args.sine,
                 multiprocess = args.multiprocess,
                 resume = journal.get(),
                 dataset = dataset,
@@ -570,6 +588,12 @@ def selected_checkpoint(args: argparse.Namespace) -> Path:
 
     return model_directory(args.data_dir, args.model_name)
 
+def add_sine_argument(parser):
+    parser.add_argument(
+        "--sine", action = "store_true",
+        help = "clause-level SInE (tolerance 1, unlimited depth); search retains all clauses with a 1e-6 floor; evaluation uses binary scores",
+    )
+
 def add_model_name_argument(parser: argparse.ArgumentParser):
     parser.add_argument(
         "--model-name",
@@ -599,7 +623,9 @@ def run_command(args: argparse.Namespace) -> int:
 
     config = RunConfig(
         multiprocess = args.multiprocess,
-        mode = GuidanceMode.Base if model is None else GuidanceMode.Weighted,
+        mode = GuidanceMode.Sine if args.sine else (
+            GuidanceMode.Base if model is None else GuidanceMode.Weighted
+        ),
         policy = policy or ProverPolicy.SatResetCoP,
         checkpoint = None if model is None else str(model),
         device = args.device,
@@ -662,6 +688,11 @@ def run_command(args: argparse.Namespace) -> int:
             "proved_seconds_total": sum(times),
             "proved_seconds_mean": sum(times) / len(times) if times else None,
         }
+
+        if args.sine:
+            from .sine import settings
+
+            summary.update(settings())
 
         report_metrics(summary)
         if tracker is not None:

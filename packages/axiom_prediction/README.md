@@ -153,3 +153,11 @@ axioms retained. Without a checkpoint, search is unguided. The CLI no longer
 exposes mode, temperature, or axiom filtering.
 
 See the [complete command-line reference](CLI.md) for every remaining option.
+
+SInE provides a checkpoint-free comparison through `run --sine` and
+`evaluate --sine`. It selects axiom clauses using basic SInE (tolerance 1,
+unlimited depth, generality threshold 0). Search retains all clauses with the
+existing `1e-6` positive weight floor; evaluation scores exact binary decisions
+against SAT-core labels, including saved graph datasets. BCE interprets these
+scores as probabilities, and top-k ties use clause order. See [CLI.md](CLI.md#sine-comparison)
+for usage and resume behavior.

@@ -319,3 +319,33 @@ completed failures or change the experiment, choose a new output path.
 Without `--output`, the existing stdout behavior is unchanged. Redirected old
 stdout files may contain an HPC `nvidia-smi` preamble; they are not clean
 result files and must not be used directly as resume files.
+
+### SInE comparison
+
+Use `python axiom_predictor.py run --sine PROBLEM --multiprocess` for CPU
+SInE guidance, or `python axiom_predictor.py evaluate --sine PROBLEM` to compare
+its selections against freshly collected SAT-core labels. Saved labels can be
+scored with `evaluate --sine --dataset PATH` or `evaluate --sine --data-dir DIR`
+(which reads `DIR/dataset`). All positional evaluation arguments are problem
+inputs when `--sine` is set. No checkpoint or GPU is needed. `--sine` conflicts
+with `--model` and `--model-name`; `run --sine` also rejects `--data-dir`.
+
+This is basic **clause-level** SInE with tolerance 1, unlimited expansion depth,
+and generality threshold 0. Predicate, function and constant symbols count once
+per axiom clause; variables do not count. Conjecture symbols activate clauses
+through their least frequent symbols, repeatedly to a fixed point. Clauses with
+no symbols have no triggers; a conjecture with no symbols selects nothing.
+Saved graph evaluation uses the same algorithm without reopening problem files.
+
+Search retains every clause. Selected axioms and conjecture clauses receive
+weight 1, while unselected axioms retain the existing `1e-6` floor in weighted
+guidance at temperature 1. Output rows use `mode=sine` and network size 0.
+Evaluation uses exact binary scores with the existing metrics: BCE treats these
+decisions as probabilities (using the metric's numerical clipping), and tied
+top-k scores follow existing clause-order tie breaking. Saved dataset label
+policy is inherited; fresh labels use `--policy` or the usual default.
+
+Splits, `--output` resumption, CSV and W&B reporting work as usual. Keep SInE,
+model and unguided results in separate output files; their resume identities
+are incompatible. SInE summaries record its fixed settings and have no model
+configuration or training split.
