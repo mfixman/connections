@@ -1,0 +1,720 @@
+                                                  SATformer: Transformer-Based UNSAT Core Learning
+                                              Zhengyuan Shi1 , Min Li1 , Yi Liu1 , Sadaf Khan1 , Junhua Huang2 , Hui-Ling Zhen2 , Mingxuan Yuan2 and Qiang Xu1
+                                                                                1
+                                                                                    The Chinese University of Hong Kong, 2 Noah’s Ark Lab, Huawei
+                                                                                         {zyshi21, mli, yliu22, skhan, qxu}@cse.cuhk.edu.hk
+                                                                                    {huangjunhua15, zhenhuiling2, Yuan.Mingxuan}@huawei.com
+
+
+                                            Abstract—This paper introduces SATformer, a novel Transformer-             heuristic can substantially enhance the generalizability and efficiency
+                                         based approach for the Boolean Satisfiability (SAT) problem. Rather than      of modern solvers within the EDA domain.
+                                         solving the problem directly, SATformer approaches the problem from the
+                                         opposite direction by focusing on unsatisfiability. Specifically, it models      To address the above issues, we propose SATformer, a novel
+                                         clause interactions to identify any unsatisfiable sub-problems. Using a       framework for Boolean satisfiability that not only predicts satis-
+                                         graph neural network, we convert clauses into clause embeddings and           fiability but also accelerates the solving process for unsatisfiable
+                                         employ a hierarchical Transformer-based model to understand clause cor-       problems. We reinterpret the nature of unsatisfiability as the presence
+                                         relation. SATformer is trained through a multi-task learning approach,
+
+
+
+
+arXiv:2209.00953v2 [cs.AI] 12 Mar 2024
+                                         using the single-bit satisfiability result and the minimal unsatisfiable
+                                                                                                                       of an unsatisfiable sub-problem and address this by modeling clause
+                                         core (MUC) for UNSAT problems as clause supervision. As an end-to-            interactions. Specifically, the solver asserts unsatisfiability only when
+                                         end learning-based satisfiability classifier, the performance of SATformer    an inevitable conflict arises while seeking valid assignments. This
+                                         surpasses that of NeuroSAT significantly. Furthermore, we integrate the       conflict is embodied in a subset of clauses known as the Unsatisfi-
+                                         clause predictions made by SATformer into modern heuristic-based SAT          able Core (UNSAT Core), whereby the sub-problem formed by the
+                                         solvers and validate our approach with a logic equivalence checking task.
+                                         Experimental results show that our SATformer can decrease the runtime         UNSAT Core is also unsatisfiable. Consequently, by capturing clause
+                                         of existing solvers by an average of 21.33%.                                  interactions and identifying the UNSAT Core, we can determine the
+                                                                                                                       satisfiability of the given instance.
+                                                                    I. I NTRODUCTION                                      To model clause correlation, we formulate a deep learning model
+                                                                                                                       that represents clauses as embeddings using a graph neural network
+                                            The Boolean Satisfiability (SAT) problem, fundamental to many              (GNN) and discerns clause connections through a novel hierarchi-
+                                         fields, seeks to identify if there exists at least one assignment             cal Transformer-based model. This hierarchical model consolidates
+                                         that makes a given Boolean formula True. Key applications in the              clauses into clause groups incrementally, capturing relationships
+                                         electronic design automation (EDA) field include logic equivalence            between these groups. Hence, our model learns interactions among
+                                         checking (LEC) [1], model checking [2], and automatic test pattern            multiple clauses, transcending the pairwise dependency typical of
+                                         generation (ATPG) [3]. Being the first proven NP-complete problem,            standard Transformers. Additionally, our model is dual-task trained:
+                                         SAT has no complete solution achievable in polynomial time. Most              for satisfiability prediction with single-bit supervision, and for UN-
+                                         solvers [4]–[10] use heuristic search techniques for large industrial         SAT Core prediction supervised by the minimal unsatisfiable core
+                                         SAT instances. They return a ’satisfiable’ (SAT) result if a valid            (MUC). Despite an UNSAT instance potentially containing multiple
+                                         assignment is found, ’unsatisfiable’ (UNSAT) if all search paths              cores of varying size, the core with the minimal number of clauses
+                                         yield no valid assignment, or ’unknown’ if the maximum runtime is             exhibits less diversity, as highlighted in NeuroCore [19].
+                                         exceeded. Despite impressive results from existing solvers on general
+                                                                                                                          We further deploy SATformer as an initialization heuristic for
+                                         benchmarks [10]–[12], limitations remain in their ability to address
+                                                                                                                       SAT solvers. SATformer outputs a binary prediction indicating sat-
+                                         EDA problems effectively.
+                                                                                                                       isfiability and a ’prediction score’ for each clause that estimates
+                                            One notable issue is the inability of current solvers to self-
+                                                                                                                       its likelihood of forming an UNSAT core. We view clauses with
+                                         direct heuristic selection based on satisfiability. Although modern
+                                                                                                                       high prediction scores as key contributors to unsatisfiability, and
+                                         solvers [7]–[10] offer satisfiability-specific modes (SAT or UNSAT),
+                                                                                                                       propose that addressing sub-problems composed of such high-score
+                                         they rely on manual selection rather than self-prediction of sat-
+                                                                                                                       clauses can hasten the discovery of UNSAT results. We leverage this
+                                         isfiability. Moreover, heuristic efficiency can vary markedly when
+                                                                                                                       clause prediction score to determine search priorities. Specifically,
+                                         solving SAT and UNSAT instances [13]. For instance, while the
+                                                                                                                       we calculate variable priority scores based on variable-clause con-
+                                         local search heuristic can expedite the resolution of SAT instances,
+                                                                                                                       nections and use these as the initial variable activity scores, e.g.,
+                                         it can slow down UNSAT instances, and vice versa for the dynamic
+                                                                                                                       the Variable State Independent Decaying Sum (VSIDS) [20]. As
+                                         restart heuristic. Inappropriate configuration of solver heuristics can
+                                                                                                                       most SAT solvers provide a variable branching priority interface [4],
+                                         potentially increase solving time by up to 50% [14], as solvers prove
+                                                                                                                       [8], [9], [20], SATformer can be seamlessly integrated as a plug-
+                                         SAT and UNSAT in divergent manners. Thus, the prediction of SAT
+                                                                                                                       in, negating extensive solver reconstruction. Unlike previous variable
+                                         or UNSAT before solving is critical for heuristic adjustment and
+                                                                                                                       branching heuristics that solely concentrate on variable activity, our
+                                         optimizing the efficiency of heuristic algorithms in solvers.
+                                                                                                                       approach utilizes clause-level correlation. We validate the efficacy
+                                            Another notable limitation of existing solvers is the absence of           of SATformer by augmenting the performance of two modern SAT
+                                         dedicated heuristics for UNSAT problems. Many EDA applications                solvers: CaDiCaL [8] and Kissat [9].
+                                         confront numerous UNSAT problems, which present a greater chal-
+                                                                                                                          This work makes the following contributions:
+                                         lenge than SAT problems. For instance, in logic equivalence checking
+                                         and model checking, a majority of instances are unsatisfiable, ne-              • We propose a fresh perspective on the unsatisfiability problem
+                                         cessitating significant runtime to confirm unsatisfiability [15], [16].           by modeling clause correlations and identifying the presence of
+                                         Similarly, in ATPG, proving that some faults are untestable, which                unsatisfiable sub-problems.
+                                         corresponds to proving unsatisfiability, consumes a considerable                • We introduce a hierarchical Transformer-based model to capture
+                                         amount of runtime [17], [18]. Hence, integrating an efficient UNSAT               clause interactions, leveraging the minimal UNSAT core as
+    supervision, and training our model to distinguish clauses that                                 𝐶1        𝐶2       𝐶3
+    are likely or unlikely to form an UNSAT core.
+  • We integrate our model as a learning-enhanced initialization
+    heuristic into contemporary SAT solvers, yielding a notable
+    acceleration in the solving process.
+  We organize the rest of the paper as follows. Section II reviews
+the related works about learning-aided SAT solvers and Transformer                          𝑥!   ¬𝑥!       𝑥" ¬𝑥"           𝑥# ¬𝑥#
+blocks. We detail our SATformer framework in Section III and
+demonstrate the effectiveness of our model with comprehensive                         Fig. 1. An example of Literal-Clause Graph (LCG).
+experiments in Section V. Finally, Section VI concludes this paper.
+
+                        II. R ELATED W ORK                                 B. Transformer and Self-attention Mechanism
+                                                                              The Transformer [28] is well acknowledged as one of the most
+A. Deep Learning for SAT Solving                                           powerful architectures for modeling sequential data. The adoption
+                                                                           of the Transformer has led to tremendous progress in the field of
+   In the area of combinatorial optimization, the increasing size of
+                                                                           text comprehension [29], machine translation [30] and even computer
+problem instances remains a critical challenge. For the SAT problem,
+                                                                           vision [31], [32]. The self-attention mechanism in the Transformer
+deep learning provides an attractive solution to improve the solving
+                                                                           block treats sequential input tokens as a fully connected graph and
+efficiency, as surveyed in [21].
+                                                                           represents the connectivity between every pair of nodes. This enables
+   Generally, learning-based SAT solvers fall into two categories:
+                                                                           Transformer-based models to capture the correlation between each
+standalone learning-based SAT solvers and learning-aided SAT
+                                                                           pair of tokens.
+solvers. On the one hand, standalone learning-based SAT solvers
+                                                                              The first attempt to involve the Transformer for solving MaxSAT
+predict satisfiability and decode assignments with end-to-end deep
+                                                                           problem (a variant of SAT problem) is introduced in [33]. The
+learning models solely. For example, NeuroSAT [22] treats the SAT
+                                                                           proposed model represents a given SAT instance as a bipartite graph
+problem as a classification task and trains an end-to-end GNN-based
+                                                                           and applies Transformers to aggregate the message over the nodes. In
+framework to predict binary results (satisfiable or unsatisfiable). DG-
+                                                                           our work, we treat the clauses as a non-ordered sequence and apply
+DAGRNN [23] focuses on the circuit satisfiability problem, i.e.,
+                                                                           the Transformer to capture the correlation among these clauses.
+determining whether the single primary output of a given circuit can
+return logic ’1’. They propose a differentiable method to predict a                                    III. SAT FORMER
+value that evaluates the satisfiaility. By maximizing the value based on   A. Boolean Satisfiability Problem
+reinforcement learning, the model is more likely to find a satisfiable
+                                                                              A Boolean formula ϕ consists of a set of variables {xj }Ij=1 ∈
+assignment. DeepSAT [24] formulates the SAT solution as a product
+                                                                           {T rue, F alse} and a set of Boolean operators {AND (∧), OR(∨),
+of conditional Bernoulli distributions and obtains an assignment by
+                                                                           NOT(¬), ...} over these variables. Solving the SAT problem involves
+maximizing the joint probability. However, the performance of these
+                                                                           determining whether there is at least one valid assignment of the
+standalone learning-based solvers lags behind modern non-learning
+                                                                           variables so that the given formula ϕ evaluates to true.
+approaches by a large margin [19], [24]. Since all assertions produced
+                                                                              Any Boolean formula can be converted into Conjunctive Normal
+by deep learning models are based on probabilistic statistic, while
+                                                                           Form (CNF) with an equivalent transformation in linear time [34].
+SAT problem is a strictly deterministic logic reasoning problem, it is
+                                                                           Under CNF conventions, variables and theirs negations are referred
+naturally unsuitable to solve the SAT problem with a pure learning
+                                                                           to as literals (denoted as xj or ¬xj ). A disjunction of several literals
+method.
+                                                                           constructs a clause Ci = (x1 ∨ x2 ∨ ...). A conjunction of clauses
+   On the other hand, combining deep learning model with modern
+                                                                           forms a propositional instance ϕ = (C1 ∧ C2 ∧ ...). In Eq. (1), we
+SAT solvers has emerged as a promising research direction. As
+                                                                           provide an example to exstandard CNF, wherein the instance has
+heuristics dominate mainstream modern SAT solvers, learning-aided
+                                                                           three variables I = {x1 , x2 , x3 } and consists of three clauses C1 =
+solutions that replace manually-crafted heuristics with more effective
+                                                                           ¬x1 ∨ x2 , C2 = ¬x2 ∨ ¬x3 , C3 = x1 ∨ x3 .
+and efficient heuristics produced by deep learning models can result in
+significant performance improvements [19], [25]–[27]. For example,
+                                                                                       ϕ := (¬x1 ∨ x2 ) ∧ (¬x2 ∨ ¬x3 ) ∧ (x1 ∨ x3 )             (1)
+NLocalSAT [25] achieves a runtime reduction of 27% ∼ 62% on the
+stochastic local search (SLS) SAT solver by producing initialization         The Literal-Clause Graph (LCG) is a bipartite graph representation
+assignments using a deep learning model. Graph-Q-SAT [26] replaces         of CNF formulas, which consists of literal nodes and clause nodes.
+the searching heuristic with a reinforcement learning agent and            Two types of edges are defined in LCG: one connecting a literal
+reduces the number of iterations required to solve SAT problems.           node to a clause node, and another connecting a literal node to its
+Moreover, NeuroCore [19] and NeuroComb [27] learn the distribution         corresponding negation. Fig. 1 is an example representing Eq. (1) in
+of UNSAT cores to guide SAT solving. Although these learning-              LCG.
+aided solutions are powerful, they are generally designed and do             Besides, given an unsatisfiable CNF instance, if a sub-problem
+not guarantee to speed up a specific kind of problem [10]–[12]. In         constructed by some of its clauses is also unsatisfiable, then such a
+industrial applications, engineers are often more focused on solving       sub-problem with specific clauses is referred to as an UNSAT core.
+problems in a specific domain. Therefore, a task-specific solution         Take the unsatisfiable instance ϕU shown in Eq. (2) as an example.
+                                                                                                                          ′
+that incorporates prior knowledge about the problems at hand is            We can extract an unsatisfiable sub-problem ϕU = C2 ∧ C5 ∧ C6 as
+more practical than a general solution. In this paper, we focus on the     one of the UNSAT cores of the original instance ϕU . The concept
+unsatisfiable problem in the EDA area and propose a corresponding          of UNSAT core can be further exstandarded by the searching-based
+learning-aided solution.                                                   solving process. As the clauses C2 and C6 each only include one
+literal, to satisfy both clauses, the variables must be assigned as x1 =   C. Training Objective
+f alse and x2 = true. Nevertheless, this assignment does not satisfy          We adopt a multi-task learning (MTL) [35] strategy to improve
+clause C5 under any circumstances, regardless of the value assigned        the performance of SATformer. As shown in Fig. 2, we train our
+to the remaining variable x3 . Therefore, the solver proves there is an    model to predict UNSAT core (Task-clause) and satisfiability (Task-
+inevitable conflict among these clauses so that all searching branches     sat) simultaneously.
+                         ′
+for solving problem ϕU fail. It is worth noting that there is no UNSAT        Firstly, although the UNSAT core is not unique for a given
+core in a satisfiable instance.                                            instance, there are only a few possible combinations for minimal
+                       C1 = ¬x1 ∨ x2 ∨ ¬x3                                 unsatisfiable cores (MUC), i.e., the UNSAT cores with the smallest
+                       C 2 = x2                                            size. We denote n as the number of clauses and label a binary vector
+                                                                              ∗
+                                                                           Yclause   = {y1∗ , y2∗ , ..., yn∗ } as the ground truth for each instance,
+                       C3 = ¬x1 ∨ ¬x2 ∨ ¬x3
+                                                                           which represents whether the clause is included in MUC. Hence, the
+                       C4 = ¬x1 ∨ x2 ∨ x3                                                      ∗
+                                                                           binary vector Yclause       for a satisfiable instance consists of all zeroes
+                       C5 = x1 ∨ ¬x2                                       while some bits are assigned ones for an unsatisfiable instance.
+                                                                     (2)      We denote the clause embedding matrix as H0                             =
+                       C6 = ¬x1
+                                                                           {H10 , H20 , ..., Hn0 } and obtain Yclause = {y1 , y2 , ..., yn } to
+                       C7 = x1 ∨ ¬x2 ∨ x3
+                                                                           model a probability distribution over clauses using Eq. (4). We
+                       C8 = x1 ∨ x2 ∨ x3                                   regard Yclause as the contribution of each clause to unsatisfiability,
+                       C9 = x1 ∨ ¬x3                                       where a larger value indicates that the corresponding clause is more
+                      ϕU := C1 ∧ C2 ... ∧ C9                               likely to form the MUC.
+
+   Since UNSAT cores provide sufficient causality for unsatisfiability                          Yclause = softmax(MLP(H0 ))                         (4)
+judgement, one can determine whether a CNF instance is unsatisfiable
+or not by extracting its UNSAT cores. In this work, we propose a              The model is trained by minimizing the Kullback-Leibler (KL)
+novel approach to solve the SAT problem by first learning to identify      divergence [36]:
+the clauses that contribute to the unsatisfiability of the instance                                           n
+                                                                                                              X             y∗
+(i.e., clauses included in the UNSAT core) and then modeling the                                 Lclause =        yi∗ · log( i )                    (5)
+interactions among these clauses.                                                                             i=1
+                                                                                                                            yi
+
+B. Overview                                                                   Secondly, the SATformer predicts binary satisfiability as another
+                                                                           task (Task-sat). The model learns to produce a predicted result Ysat ∈
+   Fig. 2 shows an overview of our proposed SATformer. Firstly, our                                              ∗
+                                                                           (0, 1) with single-bit supervision Ysat  ∈ {0, 1}. We apply Binary
+model employs a GNN to obtain clause and literal representations           Cross-Entropy (BCE) loss to train the model.
+from a CNF instance. After performing message-passing for several
+                                                                                          ∗                     ∗
+iterations based on the LCG, the GNN learns the literal embeddings             Lsat = −(Ysat · logYsat + (1 − Ysat ) · log(1 − (Ysat )))            (6)
+with rich information from the connecting clauses and the clause
+                                                                             Thus, the overall loss is the weighted sum of Lclause and Lsat
+embeddings containing information from the involved literals.
+   Secondly, after obtaining the clause embeddings, we design a                                    pclause · Lclause + psat · Lsat
+                                                                                             L=                                                     (7)
+classifier to predict which clauses are involved in the UNSAT core.                                        pclause + psat
+Formally, the classifier is implemented by a Multilayer Perceptron            Intuitively, Task-clause aims to distinguish which clauses con-
+(MLP) as shown in Eq. (3), where Hi0 is the embedding of clause Ci         tribute more to unsatisfiability. By doing so, our model learns to pay
+produced by the GNN, yi ∈ (0, 1) is the predicted probability that Ci      more attention to these clauses and predicts the final satisfiability
+belongs to the UNSAT core, and n is the number of clauses. It should       as Task-sat. Therefore, we can improve the prediction accuracy by
+be noted that this structure may not be perfect for classifying clauses    leveraging useful information between these two related tasks.
+with high accuracy. However, similar to NeuroCore [19], which learns
+a heuristic that assigns higher priority to important variables, the       D. Hierarchical Design
+proposed classifier can help to highlight the clauses that contribute        We further propose a hierarchical Transformer-based model to
+more to unsatisfiability.                                                  capture the correlation among clauses. Formally, for the standard
+                                                                           Transformer T , we define the embeddings of the input tokens as
+                   yi = MLP(Hi0 ), i = 0, 1, ..., n                  (3)   H = {H1 , H2 , ..., Hn } ∈ Rn×k . The self-attention matrix A and
+                                                                           updated embeddings Ĥ = (Ĥ1 , Ĥ2 , ..., Hˆn ) are denoted as:
+   Thirdly, we consider that the unsatisfiability arises from the in-
+teractions among clauses in the UNSAT core. We take the clause                           Q = WQ H, K = WK H, V = WV H
+embeddings from the GNN as inputs and apply the Transformer to                                       QK⊤
+capture such clause relationships. Benefiting from the self-attention                    A = softmax( √ )                                           (8)
+                                                                                                       k
+mechanism inside the Transformer, the SATformer gives more atten-                        Ĥ = T (H) = AV
+tion to the clauses that are likely to be involved in the UNSAT core,
+which is proved in Section V-C. However, the standard Transformer          where WQ , WK , WV are three learnable projection matrices. Q,
+only learns pairwise correlations, and there is almost no cause of         K, V denote matrices packing sets of queries, keys, and values,
+unsatisfiability arising from a pair of clauses. To address this issue,    respectively. And in our case, they have the same shape with H.
+we merge clauses into groups in a hierarchical manner and train a             In most cases, the unsatisfiability can not be determined by a pair
+hierarchical Transformer-based model to learn these clause groups,         of clauses. As demonstrated in the example instance in Eq. (2),
+which is elaborated in Section III-D.                                      the solver requires to consider at least 3 clauses (C2 , C5 and
+                                                                                                                                                                 Task-clause:
+                                                                                                                                MLP
+                                                                                                                                                               UNSAT Core Pred.
+                                                                                                                                                        𝑌& = {𝑦!, 𝑦#, … , 𝑦% }
+                     𝑥!                                                                            𝐿"!
+                                               𝐶1                                                                𝐻!"
+                   ¬𝑥!                                                                             𝐿""!
+                                                                                                                 𝐻#"              Hierarchical
+                     𝑥#                        𝐶2                                                  𝐿"#                                                               Task-sat:
+                                                                                                   𝐿""#                        Transformer-based
+                   ¬𝑥#                                                                                                                                          Satisfiability Pred.
+                                                                                                   …             …
+                                                                                                                                                            𝑌' ∈ (0,1)
+                                                                                                                                     Model
+                             …          …            …          …          …           …
+                                                                                                   𝐿"$
+                    𝑥$
+                                                                                                   𝐿""$          𝐻%"
+                  ¬𝑥$                         𝐶%
+
+                                 CNF Instance         Graph Neural Network                                Literal and Clauses Embedding
+
+
+                                                                            Fig. 2. An overview of the model architecture.
+
+
+                                                                                                                denoted as H10 , ..., Hn0 , where n is the number of clauses. We also
+            𝐻!"                               "!!
+                                              𝐻                                                                 denote the clause group embeddings produced by AU as Gl1 , ..., GlDl ,
+                                                                                                                where Dl is the number of windows in level l and the maximum level
+                                                     Linear
+                        Transformer
+                                                                       𝐺!!
+            𝐻#"                               "#!
+                                              𝐻                                                                 is L. Given the fixed window size w, we calculate Dl as Eq. (9).
+                                                                                                                Before dividing clauses into groups, we randomly pad the length of
+            …                                 …                        g                                        the embedding matrix to w · Dl . For example, if there are n = 11
+                                                                     in
+                                                                     ol
+          "
+         𝐻$                                 "$
+                                            𝐻 !                 po                                              clauses and the window size w = 4, we divide these 11 clauses with
+                                                              Fo r                                              1 more padding clause into D1 = 3 windows at the first level.
+                                                                                                                                                               n
+                                                                                                                                                   Dl = ⌈             ⌉                  (9)
+                                                                                                                                                            Pow(w, l)
+
+      𝐻!"                                                                                                          With a window of size w, the clause group embeddings are updated
+                                                                                                                as:
+                  Attention
+                                      𝐺!!
+      𝐻#"           Unit                            Attention                                                                                      Ĥld = T (Hl−1
+                                                                                                                                                              d )
+                                                                           𝐺'                                                                                                           (10)
+                                                      Unit                                                                                         Gld = LN(Ĥld )
+                                              ……
+
+                                                                                MaxPooling
+                                                                                                                where d is the index, matrix Hl−1                    l−1              l−1
+      ……
+                                                                                                                                                      d      = {H(d−1)·w      , ..., Hd·w−1 }
+                  Attention                                                                                     consists of embedding vectors of clauses in the window d and the
+                                      𝐺&! !
+                                                                                                                matrix Ĥld after processed by Transformer block. We also combine
+                    Unit
+                                                                                                                these clause embeddings into one group embedding Gld for each
+      𝐻%"                                                                                                       window, which is implemented via a linear transformation LN. For
+                                                                       𝐺 '∗
+                                                                                                                the higher level, i.e., l ≥ 2, the inputs for the Transformer should be
+                                              ……                     Cat                                        clause group embeddings Gl−1         = {Gl−1                l−1
+                                                                                                                                                d           (d−1)·w , ..., Gd·w−1 } instead
+                                                                                                                      l−1
+      𝐹"             𝐹!                                𝐹'                               MLP   𝑌!                of Hd .
+                                                                                                                   We still take the instance in Eq. (2) as an example. When the
+                                                                                                                window size is 3, these 9 clauses are divided into 3 clause groups,
+   Fig. 3. The architecture of the hierarchical Transformer-based model.
+                                                                                                                where G11 contains the information from {C1 , C2 , C3 }, G12 represents
+                                                                                                                {C4 , C5 , C6 }, and so on. We cannot find any UNSAT cores by
+                                                                                                                combining clauses pairwise, but at a high level, the clauses contained
+C6 ) to assert unsatisfiable. However, capturing the dependencies                                               in G11 and G12 can construct an UNSAT core. Therefore, to determine
+among multiple tokens within one Transformer block is impractical.                                              whether the instance is satisfiable, the model should consider the
+Although increasing the layer of Transformer blocks can mitigate this                                           pairwise relationships of groups at various grain sizes.
+problem, it significantly increases the model complexity. In this paper,                                           As shown in Eq. (11), similar to the Feature Pyramid Networks
+we propose a hierarchical Transformer-based model including many                                                (FPN) [37], we also obtain level embedding F l based on the
+Attention Unit (AU), as shown in Fig. 3. Briefly, AU merges clauses                                             maximum pooling (MaxPooling) of all Hl , Ĥl and Ĝl as belows:
+within a fixed-size window into a clause group and then packages
+these groups into another group level by level. The resultant clause
+                                                                                                                                                 l       l
+                                                                                                                              MaxPooling(H0 , ..., HDl ), l = 0
+group embedding contains information from all clauses covered by                                                        l
+                                                                                                                       F =       MaxPooling(Ĥ0 , ..., ĤlDl ), l = 1
+                                                                                                                                                  l
+                                                                                                                                                                                         (11)
+the lower-level groups. At a higher level, the model takes clause                                                            
+                                                                                                                                 MaxPooling(Ĝl0 , ..., ĜlDl ), l = 2, ..., L
+group embeddings as inputs and learns the relationship between two
+clause groups.                                                                                                     Finally, a MLP reads out the concatenation (Cat) of F l (l =
+   More formally, the clause embeddings from the GNN model are                                                  1, 2, ..., L) and the final clause group embedding GL∗ . If there are
+multiple clause groups in the final level, we need to apply maximum           Algorithm 1 VSIDS Initialization with SATformer
+pooling to obtain the final GL∗ .                                             Problem instance ϕ, with M variables and n clauses.
+                                                                              Variable scores vj , j = 1, . . . , M , initialized with zeroes.
+                 GL∗ = MaxPooling(GL         L
+                                   0 , ..., GD l )                            SAT solver S.
+                                                                      (12)
+                 Ysat = MLP(Cat(F 0 , ..., F L , GL∗ ))                        1: Ysat , Yclause = SATformer(ϕ)
+   With the hierarchical Transformer-based model, our proposed                 2: if Ysat == UNSAT then
+SATformer can capture the causes of unsatisfiability among multiple            3:    for j = 1 → M do
+clauses rather than pairs of clauses.                                          4:       for i = 1 → n do
+                                                                               5:         if Variable xj is connected with Clause Ci then
+              IV. C OMBINATION WITH SAT SOLVERS                                6:            vj = vj + yi
+                                                                               7:         end if
+   In this subsection, we employ the SATformer as an initialization
+                                                                               8:       end for
+heuristic and combine it with non-learning SAT solvers. To facilitate
+                                                                               9:    end for
+understanding, we briefly introduce the background of modern non-
+                                                                              10: end if
+learning SAT solvers and related heuristics in Section IV-A. Follow-
+                                                                              11:
+ing that, we demonstrate how to combine our SATformer with two
+                                                                              12: Initialize solver S with instance ϕ: S.input(ϕ)
+moderns solvers (CaDiCal [8] and Kissat [9]) in Section IV-B
+                                                                              13: Update the initial VSIDS in S with v: S.updateScore(v)
+A. Background on SAT Solvers                                                  14: Perform solving of S: S.run()
+                                                                              15: Return results: S.results
+   The mainstream modern SAT solvers [4], [8]–[10] are based on the
+searching algorithm and reduce the search space by a heuristic named
+Conflict-Driven Clause Learning (CDCL) [38]. Specifically, CDCL-                                        V. E XPERIMENTS
+based SAT solvers first assign variables and perform Boolean con-
+                                                                                 In this section, we conduct three experiments in three parts, with
+straint propagation until the current variable assignment is not valid,
+                                                                              detailed experimental settings provided in Section V-A. Firstly, we
+resulting in a conflict. Then, the solvers analyze the conflict to identify
+                                                                              demonstrate the ability of SATformer to act as a standalone satisfia-
+variable dependencies and parse them into new clauses, referred to as
+                                                                              bility classifier by comparing it with another end-to-end SAT solver,
+learnt clauses. Adding such learned clauses can introduce additional
+                                                                              NeuroSAT [22] (see Section V-B). Secondly, we investigate the
+constraints into the solving procedure and significantly reduce the
+                                                                              effectiveness of our model design through a series of ablation studies
+search space, especially for UNSAT problems [11].
+                                                                              (see Section V-C, V-D and V-E). Thirdly, we integrate SATformer
+   In order to encounter conflicts as much as possible and speed
+                                                                              with modern SAT solvers: CaDiCaL [8] and Kissat [9], which are
+up SAT solving, previous SAT solvers introduce a heuristic [20] to
+                                                                              the state-of-the-art solvers to the best of our knowledge. As shown
+guide variable decision for more conflicts. This approach maintains
+                                                                              in Section V-F, the hybrid SAT solvers are employed to prove the
+a Variable State-Independent Decaying Sum (VSIDS) score for each
+                                                                              unsatisfability of hard logic equivalence checking (LEC) instances.
+variable, indicating how many conflicts the variable has been involved
+                                                                              Section V-G discusses our current limitations and proposes potential
+in. During the solving procedure, the solvers assign decision values to
+                                                                              solutions for future work.
+variables with high VSIDS scores as a priority. Due to the promising
+performance of this variable decision heuristic, many modern SAT              A. Experimental setting
+solvers also use VSIDS scores as a variable decision heuristic [4],              We present the details of the experimental setting, including the
+[8], [9]. However, the VSIDS scores are only obtained by an online            construction of datasets and the hyperparameters of the SATformer
+algorithm during solving and lack an efficient initialization strategy.       model. In the following experiments, we adopt the same settings
+                                                                              described here for all models unless otherwise specified.
+B. Hybrid Solver Design
+                                                                                 Evaluation metric: Our SATformer predicts the satisfiability of
+   We combine our SATformer with modern SAT solvers. Firstly, our             a given instance. We construct both satisfiable and unsatisfiable
+SATformer predicts both binary satisfiability result and the clauses’         instances in the testing dataset and record the accuracy of binary
+contribution to unsatisfiability. As the solving procedure for UNSAT          classification.
+instances is to cause more conflicts to reduce the search space, the             Dataset preparation: We generate 10K satisfiable instances and
+contribution to unsatisfiability (see Eq. (4)) can be considered as the       10K unsatisfiable instances. Following the same dataset generation
+contribution to conflicts.                                                    scheme as [22], a pair of random k-SAT satisfiable and unsatisfiable
+   Secondly, we convert the above clause prediction to variable               instances is generated together with only one different edge connec-
+prediction. Specifically, based on the clause prediction, we calculate        tion. Here, SR(m) indicates that the instance contains m variables.
+the score leading to conflicts for each variable using Eq. (13), where        In our training dataset, we set the problem size as SR(3-10). Fur-
+Aj,i is the adjacency matrix of variable xj and clause Ci , and M is          thermore, we enumerate all possible clause subsets of each instance
+the total number of variables.                                                and label the minimal UNSAT cores. We also generate default testing
+                        X                                                     datasets, each containing 50 satisfiable and 50 unsatisfiable instances
+                 vj =        (Aj,i ∗ yi ), j = 1, ..., M           (13)       in SR(3-10), SR(20), SR(40) and SR(60), respectively.
+                        Ci ∈ϕ
+                                                                                 Implementation Details: In the GNN structure, we adopt the same
+  Thirdly, we provide the above variable score vj as the initial              configurations as NeuroSAT [22], except for reducing the number
+VSIDS score to the modern SAT solvers. Since most solvers reserve             of message-passing iterations from 26 to 10. In the Hierarchical
+the interface of VSIDS score, our SATformer can be embedded as                Transformer structure, we directly use clause embeddings as input
+a plug-in without modifying the SAT solvers. The details of the               tokens, resulting in the same hidden state dimension of 128. The
+combination are shown in Algorithm. 1.                                        window size w is set to 4, and the total number of levels in the
+                            TABLE I                                                                    TABLE III
+      T HE M ODEL C OMPLEXITY OF N EURO SAT AND SAT FORMER                    P ERFORMANCE C OMPARISON OF SAT FORMER AND SAT FORMER -MLP
+
+                              NeuroSAT     SATformer                                                   SR(3-10)   SR(20)    SR(40)    SR(60)
+                 # Param.     429.31 K     732.47 K                                SATformer           94%        77%       68%       61%
+                 # FLOPs      207.91 M     152.93 M                                SATformer-MLP       90%        72%       60%       52%
+
+
+                           TABLE II                                                                      TABLE IV
+     P ERFORMANCE C OMPARISON OF N EURO SAT AND SAT FORMER                    T HE ATTENTION W EIGHT P ERCENTAGES OF F OUR T YPE C ONNECTIONS
+
+                              SR(3-10) SR(20) SR(40) SR(60)                                   CC        CU        UC         UU
+        CV >5     NeuroSAT 87%           61%     58%      50%                                 68.27%    14.95%    14.01%     2.77%
+                  SATformer 94%          77%     68%      61%
+                  Impr.     7%           16%     10%      11%
+        CV = 4 NeuroSAT 83%              59%     58%      50%                instances. For example, SATformer solves all instances with CV = 3
+               SATformer 99%             98%     91%      86%
+               Impr.     16%             39%     33%      36%
+                                                                             regardless of the problem scale. The reason for this is that SATformer
+                                                                             relies on the correlation among clauses to solve SAT problems. With
+        CV = 3 NeuroSAT 89%              50%     57%      50%                fewer clauses, SATformer harnesses such correlations more easily.
+               SATformer 99%             98%     98%      98%
+               Impr.     10%             48%     98%      48%                In contrast, NeuroSAT only learns the instance-level features with
+                                                                             single-bit supervision and does not obtain richer representations with
+                                                                             the reduction of problem difficulty.
+hierarchical structure is 4. Inside each Transformer block, we set the          To conclude, our SATformer outperforms the NeuroSAT. Addi-
+number of heads in the multi-head self-attention mechanism to 8.             tionally, our SATformer shows a similar property to traditional SAT
+The MLPs used to produce the two predictions for Task-clause and             solvers, i.e., it can achieve higher performance on instances with
+Task-sat are both configured as 3 layers. We train the model for 80          lower difficulty.
+epochs with a batch size 16 on 4 Nvidia V100 GPUs. We adopt the
+                                                                             C. Effectiveness of Transformer Blocks
+Adam optimizer [39] with a learning rate 10−4 and weight decay
+10−10 .                                                                         This section investigates the effectiveness of the Transformer
+   Model Complexity: The complexity of NeuroSAT and above                    Blocks in SATformer. On the one hand, we compare our SATformer
+SATformer are illustrated in Table I, where # FLOPs is the number            with a derived model framework called SATformer-MLP, which
+of floating-point operations and # Para. is the total number of              replaces Transformer blocks with MLPs of the equivalent number
+trainable parameters. Although our model requires more trainable             of model paremeters (# Param.). Table III shows the experimental
+parameters to build up Transformer structures, SATformer performs            results. Since the SATformer-MLP treats all clauses equally instead of
+faster (lower # FLOPs) than NeuroSAT due to the fewer message-               selectively enhancing the correlation between some clauses, it shows
+passing iterations.                                                          an inferior performance compared to the original SATformer.
+                                                                                On the other hand, as the Transformer distinctively treats token
+B. Performance Comparison with NeuroSAT                                      pairs based on the self-attention mechanism, we explore the attention
+   We compare the performance of SATformer and NeuroSAT [22] on              weights assigned to different token pairs. Based on the Task-clause
+satisfiability classification. We do not consider other standalone SAT       UNSAT core prediction, we equally divide the clauses into two
+solvers [23], [24], [40] because they cannot produce only a single           categories: likely to form an UNSAT Core (denoted as C-clause)
+binary result.                                                               and Ulikely to form an UNSAT core (denoted as U-clause) cause
+   Both NeuroSAT and our SATformer require the input instances               unsatisfiable. Therefore, the pairwise connections are classified into
+to be in CNF. While SR(m) represents the problem scale, we use               4 types: between C-clause and C-clause (CC), C-clause and U-
+                            n
+another metric, CV = m        , to better quantify the problem difficulty,   clause (CU), U-clause and C-clause (UC), U-clause and U-clause
+where n is the number of clauses and m is the number of variables.           (UU). We calculate the overall attention weights for these 4 types,
+A higher CV value indicates more clause constraints in the formula,          respectively, and list the percentages in Table IV. A higher percentage
+making the instance more difficult to solve. The instances from the          indicates that the model pays more attention to the corresponding
+training dataset and the default testing dataset have CV > 5. These          pairwise correlation. The Transformer assigns almost 70% of its
+satisfiable instances only have 1 or 2 possible satisfying assignments       attention weights to the CC connection. Moreover, along with the
+in total. Besides, we also produce 50 satisfiable and 50 unsatisfiable       CU and UC connections, the model allocates 97.23% of its attention
+simplified instances with CV = 3 and CV = 4 for each problem                 weights to capture the correlation related to C-clauses. Therefore,
+scale. To ensure fairness, we train NeuroSAT on the same training            our Transformer-based model mainly focuses on the clauses that
+dataset in SR(3-10). The results of the binary classification are listed     contribute more to unsatisfiability.
+in Table II.                                                                    To summarize, our SATformer not only captures the relationship
+   From Table II, we have a few observations. Firstly, our SATformer         among clauses but also learns how to pay more attention to those
+achieves higher performance than NeuroSAT across all datasets. For           clauses that are more likely to raise unsatisfiability.
+example, while NeuroSAT can only correctly classify 67% in SR(20)
+and 56% in SR(40) when CV > 5, our SATformer has an accuracy                 D. Effectiveness of Hierarchical Transformer
+of 70% in SR(20) and 61% in SR(40). Secondly, the results of                   In this subsection, we conduct an ablation study and create some
+NeuroSAT have no significant difference when the problem difficulty          special cases to demonstrate the effectiveness of our Hierarchical
+is reduced, but our SATformer performs better on the simplified              Transformer.
+                            TABLE V                                                                          TABLE VI
+           P ERFORMANCE C OMPARISON OF SAT FORMER AND                                       P ERFORMANCE C OMPARISON OF SAT FORMER AND
+                      SAT FORMER -N O H IER                                                            SAT FORMER -N O C ORE
+
+                              SR(3-10) SR(20) SR(40) SR(60)                                                   SR(3-10) SR(20) SR(40) SR(60)
+          SATformer        94%           77%        68%    61%                            SATformer        94%          77%      68%     61%
+          SATformer-NoHier 70%           57%        50%    50%                            SATformer-NoCore 89%          67%      57%     51%
+
+
+            𝐶!    𝐶"    𝐶#    𝐶$   𝐶%    𝐶&    𝐶'    𝐶(    𝐶)                    the group embedding G21 , which contains information from these 3
+                                                                                 clause groups. In this case, the SATformer model can correctly predict
+                  𝐺!!              𝐺"!               𝐺#!   𝑙=1                   both instances as unsatisfiable.
+                                                                                    In summary, our SATformer can learn the relationships among
+                                                                                 multiple tokens due to the pairwise self-attention mechanism and hi-
+           𝜙!"                     𝐺!"                     𝑙=2                   erarchical structure. Besides, to mitigate the effect of clause ordering,
+                                                                                 we shuffle the clauses every 10 training iterations.
+            𝐶!    𝐶"    𝐶#    𝐶$   𝐶%    𝐶)    𝐶'    𝐶(    𝐶&                    E. Effectiveness of Multi-task Learning Strategy
+                                                                                    To investigate the effectiveness of the MTL strategy in our SAT-
+                  𝐺!!              𝐺"!               𝐺#!   𝑙=1                   former, we train another model without UNSAT core supervision
+                                                                                 (denote as SATformer-NoCore) and compare it with the original
+                                                                                 SATformer. Table VI shows the experimental results. After removing
+           𝜙!#                     𝐺!"                     𝑙=2                   the Task-clause UNSAT core prediction, the model’s performance on
+                                                                                 all four datasets decreases.
+      Fig. 4. Two special unsatisfiable cases in hierarchical structure             Generally, UNSAT core prediction retains rich information about
+                                                                                 the contribution of clauses to unsatisfiability, and it is significantly
+   Firstly, we replace the hierarchical structure with plain Transformer         related to SAT solving. Therefore, the MTL strategy incorporating
+blocks. This model takes clause embeddings as input tokens and                   UNSAT core prediction benefits the model’s performance.
+updates them with 4 (same as L = 4 in default SATformer
+                                                                                 F. Combination with SAT Solvers
+configuration) stacked Transformer blocks (denoted as SATformer-
+NoHier). Then, the model produces an embedding vector by pooling                    In this subsection, we combine SATformer with CaDiCaL [8] and
+all updated clause embeddings and predicts the final binary result.              Kissat [9] to demonstrate its effectiveness. The solvers integrated
+As shown in Table V, SATformer-NoHier can handle fewer instances                 with SATformer are denoted as w/ SATformer, while the baseline
+than SATformer. For example, SATformer-NoHier only achieves 70%                  solvers without SATformer are denoted as w/o SATformer. To en-
+accuracy in SR(3-10) and performs as a randomly guessing classifier              sure fairness, the runtime of the w/ SATformer solver includes the
+in SR(40) and SR(60) instances. On the contrary, SATformer is                    model inference time. We test these solvers with 60 industrial LEC
+still effective in SR(40) and SR(60). The reason for this is that                instances, comprising of 30 SAT instances and 30 UNSAT instances.
+SATformer-NoHier can only learn pairwise dependencies, while a                      Fig. 5 shows the runtime reduction achieved by SATformer on
+pair of clauses may not have a decisive effect on the satisfiability.            different solvers, where the red points represent SAT instances and
+Although the model can learn multiple relationships by stacking                  the blue points represent UNSAT instances. To ensure better visual-
+Transformer blocks, 4 layers are still far from sufficient.                      ization, we ignore some cases with extremely large runtime increase
+   Secondly, to further demonstrate the ability of SATformer to                  or decrease. Both CaDiCaL and Kissat can achieve runtime reduction
+learn multiple relationships, we construct two equivalent unsatisfiable          by integrating SATformer in most cases. However, there are still a few
+instances as Eq. (14) based on Eq. (2) with different clause orders.             cases (especially in satisfiable instances) indicating a performance
+The three clauses C2 , C5 , and C6 forming MUC are highlighted with              degradation when combining the solvers with SATformer.
+underlines.                                                                         To further elucidate the above phenomenon and evaluate the
+                                                                                 effectiveness of our SATformer, we calculate the average runtime
+                                                                                 for UNSAT instances, SAT instances and all instances, respectively,
+        ϕU 1 := C1 ∧ C2 ∧ C3 ∧ C4 ∧ C5 ∧ C6 ∧ C7 ∧ C8 ∧ C9
+                                                                          (14)   as shown in Table VII. The table reveals several key observations.
+        ϕU 2 := C1 ∧ C2 ∧ C3 ∧ C4 ∧ C5 ∧ C9 ∧ C7 ∧ C8 ∧ C6
+                                                                                 Firstly, compared to solvers w/o SATformer, CaDiCaL and Kissat w/
+   As shown in Fig. 4, for the instance ϕU 1 , the clauses (from C1 to           SATformer achieve a speedup of 21.64% and 7.60%, respectively,
+C6 ) in the first two groups can construct an unsatisfiable sub-instance.        when solving UNSAT instances. Therefore, SATformer can improve
+Hence, by modeling the pairwise relationship between input token                 the efficiency of UNSAT solving. Secondly, SATformer results in
+embeddings G11 and G12 in level l = 1, the model can determine                   a runtime increase for both CaDiCaL and Kissat solvers. Taking
+the satisfiability. However, there is no pairwise correlation leading            CaDiCaL as an example, although w/ SATformer requires 30.77%
+to unsatisfiability in the first hierarchical level in ϕU 2 . We train two       more runtime than w/o SATformer, the initialization heuristic does
+additional SATformer models with a window size of w = 3, but                     not have a negative impact on the solver. The gap in solving time
+with different hierarchical levels: one with L = 1 and the other                 between w/ SATformer (6.62s on average) and w/o SATformer (6.63s
+with L = 2. According to the experimental results, the model with                on average) is quite small. Since the satisfiable instances in EDA
+L = 1 which relies on the group embeddings in level l = 1 can only               are naturally easy to solve, the efficiency improvement brought
+correctly predict ϕU 1 as unsatisfiable. However, if we add one more             by the heuristic is not significant. Thirdly, the inference time of
+Transformer block in level l = 2, the model (with L = 2) can learn               SATformer accounts for only a small fraction of the overall solving
+                                                                                            TABLE VII
+                                                              AVERAGE RUNTIME C OMPARISON BETWEEN THE S OLVERS W / O AND W / SAT FORMER
+                                                                                                   CaDiCaL                                                         Kissat
+                                                    Size       Model(s)      w/o (s)     w/ (s)      Overall (s)                  Reduction   w/o (s)     w/ (s)     Overall (s)       Reduction
+                                         UNSAT      20,114     2.30          967.00      755.43         757.72                    21.64%      787.73      723.67     725.97            7.84%
+                                         SAT        20,102     2.05          6.63        6.62           8.67                      -30.77%     3.79        3.78       5.83              -53.77%
+                                         All        20,112     1.94          486.81      381.02         382.96                    21.33%      395.76      363.73     365.67            7.60%
+
+                                                                                              TABLE VIII
+                                                             S EARCHING P ROCESS C OMPARISON BETWEEN THE C A D I C A L W / O AND W / SAT FORMER
+                                                                          w/o SATformer                                           w/ SATformer               # Lemma          Time
+                                               Instances      Core Size      # Lemma    Time (s)                      Core Size      # Lemma   Time (s)      Reduction        Reduction
+                                               C1             1343           601331        18.91                      1341          557498      17.01        7.29%            10.06%
+                                               C2             2755           935965        28.13                      2753          663373      23.05        29.12%           18.07%
+                                               C3             1836           677794        20.03                      1834          782211      21.75        -15.41%          -8.59%
+                                               C4             2744           717451        21.33                      2739          852268      23.28        -18.79%          -9.12%
+
+                                  Solving Time Reduction                                                                     predict satisfiability and accelerate the solving process for both SAT
+                                  80%                                                                                        and UNSAT instances, allowing us to select the appropriate heuristic
+
+
+
+
+    CaDiCaL solver w/ SATformer
+                                                                                         SAT Instance
+
+                                  60%
+                                                                                       UNSAT Instance                        based on the satisfiability of the instance.
+                                                                                                                                On the other hand, as shown in Fig. 5, we can find that integrating
+
+
+                                                                                                        Avg. 21.33%
+                                  40%                                                                                        SATformer may reduce the efficiency of solving UNSAT instances
+                                  20%
+                                                                                                                             in several cases. We investigate the reason for these failure cases
+                                                                                                                             with four representative instances. Table VIII presents the size of
+                                   0%                                                                                        the UNSAT core (Core Size), solving time (Time) and the number
+                                                                                                                             of generated lemmas (# Lemma) using CaDiCaL solvers w/o and
+                                  -20%
+                                                                                                                             w/ SATformer. Each lemma is generated by conflict analysis in the
+                                  -40%                                                                                       search process. The number of lemmas has a positive correlation with
+                                                                                                                             the number of conflicts encountered during solving and the number of
+                                  60%
+                                                                                         SAT Instance
+                                                                                                                             times the search backtracks. According to the results in Table VIII, we
+
+
+
+
+    Kissat solver w/ SATformer
+                                                                                       UNSAT Instance                        observe that for C1 and C2, SATformer guides the search towards a
+                                  40%                                                                                        smaller UNSAT core and reduce the number of lemmas by 7.29% and
+
+
+                                                                                                        Avg. 7.60%
+                                                                                                                             29.12%, respectively, leading to a runtime reduction of 10.06% and
+                                  20%
+                                                                                                                             18.07%, respectively. However, for C3 and C4, although SATformer
+                                                                                                                             tends to find a smaller UNSAT core, more backtracking is required
+                                   0%
+                                                                                                                             during the search, which consumes more runtime. Since the search
+                                  -20%
+                                                                                                                             time is positively correlated with the size of the UNSAT core, rather
+                                                                                                                             than being absolutely proportional to the size of the UNSAT core [42],
+                                  -40%                                                                                       SATformer could derive a small but hard-to-prove UNSAT core.
+                                                                                                                             Consequently, to further improve the performance of SATformer in
+                                                                                                                             the future, the SATformer should guide the search path towards the
+Fig. 5. The runtime reduction of SATformer on CaDiCal [8] (upper) and
+Kissat [9] (below)                                                                                                           easiest UNSAT core rather than the minimal UNSAT core.
+                                                                                                                                                          VI. C ONCLUSION
+time, with 0.51% in CaDiCaL and 0.53% in Kissat, respectively.
+Moreover, SATformer is able to infer within polynomial time that                                                                This paper proposes SATformer, a novel Transformer-based frame-
+is only proportional to the size of instances. Thus, the overhead of                                                         work for predicting satisfiability and accelerating the solving process
+SATformer is within an acceptable range. In summary, our SATformer                                                           for UNSAT problems. The focus of our work is on UNSAT core
+can significantly improve the efficiency of UNSAT solving without                                                            learning, which involves identifying the existence of an unsatisfiable
+harming SAT solving.                                                                                                         core by modeling clause interactions. Specifically, SATformer maps
+                                                                                                                             clauses into embeddings through a graph neural network (GNN)
+G. Failure Case Analysis and Discussion                                                                                      and captures clause correlations using a hierarchical Transformer-
+   In this subsection, we analyze the limitations of the current SAT-                                                        based model. By leveraging both single-bit satisfiability and the
+former and propose potential solutions to further improve SATformer                                                          unsatisfiable core as supervisions, SATformer can effectively predict
+in the future. On the one hand, as shown in Table VII, SATformer                                                             the satisfiability of an instance and quantify each clause’s contri-
+cannot improve the efficiency of solving satisfiable problems. This                                                          bution to unsatisfiability Our results demonstrate that SATformer
+is because the heuristic objective of finding a satisfying assignment                                                        outperforms NeuroSAT as an end-to-end learning-based satisfiability
+is different from the objective of proving unsatisfiability [41], and                                                        classifier. Furthermore, we integrate SATformer as an initialization
+the prediction of the UNSAT core is meaningless for satisfiable                                                              heuristic into modern SAT solvers. Our experimental results show
+instances. To improve the generalization ability of SATformer, we can                                                        that SATformer can reduce the solving time by an average of 21.33%
+design a heuristic based on decoding assignments [22], especially for                                                        for the CaDiCaL solver and 7.60% for the Kissat solver on the logic
+satisfiable instances. As a result, our next version of SATformer can                                                        equivalence checking task.
+                           ACKNOWLEDGMENTS                                          [20] M. W. Moskewicz, C. F. Madigan, Y. Zhao, L. Zhang, and S. Malik,
+                                                                                         “Chaff: Engineering an efficient sat solver,” in Proceedings of the 38th
+   This work was supported in part by the General Research Fund                          annual Design Automation Conference, 2001, pp. 530–535.
+of the Hong Kong Research Grants Council (RGC) under Grant No.                      [21] W. Guo, J. Yan, H.-L. Zhen, X. Li, M. Yuan, and Y. Jin, “Machine
+14212422 and in part by Research Matching Grant CSE-7-2022.                              learning methods in solving the boolean satisfiability problem,” arXiv
+                                                                                         preprint arXiv:2203.04755, 2022.
+                                R EFERENCES                                         [22] D. Selsam, M. Lamm, B. Bünz, P. Liang, L. de Moura, and D. L.
+                                                                                         Dill, “Learning a sat solver from single-bit supervision,” arXiv preprint
+ [1] E. I. Goldberg, M. R. Prasad, and R. K. Brayton, “Using sat for com-                arXiv:1802.03685, 2018.
+     binational equivalence checking,” in Proceedings Design, Automation            [23] S. Amizadeh, S. Matusevych, and M. Weimer, “Learning to solve
+     and Test in Europe. Conference and Exhibition 2001. IEEE, 2001, pp.                 circuit-sat: An unsupervised differentiable approach,” in International
+     114–121.                                                                            Conference on Learning Representations, 2018.
+ [2] K. L. McMillan, “Interpolation and sat-based model checking,” in               [24] M. Li, Z. Shi, Q. Lai, S. Khan, and Q. Xu, “Deepsat: An eda-driven
+     Computer Aided Verification: 15th International Conference, CAV 2003,               learning framework for sat,” arXiv preprint arXiv:2205.13745, 2022.
+     Boulder, CO, USA, July 8-12, 2003. Proceedings 15. Springer, 2003,             [25] W. Zhang, Z. Sun, Q. Zhu, G. Li, S. Cai, Y. Xiong, and L. Zhang, “Nlo-
+     pp. 1–13.                                                                           calsat: Boosting local search with solution prediction,” arXiv preprint
+ [3] K. Yang, K.-T. Cheng, and L.-C. Wang, “Trangen: A sat-based atpg                    arXiv:2001.09398, 2020.
+     for path-oriented transition faults,” in ASP-DAC 2004: Asia and South          [26] V. Kurin, S. Godil, S. Whiteson, and B. Catanzaro, “Can q-learning
+     Pacific Design Automation Conference 2004 (IEEE Cat. No. 04EX753).                  with graph networks learn a generalizable branching heuristic for a sat
+     IEEE, 2004, pp. 92–97.                                                              solver?” Advances in Neural Information Processing Systems, vol. 33,
+ [4] N. Sorensson and N. Een, “Minisat v1. 13-a sat solver with conflict-                pp. 9608–9621, 2020.
+     clause minimization,” SAT, vol. 2005, no. 53, pp. 1–2, 2005.                   [27] W. Wang, Y. Hu, M. Tiwari, S. Khurshid, K. McMillan, and R. Miikku-
+ [5] A. Biere, K. Fazekas, M. Fleury, and M. Heisinger, “CaDiCaL, Kissat,                lainen, “Neurocomb: Improving sat solving with graph neural networks,”
+     Paracooba, Plingeling and Treengeling entering the SAT Competition                  arXiv e-prints, pp. arXiv–2110, 2021.
+     2020,” in Proc. of SAT Competition 2020 – Solver and Benchmark                 [28] A. Vaswani, N. Shazeer, N. Parmar, J. Uszkoreit, L. Jones, A. N. Gomez,
+     Descriptions, ser. Department of Computer Science Report Series B,                  Ł. Kaiser, and I. Polosukhin, “Attention is all you need,” Advances in
+     T. Balyo, N. Froleyks, M. Heule, M. Iser, M. Järvisalo, and M. Suda,               neural information processing systems, vol. 30, 2017.
+     Eds., vol. B-2020-1. University of Helsinki, 2020, pp. 51–53.                  [29] C. Meng, M. Chen, J. Mao, and J. Neville, “Readnet: A hierarchical
+ [6] B. Selman, H. A. Kautz, B. Cohen et al., “Local search strategies for               transformer framework for web article readability analysis,” in European
+     satisfiability testing.” Cliques, coloring, and satisfiability, vol. 26, pp.        Conference on Information Retrieval. Springer, 2020, pp. 33–49.
+     521–532, 1993.                                                                 [30] Q. Wang, B. Li, T. Xiao, J. Zhu, C. Li, D. F. Wong, and L. S. Chao,
+ [7] M. Osama and A. Wijs, “Parafrost at the sat race 2021,” SAT COMPE-                  “Learning deep transformer models for machine translation,” arXiv
+     TITION 2021, vol. 32, 2021.                                                         preprint arXiv:1906.01787, 2019.
+ [8] S. D. QUEUE, “Cadical at the sat race 2019,” SAT RACE 2019, p. 8,              [31] A. Dosovitskiy, L. Beyer, A. Kolesnikov, D. Weissenborn, X. Zhai,
+     2019.                                                                               T. Unterthiner, M. Dehghani, M. Minderer, G. Heigold, S. Gelly et al.,
+ [9] A. Fleury and M. Heisinger, “Cadical, kissat, paracooba, plingeling and             “An image is worth 16x16 words: Transformers for image recognition
+     treengeling entering the sat competition 2020,” SAT COMPETITION,                    at scale,” arXiv preprint arXiv:2010.11929, 2020.
+     vol. 2020, p. 50, 2020.                                                        [32] Z. Liu, Y. Lin, Y. Cao, H. Hu, Y. Wei, Z. Zhang, S. Lin, and
+[10] G. Audemard and L. Simon, “On the glucose sat solver,” International                B. Guo, “Swin transformer: Hierarchical vision transformer using shifted
+     Journal on Artificial Intelligence Tools, vol. 27, no. 01, p. 1840001,              windows,” in Proceedings of the IEEE/CVF International Conference on
+     2018.                                                                               Computer Vision, 2021, pp. 10 012–10 022.
+[11] F. Lu, L.-C. Wang, K.-T. Cheng, and R.-Y. Huang, “A circuit sat solver         [33] F. Shi, C. Lee, M. K. Bashar, N. Shukla, S.-C. Zhu, and V. Narayanan,
+     with signal correlation guided learning,” in 2003 Design, Automation and            “Transformer-based machine learning for fast sat solvers and logic
+     Test in Europe Conference and Exhibition. IEEE, 2003, pp. 892–897.                  synthesis,” arXiv preprint arXiv:2107.07116, 2021.
+[12] G. Audemard and L. Simon, “Glucose: a solver that predicts learnt              [34] G. S. Tseitin, “On the complexity of derivation in propositional calcu-
+     clauses quality,” SAT Competition, pp. 7–8, 2009.                                   lus,” in Automation of reasoning. Springer, 1983, pp. 466–483.
+[13] J. Huang, H.-L. Zhen, N. Wang, H. Mao, M. Yuan, and Y. Huang,                  [35] R. Caruana, “Multitask learning,” Machine learning, vol. 28, no. 1, pp.
+     “Neural fault analysis for sat-based atpg,” in 2022 IEEE International              41–75, 1997.
+     Test Conference (ITC). IEEE, 2022, pp. 36–45.                                  [36] S. Kullback and R. A. Leibler, “On information and sufficiency,” The
+[14] M. Gagliolo and J. Schmidhuber, “Algorithm selection as a bandit prob-              annals of mathematical statistics, vol. 22, no. 1, pp. 79–86, 1951.
+     lem with unbounded losses,” in Learning and Intelligent Optimization:          [37] T.-Y. Lin, P. Dollár, R. Girshick, K. He, B. Hariharan, and S. Belongie,
+     4th International Conference, LION 4, Venice, Italy, January 18-22,                 “Feature pyramid networks for object detection,” in Proceedings of the
+     2010. Selected Papers 4. Springer, 2010, pp. 82–96.                                 IEEE conference on computer vision and pattern recognition, 2017, pp.
+[15] E. Goldberg and Y. Novikov, “Verification of proofs of unsatisfiability             2117–2125.
+     for cnf formulas,” in 2003 Design, Automation and Test in Europe               [38] J. Marques-Silva, I. Lynce, and S. Malik, “Conflict-driven clause learn-
+     Conference and Exhibition. IEEE, 2003, pp. 886–891.                                 ing sat solvers,” in Handbook of satisfiability. ios Press, 2021, pp.
+[16] A. Mishchenko, S. Chatterjee, R. Brayton, and N. Een, “Improvements                 133–182.
+     to combinational equivalence checking,” in Proceedings of the 2006             [39] D. P. Kingma and J. Ba, “Adam: A method for stochastic optimization,”
+     IEEE/ACM international conference on Computer-aided design, 2006,                   arXiv preprint arXiv:1412.6980, 2014.
+     pp. 836–843.                                                                   [40] E. Ozolins, K. Freivalds, A. Draguns, E. Gaile, R. Zakovskis,
+[17] H.-C. Liang, C. L. Lee, and J. E. Chen, “Identifying untestable faults in           and S. Kozlovics, “Goal-aware neural sat solver,” arXiv preprint
+     sequential circuits,” IEEE Design & Test of computers, vol. 12, no. 03,             arXiv:2106.07162, 2021.
+     pp. 14–23, 1995.                                                               [41] C. Oh, “Between sat and unsat: the fundamental difference in cdcl
+[18] K. Heragu, J. H. Patel, and V. D. Agrawal, “Fast identification of                  sat,” in Theory and Applications of Satisfiability Testing–SAT 2015:
+     untestable delay faults using implications,” in iccad, 1997, pp. 642–647.           18th International Conference, Austin, TX, USA, September 24-27, 2015,
+[19] D. Selsam and N. Bjørner, “Guiding high-performance sat solvers with                Proceedings 18. Springer, 2015, pp. 307–323.
+     unsat-core predictions,” in International Conference on Theory and             [42] A. Nadel, “Boosting minimal unsatisfiable core extraction,” in Formal
+     Applications of Satisfiability Testing. Springer, 2019, pp. 336–353.                Methods in Computer Aided Design. IEEE, 2010, pp. 221–229.
+
