@@ -670,9 +670,10 @@ def train_axiom_predictor(
             tracker.finish()
 
 def evaluate_axiom_predictor(
-    checkpoint: str | Path,
+    checkpoint: str | Path | None,
     problems: list[str] | tuple[str, ...] | None = None,
     *,
+    sine: bool = False,
     multiprocess: bool = False,
     resume = None,
     dataset: str | Path | None = None,
@@ -697,16 +698,30 @@ def evaluate_axiom_predictor(
         if not problem_list:
             raise ValueError("no evaluation problems in the selected parts")
 
-    predictor = AxiomPredictor.load(checkpoint, device = device)
-    warn_on_training_overlap(predictor.training_config, split)
+    if sine and checkpoint is not None:
+        raise ValueError("SInE does not use a checkpoint")
+
+    predictor = None if sine else AxiomPredictor.load(checkpoint, device = device)
+    model_metadata = {}
+    if predictor is not None:
+        warn_on_training_overlap(predictor.training_config, split)
+        model_metadata = {
+            "model_config": predictor.model.config.to_dict(),
+            "training_split": predictor.training_config.get("split"),
+        }
+    else:
+        from .sine import settings
+
+        model_metadata = settings()
 
     collection_config = config or AxiomTrainingConfig(device = device)
-    checkpoint_policy = label_policy(
-        collection_config.sat_policy,
-        {"collection": predictor.training_config},
-    )
+    if predictor is not None:
+        checkpoint_policy = label_policy(
+            collection_config.sat_policy,
+            {"collection": predictor.training_config},
+        )
+        collection_config = replace(collection_config, sat_policy = checkpoint_policy)
 
-    collection_config = replace(collection_config, sat_policy = checkpoint_policy)
     torch.set_num_threads(determine_worker_count(None, collection_config.num_workers))
     sat_policy = label_policy(collection_config.sat_policy)
 
@@ -741,20 +756,19 @@ def evaluate_axiom_predictor(
     tracker = WandbTracker.start(
         replace(
             wandb_config,
-            name = wandb_config.name or f"{type(predictor.model).__name__}-evaluate",
+            name = wandb_config.name or ("SInE-evaluate" if sine else f"{type(predictor.model).__name__}-evaluate"),
             name_prefix = None,
         ),
         job_type = "evaluate",
         run_config = {
-            "checkpoint": str(checkpoint),
-            "model_config": predictor.model.config.to_dict(),
-            "device": str(predictor.device),
+            **model_metadata,
+            "checkpoint": None if sine else str(checkpoint),
+            "device": "cpu" if sine else str(predictor.device),
+            "network_size": 0 if sine else predictor.model.network_size(),
 
             "sat_policy": sat_policy.wire_value(),
             "dataset": None if dataset is None else str(dataset),
             "split": split.to_dict(),
-            "training_split": predictor.training_config.get("split"),
-
             "problems": problem_list,
             "cli_arguments": dict(run_properties or {}),
         },
@@ -780,15 +794,16 @@ def evaluate_axiom_predictor(
 
         started = time.monotonic()
         _, probabilities, raw_metrics = example_outputs(
-            predictor.model,
+            None if sine else predictor.model,
             examples,
+            sine = sine,
             batch_size = collection_config.batch_size,
             adaptive = multiprocess,
             resume = resume,
         )
 
         metrics: dict[str, Any] = dict(raw_metrics)
-        network_size = predictor.model.network_size()
+        network_size = 0 if sine else predictor.model.network_size()
         report_problem_predictions(examples, probabilities, skipped, split, network_size)
         log_message(
             f"evaluated {len(examples)} problems in {time.monotonic() - started:.1f}s: {metric_text(metrics)}"
@@ -798,13 +813,12 @@ def evaluate_axiom_predictor(
             {
                 "evaluation_kind": "labelled SAT-core-membership evaluation",
                 "network_size": network_size,
-                "model_config": predictor.model.config.to_dict(),
+                **model_metadata,
                 "label_semantics": "native CaDiCaL failed-assumption SAT-core membership",
                 "sat_policy": sat_policy.wire_value(),
 
                 "dataset": None if dataset is None else str(dataset),
                 "split": split.to_dict(),
-                "training_split": predictor.training_config.get("split"),
 
                 "problems_proved": len(examples),
                 "problems_skipped": len(skipped),
@@ -914,10 +928,15 @@ def example_outputs(
     *,
     batch_size: int,
     adaptive: bool = False,
+    sine: bool = False,
     resume = None,
 ) -> tuple[list[int], list[float], dict[str, float | int | None]]:
-    model.eval()
-    predict = partial(predict_examples, model, batch_size = batch_size, adaptive = adaptive)
+    if sine:
+        from .sine import predict_examples as predict
+    else:
+        model.eval()
+        predict = partial(predict_examples, model, batch_size = batch_size, adaptive = adaptive)
+
     outputs = predict(examples) if resume is None else resume_predictions(examples, predict, resume)
     probabilities = [value for values in outputs for value in values]
     labels = [int(label) for example in examples for label in example.labels]

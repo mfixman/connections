@@ -29,6 +29,7 @@ class GuidanceMode(Choice):
     Weighted = "Weighted"
     Strict = "Strict"
     Base = "Base"
+    Sine = "Sine"
 
 def plain_values(value):
     if isinstance(value, Choice):

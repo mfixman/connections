@@ -24,7 +24,10 @@ def resume_identity(identity):
     if not isinstance(identity, dict):
         return identity
 
-    return {key: value for key, value in identity.items() if key not in resume_options}
+    return {
+        key: value for key, value in identity.items()
+        if key not in resume_options and not (key == "sine" and value is False)
+    }
 
 def csv_record(header, values):
     text_fields = {"event", "problem", "outcome", "tptp_status", "mode", "policy"}
