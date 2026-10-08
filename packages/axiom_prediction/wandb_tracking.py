@@ -147,6 +147,10 @@ class WandbTracker:
             run.define_metric("evaluation/*", step_metric = "epoch")
             run.define_metric("progress/epoch")
             run.define_metric("progress/*", step_metric = "progress/epoch")
+            run.define_metric("run/ratio_problems_seen", hidden = True)
+            run.define_metric(
+                "run/ratio_problems_proved", step_metric = "run/ratio_problems_seen"
+            )
 
         log(f"W&B {job_type} run ready")
         return cls(wandb, run)
@@ -352,6 +356,7 @@ class WandbTracker:
                 "run/fraction_complete": processed / total,
                 "run/problems_proved": proved,
                 "run/ratio_problems_proved": proved / processed,
+                "run/ratio_problems_seen": processed,
                 "run/current_problem": str(result.get("problem")),
                 "run/current_outcome": str(result.get("outcome")),
             }
