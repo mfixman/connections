@@ -685,6 +685,7 @@ def run_command(args: argparse.Namespace) -> int:
             "policy": config.policy,
             "problems": len(results),
             "proved": proved,
+            "ratio_problems_proved": proved / len(results) if results else None,
             "proved_seconds_total": sum(times),
             "proved_seconds_mean": sum(times) / len(times) if times else None,
         }

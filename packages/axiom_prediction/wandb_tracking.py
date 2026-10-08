@@ -351,6 +351,7 @@ class WandbTracker:
                 "run/problems_total": total,
                 "run/fraction_complete": processed / total,
                 "run/problems_proved": proved,
+                "run/ratio_problems_proved": proved / processed,
                 "run/current_problem": str(result.get("problem")),
                 "run/current_outcome": str(result.get("outcome")),
             }
