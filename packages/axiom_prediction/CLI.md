@@ -226,6 +226,8 @@ tracking with python -m pip install wandb. Only the on/off CLI switches remain.
 including unsuccessful attempts in the denominator. It updates after each result
 and in the final summary, including saved results when resuming. With no processed
 problems, the final ratio is null.
+Its line chart uses `run/ratio_problems_seen` as the x-axis, allowing historical
+ratios to be appended without changing previously logged problem counts.
 
 No automatic multi-GPU training occurs. Without --multiprocess, each guided-search
 worker loads its own model. Guided CUDA search then defaults to one worker;
