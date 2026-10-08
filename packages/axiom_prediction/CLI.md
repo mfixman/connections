@@ -222,6 +222,11 @@ Grouping uses the saved-run name. Credentials come from WANDB_API_KEY
 or secrets/wandb_key relative to the working directory. Install optional
 tracking with python -m pip install wandb. Only the on/off CLI switches remain.
 
+`run/ratio_problems_proved` records proved problems divided by processed problems,
+including unsuccessful attempts in the denominator. It updates after each result
+and in the final summary, including saved results when resuming. With no processed
+problems, the final ratio is null.
+
 No automatic multi-GPU training occurs. Without --multiprocess, each guided-search
 worker loads its own model. Guided CUDA search then defaults to one worker;
 larger explicit worker counts share the selected GPU and may exhaust its memory.
