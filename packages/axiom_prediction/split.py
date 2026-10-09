@@ -5,7 +5,7 @@ import hashlib
 from pathlib import Path
 import re
 
-split_scheme = 3
+split_scheme = 4
 
 @dataclass(slots = True, init = False)
 class ProblemSplit:
@@ -76,4 +76,7 @@ def split_key(problem: str | Path) -> str:
 
     name = Path(problem).stem
     match = tptp_name.match(name)
-    return match.group() if match else name
+    if match:
+        return match.group()
+
+    return name.split("__", 1)[0] if "__" in name else name

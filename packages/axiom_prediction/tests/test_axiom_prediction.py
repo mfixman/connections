@@ -138,4 +138,8 @@ def test_split_parts_are_disjoint_complete_and_path_independent(tmp_path):
     assert split_key("/elsewhere/ABC001+1.p") == "ABC001"
     assert split_key("ABC001-2.p") == "ABC001"
     assert split_key("ABC002+1.p") == "ABC002"
+    assert split_key("/mizar/struct_0__t3_struct_0.p") == "struct_0"
+    assert parts[0].part("/mizar/struct_0__t3_struct_0.p") == parts[0].part(
+        "/mizar/struct_0__t4_struct_0.p"
+    )
     assert split_key("tiny_theorem.p") == "tiny_theorem"
