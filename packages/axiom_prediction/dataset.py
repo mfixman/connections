@@ -524,6 +524,7 @@ def load_axiom_dataset_shards(
     examples_by_problem: dict[str, AxiomTrainingExample] = {}
     failures_by_problem: dict[str, dict[str, str]] = {}
     collection: dict[str, Any] | None = None
+    shard_collections: dict[str, dict[str, Any]] = {}
 
     for shard in track_progress(shards, "loading dataset shards", len(shards)):
         rows = iter(read_jsonl(shard))
@@ -542,10 +543,16 @@ def load_axiom_dataset_shards(
             )
 
         shard_collection = dict(header["collection"])
+        shard_collections[shard.name] = shard_collection
         if collection is None:
             collection = shard_collection
-        elif collection_settings(collection) != collection_settings(shard_collection):
-            raise ValueError(f"axiom dataset shards have different collection settings: {shard}")
+        elif (
+            dataset_compatibility_settings(collection)
+            != dataset_compatibility_settings(shard_collection)
+        ):
+            raise ValueError(
+                f"axiom dataset shards have incompatible collection settings: {shard}"
+            )
 
         for row in track_progress(rows, f"reading {shard.name}"):
             if row.get("schema") == axiom_dataset_schema:
@@ -568,9 +575,21 @@ def load_axiom_dataset_shards(
     if not examples_by_problem:
         raise RuntimeError(f"axiom dataset contains no training examples: {dataset_path}")
 
+    dataset_collection = collection or {}
+    if len(
+        {
+            json.dumps(collection_settings(settings), sort_keys = True)
+            for settings in shard_collections.values()
+        }
+    ) > 1:
+        dataset_collection = {
+            "sat_policy": dataset_collection.get("sat_policy"),
+            "source_shards": shard_collections,
+        }
+
     metadata = {
         "schema": axiom_dataset_schema,
-        "collection": collection or {},
+        "collection": dataset_collection,
         "shards": list(map(str, shards)),
     }
 
@@ -582,6 +601,13 @@ def load_axiom_dataset_shards(
 
 def collection_settings(collection):
     return {key: value for key, value in collection.items() if key != "tptp_root"}
+
+def dataset_compatibility_settings(collection):
+    return {
+        key: value
+        for key, value in collection_settings(collection).items()
+        if key not in {"step_limit", "timeout_seconds"}
+    }
 
 def problem_key(problem: str) -> str:
     return hashlib.sha256(problem.encode("utf-8")).hexdigest()
