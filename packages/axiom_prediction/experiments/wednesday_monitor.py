@@ -14,7 +14,7 @@ state_path = pathlib.Path('/tmp/wednesday-retrained-monitor.json')
 ssh = ['ssh', '-F', '/home/debian/.ssh/config', '-o', 'BatchMode=yes',
        '-o', 'ControlPath=/tmp/hpc-collect-20261001/ssh-master', 'hpc']
 repo = '/home/msf43/connections'
-cpu_repo = repo
+cpu_repo = '/home/msf43/tmp/connections-wednesday-2218c97'
 results = f'{repo}/results/wednesday/retrained'
 models = ('SmallFull', 'DefaultFull', 'ExtraLargeFull')
 policies = ('SatResetCoP', 'SatCoP')
