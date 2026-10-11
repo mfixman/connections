@@ -1,3 +1,4 @@
+import datetime
 import fcntl
 import hashlib
 import json
@@ -5,6 +6,7 @@ import math
 from pathlib import Path
 import re
 import time
+from zoneinfo import ZoneInfo
 
 
 def write_json(path, value):
@@ -79,27 +81,48 @@ def queue_notification(title, message):
     flush_notifications()
 
 
+def notification_slot():
+    now = datetime.datetime.now(ZoneInfo('Europe/London'))
+    return now.strftime('%Y-%m-%d %H:00 %Z') if now.hour in (10, 22) else None
+
+
 def flush_notifications():
     import urllib.request
 
     directory = Path.home() / '.local/state/hpc-notifications'
     directory.mkdir(parents = True, exist_ok = True)
+    slot = notification_slot()
+    if slot is None:
+        return
     with (directory / 'outbox.lock').open('a') as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
+        slot_path = directory / 'last-slot.json'
+        last_slot = json.loads(slot_path.read_text()).get('slot') if slot_path.exists() else None
+        if last_slot == slot:
+            return
+        pending = []
         for path in sorted(directory.glob('*.json')):
-            payload = json.loads(path.read_text())
-            if payload.get('delivered'):
+            if path == slot_path:
                 continue
-            try:
-                token = (Path.home() / 'secrets/pushbullet_token').read_text().strip()
-                request = urllib.request.Request(
-                    'https://api.pushbullet.com/v2/pushes', data = json.dumps(payload).encode(),
-                    headers = {'Access-Token': token, 'Content-Type': 'application/json'},
-                )
-                with urllib.request.urlopen(request, timeout = 30) as response:
-                    response.read()
-            except Exception as error:
-                print(f'Notification retained for retry: {type(error).__name__}', flush = True)
-                return
+            payload = json.loads(path.read_text())
+            if not payload.get('delivered'):
+                pending.append((path, payload))
+        if not pending:
+            return
+        body = '\n\n'.join(f'{payload["title"]}:\n{payload["body"]}' for _, payload in pending)
+        message = {'type': 'note', 'title': f'HPC updates ({slot})', 'body': body}
+        try:
+            token = (Path.home() / 'secrets/pushbullet_token').read_text().strip()
+            request = urllib.request.Request(
+                'https://api.pushbullet.com/v2/pushes', data = json.dumps(message).encode(),
+                headers = {'Access-Token': token, 'Content-Type': 'application/json'},
+            )
+            with urllib.request.urlopen(request, timeout = 30) as response:
+                response.read()
+        except Exception as error:
+            print(f'Notification retained for retry: {type(error).__name__}', flush = True)
+            return
+        for path, payload in pending:
             payload['delivered'] = True
             write_json(path, payload)
+        write_json(slot_path, {'slot': slot})

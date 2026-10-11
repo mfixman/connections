@@ -18,8 +18,8 @@ worker = '/home/msf43/connections/packages/axiom_prediction/experiments/mizar40_
 gpu_job_name = 'Mizar40-2m-train'
 
 
-def remote(command):
-    result = subprocess.run(ssh + [command], text = True, capture_output = True, timeout = 180)
+def remote(command, timeout_s = 180):
+    result = subprocess.run(ssh + [command], text = True, capture_output = True, timeout = timeout_s)
     if result.returncode:
         raise RuntimeError(result.stderr[-1500:])
     return result.stdout
@@ -87,11 +87,13 @@ def record_intent(state, operation, line, source_job_id = None):
               'recorded_utc': datetime.datetime.now(datetime.timezone.utc).isoformat()}
     if source_job_id is not None:
         intent['source_job_id'] = source_job_id
-    state.setdefault('intents', []).append(intent)
-    save(state)
+    intents = state.setdefault('intents', [])
+    if not any(item.get('operation') == operation for item in intents):
+        intents.append(intent)
+        save(state)
     manifest = f'{results}/collection/mizar40-2m-intent.json'
     code = f'''import json,pathlib
-p=pathlib.Path({manifest!r}); d=json.loads(p.read_text()) if p.exists() else {{"submissions":[]}}; d["submissions"].append({intent!r}); p.write_text(json.dumps(d,indent=2)+"\\n")
+p=pathlib.Path({manifest!r}); d=json.loads(p.read_text()) if p.exists() else {{}}; submissions=d.setdefault("submissions", []); intent={intent!r}; submissions.extend([intent] if not any(item.get("operation") == intent["operation"] for item in submissions) else []); p.write_text(json.dumps(d,indent=2)+"\\n")
 '''
     remote(f'/home/msf43/venv/bin/python -c {shlex.quote(code)}')
     return command
@@ -156,7 +158,12 @@ def submit_training(state, source_job_id = None):
 
 
 def prepare(state):
-    remote(f'cd {shlex.quote(repo)} && /home/msf43/venv/bin/python {shlex.quote(worker)} prepare')
+    prepared_marker = f'{results}/Mizar40-2m/dataset/seed-manifest.json'
+    marker_check = f'test -s {shlex.quote(prepared_marker)}'
+    try:
+        remote(marker_check)
+    except RuntimeError:
+        remote(f'cd {shlex.quote(repo)} && /home/msf43/venv/bin/python {shlex.quote(worker)} prepare', timeout_s = 3600)
     save(state)
     manifest = f'{results}/collection/mizar40-2m-intent.json'
     manifest_data = {
@@ -183,6 +190,7 @@ print(json.dumps({{"requested":s.get("problems_requested"),"proved":s.get("probl
 
 
 def fail(state, message):
+    state.setdefault('fatal', [])
     if message not in state['fatal']:
         state['fatal'].append(message)
         save(state)
