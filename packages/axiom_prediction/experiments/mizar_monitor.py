@@ -317,6 +317,34 @@ print(f"{{examples + failures}}/57897 recorded ({{examples}} proved, {{failures}
     return remote(f'/home/msf43/venv/bin/python -c {shlex.quote(code)}').strip()
 
 
+def two_minute_collection_progress():
+    cache = f'{results}/Mizar40-2m/dataset/.cache'
+    code = f'''import pathlib
+root=pathlib.Path({cache!r})
+proved=failed=0
+for part in range(4):
+ p=root/f"Mizar40-2m-part{{part}}"
+ for kind in ("examples","failures"):
+  names=set()
+  for directory in (p/kind,p/"partial"/kind):
+   if directory.is_dir(): names.update(record.name for record in directory.glob("*.json"))
+  if kind == "examples": proved+=len(names)
+  else: failed+=len(names)
+print(f"{{proved+failed}}/57897 recorded ({{proved}} proved, {{failed}} failed)")
+'''
+    output = remote(f'/home/msf43/venv/bin/python -c {shlex.quote(code)}').strip()
+    state_path_2m = pathlib.Path('/tmp/mizar40-2m-monitor.json')
+    if state_path_2m.exists():
+        state = json.loads(state_path_2m.read_text())
+        statuses = state.get('last_snapshot', {}).get('parts', {})
+        jobs = ', '.join(
+            f'p{part}={statuses.get(part, {}).get("state", "PENDING")}'
+            for part in map(str, range(4))
+        )
+        return f'{output}; jobs {jobs}'
+    return output
+
+
 def prepare_training(state):
     # Hold only during staging so queued jobs cannot read half-prepared data/code.
     held = state.setdefault('preparation_holds', [])
@@ -573,7 +601,8 @@ def run(state):
                     f'{item["job_name"]}={training_statuses[key]["state"]}'
                     for key, item in state['trainings'].items()
                 )
-                push(f'Mizar weekend status ({now:%Y-%m-%d %H:%M %Z}): collection={collector_state} {progress}; GPU jobs: {jobs}; collection job={state["collector_id"]}.')
+                progress_2m = two_minute_collection_progress()
+                push(f'Mizar weekend status ({now:%Y-%m-%d %H:%M %Z}): collection={collector_state} {progress}; 2-minute collection={progress_2m}; GPU jobs: {jobs}; collection job={state["collector_id"]}.')
                 state['status_reports'].append(report_date)
                 save(state)
 
