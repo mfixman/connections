@@ -151,6 +151,7 @@ def test_monitor_has_single_instance_lock(tmp_path):
 def test_failed_notifications_survive_until_next_iteration(tmp_path, monkeypatch):
     import urllib.request
     monkeypatch.setattr(support.Path, 'home', lambda: tmp_path)
+    monkeypatch.setattr(support, 'notification_slot', lambda: '2026-10-11 10:00 BST')
     secrets = tmp_path / 'secrets'
     secrets.mkdir()
     (secrets / 'pushbullet_token').write_text('test-token')
@@ -169,6 +170,35 @@ def test_failed_notifications_survive_until_next_iteration(tmp_path, monkeypatch
     support.flush_notifications()
     assert len(sent) == 1
     assert json.loads(receipt.read_text())['delivered']
+
+
+def test_notifications_batch_once_at_scheduled_slots(tmp_path, monkeypatch):
+    import urllib.request
+    monkeypatch.setattr(support.Path, 'home', lambda: tmp_path)
+    secrets = tmp_path / 'secrets'
+    secrets.mkdir()
+    (secrets / 'pushbullet_token').write_text('test-token')
+    slot = {'value': None}
+    monkeypatch.setattr(support, 'notification_slot', lambda: slot['value'])
+    sent = []
+    def delivered(request, **kwargs):
+        sent.append(json.loads(request.data))
+        return io.BytesIO(b'{}')
+    monkeypatch.setattr(urllib.request, 'urlopen', delivered)
+    support.queue_notification('Collection', 'Part 0 started')
+    support.queue_notification('Training', 'Model started')
+    assert not sent
+    slot['value'] = '2026-10-11 22:00 BST'
+    support.flush_notifications()
+    support.queue_notification('Evaluation', 'CPU jobs started')
+    support.flush_notifications()
+    assert len(sent) == 1
+    assert 'Part 0 started' in sent[0]['body']
+    assert 'Model started' in sent[0]['body']
+    slot['value'] = '2026-10-12 10:00 BST'
+    support.flush_notifications()
+    assert len(sent) == 2
+    assert sent[1]['body'] == 'Evaluation:\nCPU jobs started'
 
 
 def test_final_csv_distinguishes_periodic_from_final(tmp_path, monkeypatch):

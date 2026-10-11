@@ -593,9 +593,9 @@ def run(state):
 
         evaluation_statuses = monitor_evaluations(state, training_statuses)
         now = datetime.datetime.now(ZoneInfo('Europe/London'))
-        if now.hour == 10:
-            report_date = now.date().isoformat()
-            if report_date not in state['status_reports']:
+        if now.hour in (10, 22):
+            report_slot = now.strftime('%Y-%m-%d-%H')
+            if report_slot not in state['status_reports']:
                 progress = collection_progress()
                 jobs = ', '.join(
                     f'{item["job_name"]}={training_statuses[key]["state"]}'
@@ -603,7 +603,7 @@ def run(state):
                 )
                 progress_2m = two_minute_collection_progress()
                 push(f'Mizar weekend status ({now:%Y-%m-%d %H:%M %Z}): collection={collector_state} {progress}; 2-minute collection={progress_2m}; GPU jobs: {jobs}; collection job={state["collector_id"]}.')
-                state['status_reports'].append(report_date)
+                state['status_reports'].append(report_slot)
                 save(state)
 
         if collector_state in ('RUNNING', 'PENDING'):
@@ -625,9 +625,13 @@ def run(state):
             if job['state'] == 'RUNNING':
                 sleep_s = min(sleep_s, max(30, seconds(job['limit']) - seconds(job['elapsed']) - 30))
         now = datetime.datetime.now(ZoneInfo('Europe/London'))
-        next_report = now.replace(hour=10, minute=0, second=0, microsecond=0)
-        if next_report <= now:
-            next_report += datetime.timedelta(days=1)
+        next_report = now.replace(minute=0, second=0, microsecond=0)
+        if now.hour < 10:
+            next_report = next_report.replace(hour=10)
+        elif now.hour < 22:
+            next_report = next_report.replace(hour=22)
+        else:
+            next_report = (next_report + datetime.timedelta(days=1)).replace(hour=10)
         sleep_s = min(sleep_s, max(1, int((next_report - now).total_seconds())))
         state['last_success_utc'] = datetime.datetime.now(datetime.timezone.utc).isoformat()
         state['monitor_errors'] = 0
