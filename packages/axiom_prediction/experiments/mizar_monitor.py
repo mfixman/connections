@@ -305,8 +305,13 @@ def collection_progress():
     cache = f'{results}/Mizar40/dataset/.cache/Mizar40'
     code = f'''import pathlib
 p=pathlib.Path({cache!r})
-examples=sum(1 for _ in (p/"examples").glob("*.json"))
-failures=sum(1 for _ in (p/"failures").glob("*.json"))
+def count(kind):
+ names=set()
+ for directory in (p/kind, p/"partial"/kind):
+  if directory.is_dir(): names.update(record.name for record in directory.glob("*.json"))
+ return len(names)
+examples=count("examples")
+failures=count("failures")
 print(f"{{examples + failures}}/57897 recorded ({{examples}} proved, {{failures}} failed)")
 '''
     return remote(f'/home/msf43/venv/bin/python -c {shlex.quote(code)}').strip()
