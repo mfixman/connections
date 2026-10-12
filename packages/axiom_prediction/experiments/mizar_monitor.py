@@ -230,9 +230,11 @@ def submit_training_fresh(state, item):
 
 
 def collection_shard_ready():
-    path = f'{results}/Mizar40/dataset/Mizar40.jsonl'
+    path = f'{results}/Mizar40-15m/dataset/Mizar40.jsonl'
+    fallback = f'{results}/Mizar40/dataset/Mizar40.jsonl'
     code = f'''import json,pathlib
 p=pathlib.Path({path!r})
+if not p.is_file(): p=pathlib.Path({fallback!r})
 if p.is_file():
  with p.open() as f: row=json.loads(next(f))
  print(json.dumps({{"exists":True,"summary":row.get("summary",{{}}),"size":p.stat().st_size}}))
@@ -243,8 +245,8 @@ else: print(json.dumps({{"exists":False}}))
 
 def stage_combined_dataset():
     tptp_dataset = '/home/msf43/learncop/artifacts/axiom-dataset/dataset'
-    mizar_shard = f'{results}/Mizar40/dataset/Mizar40.jsonl'
-    combined_dataset = f'{results}/Mizar40-TPTP/dataset'
+    mizar_shard = f'{results}/Mizar40-15m/dataset/Mizar40.jsonl'
+    combined_dataset = f'{results}/Mizar40-TPTP-15m/dataset'
     code = f'''import json,pathlib
 source=pathlib.Path({tptp_dataset!r})
 mizar=pathlib.Path({mizar_shard!r})
@@ -318,9 +320,11 @@ print(f"{{examples + failures}}/57897 recorded ({{examples}} proved, {{failures}
 
 
 def two_minute_collection_progress():
-    cache = f'{results}/Mizar40-2m/dataset/.cache'
+    cache = f'{results}/Mizar40-2m/dataset-2m/.cache'
+    fallback = f'{results}/Mizar40-2m/dataset/.cache'
     code = f'''import pathlib
 root=pathlib.Path({cache!r})
+if not root.exists(): root=pathlib.Path({fallback!r})
 proved=failed=0
 for part in range(4):
  p=root/f"Mizar40-2m-part{{part}}"
@@ -346,45 +350,41 @@ print(f"{{proved+failed}}/57897 recorded ({{proved}} proved, {{failed}} failed)"
 
 
 def prepare_training(state):
-    # Hold only during staging so queued jobs cannot read half-prepared data/code.
-    held = state.setdefault('preparation_holds', [])
-    for item in state['trainings'].values():
-        status = job_status(item['id'])['state']
-        if status == 'UNKNOWN':
-            return False
-        if status in ('RUNNING', 'CONFIGURING', 'COMPLETING'):
-            if item['id'] not in item.get('cancelled_early', []):
-                remote(f'scancel {item["id"]}')
-                item.setdefault('cancelled_early', []).append(item['id'])
-                save(state)
-            return False
-        if status == 'PENDING' and item['id'] not in held:
-            details = remote(f'scontrol show job -o {item["id"]}')
-            if 'Reason=JobHeldUser' in details or 'Reason=JobHeldAdmin' in details:
-                raise RuntimeError(f'Training job {item["id"]} has an external hold; leaving it intact')
-            held.append(item['id'])
-            save(state)
-            remote(f'scontrol hold {item["id"]}')
-    if any(job_status(item['id'])['state'] in ('RUNNING', 'CONFIGURING', 'COMPLETING', 'UNKNOWN')
-           for item in state['trainings'].values()):
-        return False
-    if not state.get('training_checkout_updated'):
-        update_training_checkout()
-        state['training_checkout_updated'] = True
-        save(state)
+    # Keep pending jobs eligible; preserve the completed 15-minute shard separately.
+    mizar_shard = f'{results}/Mizar40/dataset/Mizar40.jsonl'
+    mizar_15m_dataset = f'{results}/Mizar40-15m/dataset'
+    low_priority_dataset = f'{results}/Mizar40-2m/dataset'
+    code = f'''import json,pathlib,os
+shard=pathlib.Path({mizar_shard!r})
+dataset=pathlib.Path({mizar_15m_dataset!r})
+source=pathlib.Path({low_priority_dataset!r})
+archive=source.with_name("dataset-2m")
+dataset.mkdir(parents=True,exist_ok=True)
+target=dataset/shard.name
+if shard.is_file():
+ with shard.open() as f: header=json.loads(next(f))
+ if header.get("schema") != "learncop.axiom_prediction.dataset-shard.v2": raise RuntimeError(f"invalid Mizar 15-minute shard: {{shard}}")
+ if target.exists() and target.resolve()!=shard.resolve(): raise RuntimeError(f"refusing to overwrite {{target}}")
+ if not target.exists(): os.replace(shard,target)
+elif not target.is_file(): raise RuntimeError(f"missing completed Mizar shard: {{shard}}")
+if source.is_symlink():
+ if source.resolve()!=dataset.resolve(): raise RuntimeError(f"unexpected low-priority dataset target: {{source.resolve()}}")
+elif source.exists():
+ if archive.exists(): raise RuntimeError(f"refusing to overwrite 2-minute archive: {{archive}}")
+ source.rename(archive)
+ source.symlink_to(dataset, target_is_directory=True)
+elif not source.exists(): source.symlink_to(dataset, target_is_directory=True)
+print(json.dumps({{"mizar_15m":str(target),"low_priority_dataset":str(source.resolve()),"two_minute_archive":str(archive)}}))
+'''
+    state['mizar_dataset_mapping'] = json.loads(remote(f'/home/msf43/venv/bin/python -c {shlex.quote(code)}'))
     state['combined_dataset'] = stage_combined_dataset()
     state['datasets_prepared'] = True
     save(state)
-    release_preparation_holds(state)
     return True
 
 
 def release_preparation_holds(state):
-    for job_id in list(state.get('preparation_holds', [])):
-        if job_status(job_id)['state'] == 'PENDING':
-            remote(f'scontrol release {job_id}')
-        state['preparation_holds'].remove(job_id)
-        save(state)
+    return
 
 
 def training_checkpoints(item):
@@ -538,35 +538,13 @@ def run(state):
         for key, item in state['trainings'].items():
             training = training_statuses[key]
             training_state = training['state'].split('+')[0]
-            if training_state == 'RUNNING' and not collection_done:
-                if item['id'] not in item.get('cancelled_early', []):
-                    remote(f'scancel {item["id"]}')
-                    item.setdefault('cancelled_early', []).append(item['id'])
-                    message = f"{item['job_name']} job {item['id']} started before collection finished and was cancelled as requested."
-                    state.setdefault('early_training_cancellations', []).append(message)
-                    save(state)
-                    push(message)
-                training_state = 'CANCELLED'
-            elif training_state == 'RUNNING' and collection_done and key not in state['training_started_notified']:
+            if training_state == 'RUNNING' and key not in state['training_started_notified']:
                 push(f"{item['job_name']} started: job {item['id']}, W&B run {item['run_name']}.")
                 state['training_started_notified'].append(key)
                 save(state)
 
             if training_state == 'TIMEOUT':
                 submit_training_resume(state, key, item)
-                continue
-            if training_state == 'CANCELLED' and collection_done and item.get('id') in item.get('cancelled_early', []):
-                if model_checkpoint_exists(item):
-                    submit_training_resume(state, key, item)
-                elif remote(f'test -f {shlex.quote(item["data_dir"] + "/model/wandb-run.json")} && echo yes || echo no').strip() == 'yes':
-                    message = f"{item['job_name']} was cancelled before collection finished, but has a W&B identity without a resumable checkpoint; manual review is needed."
-                    if message not in state['fatal']:
-                        state['fatal'].append(message)
-                        save(state)
-                        push('Fatal Mizar run failure: ' + message)
-                    return
-                else:
-                    submit_training_fresh(state, item)
                 continue
             if training_state in ('FAILED', 'OUT_OF_MEMORY', 'NODE_FAIL'):
                 message = f"{item['job_name']} ended {training_state} (job {item['id']})."
@@ -590,6 +568,22 @@ def run(state):
                 push(f"{item['job_name']} finished successfully: job {item['id']}, W&B run {item['run_name']}.")
                 state['training_finished_notified'].append(key)
                 save(state)
+
+        combined_key = 'Mizar40-TPTP-15m'
+        if collection_done and state.get('datasets_prepared'):
+            if combined_key not in state['trainings']:
+                item = {
+                    'id': 'initial', 'job_name': 'Mizar40-TPTP-15m-train',
+                    'run_name': 'mizar40-tptp-15m-train',
+                    'data_dir': f'{results}/Mizar40-TPTP-15m',
+                    'dataset': f'{results}/Mizar40-TPTP-15m/dataset',
+                }
+                state['trainings'][combined_key] = item
+                save(state)
+            item = state['trainings'][combined_key]
+            if item.get('id') == 'initial':
+                submit_training_fresh(state, item)
+                training_statuses[combined_key] = job_status(item['id'])
 
         evaluation_statuses = monitor_evaluations(state, training_statuses)
         now = datetime.datetime.now(ZoneInfo('Europe/London'))
