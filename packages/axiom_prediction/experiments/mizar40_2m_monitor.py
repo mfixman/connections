@@ -253,7 +253,7 @@ def run(state):
             job_id = submit_training(state)
             push(f'Mizar40-2m-train submitted after collection: job {job_id}.')
 
-        sleep_s = 7200
+        sleep_s = 900
         for part, status in statuses.items():
             if status['state'].split('+')[0] == 'RUNNING':
                 elapsed = seconds(status.get('elapsed', '0:00'))
