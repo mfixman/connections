@@ -601,18 +601,18 @@ def run(state):
                 save(state)
 
         if collector_state in ('RUNNING', 'PENDING'):
-            sleep_s = 7200
+            sleep_s = 900
             if collector_state == 'RUNNING':
                 elapsed = seconds(collector.get('elapsed', '0:00'))
                 limit = seconds(collector.get('limit', '11:59:00'))
                 sleep_s = max(30, min(sleep_s, limit - elapsed - 90))
-        elif any(x['state'].split('+')[0] == 'RUNNING' for x in training_statuses.values()):
-            running = next(x for x in training_statuses.values() if x['state'].split('+')[0] == 'RUNNING')
-            elapsed = seconds(running.get('elapsed', '0:00'))
-            limit = seconds(running.get('limit', '2:59:00'))
-            sleep_s = max(30, min(7200, limit - elapsed - 90))
         else:
             sleep_s = 300
+        for training in training_statuses.values():
+            if training['state'].split('+')[0] == 'RUNNING':
+                elapsed = seconds(training.get('elapsed', '0:00'))
+                limit = seconds(training.get('limit', '2:59:00'))
+                sleep_s = max(30, min(sleep_s, limit - elapsed - 90))
         if collection_done and all(item.get('complete') for item in state.get('evaluations', {}).values()) and len(state.get('evaluations', {})) == len(state['trainings']):
             return
         for job in evaluation_statuses:

@@ -11,8 +11,7 @@ from zoneinfo import ZoneInfo
 from monitor_support import flush_notifications, queue_notification, monitor_lock, select_checkpoint, submit_once, valid_completion
 
 state_path = pathlib.Path('/tmp/wednesday-retrained-monitor.json')
-ssh = ['ssh', '-F', '/home/debian/.ssh/config', '-o', 'BatchMode=yes',
-       '-o', 'ControlPath=/tmp/hpc-collect-20261001/ssh-master', 'hpc']
+ssh = ['ssh', '-F', '/home/debian/.ssh/config', '-o', 'BatchMode=yes', 'hpc']
 repo = '/home/msf43/connections'
 cpu_repo = '/home/msf43/tmp/connections-wednesday-2218c97'
 results = f'{repo}/results/wednesday/retrained'
@@ -543,7 +542,7 @@ def maybe_report(state, snap, now):
 
 
 def next_poll_seconds(snap):
-    interval = 7200
+    interval = 900
     for job in snap['jobs'].values():
         if job.get('state') in ('COMPLETING', 'CONFIGURING'):
             interval = min(interval, 30)
