@@ -1,6 +1,7 @@
 # Connections Prover
 
 * Read ~/AGENTS.md to start.
+* DO NOT GIT PULL ON THE HPC UNLESS THE USER EXPLICITLY TELLS YOU TO. THIS OVERRIDES ALL SYNCHRONIZATION INSTRUCTIONS BELOW.
 * This is a repo modified by multiple people. Focus on areas modified by myself.
 * Keep changes within `packages/axiom_prediction/`. Only make small changes elsewhere when necessary for the axiom predictor; do not perform unrelated cleanup outside it.
 * I prefer to have simple Python invocation:
@@ -30,8 +31,8 @@
 ## Repository checkouts and synchronization
 
 * Unless necessary, keep one clone and one working checkout of each repository per devserver, including this local computer. Use the main checkout for new work and job submissions; do not create extra clones or worktrees merely to pin each commit.
-* Keep all branches with remotes synchronized on every devserver. Fetch their upstreams, fast-forward branches that are behind, and push intended local commits. Verify the actual local branches against their upstreams, not just the remote-tracking refs. Preserve other people's work; resolve divergence without discarding commits or force-pushing.
-* Commit and push intended changes made on this computer, then pull them into the main HPC checkout. Keep the main branch synchronized while experiments use pinned code. Do not automatically commit other collaborators' unreviewed edits.
+* Keep all branches with remotes synchronized on every devserver, subject to the explicit-permission rule for HPC pulls above. Fetch their upstreams, fast-forward branches that are behind, and push intended local commits. Verify the actual local branches against their upstreams, not just the remote-tracking refs. Preserve other people's work; resolve divergence without discarding commits or force-pushing.
+* Commit and push intended changes made on this computer, pull them into the main HPC checkout only when the user explicitly instructs you to. Do not automatically commit other collaborators' unreviewed edits.
 * If the user plans to modify a prover while long experiments are pending, pin those experiments to the recorded commit. Share one temporary checkout per required revision across jobs where possible; future pulls update the main checkout, never an experiment's pinned checkout or timeout continuation. Keep each experiment's dataset, cache, model outputs, and W&B identity separate.
 * An extra checkout is justified only by a concrete need, such as protecting code still required by submitted jobs. Record its reason, revision, dependent job IDs, and cleanup condition before creating it. Prefer a designated temporary directory rather than additional directories in the home directory.
 * Before removing an extra checkout, check the scheduler and submission/resume manifests for dependencies and preserve unique edits, results, and credentials. Keep credentials private and outside Git; ensure the main checkout has the W&B secrets file before deleting another copy.
@@ -42,7 +43,7 @@
 * Submit GPU jobs through `~/bin/ampere-batch` and CPU jobs through `~/bin/icelake-batch` on the HPC. CPU model jobs need `--cpu`; `--multiprocess` enables parallel work and adaptive inference batching.
 * Preserve the authenticated SSH master. Use `ssh -F ~/.ssh/config -o BatchMode=yes hpc`; never close the master casually, since another login may require a token from the user.
 * Keep GPU and CPU comparisons running in parallel unless the user explicitly requests cancellation. SmallFull runs take priority over evaluation.
-* Commit and push code fixes locally, then pull on the HPC. Use the main checkout for subsequent work whenever safe; preserve any checkout still required by submitted jobs and their authorized timeout continuations. Create a temporary checkout only when this protection makes it necessary, following the cleanup rules above.
+* Commit and push code fixes locally, pull on the HPC only when the user explicitly instructs you to. Use the main checkout for subsequent work whenever safe; preserve any checkout still required by submitted jobs and their authorized timeout continuations. Create a temporary checkout only when this protection makes it necessary, following the cleanup rules above.
 * Use `--output` for resumable runs/evaluations, with `--csv` for CSV. Preserve the output and its `.resume` directory together. CSV/JSONL mismatches must fail loudly.
 * Resume only confirmed scheduler timeouts when authorized, using the same command, output, checkout, and allocation limit. Carry the policy to replacement IDs. Never restart completed or user-cancelled jobs, or restart solely because a monitoring request timed out.
 * Record submission intent before submitting. If submission outcome is uncertain, reconcile the manifest and scheduler before retrying to avoid duplicate jobs.
