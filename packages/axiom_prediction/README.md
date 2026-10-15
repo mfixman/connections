@@ -81,10 +81,10 @@ python axiom_predictor.py evaluate \
   --dataset datasets/Reset --data-dir runs/Reference --split 10 --parts 8
 ```
 
-`--dataset` overrides `--data-dir/dataset`. Collection writes JSONL shards
+`--dataset` overrides `--data-dir/dataset`. Collection writes CSV shards
 directly into that directory; training and evaluation only read them.
 Single-category/directory collection uses its name for the shard; other inputs
-use `problems.jsonl`. Collection resumes using records in `.cache`.
+use `problems.csv`. Collection resumes using records in `.cache`.
 Finish collection before launching readers, and avoid simultaneous writers
 to the same shard. Separate policies still require separate datasets.
 

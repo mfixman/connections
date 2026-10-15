@@ -9,27 +9,25 @@ import pytest
 from axiom_prediction.output import output_fields, output_format, write_record
 from axiom_prediction.output_resume import OutputJournal
 
-def open_journal(path, command = "run", use_csv = False, identity = None):
+def open_journal(path, command = "run", identity = None):
     return OutputJournal(
         path,
         command,
-        use_csv,
         output_fields(command),
         identity or {"command": command},
     )
 
-@pytest.mark.parametrize("use_csv", [False, True])
-def test_journal_repairs_torn_tail_and_preserves_multiline(tmp_path, use_csv, capsys):
+def test_journal_repairs_torn_tail_and_preserves_multiline(tmp_path, capsys):
     path = tmp_path / "results"
     row = {"problem": 'a,b\n"c"', "proved": False, "seconds": 1.25, "outcome": "Timeout"}
-    with output_format("run", use_csv, path, {"command": "run"}):
+    with output_format("run", path, {"command": "run"}):
         write_record(row)
 
     committed = path.read_bytes()
     with path.open("a") as f:
-        f.write('"unfinished\nquoted' if use_csv else '{"problem":')
+        f.write('"unfinished\nquoted')
 
-    journal = open_journal(path, use_csv = use_csv)
+    journal = open_journal(path)
     assert journal.records[0]["problem"] == row["problem"]
     assert journal.records[0]["proved"] is False
     assert journal.records[0]["seconds"] == 1.25
@@ -50,11 +48,9 @@ def test_journal_refuses_mixed_configuration_and_concurrent_writers(tmp_path):
     with pytest.raises(ValueError, match = "different command"):
         open_journal(path, identity = {"command": "different"})
 
-@pytest.mark.parametrize("use_csv", [False, True])
 def test_run_cli_resumes_only_unfinished_and_keeps_summary_totals(
     tmp_path,
     monkeypatch,
-    use_csv,
     capsys,
 ):
     from axiom_prediction import cli, run
@@ -69,9 +65,7 @@ def test_run_cli_resumes_only_unfinished_and_keeps_summary_totals(
         raise KeyboardInterrupt()
 
     monkeypatch.setattr(run, "run_problems", interrupted)
-    args = ["run", "--output", str(path), "--no-wandb", "--device", "cpu"] + (
-        ["--csv"] if use_csv else []
-    )
+    args = ["run", "--output", str(path), "--no-wandb", "--device", "cpu"]
 
     with pytest.raises(KeyboardInterrupt):
         cli.main(args)
@@ -86,11 +80,7 @@ def test_run_cli_resumes_only_unfinished_and_keeps_summary_totals(
     assert cli.main(args) == 0
     assert calls == [["a.p", "b.p"], ["a.p"]]
     contents = path.read_text()
-    rows = (
-        list(csv.DictReader(io.StringIO(contents)))
-        if use_csv
-        else [json.loads(line) for line in contents.splitlines()]
-    )
+    rows = list(csv.DictReader(io.StringIO(contents)))
 
     assert len(rows) == 2
     assert all("event" not in row for row in rows)
@@ -173,32 +163,18 @@ def test_evaluate_resumes_predictions_and_preserves_aggregate_metrics(
 
     journal.close()
 
-@pytest.mark.parametrize("existing_csv", [False, True])
-def test_format_mismatch_fails_without_changing_existing_file(
-    tmp_path, existing_csv, capsys
-):
+def test_non_csv_output_is_rejected_without_changes(tmp_path):
     path = tmp_path / "results"
-    first = open_journal(path, use_csv = existing_csv)
-    first.write({"problem": "a.p", "proved": True, "seconds": 1.0})
-    first.close()
-    original = path.read_bytes()
-    with pytest.raises(ValueError, match = "JSONL.*CSV|CSV.*JSONL"):
-        open_journal(path, use_csv = not existing_csv)
+    original = '{"problem": "a.p", "proved": true}\n'
+    path.write_text(original)
+    with pytest.raises(ValueError, match = "CSV header"):
+        open_journal(path)
 
-    assert path.read_bytes() == original
+    assert path.read_text() == original
 
-    from axiom_prediction.cli import main
-
-    args = ["run", "--output", str(path)] + ([] if existing_csv else ["--csv"])
-    assert main(args) == 2
-    assert path.read_bytes() == original
-    error = capsys.readouterr().err
-    assert "JSONL" in error and "CSV" in error
-
-@pytest.mark.parametrize("use_csv", [False, True])
-def test_completion_marker_rejects_truncated_output(tmp_path, use_csv):
+def test_completion_marker_rejects_truncated_output(tmp_path):
     path = tmp_path / "results"
-    journal = open_journal(path, use_csv = use_csv)
+    journal = open_journal(path)
     journal.write({"problem": "a.p", "proved": True})
     journal.metrics = {"problems": 1}
     journal.finish(0)
@@ -206,28 +182,23 @@ def test_completion_marker_rejects_truncated_output(tmp_path, use_csv):
     journal.close()
     path.write_text("")
 
-    journal = open_journal(path, use_csv = use_csv)
+    journal = open_journal(path)
     assert not journal.complete()
     journal.close()
 
-@pytest.mark.parametrize("use_csv", [False, True])
-def test_problem_names_preserve_distinct_paths_for_resume(tmp_path, use_csv):
+def test_problem_names_preserve_distinct_paths_for_resume(tmp_path):
     path = tmp_path / "results"
     problems = ["/first/SYN001-1.p", "/second/SYN001-1.p"]
-    journal = open_journal(path, use_csv = use_csv)
+    journal = open_journal(path)
     for problem in problems:
         journal.write({"problem": problem, "proved": True})
 
     journal.close()
     contents = path.read_text()
-    rows = (
-        list(csv.DictReader(io.StringIO(contents)))
-        if use_csv
-        else [json.loads(line) for line in contents.splitlines()]
-    )
+    rows = list(csv.DictReader(io.StringIO(contents)))
 
     assert [row["problem"] for row in rows] == ["SYN001-1.p", "SYN001-1.p"]
-    journal = open_journal(path, use_csv = use_csv)
+    journal = open_journal(path)
     assert [row["problem"] for row in journal.records] == problems
     for problem in problems:
         journal.write({"problem": problem, "proved": True})
@@ -235,11 +206,10 @@ def test_problem_names_preserve_distinct_paths_for_resume(tmp_path, use_csv):
     journal.close()
     assert path.read_text() == contents
 
-@pytest.mark.parametrize("use_csv", [False, True])
-def test_run_resume_rejects_changed_model(tmp_path, use_csv):
+def test_run_resume_rejects_changed_model(tmp_path):
     path = tmp_path / "results"
     identity = {"command": "run", "model": "epoch-0001.pt", "policy": "SatResetCoP"}
-    first = open_journal(path, use_csv = use_csv, identity = identity)
+    first = open_journal(path, identity = identity)
     first.close()
     with pytest.raises(ValueError, match = "different command/configuration"):
-        open_journal(path, use_csv = use_csv, identity = {**identity, "model": "epoch-0002.pt"})
+        open_journal(path, identity = {**identity, "model": "epoch-0002.pt"})

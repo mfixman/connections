@@ -188,7 +188,7 @@ def submit_cpu(state, key, item, checkpoint, eval_policy, epoch):
     run = [
         '/home/msf43/venv/bin/python', 'axiom_predictor.py', 'run', '--cpu',
         '--multiprocess', '--policy', eval_policy, '--split', '10', '--parts', '8', '9',
-        '--timeout-seconds', '120', '--csv', '--output', output,
+        '--timeout-seconds', '120', '--output', output,
         '--run-name', name, '--model', checkpoint, '--no-wandb',
     ]
     args = [
@@ -237,7 +237,7 @@ def resume_cpu(state, key, item):
         '/home/msf43/venv/bin/python', 'axiom_predictor.py', 'run', '--cpu',
         '--multiprocess', '--policy', item['eval_policy'], '--split', '10',
         '--parts', *map(str, item.get('parts', [item.get('part', 8)])),
-        '--timeout-seconds', '120', '--csv', '--output', item['output'],
+        '--timeout-seconds', '120', '--output', item['output'],
         '--run-name', name,
     ]
     run.append('--wandb' if item.get('wandb', True) else '--no-wandb')
@@ -308,7 +308,7 @@ def submit_matrix_job(state, spec):
     run = [
         '/home/msf43/venv/bin/python', 'axiom_predictor.py', 'run', '--cpu',
         '--multiprocess', '--policy', spec['eval_policy'], '--split', '10',
-        '--parts', *map(str, spec['parts']), '--timeout-seconds', '120', '--csv',
+        '--parts', *map(str, spec['parts']), '--timeout-seconds', '120',
         '--output', output, '--run-name', name, '--wandb',
     ]
     if spec.get('checkpoint'):

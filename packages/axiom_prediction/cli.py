@@ -22,7 +22,6 @@ def build_parser() -> argparse.ArgumentParser:
     )
 
     subparsers = parser.add_subparsers(dest = "command", required = True)
-    parser.add_argument("--csv", action = "store_true", help = "write CSV with a header instead of JSON Lines")
 
     train = subparsers.add_parser("train", help = "train from proofs of TPTP problems")
     train.add_argument("problems", metavar = "PROBLEM", nargs = "*")
@@ -294,13 +293,6 @@ def build_parser() -> argparse.ArgumentParser:
     }
 
     for command in subparsers.choices.values():
-        command.add_argument(
-            "--csv",
-            action = "store_true",
-            default = argparse.SUPPRESS,
-            help = "write CSV with a header instead of JSON Lines",
-        )
-
         command.formatter_class = argparse.ArgumentDefaultsHelpFormatter
         for action in command._actions:
             if action.help is None and action.dest in common_help:
@@ -310,7 +302,7 @@ def build_parser() -> argparse.ArgumentParser:
         subparsers.choices[name].add_argument(
             "--output",
             type = Path,
-            help = "write results to this file and resume existing results; --csv selects CSV",
+            help = "write CSV results to this file and resume existing results",
         )
 
     return parser
@@ -350,7 +342,7 @@ def main(argv: list[str] | None = None) -> int:
 
             identity.update(settings())
 
-        with output_format(args.command, args.csv, getattr(args, "output", None), identity) as session:
+        with output_format(args.command, getattr(args, "output", None), identity) as session:
             if session is not None and session.complete():
                 log("output is already complete; nothing to resume")
                 return session.exit_code()
@@ -764,7 +756,7 @@ def add_dataset_argument(parser: argparse.ArgumentParser):
         "--dataset",
         type = Path,
         metavar = "PATH",
-        help = "shared dataset directory; collect writes JSONL shards here, train/evaluate read it instead of DATA_DIR/dataset",
+        help = "shared dataset directory; collect writes CSV shards here, train/evaluate read it instead of DATA_DIR/dataset",
     )
 
 def selected_dataset(args: argparse.Namespace) -> Path | None:
