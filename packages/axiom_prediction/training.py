@@ -892,11 +892,11 @@ def warn_on_training_overlap(training_config: Mapping[str, Any], split: ProblemS
         log_message(
             "warning: the checkpoint was trained on every problem of its dataset; metrics on problems from that dataset are not held-out"
         )
-    elif trained_split.split != split.split:
-        log_message(
-            f"warning: the checkpoint was trained on {trained_split.describe()}, a different split from {split.describe()}; problems may overlap"
-        )
-    elif set(trained_split.parts) & set(split.parts):
+    elif any(
+        (train_part - eval_part) % math.gcd(trained_split.split, split.split) == 0
+        for train_part in trained_split.parts
+        for eval_part in split.parts
+    ):
         log_message(
             f"warning: evaluating {split.describe()} overlaps the training {trained_split.describe()}; metrics are not held-out"
         )
