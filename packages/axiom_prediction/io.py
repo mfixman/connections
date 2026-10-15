@@ -1,21 +1,20 @@
-from collections.abc import Iterable, Iterator, Mapping
+from collections.abc import Iterable, Iterator, Mapping, Sequence
+import csv
 import json
 import os
+import sys
 from pathlib import Path
 import tempfile
 from typing import Any
 
-def read_jsonl(path: str | Path) -> Iterator[dict[str, Any]]:
-    with Path(path).open("r", encoding = "utf-8") as file:
-        for line in file:
-            if not line.strip():
-                continue
+def read_csv(path: str | Path) -> Iterator[dict[str, Any]]:
+    csv.field_size_limit(sys.maxsize)
+    with Path(path).open("r", encoding = "utf-8", newline = "") as file:
+        for row in csv.DictReader(file, strict = True):
+            if None in row or any(value is None for value in row.values()):
+                raise ValueError(f"corrupt dataset CSV row in {path}")
 
-            row = json.loads(line)
-            if not isinstance(row, Mapping):
-                raise TypeError(f"JSONL row in {path} must be an object")
-
-            yield dict(row)
+            yield {key: json.loads(value) for key, value in row.items() if value != ""}
 
 def tmp_path(output: Path) -> Path:
     descriptor, path = tempfile.mkstemp(
@@ -26,14 +25,15 @@ def tmp_path(output: Path) -> Path:
     os.close(descriptor)
     return Path(path)
 
-def write_jsonl(path: str | Path, rows: Iterable[Mapping[str, Any]]):
+def write_csv(path: str | Path, rows: Iterable[Mapping[str, Any]], fields: Sequence[str]):
     output = Path(path)
     tmp = tmp_path(output)
     try:
-        with tmp.open("w", encoding = "utf-8") as file:
+        with tmp.open("w", encoding = "utf-8", newline = "") as file:
+            writer = csv.DictWriter(file, fieldnames = fields, lineterminator = "\n")
+            writer.writeheader()
             for row in rows:
-                file.write(json.dumps(dict(row), sort_keys = True))
-                file.write("\n")
+                writer.writerow({key: json.dumps(value, sort_keys = True) for key, value in row.items()})
 
         tmp.replace(output)
     finally:

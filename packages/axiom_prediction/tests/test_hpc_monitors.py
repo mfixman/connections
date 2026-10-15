@@ -1,3 +1,5 @@
+from axiom_prediction.io import write_csv
+from axiom_prediction.dataset import dataset_fields
 import contextlib
 import importlib.util
 import io
@@ -79,10 +81,10 @@ def staging_remote(tmp_path, monkeypatch):
             exec(code, {})
         return output.getvalue()
     monkeypatch.setattr(mizar, 'remote', remote)
-    shard = root / 'Mizar40/dataset/Mizar40.jsonl'
+    shard = root / 'Mizar40/dataset/Mizar40.csv'
     shard.parent.mkdir(parents = True)
     header = {'schema': 'learncop.axiom_prediction.dataset-shard.v2', 'collection': {'sat_policy': 'satresetcop'}}
-    shard.write_text(json.dumps(header) + '\n')
+    write_csv(shard, [header], dataset_fields)
     return source, root, header
 
 
@@ -94,12 +96,12 @@ def test_combined_staging_rejects_missing_tptp(tmp_path, monkeypatch):
 
 def test_combined_staging_is_idempotent_and_preserves_inputs(tmp_path, monkeypatch):
     source, root, header = staging_remote(tmp_path, monkeypatch)
-    shard = source / 'TPTP.jsonl'
-    shard.write_text(json.dumps(header) + '\n')
+    shard = source / 'TPTP.csv'
+    write_csv(shard, [header], dataset_fields)
     before = shard.read_bytes()
     assert mizar.stage_combined_dataset()['shards'] == 2
     assert mizar.stage_combined_dataset()['shards'] == 2
-    assert (root / 'Mizar40-TPTP/dataset/TPTP.jsonl').resolve() == shard
+    assert (root / 'Mizar40-TPTP/dataset/TPTP.csv').resolve() == shard
     assert shard.read_bytes() == before
 
 

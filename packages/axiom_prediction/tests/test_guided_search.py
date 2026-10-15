@@ -1,5 +1,6 @@
+import csv
+import io
 from dataclasses import replace
-import json
 
 import pytest
 
@@ -65,10 +66,10 @@ def test_trained_checkpoint_guides_search(tmp_path, tiny_problem_path, policy, c
         if model_args:
             assert "warning: dataset labels were collected" in captured.err
 
-        records = [json.loads(line) for line in captured.out.splitlines()]
+        records = list(csv.DictReader(io.StringIO(captured.out)))
         result = records[0]
         assert len(records) == 1
         assert "event" not in result
-        assert result["proved"]
+        assert result["proved"] == "true"
         assert result["policy"] == other
         assert result["mode"] == ("weighted" if model_args else "base")

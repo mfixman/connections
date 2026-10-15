@@ -1,17 +1,12 @@
 import csv
 import io
-import json
-
-import pytest
 
 from axiom_prediction.cli import main
 from axiom_prediction.split import ProblemSplit
 
-@pytest.mark.parametrize("use_csv", [False, True])
-def test_all_commands_emit_parseable_records(tmp_path, tiny_problem_path, capsys, use_csv):
+def test_all_commands_emit_parseable_records(tmp_path, tiny_problem_path, capsys):
     dataset = tmp_path / "dataset"
     trained = tmp_path / "trained"
-    flag = ["--csv"] if use_csv else []
     common = ["--num-workers", "1", "--no-wandb", "--device", "cpu"]
     commands = [
         ["collect", str(tiny_problem_path), "--dataset", str(dataset), "--num-workers", "1"],
@@ -31,13 +26,10 @@ def test_all_commands_emit_parseable_records(tmp_path, tiny_problem_path, capsys
             part = ProblemSplit(10, [8, 9]).part(tiny_problem_path)
             command.extend(["--split", "10", "--parts", str(part)])
 
-        assert main([*flag, *command]) == 0
+        assert main(command) == 0
         stdout = capsys.readouterr().out
-        if use_csv:
-            records = list(csv.DictReader(io.StringIO(stdout)))
-            assert all(None not in record for record in records)
-        else:
-            records = [json.loads(line) for line in stdout.splitlines()]
+        records = list(csv.DictReader(io.StringIO(stdout)))
+        assert all(None not in record for record in records)
 
         assert records
         assert all(record.get("event") != "summary" for record in records)
@@ -53,7 +45,7 @@ def test_all_commands_emit_parseable_records(tmp_path, tiny_problem_path, capsys
         assert all(int(record["network_size"]) == expected_size for record in model_records)
         if command[0] == "run":
             assert all("event" not in record for record in records)
-            assert all(record["error"] == ("false" if use_csv else False) for record in records)
+            assert all(record["error"] == "false" for record in records)
             assert all("kept_axioms" not in record for record in records)
             assert all("guidance_fallback" not in record for record in records)
             assert all("parseable" not in record for record in records)
@@ -67,15 +59,13 @@ def test_all_commands_emit_parseable_records(tmp_path, tiny_problem_path, capsys
             assert problems[0]["tptp_status"] == ""
             assert int(problems[0]["part"]) == part
 
-@pytest.mark.parametrize("use_csv", [False, True])
-def test_parse_failure_is_an_error_with_stdout_diagnostic(tmp_path, capfd, use_csv):
+def test_parse_failure_is_an_error_with_stdout_diagnostic(tmp_path, capfd):
     problem = tmp_path / "broken.p"
     problem.write_text("fof(broken, axiom, ).\n")
     output = tmp_path / "results"
-    flags = ["--csv"] if use_csv else []
     args = [
         "run", str(problem), "--output", str(output), "--num-workers", "1",
-        "--no-wandb", *flags,
+        "--no-wandb",
     ]
 
     assert main(args) == 2
@@ -84,13 +74,10 @@ def test_parse_failure_is_an_error_with_stdout_diagnostic(tmp_path, capfd, use_c
     assert str(problem) in captured.out
     assert "TPTPParseError:" in captured.out
     text = output.read_text()
-    if use_csv:
-        rows = list(csv.DictReader(io.StringIO(text)))
-    else:
-        rows = list(map(json.loads, text.splitlines()))
+    rows = list(csv.DictReader(io.StringIO(text)))
 
     assert len(rows) == 1
-    assert rows[0]["error"] == ("true" if use_csv else True)
-    assert rows[0]["proved"] == ("false" if use_csv else False)
+    assert rows[0]["error"] == "true"
+    assert rows[0]["proved"] == "false"
     assert int(rows[0]["network_size"]) == 0
     assert "parseable" not in rows[0]

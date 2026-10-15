@@ -230,11 +230,11 @@ def submit_training_fresh(state, item):
 
 
 def collection_shard_ready():
-    path = f'{results}/Mizar40/dataset/Mizar40.jsonl'
-    code = f'''import json,pathlib
+    path = f'{results}/Mizar40/dataset/Mizar40.csv'
+    code = f'''import csv,json,pathlib
 p=pathlib.Path({path!r})
 if p.is_file():
- with p.open() as f: row=json.loads(next(f))
+ with p.open() as f: row={{k:json.loads(v) for k,v in next(csv.DictReader(f)).items() if v}}
  print(json.dumps({{"exists":True,"summary":row.get("summary",{{}}),"size":p.stat().st_size}}))
 else: print(json.dumps({{"exists":False}}))
 '''
@@ -243,20 +243,20 @@ else: print(json.dumps({{"exists":False}}))
 
 def stage_combined_dataset():
     tptp_dataset = '/home/msf43/learncop/artifacts/axiom-dataset/dataset'
-    mizar_shard = f'{results}/Mizar40/dataset/Mizar40.jsonl'
+    mizar_shard = f'{results}/Mizar40/dataset/Mizar40.csv'
     combined_dataset = f'{results}/Mizar40-TPTP/dataset'
-    code = f'''import json,pathlib
+    code = f'''import csv,json,pathlib
 source=pathlib.Path({tptp_dataset!r})
 mizar=pathlib.Path({mizar_shard!r})
 target=pathlib.Path({combined_dataset!r})
-sources=sorted(source.glob("*.jsonl"))
+sources=sorted(source.glob("*.csv"))
 if not mizar.is_file(): raise RuntimeError(f"missing completed Mizar shard: {{mizar}}")
 if not sources: raise RuntimeError(f"no TPTP shards found in {{source}}")
 sources.append(mizar)
 if len({{p.name for p in sources}}) != len(sources): raise RuntimeError("colliding combined shard names")
 settings=[]
 for shard in sources:
- with shard.open() as f: header=json.loads(next(f))
+ with shard.open() as f: header={{k:json.loads(v) for k,v in next(csv.DictReader(f)).items() if v}}
  if header.get("schema") != "learncop.axiom_prediction.dataset-shard.v2": raise RuntimeError(f"invalid dataset shard: {{shard}}")
  collection=header.get("collection",{{}})
  if collection.get("sat_policy") != "satresetcop": raise RuntimeError(f"unexpected policy in {{shard}}: {{collection.get('sat_policy')}}")
@@ -431,7 +431,7 @@ def submit_evaluation(state, key, item):
         '/home/msf43/venv/bin/python', 'axiom_predictor.py', 'evaluate',
         '--model', evaluation['checkpoint'], '--dataset', item['dataset'],
         '--split', '10', '--parts', '9', '--policy', 'SatResetCoP', '--cpu',
-        '--csv', '--output', evaluation['output'], '--wandb', '--run-name', evaluation['name'],
+        '--output', evaluation['output'], '--wandb', '--run-name', evaluation['name'],
     ]
     if not evaluation.get('first_command_notified'):
         push('First-time batch command (' + evaluation['name'] + '):\n' + shlex.join(line))
@@ -531,7 +531,7 @@ def run(state):
                     push('Fatal Mizar run failure: ' + message)
                 return
             if not state['collection_complete_notified']:
-                push(f"Mizar40 collection finished: {summary.get('problems_requested')} inputs, {summary.get('problems_proved')} proved, {summary.get('problems_failed')} failed; shard {results}/Mizar40/dataset/Mizar40.jsonl; combined dataset staged with {combined['shards']} TPTP+Mizar shards.")
+                push(f"Mizar40 collection finished: {summary.get('problems_requested')} inputs, {summary.get('problems_proved')} proved, {summary.get('problems_failed')} failed; shard {results}/Mizar40/dataset/Mizar40.csv; combined dataset staged with {combined['shards']} TPTP+Mizar shards.")
                 state['collection_complete_notified'] = True
                 save(state)
 

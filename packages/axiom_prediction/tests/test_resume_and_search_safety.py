@@ -1,3 +1,5 @@
+import csv
+import io
 from dataclasses import replace
 import json
 import multiprocessing as mp
@@ -102,7 +104,9 @@ def test_resume_matches_uninterrupted_training_and_rejects_damage(
         saved_epochs.append(kwargs["epoch"])
         return save(*args, **kwargs)
 
+    events = []
     with monkeypatch.context() as patch:
+        patch.setattr(training, "write_record", events.append)
         patch.setattr(training, "save_checkpoint", tracked_save)
         train_axiom_predictor(output_dir = full, config = config, **options)
 
@@ -112,7 +116,6 @@ def test_resume_matches_uninterrupted_training_and_rejects_damage(
     ]
 
     assert (full / "model.pt").read_bytes() == (full / "epoch-0003.pt").read_bytes()
-    events = [json.loads(line) for line in capsys.readouterr().out.splitlines()]
     assert [event["epoch"] for event in events if event["event"] == "epoch"] == [1, 2, 3]
 
     train_axiom_predictor(
@@ -349,7 +352,7 @@ def test_policy_inheritance_and_fresh_evaluation(
     assert result["proved"] and "guidance_fallback" not in result
     capsys.readouterr()
     assert main(["run", str(cnf), "--model", str(tmp_path), *common]) == 0
-    assert json.loads(capsys.readouterr().out.splitlines()[0])["policy"] == "satcop"
+    assert next(csv.DictReader(io.StringIO(capsys.readouterr().out)))["policy"] == "satcop"
 
     assert main(
         [
@@ -360,7 +363,7 @@ def test_policy_inheritance_and_fresh_evaluation(
 
     captured = capsys.readouterr()
     assert "warning: dataset labels were collected" in captured.err
-    assert json.loads(captured.out.splitlines()[0])["policy"] == "satresetcop"
+    assert next(csv.DictReader(io.StringIO(captured.out)))["policy"] == "satresetcop"
 
 @pytest.mark.parametrize("empty_only", [False, True])
 def test_training_and_evaluation_without_axioms(tmp_path, tiny_problem_path, empty_only):

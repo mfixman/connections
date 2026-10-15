@@ -44,7 +44,7 @@
 * Preserve the authenticated SSH master. Use `ssh -F ~/.ssh/config -o BatchMode=yes hpc`; never close the master casually, since another login may require a token from the user.
 * Keep GPU and CPU comparisons running in parallel unless the user explicitly requests cancellation. SmallFull runs take priority over evaluation.
 * Commit and push code fixes locally, pull on the HPC only when the user explicitly instructs you to. Use the main checkout for subsequent work whenever safe; preserve any checkout still required by submitted jobs and their authorized timeout continuations. Create a temporary checkout only when this protection makes it necessary, following the cleanup rules above.
-* Use `--output` for resumable runs/evaluations, with `--csv` for CSV. Preserve the output and its `.resume` directory together. CSV/JSONL mismatches must fail loudly.
+* Use `--output` for resumable runs/evaluations; output is always CSV. Preserve the output and its `.resume` directory together. Incompatible CSV headers must fail loudly.
 * Resume only confirmed scheduler timeouts when authorized, using the same command, output, checkout, and allocation limit. Carry the policy to replacement IDs. Never restart completed or user-cancelled jobs, or restart solely because a monitoring request timed out.
 * Record submission intent before submitting. If submission outcome is uncertain, reconcile the manifest and scheduler before retrying to avoid duplicate jobs.
 * Inspect both scheduler state and current logs/results. A populated result file does not prove a job completed successfully; verify its terminal state, exit code, unique problem coverage, and input errors.
