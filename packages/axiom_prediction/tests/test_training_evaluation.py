@@ -100,3 +100,19 @@ def test_evaluation_split_validation(tmp_path, monkeypatch):
             split = ProblemSplit(10, [0]), evaluation_split = ProblemSplit(10, [8]),
             wandb_config = WandbConfig(enabled = False),
         )
+
+@pytest.mark.parametrize("parts, legacy, warns", [
+    ([8, 18], False, False),
+    ([9, 19], False, False),
+    ([7, 17], False, True),
+    ([9, 19], True, True),
+])
+def test_training_overlap_with_refined_split(monkeypatch, parts, legacy, warns):
+    messages = []
+    monkeypatch.setattr(training, "log_message", messages.append)
+    trained = ProblemSplit(10, list(range(8))).to_dict()
+    if legacy:
+        trained["scheme"] -= 1
+
+    training.warn_on_training_overlap({"split": trained}, ProblemSplit(20, parts))
+    assert bool(messages) == warns

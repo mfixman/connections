@@ -103,6 +103,11 @@ def test_run_cli_resumes_only_unfinished_and_keeps_summary_totals(
     assert len(calls) == 2
     assert capsys.readouterr().out == ""
 
+    monkeypatch.setattr(cli, "split_scheme", cli.split_scheme + 1)
+    assert cli.main(args) == 2
+    assert path.read_text() == contents
+    assert len(calls) == 2
+
 @pytest.mark.parametrize("adaptive", [False, True])
 def test_evaluate_resumes_predictions_and_preserves_aggregate_metrics(
     tmp_path, monkeypatch, adaptive

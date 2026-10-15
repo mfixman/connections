@@ -12,7 +12,7 @@ import re
 from .models import available_models
 from .limits import default_collection_step_limit, default_collection_timeout_s, default_step_limit, default_timeout_s
 from .logs import log, monitor_progress
-from .split import ProblemSplit
+from .split import ProblemSplit, split_scheme
 from .output import output_format, write_record, report_metrics, journal
 
 def build_parser() -> argparse.ArgumentParser:
@@ -334,6 +334,7 @@ def add_device_argument(parser):
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     identity = vars(args).copy()
+    identity["split_scheme"] = split_scheme
     if "timeout_s" in identity:
         identity["timeout_seconds"] = identity.pop("timeout_s")
 

@@ -143,3 +143,14 @@ def test_split_parts_are_disjoint_complete_and_path_independent(tmp_path):
         "/mizar/struct_0__t4_struct_0.p"
     )
     assert split_key("tiny_theorem.p") == "tiny_theorem"
+
+@pytest.mark.parametrize("count, factor", [(10, 2), (10, 3), (3, 4)])
+def test_split_refinement_preserves_membership(count, factor):
+    from axiom_prediction.split import ProblemSplit
+
+    names = [f"SYN{index:03d}+1.p" for index in range(1000)]
+    names += [f"article{index}__theorem.p" for index in range(100)]
+    for part in range(count):
+        original = ProblemSplit(count, [part])
+        refined = ProblemSplit(count * factor, list(range(part, count * factor, count)))
+        assert original.select(names) == refined.select(names)
