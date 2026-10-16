@@ -8,6 +8,7 @@
     * Requirements should be in requirements.txt and be installable by pip.
     * The programs should be launchable by `python some/directory/file.py`, rather than using uv or the like.
 * I will likely ask you to work on the axiom selection.
+* Read `packages/axiom_prediction/plan.txt` for the proposed research experiments and their controls. The plan does not authorize job submissions or resuming monitoring.
 * Prefer clear, direct code over exhaustive edge-case machinery. Keep checks that protect proof correctness and saved results.
 
 ## Axiom predictor style
