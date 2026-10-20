@@ -15,7 +15,7 @@ import torch
 
 from axiom_prediction.cli import main
 from axiom_prediction.dataset import collect_axiom_dataset
-from axiom_prediction.model import AxiomPredictionNetwork
+from axiom_prediction.model import AxiomPredictionNetwork, load_checkpoint
 from axiom_prediction.run import RunConfig, run_problem, run_problems
 from axiom_prediction.search_workers import supervised_results
 from axiom_prediction.training import AxiomTrainingConfig, train_axiom_predictor
@@ -23,7 +23,8 @@ from axiom_prediction.training import AxiomTrainingConfig, train_axiom_predictor
 from axiom_prediction.wandb_tracking import WandbConfig
 from axiom_prediction.resume import restore_training, snapshot_training
 
-def test_training_resume_ignores_collection_completion_order(tmp_path, tiny_problem_path, monkeypatch):
+@pytest.mark.parametrize("legacy", [False, True])
+def test_training_resume_ignores_collection_completion_order(tmp_path, tiny_problem_path, monkeypatch, legacy):
     from axiom_prediction import training
     from axiom_prediction.dataset import CollectedAxiomProblem
     from axiom_prediction.tptp import collect_proof_example
@@ -52,10 +53,14 @@ def test_training_resume_ignores_collection_completion_order(tmp_path, tiny_prob
     train_axiom_predictor(output_dir = full, config = config, **options)
     train_axiom_predictor(output_dir = resumed, config = replace(config, epochs = 1), **options)
 
+    if legacy:
+        torch.save(load_checkpoint(resumed / "model.ts"), resumed / "model.pt")
+        (resumed / "model.ts").unlink()
+
     records.reverse()
     train_axiom_predictor(output_dir = resumed, config = config, resume = True, **options)
-    expected = torch.load(full / "model.pt", weights_only = True)
-    actual = torch.load(resumed / "model.pt", weights_only = True)
+    expected = load_checkpoint(full / "model.ts")
+    actual = load_checkpoint(resumed / "model.ts")
     assert actual["epoch"] == 2
     for name, weights in expected["model_state_dict"].items():
         assert torch.equal(weights, actual["model_state_dict"][name]), name
@@ -111,11 +116,11 @@ def test_resume_matches_uninterrupted_training_and_rejects_damage(
         train_axiom_predictor(output_dir = full, config = config, **options)
 
     assert saved_epochs == [1, 2, 3]
-    assert sorted(path.name for path in full.glob("epoch-*.pt")) == [
-        "epoch-0001.pt", "epoch-0002.pt", "epoch-0003.pt",
+    assert sorted(path.name for path in full.glob("epoch-*.ts")) == [
+        "epoch-0001.ts", "epoch-0002.ts", "epoch-0003.ts",
     ]
 
-    assert (full / "model.pt").read_bytes() == (full / "epoch-0003.pt").read_bytes()
+    assert (full / "model.ts").read_bytes() == (full / "epoch-0003.ts").read_bytes()
     assert [event["epoch"] for event in events if event["event"] == "epoch"] == [1, 2, 3]
 
     train_axiom_predictor(
@@ -127,21 +132,21 @@ def test_resume_matches_uninterrupted_training_and_rejects_damage(
     with pytest.raises(ValueError, match = "already exists"):
         train_axiom_predictor(output_dir = resumed, config = config, **options)
 
-    first_epoch = (resumed / "epoch-0001.pt").read_bytes()
+    first_epoch = (resumed / "epoch-0001.ts").read_bytes()
     train_axiom_predictor(output_dir = resumed, config = config, resume = True, **options)
-    assert (resumed / "epoch-0001.pt").read_bytes() == first_epoch
+    assert (resumed / "epoch-0001.ts").read_bytes() == first_epoch
     for epoch in range(1, 4):
-        name = f"epoch-{epoch:04d}.pt"
-        archived = torch.load(resumed / name, weights_only = True)
-        uninterrupted = torch.load(full / name, weights_only = True)
+        name = f"epoch-{epoch:04d}.ts"
+        archived = load_checkpoint(resumed / name)
+        uninterrupted = load_checkpoint(full / name)
         assert archived["epoch"] == epoch
         assert archived["training_state"]["optimizer"]["state"]
         for key, weights in uninterrupted["model_state_dict"].items():
             assert torch.equal(weights, archived["model_state_dict"][key]), key
 
-    assert (resumed / "model.pt").read_bytes() == (resumed / "epoch-0003.pt").read_bytes()
-    expected = torch.load(full / "model.pt", weights_only = True)
-    actual = torch.load(resumed / "model.pt", weights_only = True)
+    assert (resumed / "model.ts").read_bytes() == (resumed / "epoch-0003.ts").read_bytes()
+    expected = load_checkpoint(full / "model.ts")
+    actual = load_checkpoint(resumed / "model.ts")
     for name, weights in expected["model_state_dict"].items():
         assert torch.equal(weights, actual["model_state_dict"][name]), name
 
@@ -163,7 +168,7 @@ def test_resume_matches_uninterrupted_training_and_rejects_damage(
             **options,
         )
 
-    before = (resumed / "model.pt").read_bytes()
+    before = (resumed / "model.ts").read_bytes()
     forward = AxiomPredictionNetwork.forward
     monkeypatch.setattr(
         AxiomPredictionNetwork,
@@ -179,8 +184,8 @@ def test_resume_matches_uninterrupted_training_and_rejects_damage(
             **options,
         )
 
-    assert (resumed / "model.pt").read_bytes() == before
-    assert not (resumed / "epoch-0004.pt").exists()
+    assert (resumed / "model.ts").read_bytes() == before
+    assert not (resumed / "epoch-0004.ts").exists()
 
     record = next((dataset / "examples").glob("*.json"))
     payload = json.loads(record.read_text())
@@ -389,7 +394,7 @@ def test_training_and_evaluation_without_axioms(tmp_path, tiny_problem_path, emp
 
     assert trained["problems_proved"] == len(problems)
     assert (trained["bce"] is None) == empty_only
-    checkpoint = torch.load(tmp_path / "model.pt", weights_only = True)
+    checkpoint = load_checkpoint(tmp_path / "model.ts")
     assert bool(checkpoint["training_state"]["optimizer"]["state"]) != empty_only
 
     evaluated = evaluate_axiom_predictor(

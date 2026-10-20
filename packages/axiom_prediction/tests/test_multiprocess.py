@@ -42,7 +42,7 @@ def test_adaptive_oom_retries_preserve_order(monkeypatch):
 def test_shared_inference_and_parallel_search(tmp_path, tiny_problem_path, device):
     torch.manual_seed(7)
     model = AxiomPredictionNetwork(AxiomModelConfig(hidden_dim = 8, message_rounds = 1))
-    checkpoint = tmp_path / "model.pt"
+    checkpoint = tmp_path / "model.ts"
     save_checkpoint(checkpoint, model, training_config = {"sat_policy": "satresetcop"})
     loaded = load_tptp_problem(str(tiny_problem_path))
     kwargs = dict(

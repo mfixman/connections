@@ -4,7 +4,7 @@ import pytest
 import torch
 
 from axiom_prediction.cli import main
-from axiom_prediction.model import AxiomPredictor
+from axiom_prediction.model import AxiomPredictor, load_checkpoint
 from axiom_prediction.tptp import load_tptp_problem
 from axiom_prediction.models import load_model_class
 
@@ -64,7 +64,7 @@ def test_policy_and_network_experiments(tmp_path, policy, capsys, monkeypatch):
         assert predictor.model.config.to_dict() == expected
         assert predictor.training_config["sat_policy"] == policy
 
-        checkpoint = torch.load(directory / "model.pt", weights_only = True)
+        checkpoint = load_checkpoint(directory / "model.ts")
         assert checkpoint["epoch"] == 1
         assert checkpoint["model_config"] == expected
         assert type(checkpoint["model_config"]["graph_input"]) is str

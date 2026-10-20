@@ -208,8 +208,9 @@ def submit_training_resume(state, key, item):
 
 
 def model_checkpoint_exists(item):
-    path = f"{item['data_dir']}/model/model.pt"
-    return remote(f'test -f {shlex.quote(path)} && echo yes || echo no').strip() == 'yes'
+    base = f"{item['data_dir']}/model/model"
+    tests = ' || '.join(f'test -f {shlex.quote(base + suffix)}' for suffix in ('.ts', '.pt'))
+    return remote(f'({tests}) && echo yes || echo no').strip() == 'yes'
 
 
 def submit_training_fresh(state, item):
@@ -407,7 +408,9 @@ for line in p.stdout.splitlines():
    if isinstance(row,dict) and row.get('event')=='evaluation' and row.get('roc_auc') is not None:
     structured[int(row['epoch'])]=float(row['roc_auc'])
 scores.update(structured)
-print(json.dumps({{'available':[int(p.stem.split('-')[-1]) for p in folder.glob('epoch-*.pt') if p.stat().st_size], 'scores':scores}}))
+files = sorted([*folder.glob('epoch-*.pt'), *folder.glob('epoch-*.ts')])
+paths = {{int(p.stem.split('-')[-1]): str(p) for p in files if p.stat().st_size}}
+print(json.dumps({{'available':list(paths), 'paths':paths, 'scores':scores}}))
 '''
     return json.loads(remote(f'/home/msf43/venv/bin/python -c {shlex.quote(code)}'))
 
@@ -421,7 +424,7 @@ def submit_evaluation(state, key, item):
             raise RuntimeError(f'{key} needs epoch 100 and validation ROC AUC before testing')
         evaluation = {
             'name': f'{key}-test', 'checkpoint_epoch': epoch,
-            'checkpoint': f"{item['data_dir']}/model/epoch-{epoch:04d}.pt",
+            'checkpoint': info.get('paths', {}).get(str(epoch), f"{item['data_dir']}/model/epoch-{epoch:04d}.pt"),
             'output': f"{item['data_dir']}/test.csv", 'attempts': [],
         }
         state['evaluations'][key] = evaluation

@@ -113,8 +113,15 @@ python axiom_predictor.py evaluate \
 Repeat with any network name from the table. `--network` selects the Python
 network implementation for training; `--model` selects a trained checkpoint
 for proof search, and `--model-name` names the saved run.
-Without a run name, training writes `DATA_DIR/model/model.pt`; with a name,
-it writes `DATA_DIR/models/NAME/model.pt`. Existing checkpoints are protected:
+Without a run name, training writes `DATA_DIR/model/model.ts`; with a name,
+it writes `DATA_DIR/models/NAME/model.ts`.
+
+New files are TorchScript archives that Vampire can load directly, with the original
+model configuration, weights, optimizer and RNG state embedded for Python loading
+and exact training resumes. Connections accepts both `.ts` and legacy `.pt` files;
+a directory selects `model.ts` first, then `model.pt`. Only `.ts` files are written.
+Old Vampire-only exports without Connections metadata cannot be loaded by Connections.
+Existing checkpoints are protected:
 use a new run name/directory or pass `--resume` to continue training.
 
 A saved dataset's collection policy is authoritative. Explicitly requesting

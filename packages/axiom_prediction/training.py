@@ -35,6 +35,7 @@ from .model import (
     AxiomPredictor,
     resolve_device,
     save_checkpoint,
+    resolve_checkpoint,
     write_durably,
 )
 
@@ -427,9 +428,9 @@ def train_axiom_predictor(
         fingerprint = dataset_fingerprint(examples)
         first_epoch = 1
         if resume:
-            log_message(f"restoring optimizer and RNG state from {output / 'model.pt'}")
+            log_message(f"restoring optimizer and RNG state from {resolve_checkpoint(output)}")
             first_epoch = restore_training(
-                output / "model.pt",
+                resolve_checkpoint(output),
                 model,
                 optimizer,
                 rnd,
@@ -598,7 +599,7 @@ def train_axiom_predictor(
                     evaluation = current_evaluation,
                 )
 
-            epoch_path = output / f"epoch-{epoch:04d}.pt"
+            epoch_path = output / f"epoch-{epoch:04d}.ts"
             log_message(f"saving epoch {epoch} checkpoint to {epoch_path}")
             save_checkpoint(
                 epoch_path,
@@ -608,7 +609,7 @@ def train_axiom_predictor(
                 training_state = snapshot_training(optimizer, rnd, fingerprint),
             )
 
-            write_durably(output / "model.pt", epoch_path.read_bytes())
+            write_durably(output / "model.ts", epoch_path.read_bytes())
             log_message(f"saved epoch {epoch} checkpoint to {epoch_path}")
 
         if epoch_metrics is None:
@@ -656,7 +657,7 @@ def train_axiom_predictor(
                     split = evaluation_split,
                 )
 
-            tracker.log_model(output / "model.pt")
+            tracker.log_model(output / "model.ts")
 
         return metrics
     except BaseException:
