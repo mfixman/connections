@@ -6,6 +6,7 @@ import torch
 
 from .data import axiom_training_example_to_json
 from .io import write_json_atomic
+from .model import load_checkpoint, resolve_checkpoint
 
 def next_training_run(output, resume):
     path = Path(output) / "training_runs.json"
@@ -27,7 +28,7 @@ def dataset_fingerprint(examples):
     return digest.hexdigest()
 
 def check_training_target(output, resume):
-    path = Path(output) / "model.pt"
+    path = resolve_checkpoint(output)
     if path.exists() and not resume:
         raise ValueError("checkpoint already exists; use --resume or a new --data-dir")
 
@@ -51,7 +52,7 @@ def snapshot_training(optimizer, random, fingerprint):
     }
 
 def restore_training(path, model, optimizer, random, config, fingerprint):
-    checkpoint = torch.load(path, map_location = "cpu", weights_only = True)
+    checkpoint = load_checkpoint(path)
     state = checkpoint.get("training_state")
     if state is None:
         raise ValueError("this checkpoint has no optimizer/RNG state and cannot resume")

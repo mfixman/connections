@@ -17,7 +17,10 @@ python axiom_predictor.py COMMAND --help
 PROBLEM accepts .p files, flat directories, TPTP filenames, or category codes.
 Without problem inputs, collect/run/predict select all supported FOF/CNF
 candidates under the TPTP root. Training without inputs uses the saved dataset.
-CHECKPOINT is a model.pt file or its directory. For fresh evaluation,
+CHECKPOINT is a `.ts` file, a legacy `.pt` checkpoint, or its directory.
+Directories prefer `model.ts`, falling back to `model.pt`. New checkpoints are
+written only as TorchScript `.ts` archives, including the metadata and optimizer/RNG
+state needed for training resumes. For fresh evaluation,
 put the explicit checkpoint before the problem paths, or select the checkpoint
 with --model or --data-dir and supply only problem paths.
 
@@ -38,7 +41,7 @@ with --model or --data-dir and supply only problem paths.
 | `--evaluate PART ...` | train | Score these held-out parts during training, e.g. `--split 10 --parts 0 1 2 3 4 5 6 7 --evaluate 8`. Overlapping or empty evaluation selections fail. |
 | `--evaluate-every N` | train | **1**: evaluate every epoch. Positive N evaluates every N epochs after the first evaluation. Set 0 to measure evaluation cost and space evaluations to target 10% extra training time. First/final epochs always evaluate. |
 | `--seed N` | train, run | **0**. Training initialization/shuffle seed, or proof-search seed. Does not change the split or fresh-label collection's internal search seed. |
-| `--epochs N` | train | **200** passes through the training examples. Each epoch is retained as `epoch-0001.pt`, `epoch-0002.pt`, etc. in the model directory; `model.pt` is an identical copy of the latest checkpoint. All include optimizer/RNG state. |
+| `--epochs N` | train | **200** passes through the training examples. Each epoch is retained as `epoch-0001.ts`, `epoch-0002.ts`, etc. in the model directory; `model.ts` is an identical copy of the latest checkpoint. All include optimizer/RNG state. |
 | `--batch-size N` | train, evaluate | **43 problems**, not clauses. Optimizer-update batch size in training; prediction batch size in evaluation. Memory depends on graph sizes. |
 | `--log-every N` | train | **10**. Report training-set prediction metrics every N epochs plus first/final epochs. Zero disables intermediate metric evaluations. Loss and checkpoint saving happen every epoch, independently of this option. |
 | `--device DEVICE` | train, evaluate, predict, run | **cuda**, failing when CUDA is unavailable. auto selects CUDA if available and CPU otherwise; cpu forces CPU; cuda:N selects a visible device. Baseline search does not use a neural device. |
@@ -202,7 +205,7 @@ Saved checkpoints and metrics files retain their existing formats.
 Python callers can use `output_format(command)` to emit the same CSV records.
 
 ```bash
-python axiom_predictor.py predict --device cpu model.pt SYN088-1.010.p > predictions.csv
+python axiom_predictor.py predict --device cpu model.ts SYN088-1.010.p > predictions.csv
 ```
 
 ## Fixed behavior
@@ -262,7 +265,7 @@ per-problem AP with equal weight, excluding problems with no positive labels
 The run summary records `evaluation/best_macro_average_precision` and
 `evaluation/best_epoch`, retaining the earliest epoch on ties. These summarize
 evaluations within the current W&B run; a resumed training invocation starts a
-new run. Every epoch's checkpoint is retained locally; `model.pt` selects the
+new run. Every epoch's checkpoint is retained locally; `model.ts` selects the
 latest epoch for prediction and resuming. W&B uploads the final model.
 These are prediction metrics, not guided proof-search success rates.
 

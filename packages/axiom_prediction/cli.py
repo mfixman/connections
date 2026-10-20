@@ -156,7 +156,7 @@ def build_parser() -> argparse.ArgumentParser:
         metavar = "CHECKPOINT",
         type = Path,
         nargs = "?",
-        help = "model.pt or its directory; with --sine, --model or --data-dir, all positional inputs are problems instead",
+        help = "model.ts, legacy .pt or its directory; with --sine, --model or --data-dir, all positional inputs are problems instead",
     )
 
     evaluation_source = evaluate.add_mutually_exclusive_group()
@@ -220,7 +220,7 @@ def build_parser() -> argparse.ArgumentParser:
     run_source.add_argument(
         "--model",
         type = Path,
-        help = "trained checkpoint (model.pt or its directory); without a model, run the unguided baseline",
+        help = "trained checkpoint (model.ts, legacy .pt or its directory); without a model, run the unguided baseline",
     )
 
     run.add_argument(
@@ -269,7 +269,7 @@ def build_parser() -> argparse.ArgumentParser:
         metavar = "CHECKPOINT",
         type = Path,
         nargs = "?",
-        help = "model.pt or its directory; omit it when using --data-dir",
+        help = "model.ts, legacy .pt or its directory; omit it when using --data-dir",
     )
 
     predict.add_argument("problems", metavar = "PROBLEM", nargs = "*")
