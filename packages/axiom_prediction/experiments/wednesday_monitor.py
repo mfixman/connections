@@ -143,7 +143,7 @@ for job_id in ids: result.setdefault(job_id,{{'state':'UNKNOWN','exit':'unknown'
 checkpoints={{}}
 for name,item in {state['training']!r}.items():
  folder=pathlib.Path(item['data'])
- files=sorted(folder.glob('epoch-*.pt'))
+ files=sorted([*folder.glob('epoch-*.pt'), *folder.glob('epoch-*.ts')])
  scores={{}}
  for log in [pathlib.Path(x) for x in item.get('logs',[])]:
   try: content=log.read_text(errors='replace')
@@ -157,8 +157,8 @@ for name,item in {state['training']!r}.items():
    except ValueError: continue
    if isinstance(row,dict) and row.get('event')=='evaluation' and row.get('roc_auc') is not None:
     scores[int(row['epoch'])]=float(row['roc_auc'])
- available=[int(x.stem.split('-')[-1]) for x in files]
- checkpoints[name]={{'available':available,'scores':scores}}
+ paths={{int(x.stem.split('-')[-1]):str(x) for x in files if x.stat().st_size}}
+ checkpoints[name]={{'available':list(paths),'paths':paths,'scores':scores}}
 cpu_results={{}}
 for key,item in {state['cpu']!r}.items():
  marker=pathlib.Path(item['output']+'.resume/completion.json')
@@ -187,7 +187,7 @@ def submit_cpu(state, key, item, checkpoint, eval_policy, epoch):
     run = [
         '/home/msf43/venv/bin/python', 'axiom_predictor.py', 'run', '--cpu',
         '--multiprocess', '--policy', eval_policy, '--split', '10', '--parts', '8', '9',
-        '--timeout-seconds', '120', '--csv', '--output', output,
+        '--timeout-seconds', '120', '--output', output,
         '--run-name', name, '--model', checkpoint, '--no-wandb',
     ]
     args = [
@@ -236,7 +236,7 @@ def resume_cpu(state, key, item):
         '/home/msf43/venv/bin/python', 'axiom_predictor.py', 'run', '--cpu',
         '--multiprocess', '--policy', item['eval_policy'], '--split', '10',
         '--parts', *map(str, item.get('parts', [item.get('part', 8)])),
-        '--timeout-seconds', '120', '--csv', '--output', item['output'],
+        '--timeout-seconds', '120', '--output', item['output'],
         '--run-name', name,
     ]
     run.append('--wandb' if item.get('wandb', True) else '--no-wandb')
@@ -307,7 +307,7 @@ def submit_matrix_job(state, spec):
     run = [
         '/home/msf43/venv/bin/python', 'axiom_predictor.py', 'run', '--cpu',
         '--multiprocess', '--policy', spec['eval_policy'], '--split', '10',
-        '--parts', *map(str, spec['parts']), '--timeout-seconds', '120', '--csv',
+        '--parts', *map(str, spec['parts']), '--timeout-seconds', '120',
         '--output', output, '--run-name', name, '--wandb',
     ]
     if spec.get('checkpoint'):
@@ -342,13 +342,16 @@ def submit_matrix_job(state, spec):
     save(state)
     sync_manifest(state)
 
+def checkpoint_path(info, item, epoch):
+    return info.get('paths', {}).get(str(epoch), f"{item['data']}/epoch-{epoch:04d}.pt")
+
 def submit_matrix(state, snap):
     jobs = []
     for training_key, item in state['training'].items():
         selected = select_checkpoint(snap['checkpoints'].get(training_key, {}), 10**9)
         if selected is None:
             raise RuntimeError(f'no held-out ROC AUC checkpoint for {training_key}')
-        checkpoint = f"{item['data']}/epoch-{selected:04d}.pt"
+        checkpoint = checkpoint_path(snap['checkpoints'][training_key], item, selected)
         for eval_policy in policies:
             key = f"{training_key}--final--{eval_policy}"
             policy_name = item['policy'] if item['policy'] == eval_policy else f"{item['policy']}-{eval_policy}"
@@ -384,7 +387,7 @@ def schedule_periodic(state, snap):
             key = f'{training_key}--e{epoch:04d}'
             if key in state['cpu']:
                 continue
-            checkpoint = f"{item['data']}/epoch-{epoch:04d}.pt"
+            checkpoint = checkpoint_path(snap['checkpoints'][training_key], item, epoch)
             submit_cpu(state, key, item, checkpoint, item['policy'], epoch)
 
 

@@ -5,6 +5,7 @@ import io
 import math
 import os
 from pathlib import Path
+import zipfile
 
 import torch
 
@@ -45,21 +46,14 @@ class AxiomPredictor:
         checkpoint: str | Path,
         device: str | torch.device = "auto",
     ) -> "AxiomPredictor":
-        checkpoint_path = Path(checkpoint)
+        checkpoint_path = resolve_checkpoint(checkpoint)
         log(f"loading checkpoint {checkpoint_path} onto {device}")
-        if checkpoint_path.is_dir():
-            checkpoint_path = checkpoint_path / "model.pt"
-
         if not checkpoint_path.is_file():
             raise FileNotFoundError(f"axiom predictor checkpoint not found: {checkpoint_path}")
 
         resolved_device = resolve_device(device)
         try:
-            payload = torch.load(
-                checkpoint_path,
-                map_location = "cpu",
-                weights_only = True,
-            )
+            payload = load_checkpoint(checkpoint_path)
         except Exception as error:
             raise ValueError(
                 f"could not load axiom predictor checkpoint {checkpoint_path}: {error}"
@@ -143,6 +137,10 @@ def save_checkpoint(
     epoch: int | None = None,
     training_state: dict | None = None,
 ):
+    path = Path(path)
+    if path.suffix != ".ts":
+        raise ValueError("new checkpoints must use the .ts extension")
+
     if any(not torch.isfinite(value).all() for value in model.state_dict().values()):
         raise FloatingPointError("refusing to save non-finite model parameters")
 
@@ -166,7 +164,36 @@ def save_checkpoint(
         buffer,
     )
 
-    write_durably(Path(path), buffer.getvalue())
+    from .torchscript import export_model
+
+    module = export_model(model)
+    archive = io.BytesIO()
+    torch.jit.save(module, archive, _extra_files = {"checkpoint.bin": buffer.getvalue()})
+    write_durably(path, archive.getvalue())
+
+def resolve_checkpoint(path):
+    path = Path(path)
+    if path.is_dir():
+        if (path / "model.ts").exists():
+            return path / "model.ts"
+
+        return path / "model.pt"
+
+    return path
+
+def load_checkpoint(path):
+    path = resolve_checkpoint(path)
+    if path.suffix == ".ts":
+        with zipfile.ZipFile(path) as archive:
+            records = [name for name in archive.namelist() if name.endswith("/extra/checkpoint.bin")]
+            if len(records) != 1:
+                raise ValueError("TorchScript file has no Connections checkpoint metadata")
+
+            source = io.BytesIO(archive.read(records[0]))
+    else:
+        source = path
+
+    return torch.load(source, map_location = "cpu", weights_only = True)
 
 def write_durably(path: Path, data: bytes):
     tmp = path.with_name(f".{path.name}.tmp")

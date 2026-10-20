@@ -11,7 +11,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-from axiom_prediction.io import read_jsonl, write_json_atomic, write_jsonl
+from axiom_prediction.io import read_csv, write_json_atomic, write_csv
 from connections.parsing.tptp import TPTPParseError
 
 from .data import AxiomTrainingExample, axiom_training_example_from_json, axiom_training_example_to_json
@@ -24,6 +24,11 @@ from .tptp import collect_proof_example, find_tptp_root
 
 axiom_dataset_schema = "learncop.axiom_prediction.dataset.v2"
 axiom_dataset_shard_schema = "learncop.axiom_prediction.dataset-shard.v2"
+dataset_fields = (
+    "schema record collection summary problem_path graph axiom_clause_ids "
+    "conjecture_clause_ids labels axiom_clause_texts problem outcome parseable error"
+).split()
+
 outdated_dataset_hint = "datasets collected before schema v2 label SAT cores against a different clausification; delete and re-collect them"
 
 class NoParseableProblemsError(RuntimeError):
@@ -248,9 +253,9 @@ def collect_axiom_dataset_shard(
         )
 
     metadata = read_object(cache / "metadata.json")
-    shard = output / f"{shard_name}.jsonl"
+    shard = output / f"{shard_name}.csv"
     log(f"writing dataset shard {shard}")
-    write_jsonl(shard, shard_rows(cache, metadata = metadata, summary = summary))
+    write_csv(shard, shard_rows(cache, metadata = metadata, summary = summary), dataset_fields)
     log(f"saved dataset shard {shard}")
     return shard, summary
 
@@ -477,11 +482,11 @@ def load_axiom_dataset(
     if root.is_file():
         return load_axiom_dataset_shards((root,), dataset_path = root)
 
-    shards = sorted(root.glob("*.jsonl"))
+    shards = sorted(root.glob("*.csv"))
     if shards:
         if (root / "metadata.json").exists() or (root / "examples").exists():
             raise ValueError(
-                f"mixed dataset formats in {root}: separate JSONL shards from legacy records"
+                f"mixed dataset formats in {root}: separate CSV shards from legacy records"
             )
 
         return load_axiom_dataset_shards(shards, dataset_path = root)
@@ -527,7 +532,7 @@ def load_axiom_dataset_shards(
     shard_collections: dict[str, dict[str, Any]] = {}
 
     for shard in track_progress(shards, "loading dataset shards", len(shards)):
-        rows = iter(read_jsonl(shard))
+        rows = iter(read_csv(shard))
         try:
             header = next(rows)
         except StopIteration:

@@ -81,10 +81,10 @@ python axiom_predictor.py evaluate \
   --dataset datasets/Reset --data-dir runs/Reference --split 10 --parts 8
 ```
 
-`--dataset` overrides `--data-dir/dataset`. Collection writes JSONL shards
+`--dataset` overrides `--data-dir/dataset`. Collection writes CSV shards
 directly into that directory; training and evaluation only read them.
 Single-category/directory collection uses its name for the shard; other inputs
-use `problems.jsonl`. Collection resumes using records in `.cache`.
+use `problems.csv`. Collection resumes using records in `.cache`.
 Finish collection before launching readers, and avoid simultaneous writers
 to the same shard. Separate policies still require separate datasets.
 
@@ -113,8 +113,15 @@ python axiom_predictor.py evaluate \
 Repeat with any network name from the table. `--network` selects the Python
 network implementation for training; `--model` selects a trained checkpoint
 for proof search, and `--model-name` names the saved run.
-Without a run name, training writes `DATA_DIR/model/model.pt`; with a name,
-it writes `DATA_DIR/models/NAME/model.pt`. Existing checkpoints are protected:
+Without a run name, training writes `DATA_DIR/model/model.ts`; with a name,
+it writes `DATA_DIR/models/NAME/model.ts`.
+
+New files are TorchScript archives that Vampire can load directly, with the original
+model configuration, weights, optimizer and RNG state embedded for Python loading
+and exact training resumes. Connections accepts both `.ts` and legacy `.pt` files;
+a directory selects `model.ts` first, then `model.pt`. Only `.ts` files are written.
+Old Vampire-only exports without Connections metadata cannot be loaded by Connections.
+Existing checkpoints are protected:
 use a new run name/directory or pass `--resume` to continue training.
 
 A saved dataset's collection policy is authoritative. Explicitly requesting
@@ -122,10 +129,14 @@ a different `--policy` fails; collect a separate dataset to change labels.
 Run and evaluate inherit the checkpoint's label policy; conflicting explicit
 policies are rejected.
 
-Splits hash the **problem prefix**, such as `ABC123`, keeping all variants
-of that problem in the same part. Non-TPTP filenames use their name without
-the directory or extension. Use the same split across training, validation,
-and testing; evaluation warns when a checkpoint uses an older split scheme.
+Split scheme 5 hashes only the **problem key** with MD5, interprets the full
+digest as a big-endian integer, and takes its remainder modulo `--split N`.
+The key is the TPTP prefix (e.g. `ABC123`), the Mizar article name before
+`__`, or otherwise the filename without its directory or extension.
+Thus `--split 20 --parts 9 19` selects exactly the same problems as
+`--split 10 --parts 9`; variants of a problem stay together.
+This changes assignments from older split schemes. Evaluation warns about
+older checkpoints, and existing output files cannot resume across schemes.
 The trainer saves a checkpoint after every epoch, independently of logging,
 including optimizer/RNG state. It has no validation-based early stopping.
 For example, repeat the same training command with `--resume --epochs 200`

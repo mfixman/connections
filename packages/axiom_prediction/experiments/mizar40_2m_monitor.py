@@ -178,13 +178,11 @@ p=pathlib.Path({manifest!r}); d=json.loads(p.read_text()) if p.exists() else {{}
 
 
 def valid_part(part):
-    path = f'{results}/Mizar40-2m/dataset-2m/Mizar40-2m-part{part}.jsonl'
-    fallback = f'{results}/Mizar40-2m/dataset/Mizar40-2m-part{part}.jsonl'
-    code = f'''import json,pathlib
+    path = f'{results}/Mizar40-2m/dataset/Mizar40-2m-part{part}.csv'
+    code = f'''import csv,json,pathlib
 p=pathlib.Path({path!r})
-if not p.is_file(): p=pathlib.Path({fallback!r})
 if not p.is_file(): print("missing"); raise SystemExit
-with p.open() as f: first=json.loads(next(f))
+with p.open() as f: first={{k:json.loads(v) for k,v in next(csv.DictReader(f)).items() if v}}
 s=first.get("summary",{{}})
 print(json.dumps({{"requested":s.get("problems_requested"),"proved":s.get("problems_proved"),"failed":s.get("problems_failed"),"size":p.stat().st_size}}))
 '''

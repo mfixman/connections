@@ -1,3 +1,5 @@
+from axiom_prediction.io import write_csv
+from axiom_prediction.dataset import dataset_fields
 import contextlib
 import importlib.util
 import io
@@ -79,10 +81,10 @@ def staging_remote(tmp_path, monkeypatch):
             exec(code, {})
         return output.getvalue()
     monkeypatch.setattr(mizar, 'remote', remote)
-    shard = root / 'Mizar40/dataset/Mizar40.jsonl'
+    shard = root / 'Mizar40/dataset/Mizar40.csv'
     shard.parent.mkdir(parents = True)
     header = {'schema': 'learncop.axiom_prediction.dataset-shard.v2', 'collection': {'sat_policy': 'satresetcop'}}
-    shard.write_text(json.dumps(header) + '\n')
+    write_csv(shard, [header], dataset_fields)
     return source, root, header
 
 
@@ -94,19 +96,24 @@ def test_combined_staging_rejects_missing_tptp(tmp_path, monkeypatch):
 
 def test_combined_staging_is_idempotent_and_preserves_inputs(tmp_path, monkeypatch):
     source, root, header = staging_remote(tmp_path, monkeypatch)
-    shard = source / 'TPTP.jsonl'
-    shard.write_text(json.dumps(header) + '\n')
+    shard = source / 'TPTP.csv'
+    write_csv(shard, [header], dataset_fields)
     before = shard.read_bytes()
     assert mizar.stage_combined_dataset()['shards'] == 2
     assert mizar.stage_combined_dataset()['shards'] == 2
-    assert (root / 'Mizar40-TPTP/dataset/TPTP.jsonl').resolve() == shard
+    assert (root / 'Mizar40-TPTP/dataset/TPTP.csv').resolve() == shard
     assert shard.read_bytes() == before
 
 
-def test_mizar_test_uses_best_validation_epoch_part9_and_same_output_on_timeout(monkeypatch):
+@pytest.mark.parametrize("suffix", ["pt", "ts"])
+def test_mizar_test_uses_best_validation_epoch_part9_and_same_output_on_timeout(monkeypatch, suffix):
     state = {'last_batch': 0}
     item = {'id': 'train123', 'data_dir': '/results/Mizar40', 'dataset': '/results/Mizar40/dataset'}
-    monkeypatch.setattr(mizar, 'training_checkpoints', lambda item: {'available': [80, 100], 'scores': {'80': .9, '100': .8}})
+    info = {'available': [80, 100], 'scores': {'80': .9, '100': .8}}
+    if suffix == 'ts':
+        info['paths'] = {'80': '/results/Mizar40/model/epoch-0080.ts'}
+
+    monkeypatch.setattr(mizar, 'training_checkpoints', lambda item: info)
     monkeypatch.setattr(mizar, 'save', lambda state: None)
     monkeypatch.setattr(mizar, 'push', lambda message: None)
     commands = []
@@ -114,7 +121,7 @@ def test_mizar_test_uses_best_validation_epoch_part9_and_same_output_on_timeout(
     mizar.submit_evaluation(state, 'Mizar40', item)
     first = commands[0][0]
     assert first[first.index('--parts') + 1] == '9'
-    assert first[first.index('--model') + 1].endswith('epoch-0080.pt')
+    assert first[first.index('--model') + 1].endswith(f'epoch-0080.{suffix}')
     assert '--cpu' in first and '--wandb' in first and 'evaluate' in first
     assert '--time=3:59:00' in first
     status = {'Mizar40': {'state': 'COMPLETED', 'exit': '0:0'}}

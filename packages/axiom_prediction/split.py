@@ -5,7 +5,7 @@ import hashlib
 from pathlib import Path
 import re
 
-split_scheme = 4
+split_scheme = 5
 
 @dataclass(slots = True, init = False)
 class ProblemSplit:
@@ -44,11 +44,7 @@ class ProblemSplit:
         if self.split == 1:
             return 0
 
-        digest = hashlib.blake2b(
-            f"{self.split}\0{split_key(problem)}".encode("utf-8"),
-            digest_size = 8,
-            person = b"lcsplit",
-        ).digest()
+        digest = hashlib.md5(split_key(problem).encode("utf-8"), usedforsecurity = False).digest()
 
         return int.from_bytes(digest, "big") % self.split
 
