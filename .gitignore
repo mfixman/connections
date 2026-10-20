@@ -9,6 +9,7 @@ __pycache__/
 **/diff.csv
 
 # Project-local generated/runtime artifacts
+/notes/
 .codex/
 .agents/
 AGENTS.md

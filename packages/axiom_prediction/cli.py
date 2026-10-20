@@ -12,7 +12,7 @@ import re
 from .models import available_models
 from .limits import default_collection_step_limit, default_collection_timeout_s, default_step_limit, default_timeout_s
 from .logs import log, monitor_progress
-from .split import ProblemSplit
+from .split import ProblemSplit, split_scheme
 from .output import output_format, write_record, report_metrics, journal
 
 def build_parser() -> argparse.ArgumentParser:
@@ -22,7 +22,6 @@ def build_parser() -> argparse.ArgumentParser:
     )
 
     subparsers = parser.add_subparsers(dest = "command", required = True)
-    parser.add_argument("--csv", action = "store_true", help = "write CSV with a header instead of JSON Lines")
 
     train = subparsers.add_parser("train", help = "train from proofs of TPTP problems")
     train.add_argument("problems", metavar = "PROBLEM", nargs = "*")
@@ -157,7 +156,7 @@ def build_parser() -> argparse.ArgumentParser:
         metavar = "CHECKPOINT",
         type = Path,
         nargs = "?",
-        help = "model.pt or its directory; with --sine, --model or --data-dir, all positional inputs are problems instead",
+        help = "model.ts, legacy .pt or its directory; with --sine, --model or --data-dir, all positional inputs are problems instead",
     )
 
     evaluation_source = evaluate.add_mutually_exclusive_group()
@@ -221,7 +220,7 @@ def build_parser() -> argparse.ArgumentParser:
     run_source.add_argument(
         "--model",
         type = Path,
-        help = "trained checkpoint (model.pt or its directory); without a model, run the unguided baseline",
+        help = "trained checkpoint (model.ts, legacy .pt or its directory); without a model, run the unguided baseline",
     )
 
     run.add_argument(
@@ -270,7 +269,7 @@ def build_parser() -> argparse.ArgumentParser:
         metavar = "CHECKPOINT",
         type = Path,
         nargs = "?",
-        help = "model.pt or its directory; omit it when using --data-dir",
+        help = "model.ts, legacy .pt or its directory; omit it when using --data-dir",
     )
 
     predict.add_argument("problems", metavar = "PROBLEM", nargs = "*")
@@ -294,13 +293,6 @@ def build_parser() -> argparse.ArgumentParser:
     }
 
     for command in subparsers.choices.values():
-        command.add_argument(
-            "--csv",
-            action = "store_true",
-            default = argparse.SUPPRESS,
-            help = "write CSV with a header instead of JSON Lines",
-        )
-
         command.formatter_class = argparse.ArgumentDefaultsHelpFormatter
         for action in command._actions:
             if action.help is None and action.dest in common_help:
@@ -310,7 +302,7 @@ def build_parser() -> argparse.ArgumentParser:
         subparsers.choices[name].add_argument(
             "--output",
             type = Path,
-            help = "write results to this file and resume existing results; --csv selects CSV",
+            help = "write CSV results to this file and resume existing results",
         )
 
     return parser
@@ -334,6 +326,7 @@ def add_device_argument(parser):
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     identity = vars(args).copy()
+    identity["split_scheme"] = split_scheme
     if "timeout_s" in identity:
         identity["timeout_seconds"] = identity.pop("timeout_s")
 
@@ -349,7 +342,7 @@ def main(argv: list[str] | None = None) -> int:
 
             identity.update(settings())
 
-        with output_format(args.command, args.csv, getattr(args, "output", None), identity) as session:
+        with output_format(args.command, getattr(args, "output", None), identity) as session:
             if session is not None and session.complete():
                 log("output is already complete; nothing to resume")
                 return session.exit_code()
@@ -763,7 +756,7 @@ def add_dataset_argument(parser: argparse.ArgumentParser):
         "--dataset",
         type = Path,
         metavar = "PATH",
-        help = "shared dataset directory; collect writes JSONL shards here, train/evaluate read it instead of DATA_DIR/dataset",
+        help = "shared dataset directory; collect writes CSV shards here, train/evaluate read it instead of DATA_DIR/dataset",
     )
 
 def selected_dataset(args: argparse.Namespace) -> Path | None:

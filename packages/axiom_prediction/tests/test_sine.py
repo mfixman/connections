@@ -123,17 +123,16 @@ def test_cli_conflicts(command, capsys):
     assert "incompatible with --model-name" in capsys.readouterr().err
     assert cli.main(["run", "--sine", "--data-dir", "missing"]) == 2
 
-@pytest.mark.parametrize("use_csv", [False, True])
 @pytest.mark.parametrize("command", ["run", "evaluate"])
-def test_cli_fresh_results_and_resume(tmp_path, tiny_problem_path, no_neural, use_csv, command):
+def test_cli_fresh_results_and_resume(tmp_path, tiny_problem_path, no_neural, command):
     output = tmp_path / "results"
     args = [
         command, "--sine", str(tiny_problem_path), "--output", str(output),
         "--num-workers", "1", "--no-wandb", "--multiprocess",
-    ] + (["--csv"] if use_csv else [])
+    ]
     assert cli.main(args) == 0
     content = output.read_text()
-    rows = list(csv.DictReader(content.splitlines())) if use_csv else list(map(json.loads, content.splitlines()))
+    rows = list(csv.DictReader(content.splitlines()))
     rows = [row for row in rows if row.get("problem")]
     assert len(rows) == 1
     assert int(rows[0]["network_size"]) == 0
@@ -183,7 +182,7 @@ def test_saved_dataset_policy_and_wandb(tmp_path, tiny_problem_path, monkeypatch
 
 def test_prediction_cache_resumes(tmp_path, tiny_problem_path, monkeypatch):
     example, _ = collect_proof_example(str(tiny_problem_path), step_limit = 100)
-    journal = OutputJournal(tmp_path / "results", "evaluate", False, output_fields("evaluate"), sine.settings())
+    journal = OutputJournal(tmp_path / "results", "evaluate", output_fields("evaluate"), sine.settings())
     try:
         first = training.example_outputs(None, [example], sine = True, batch_size = 1, resume = journal)
         assert set(first[1]) <= {0.0, 1.0}

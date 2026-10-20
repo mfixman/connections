@@ -11,13 +11,16 @@ python axiom_predictor.py COMMAND --help
 | `collect [PROBLEM ...]` | Collect resumable SAT-core labels in --dataset PATH or DATA_DIR/dataset. |
 | `train [PROBLEM ...]` | Train on saved labels; explicit problem inputs collect fresh labels first. |
 | `evaluate [CHECKPOINT] [PROBLEM ...]` | Evaluate saved labels, or collect fresh labels for explicit problems. With --model or --data-dir, every positional input is a problem; otherwise the first is the checkpoint. |
-| `predict [CHECKPOINT] [PROBLEM ...]` | Print axiom rankings and probabilities as JSON lines. |
-| `run [PROBLEM ...]` | Run SATCoP/SATResetCoP and print per-problem JSON results. A selected checkpoint enables weighted guidance; otherwise runs the baseline. |
+| `predict [CHECKPOINT] [PROBLEM ...]` | Print axiom rankings and probabilities as CSV. |
+| `run [PROBLEM ...]` | Run SATCoP/SATResetCoP and print per-problem CSV results. A selected checkpoint enables weighted guidance; otherwise runs the baseline. |
 
 PROBLEM accepts .p files, flat directories, TPTP filenames, or category codes.
 Without problem inputs, collect/run/predict select all supported FOF/CNF
 candidates under the TPTP root. Training without inputs uses the saved dataset.
-CHECKPOINT is a model.pt file or its directory. For fresh evaluation,
+CHECKPOINT is a `.ts` file, a legacy `.pt` checkpoint, or its directory.
+Directories prefer `model.ts`, falling back to `model.pt`. New checkpoints are
+written only as TorchScript `.ts` archives, including the metadata and optimizer/RNG
+state needed for training resumes. For fresh evaluation,
 put the explicit checkpoint before the problem paths, or select the checkpoint
 with --model or --data-dir and supply only problem paths.
 
@@ -27,7 +30,7 @@ with --model or --data-dir and supply only problem paths.
 | --- | --- | --- |
 | `-h`, `--help` | All | Show help. Root and training help list the available network classes. |
 | `--data-dir PATH` | All | Required for train; required for collect only without --dataset. Holds model/ or models/NAME/ and the default dataset/. For evaluate it selects the checkpoint and default dataset; for predict/run it selects a checkpoint. |
-| `--dataset PATH` | collect, train, evaluate | Override DATA_DIR/dataset. Collect writes resumable JSONL shards directly here; train/evaluate read the shared dataset without copying or modifying it. Cannot accompany PROBLEM inputs in train/evaluate. |
+| `--dataset PATH` | collect, train, evaluate | Override DATA_DIR/dataset. Collect writes resumable CSV shards directly here; train/evaluate read the shared dataset without copying or modifying it. Cannot accompany PROBLEM inputs in train/evaluate. |
 | `--network NAME` | train | **DefaultFull**. Select a Python file/class from models/. The optional .py suffix is accepted. |
 | `--model PATH` | run, evaluate | Explicit trained checkpoint or directory. Otherwise use --data-dir; without either, run the unguided baseline. |
 | `--model-name NAME` | train, evaluate, predict, run | Optional saved-run name: use DATA_DIR/models/NAME rather than DATA_DIR/model. Separate from the network implementation. Existing checkpoints require --resume. |
@@ -38,7 +41,7 @@ with --model or --data-dir and supply only problem paths.
 | `--evaluate PART ...` | train | Score these held-out parts during training, e.g. `--split 10 --parts 0 1 2 3 4 5 6 7 --evaluate 8`. Overlapping or empty evaluation selections fail. |
 | `--evaluate-every N` | train | **1**: evaluate every epoch. Positive N evaluates every N epochs after the first evaluation. Set 0 to measure evaluation cost and space evaluations to target 10% extra training time. First/final epochs always evaluate. |
 | `--seed N` | train, run | **0**. Training initialization/shuffle seed, or proof-search seed. Does not change the split or fresh-label collection's internal search seed. |
-| `--epochs N` | train | **200** passes through the training examples. Each epoch is retained as `epoch-0001.pt`, `epoch-0002.pt`, etc. in the model directory; `model.pt` is an identical copy of the latest checkpoint. All include optimizer/RNG state. |
+| `--epochs N` | train | **200** passes through the training examples. Each epoch is retained as `epoch-0001.ts`, `epoch-0002.ts`, etc. in the model directory; `model.ts` is an identical copy of the latest checkpoint. All include optimizer/RNG state. |
 | `--batch-size N` | train, evaluate | **43 problems**, not clauses. Optimizer-update batch size in training; prediction batch size in evaluation. Memory depends on graph sizes. |
 | `--log-every N` | train | **10**. Report training-set prediction metrics every N epochs plus first/final epochs. Zero disables intermediate metric evaluations. Loss and checkpoint saving happen every epoch, independently of this option. |
 | `--device DEVICE` | train, evaluate, predict, run | **cuda**, failing when CUDA is unavailable. auto selects CUDA if available and CPU otherwise; cpu forces CPU; cuda:N selects a visible device. Baseline search does not use a neural device. |
@@ -54,12 +57,14 @@ architecture, inputs, and activation are defined in the selected Python
 class. Adam defaults to learning rate 0.001 and weight decay 0; these are not
 CLI options.
 
-With --dataset, collect writes CATEGORY.jsonl for a single category/directory,
-or problems.jsonl for explicit files, multiple inputs, or the default corpus.
+With --dataset, collect writes CATEGORY.csv for a single category/directory,
+or problems.csv for explicit files, multiple inputs, or the default corpus.
 Resumable intermediate records live in PATH/.cache. Do not run simultaneous
 collectors writing the same shard; finish collection before training readers.
-Existing dataset directories and individual JSONL files remain readable.
-Do not mix legacy metadata.json/examples/ records and public JSONL shards in
+Legacy dataset directories and individual CSV shards are readable. Dataset CSV cells
+contain JSON-encoded values, preserving graphs, labels, strings, and nulls exactly.
+Empty cells represent absent fields.
+Do not mix legacy metadata.json/examples/ records and public CSV shards in
 one directory: the loader rejects this instead of silently ignoring records.
 Shard compatibility ignores the machine-specific TPTP installation path;
 policy and collection budgets must still match. Use the same corpus version
@@ -128,12 +133,12 @@ giving the baseline more CPU parallelism than the guided runs.
 mkdir -p results
 python axiom_predictor.py run --tptp "$EXP_TPTP" --policy "$EXP_POLICY" \
   --split 10 --parts 9 --seed 0 --num-workers 1 \
-  --timeout-seconds 120 --step-limit 1000000 > results/Baseline.jsonl
+  --timeout-seconds 120 --step-limit 1000000 > results/Baseline.csv
 
 for network in DefaultFull SmallFull DefaultNoTerms DefaultNoComplements; do
   python axiom_predictor.py run --tptp "$EXP_TPTP" --policy "$EXP_POLICY" \
     --data-dir "runs/$network" --split 10 --parts 9 --seed 0 --num-workers 1 \
-    --timeout-seconds 120 --step-limit 1000000 > "results/$network.jsonl"
+    --timeout-seconds 120 --step-limit 1000000 > "results/$network.csv"
 done
 ```
 
@@ -169,8 +174,8 @@ The resolved root on this checkout is the sibling ../TPTP.
 ## Structured output
 
 All commands write machine-readable records to stdout and progress logs to
-stderr. Output defaults to JSON Lines. Add `--csv` before or after the command
-to use CSV with one fixed header for that command, including on empty output.
+stderr. Output is always CSV, with one fixed header for that command,
+including on empty output. No format flag is needed.
 CSV streams records as they become available. Strings are ordinary CSV cells;
 numbers and booleans use JSON syntax, and lists/dictionaries are JSON-encoded
 inside cells. An absent field is empty; an explicit null is `null`.
@@ -178,7 +183,7 @@ inside cells. An absent field is empty; an explicit null is `null`.
 Train and evaluate emit multiple event types. Run emits only per-problem
 results, without an `event` column. Final aggregate metrics are stored in
 `PATH.resume/completion.json` when using `--output`, or printed to stderr
-otherwise; they are not rows in CSV or JSONL output.
+otherwise; they are not rows in CSV output.
 Collect emits its collection summary. Predict emits one row per axiom.
 Filter by `event` when processing streams with different record types.
 The `problem` field (and prediction output’s `problem_path`) contains the
@@ -195,12 +200,12 @@ declaration (e.g. `Theorem` or `Satisfiable`). It is blank when the declaration
 is missing or the file is unavailable. This is the declared status, including
 when proof search times out; `proved` still records proof-search success for run. W&B per-problem tables include `part` too. Without an
 explicit split, `part` is 0. Aggregate summaries still combine all selected parts.
-The same records and fields are emitted with and without `--csv`; CSV headers
-include the union of possible fields, with irrelevant cells left empty.
-Saved checkpoints, dataset shards, and metrics files retain their existing formats.
+CSV headers include the union of possible fields, with irrelevant cells left empty.
+Saved checkpoints and metrics files retain their existing formats.
+Python callers can use `output_format(command)` to emit the same CSV records.
 
 ```bash
-python axiom_predictor.py predict --csv --device cpu model.pt SYN088-1.010.p > predictions.csv
+python axiom_predictor.py predict --device cpu model.ts SYN088-1.010.p > predictions.csv
 ```
 
 ## Fixed behavior
@@ -240,7 +245,7 @@ produces no predictions and contributes no training loss or ranking metrics.
 If an entire training batch has no axioms, no optimizer step is taken. Metrics
 without any labels are null.
 Parsing failures print the problem and diagnostic to stdout and set error to
-true. Use --output to keep saved CSV/JSONL records separate from these messages.
+true. Use --output to keep saved CSV records separate from these messages.
 Unexpected search errors produce a nonzero command exit status.
 
 Evaluate reports SAT-core label prediction, not improved theorem proving.
@@ -260,14 +265,18 @@ per-problem AP with equal weight, excluding problems with no positive labels
 The run summary records `evaluation/best_macro_average_precision` and
 `evaluation/best_epoch`, retaining the earliest epoch on ties. These summarize
 evaluations within the current W&B run; a resumed training invocation starts a
-new run. Every epoch's checkpoint is retained locally; `model.pt` selects the
+new run. Every epoch's checkpoint is retained locally; `model.ts` selects the
 latest epoch for prediction and resuming. W&B uploads the final model.
 These are prediction metrics, not guided proof-search success rates.
 
-Splits always hash the problem prefix: `ABC123+1.p` and `ABC123-2.p`
-belong to the same part. Non-TPTP filenames use their name without the
-directory or extension. Evaluation warns about checkpoints using older
-split schemes, whose part assignments may differ.
+Split scheme 5 hashes only the **problem key** with MD5, interprets the full
+digest as a big-endian integer, and takes its remainder modulo `--split N`.
+The key is the TPTP prefix (e.g. `ABC123`), the Mizar article name before
+`__`, or otherwise the filename without its directory or extension.
+Thus `--split 20 --parts 9 19` selects exactly the same problems as
+`--split 10 --parts 9`; variants of a problem stay together.
+This changes assignments from older split schemes. Evaluation warns about
+older checkpoints, and existing output files cannot resume across schemes.
 
 ## Parallel run and evaluate on one GPU
 
@@ -297,12 +306,11 @@ Each command uses one GPU. No additional Python dependencies are required.
 ## Output files and automatic resume
 
 `run` and `evaluate` accept `--output PATH`. Results go to that file instead
-of stdout, as JSON Lines by default or CSV with `--csv` (the extension does
-not select the format). Progress and errors still go to stderr.
+of stdout, always as CSV (the extension does not select the format). Progress and errors still go to stderr.
 
 ```bash
-python axiom_predictor.py run --model runs/DefaultFull/model/best-epoch-119.pt --multiprocess --splits 10 --parts 8 9 --output results/run.jsonl
-python axiom_predictor.py evaluate --model runs/DefaultFull/model/best-epoch-119.pt --multiprocess --splits 10 --parts 8 9 --csv --output results/evaluate.csv
+python axiom_predictor.py run --model runs/DefaultFull/model/best-epoch-119.pt --multiprocess --splits 10 --parts 8 9 --output results/run.csv
+python axiom_predictor.py evaluate --model runs/DefaultFull/model/best-epoch-119.pt --multiprocess --splits 10 --parts 8 9 --output results/evaluate.csv
 ```
 
 Repeat the same command after interruption to resume. Completed run outcomes,

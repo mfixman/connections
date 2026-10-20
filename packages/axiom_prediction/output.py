@@ -53,7 +53,7 @@ def write_record(record):
     record = display_record(record)
     output = writer.get()
     if output is None:
-        print(json.dumps(record, sort_keys = True, default = str), flush = True)
+        print(record, file = sys.stderr, flush = True)
     else:
         output.writerow({key: csv_value(value) for key, value in record.items()})
         sys.stdout.flush()
@@ -91,11 +91,11 @@ def csv_value(value):
     return value if isinstance(value, str) else json.dumps(value, default = str)
 
 @contextmanager
-def output_format(command, use_csv, path = None, identity = None):
+def output_format(command, path = None, identity = None):
     if path is not None:
         from .output_resume import OutputJournal
         fields = output_fields(command)
-        session = OutputJournal(path, command, use_csv, fields, identity)
+        session = OutputJournal(path, command, fields, identity)
         token = journal.set(session)
         try:
             yield session
@@ -105,12 +105,10 @@ def output_format(command, use_csv, path = None, identity = None):
 
         return
 
-    output = None
-    if use_csv:
-        fields = output_fields(command)
-        output = csv.DictWriter(sys.stdout, fieldnames = fields, lineterminator = "\n")
-        output.writeheader()
-        sys.stdout.flush()
+    fields = output_fields(command)
+    output = csv.DictWriter(sys.stdout, fieldnames = fields, lineterminator = "\n")
+    output.writeheader()
+    sys.stdout.flush()
 
     token = writer.set(output)
     try:

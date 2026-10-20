@@ -1,4 +1,4 @@
-import json
+from axiom_prediction.io import read_csv
 import signal
 import sys
 import time
@@ -30,7 +30,7 @@ def test_collection_records_problem_errors_and_resumes_past_them(tmp_path, monke
     monkeypatch.setattr(dataset, "collect_problem_records_parallel", sequential_collection)
     options = dict(output_dir = tmp_path, shard_name = "TEST", num_workers = 1, tptp_root = tmp_path)
     shard, summary = dataset.collect_axiom_dataset_shard(["bad.p", "next.p"], **options)
-    rows = [json.loads(line) for line in shard.read_text().splitlines()]
+    rows = list(read_csv(shard))
     failure = next(row for row in rows[1:] if row["problem"] == "bad.p")
     assert failure["error"] is True
     assert failure["outcome"] == f"{error_type.__name__}: problem exceeded a resource limit"

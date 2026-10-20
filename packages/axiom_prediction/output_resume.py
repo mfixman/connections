@@ -12,6 +12,7 @@ from .io import write_json_atomic
 def resume_identity(identity):
     resume_options = {
         "output",
+        "csv",
         "num_workers",
         "device",
         "multiprocess",
@@ -78,27 +79,10 @@ def csv_records(content, fields):
 
     return records, len("".join(lines[:boundary]).encode("utf-8"))
 
-def json_records(content):
-    records = []
-    boundary = 0
-    for line in io.StringIO(content, newline = ""):
-        if not line.endswith("\n"):
-            break
-
-        row = json.loads(line)
-        if not isinstance(row, dict):
-            raise ValueError("output JSONL records must be objects")
-
-        records.append(row)
-        boundary += len(line.encode("utf-8"))
-
-    return records, boundary
-
 class OutputJournal:
-    def __init__(self, path, command, use_csv, fields, identity):
+    def __init__(self, path, command, fields, identity):
         self.path = Path(path)
         self.command = command
-        self.use_csv = use_csv
         self.fields = fields
         self.records = []
         self.keys = set()
@@ -117,16 +101,15 @@ class OutputJournal:
             fcntl.flock(self.stream, fcntl.LOCK_EX | fcntl.LOCK_NB)
             self.restore(identity)
             self.stream.seek(0, 2)
-            if self.use_csv:
-                self.writer = csv.DictWriter(
-                    self.stream,
-                    fieldnames = fields,
-                    lineterminator = "\n",
-                )
+            self.writer = csv.DictWriter(
+                self.stream,
+                fieldnames = fields,
+                lineterminator = "\n",
+            )
 
-                if self.stream.tell() == 0:
-                    self.writer.writeheader()
-                    self.stream.flush()
+            if self.stream.tell() == 0:
+                self.writer.writeheader()
+                self.stream.flush()
         except BaseException:
             self.stream.close()
             raise
@@ -134,7 +117,6 @@ class OutputJournal:
     def restore(self, identity):
         self.stream.seek(0)
         content = self.stream.read()
-        self.check_format(content)
         metadata = self.directory / "config.json"
         expected = resume_identity(json.loads(json.dumps(identity, default = str)))
         if (
@@ -145,9 +127,7 @@ class OutputJournal:
                 "output belongs to a different command/configuration; use a new --output"
             )
 
-        self.records, boundary = (
-            csv_records(content, self.fields) if self.use_csv else json_records(content)
-        )
+        self.records, boundary = csv_records(content, self.fields)
 
         self.restore_problem_paths()
         self.keys = {self.key(row) for row in self.records}
@@ -164,21 +144,6 @@ class OutputJournal:
                 Path(saved["problem"]).name, Path(saved["problem"]).stem
             ):
                 row.update(saved)
-
-    def check_format(self, content):
-        if not content.strip():
-            return
-
-        first = content.lstrip()
-        if self.use_csv and first.startswith("{"):
-            raise ValueError(
-                "existing output is JSONL, but --csv requests CSV; use the matching format or a new --output"
-            )
-
-        if not self.use_csv and not first.startswith("{"):
-            raise ValueError(
-                "existing output is not JSONL (it may be CSV); use --csv for CSV or a new --output"
-            )
 
     @staticmethod
     def key(row):
@@ -229,10 +194,7 @@ class OutputJournal:
             self.save("output-path", len(self.records), metadata)
 
         record = display_record(row)
-        if self.use_csv:
-            self.writer.writerow({key: csv_value(value) for key, value in record.items()})
-        else:
-            self.stream.write(json.dumps(record, sort_keys = True, default = str) + "\n")
+        self.writer.writerow({key: csv_value(value) for key, value in record.items()})
 
         self.stream.flush()
         self.keys.add(key)
