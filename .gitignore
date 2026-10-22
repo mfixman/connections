@@ -261,6 +261,7 @@ fabric.properties
 .idea/caches/build_file_checksums.ser
 
 presentations
+presentations_old
 src/connections/Axioms
 
 dataset/
@@ -268,3 +269,8 @@ runs/
 results/
 .jupyter
 plots
+
+data/
+experiments/
+models/
+nohup.out
