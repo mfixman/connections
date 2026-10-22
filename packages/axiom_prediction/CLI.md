@@ -246,7 +246,13 @@ If an entire training batch has no axioms, no optimizer step is taken. Metrics
 without any labels are null.
 Parsing failures print the problem and diagnostic to stdout and set error to
 true. Use --output to keep saved CSV records separate from these messages.
-Unexpected search errors produce a nonzero command exit status.
+Per-file errors do not make a batch command fail if at least one file succeeds.
+`run` succeeds if at least one search finishes without an error, even without a
+proof; `collect` succeeds if at least one input is parseable. `predict` needs at
+least one parseable input, while `train` and `evaluate` need usable labelled
+examples and successful training or evaluation. All-input failures return nonzero,
+as do command-level errors such as invalid configuration or checkpoint failures.
+Resumed runs include previously saved results when determining exit status.
 
 Evaluate reports SAT-core label prediction, not improved theorem proving.
 Only successfully labelled problems contribute to these metrics. Use run on

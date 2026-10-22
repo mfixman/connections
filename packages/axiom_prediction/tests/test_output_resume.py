@@ -213,3 +213,19 @@ def test_run_resume_rejects_changed_model(tmp_path):
     first.close()
     with pytest.raises(ValueError, match = "different command/configuration"):
         open_journal(path, identity = {**identity, "model": "epoch-0002.pt"})
+
+@pytest.mark.parametrize("errors, expected", [([True, False], 0), ([True, True], 2), ([False], 0)])
+def test_run_exit_status_includes_saved_results(tmp_path, errors, expected):
+    path = tmp_path / "results.csv"
+    journal = open_journal(path)
+    for index, error in enumerate(errors):
+        journal.write({"problem": f"{index}.p", "error": error, "proved": False})
+
+    assert journal.exit_code() == expected
+    # Older completion markers treated any input error as a batch failure.
+    journal.finish(2)
+    journal.close()
+    journal = open_journal(path)
+    assert journal.complete()
+    assert journal.exit_code() == expected
+    journal.close()

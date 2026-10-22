@@ -81,3 +81,26 @@ def test_parse_failure_is_an_error_with_stdout_diagnostic(tmp_path, capfd):
     assert rows[0]["proved"] == "false"
     assert int(rows[0]["network_size"]) == 0
     assert "parseable" not in rows[0]
+
+def test_batch_exit_status_for_all_commands(tmp_path, tiny_problem_path):
+    broken = tmp_path / "broken.p"
+    broken.write_text("fof(broken, axiom, ).\n")
+    trained = tmp_path / "trained"
+    common = ["--num-workers", "1", "--no-wandb", "--device", "cpu"]
+    mixed = [str(broken), str(tiny_problem_path)]
+    training = ["--data-dir", str(trained), "--epochs", "1", "--network", "SmallFull", *common]
+    assert main(["train", *mixed, *training]) == 0
+    assert main(["train", str(broken), *training]) != 0
+
+    for command in ("run", "evaluate", "predict", "collect"):
+        if command == "collect":
+            options = ["--data-dir", str(tmp_path / "collection"), "--num-workers", "1"]
+        elif command == "predict":
+            options = ["--data-dir", str(trained), "--device", "cpu"]
+        else:
+            options = [*common, "--split", "1", "--parts", "0"]
+            if command == "evaluate":
+                options.extend(["--data-dir", str(trained)])
+
+        assert main([command, *mixed, *options]) == 0
+        assert main([command, str(broken), *options]) != 0
