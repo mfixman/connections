@@ -9,6 +9,7 @@ import json
 from pathlib import Path
 import re
 
+from .argument_overrides import parse_arguments
 from .models import available_models
 from .limits import default_collection_step_limit, default_collection_timeout_s, default_step_limit, default_timeout_s
 from .logs import log, monitor_progress
@@ -324,9 +325,8 @@ def add_device_argument(parser):
 
 @monitor_progress()
 def main(argv: list[str] | None = None) -> int:
-    args = build_parser().parse_args(argv)
+    args = parse_arguments(build_parser(), argv)
     identity = vars(args).copy()
-    identity["split_scheme"] = split_scheme
     if "timeout_s" in identity:
         identity["timeout_seconds"] = identity.pop("timeout_s")
 
@@ -398,7 +398,7 @@ def execute_command(args: argparse.Namespace) -> int:
                 summary = {**summary, "dataset_shard": str(shard)}
 
             write_record(summary)
-            return 0
+            return 1 if summary["problems_unparseable"] == summary["problems_requested"] else 0
 
         if args.command == "run":
             return run_command(args)
@@ -413,6 +413,7 @@ def execute_command(args: argparse.Namespace) -> int:
             evaluation_split = None if args.evaluate is None else ProblemSplit(
                 args.split,
                 list(args.evaluate),
+                scheme = args.split_scheme,
             )
 
             evaluation_problems = None
@@ -700,7 +701,7 @@ def run_command(args: argparse.Namespace) -> int:
     if tracker is not None:
         tracker.finish()
 
-    return 2 if any(result.get("error") for result in results) else 0
+    return 0 if any(not result.get("error") for result in results) else 2
 
 def run_model(args: argparse.Namespace) -> Path | None:
     if args.model is not None:
@@ -719,7 +720,7 @@ def run_model(args: argparse.Namespace) -> Path | None:
 
 def selected_split(args: argparse.Namespace) -> ProblemSplit:
     parts = list(range(args.split)) if args.parts is None else list(args.parts)
-    return ProblemSplit(args.split, parts)
+    return ProblemSplit(args.split, parts, scheme = args.split_scheme)
 
 def selected_problems(args: argparse.Namespace) -> list[str]:
     from .tptp import expand_problem_inputs, tptp_problems
@@ -802,12 +803,17 @@ def add_wandb_arguments(parser: argparse.ArgumentParser):
 
 def add_split_arguments(parser: argparse.ArgumentParser):
     parser.add_argument(
+        "--split-scheme", type = int, choices = (3, 4, 5), default = split_scheme,
+        help = "historical split algorithm (default: 5)",
+    )
+
+    parser.add_argument(
         "--split",
         "--splits",
         type = positive_int,
         default = 1,
         metavar = "N",
-        help = "partition problems into N parts by a stable hash of their problem prefix (e.g. ABC123)",
+        help = "partition problems into N parts using --split-scheme",
     )
 
     parser.add_argument(
