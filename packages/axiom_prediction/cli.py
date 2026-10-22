@@ -9,6 +9,7 @@ import json
 from pathlib import Path
 import re
 
+from .argument_overrides import parse_arguments
 from .models import available_models
 from .limits import default_collection_step_limit, default_collection_timeout_s, default_step_limit, default_timeout_s
 from .logs import log, monitor_progress
@@ -324,7 +325,7 @@ def add_device_argument(parser):
 
 @monitor_progress()
 def main(argv: list[str] | None = None) -> int:
-    args = build_parser().parse_args(argv)
+    args = parse_arguments(build_parser(), argv)
     identity = vars(args).copy()
     if "timeout_s" in identity:
         identity["timeout_seconds"] = identity.pop("timeout_s")
