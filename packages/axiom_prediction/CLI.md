@@ -8,7 +8,15 @@ python axiom_predictor.py COMMAND --help
 
 At startup, every command checks for `argument_override.json` in the current
 working directory. Its keys are option names without `--`; values override
-explicit command-line options and defaults. For example:
+explicit command-line options and defaults. If the command line includes
+`--run-name NAME` (or `--run-name=NAME`), it also checks
+`argument_override_NAME.json` in the current working directory. The named file
+works even when the global file is absent. When both exist, global overrides
+apply first and named overrides take precedence, including across option aliases.
+The filename uses the last command-line run name, before any overrides; changing
+`run-name` inside a JSON file does not select another file.
+
+For example:
 
 ```json
 {

@@ -7,23 +7,31 @@ from .logs import log
 
 def parse_arguments(parser, argv = None):
     argv = list(sys.argv[1:] if argv is None else argv)
-    path = Path("argument_override.json")
-    if not path.exists() or not argv or any(flag in argv for flag in ("-h", "--help")):
+    if not argv or any(flag in argv for flag in ("-h", "--help")):
         return parser.parse_args(argv)
 
-    try:
-        overrides = json.loads(path.read_text())
-        if not isinstance(overrides, dict):
-            raise ValueError("expected a JSON object")
+    subparsers = next(action for action in parser._actions if isinstance(action, argparse._SubParsersAction))
+    command = subparsers.choices.get(argv[0])
+    if command is None:
+        return parser.parse_args(argv)
 
-        subparsers = next(action for action in parser._actions if isinstance(action, argparse._SubParsersAction))
-        command = subparsers.choices.get(argv[0])
-        if command is None:
-            return parser.parse_args(argv)
+    values = []
+    applied_paths = []
+    for path in override_paths(argv[1:]):
+        if not path.exists():
+            continue
 
-        values = override_values(command, overrides)
-    except (OSError, ValueError, argparse.ArgumentTypeError) as error:
-        parser.error(f"{path}: {error}")
+        try:
+            overrides = json.loads(path.read_text())
+            if not isinstance(overrides, dict):
+                raise ValueError("expected a JSON object")
+
+            values.extend(override_values(command, overrides))
+        except (OSError, ValueError, argparse.ArgumentTypeError) as error:
+            parser.error(f"{path}: {error}")
+
+        if overrides:
+            applied_paths.append(path)
 
     for action, value in values:
         if value is not None:
@@ -39,10 +47,20 @@ def parse_arguments(parser, argv = None):
 
         setattr(args, action.dest, value)
 
-    if overrides:
+    for path in applied_paths:
         log(f"axiom-predictor: applying argument overrides from {path.resolve()}")
 
     return args
+
+def override_paths(argv):
+    selector = argparse.ArgumentParser(add_help = False, allow_abbrev = False)
+    selector.add_argument("--run-name")
+    args, _ = selector.parse_known_args(argv)
+    paths = [Path("argument_override.json")]
+    if args.run_name is not None:
+        paths.append(Path(f"argument_override_{args.run_name}.json"))
+
+    return paths
 
 def override_values(command, overrides):
     options = {
