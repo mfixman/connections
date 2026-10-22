@@ -1,10 +1,13 @@
 import csv
 import io
 
+import pytest
+
 from axiom_prediction.cli import main
 from axiom_prediction.split import ProblemSplit
 
-def test_all_commands_emit_parseable_records(tmp_path, tiny_problem_path, capsys):
+@pytest.mark.parametrize("scheme", [3, 4, 5])
+def test_all_commands_emit_parseable_records(tmp_path, tiny_problem_path, capsys, scheme):
     dataset = tmp_path / "dataset"
     trained = tmp_path / "trained"
     common = ["--num-workers", "1", "--no-wandb", "--device", "cpu"]
@@ -22,8 +25,9 @@ def test_all_commands_emit_parseable_records(tmp_path, tiny_problem_path, capsys
     ]
 
     for command in commands:
+        command.extend(["--split-scheme", str(scheme)])
         if command[0] in ("evaluate", "run"):
-            part = ProblemSplit(10, [8, 9]).part(tiny_problem_path)
+            part = ProblemSplit(10, [8, 9], scheme).part(tiny_problem_path)
             command.extend(["--split", "10", "--parts", str(part)])
 
         assert main(command) == 0
