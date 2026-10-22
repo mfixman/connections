@@ -41,7 +41,7 @@ from .model import (
 
 from .parallel import determine_worker_count
 from .models import load_model_class
-from .split import split_scheme, ProblemSplit
+from .split import ProblemSplit
 from .limits import default_step_limit, default_timeout_s
 from .wandb_tracking import WandbConfig, WandbTracker
 from .resume import check_training_target, dataset_fingerprint, next_training_run, restore_training, snapshot_training
@@ -238,6 +238,7 @@ def train_axiom_predictor(
     check_training_target(output_dir, resume)
     if evaluation_split is not None and (
         split.split != evaluation_split.split
+        or split.scheme != evaluation_split.scheme
         or set(split.parts) & set(evaluation_split.parts)
     ):
         raise ValueError("evaluation parts must use the training split and not overlap --parts")
@@ -883,15 +884,20 @@ def warn_on_training_overlap(training_config: Mapping[str, Any], split: ProblemS
     trained_split = ProblemSplit(
         int(trained.get("split", 1)),
         list(map(int, trained.get("parts", (0,)))),
+        scheme = trained.get("scheme") if trained.get("scheme") in (3, 4, 5) else split.scheme,
     )
 
-    if not trained_split.is_everything() and trained.get("scheme") != split_scheme:
+    if not trained_split.is_everything() and trained.get("scheme") != split.scheme:
         log_message(
-            f"warning: the checkpoint was trained on {trained_split.describe()} with an older split hash; its parts are not the parts this version selects, so problems may overlap"
+            f"warning: checkpoint split scheme {trained.get('scheme')!r} differs from evaluation scheme {split.scheme}; problems may overlap"
         )
     elif trained_split.is_everything():
         log_message(
             "warning: the checkpoint was trained on every problem of its dataset; metrics on problems from that dataset are not held-out"
+        )
+    elif split.scheme != 5 and trained_split.split != split.split:
+        log_message(
+            "warning: legacy split hashes depend on the number of parts; problems may overlap"
         )
     elif any(
         (train_part - eval_part) % math.gcd(trained_split.split, split.split) == 0

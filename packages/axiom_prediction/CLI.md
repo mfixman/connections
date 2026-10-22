@@ -36,6 +36,7 @@ with --model or --data-dir and supply only problem paths.
 | `--model-name NAME` | train, evaluate, predict, run | Optional saved-run name: use DATA_DIR/models/NAME rather than DATA_DIR/model. Separate from the network implementation. Existing checkpoints require --resume. |
 | `--resume` | train | Continue the selected checkpoint, restoring optimizer and RNG state. Requires the same data and training configuration; --epochs is the total target, not additional epochs. Older checkpoints without training state cannot resume. |
 | `--tptp PATH` | All | Optional explicit corpus root. Otherwise discover it as described below. |
+| `--split-scheme S` | All | **5**. Choose historical scheme 3, 4, or 5 (details below). |
 | `--split N` | All | **1**. Partition by a stable hash of the problem prefix, such as `ABC123`; variants stay together. |
 | `--parts P ...`, `--part P ...` | All | All parts. Select zero-based parts. Keep training/validation/test parts disjoint with the same N. |
 | `--evaluate PART ...` | train | Score these held-out parts during training, e.g. `--split 10 --parts 0 1 2 3 4 5 6 7 --evaluate 8`. Overlapping or empty evaluation selections fail. |
@@ -275,6 +276,19 @@ new run. Every epoch's checkpoint is retained locally; `model.ts` selects the
 latest epoch for prediction and resuming. W&B uploads the final model.
 These are prediction metrics, not guided proof-search success rates.
 
+Choose `--split-scheme 3`, `4`, or `5` on any command (default: **5**).
+
+| Scheme | Problem key | Hash |
+| --- | --- | --- |
+| 3 | TPTP prefix (e.g. `ABC123`); otherwise filename stem | BLAKE2b of `N\0key`, 8-byte digest, personalization `lcsplit` |
+| 4 | As 3, but Mizar names use the article before `__` | Same as 3 |
+| 5 | Same as 4 | MD5 of the key only |
+
+All schemes interpret the full digest as a big-endian integer modulo `--split N`.
+Schemes 3 and 4 reproduce their historical assignments; changing N rehashes the
+inputs, so subdividing a part does not preserve membership. Use the same scheme
+and partition count for training and held-out evaluation.
+
 Split scheme 5 hashes only the **problem key** with MD5, interprets the full
 digest as a big-endian integer, and takes its remainder modulo `--split N`.
 The key is the TPTP prefix (e.g. `ABC123`), the Mizar article name before
@@ -282,7 +296,7 @@ The key is the TPTP prefix (e.g. `ABC123`), the Mizar article name before
 Thus `--split 20 --parts 9 19` selects exactly the same problems as
 `--split 10 --parts 9`; variants of a problem stay together.
 This changes assignments from older split schemes. Evaluation warns about
-older checkpoints, and existing output files cannot resume across schemes.
+checkpoints with different or unknown schemes, and existing output files cannot resume across schemes.
 
 ## Parallel run and evaluate on one GPU
 

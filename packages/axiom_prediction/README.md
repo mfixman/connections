@@ -129,6 +129,19 @@ a different `--policy` fails; collect a separate dataset to change labels.
 Run and evaluate inherit the checkpoint's label policy; conflicting explicit
 policies are rejected.
 
+Choose `--split-scheme 3`, `4`, or `5` on any command (default: **5**).
+
+| Scheme | Problem key | Hash |
+| --- | --- | --- |
+| 3 | TPTP prefix (e.g. `ABC123`); otherwise filename stem | BLAKE2b of `N\0key`, 8-byte digest, personalization `lcsplit` |
+| 4 | As 3, but Mizar names use the article before `__` | Same as 3 |
+| 5 | Same as 4 | MD5 of the key only |
+
+All schemes interpret the full digest as a big-endian integer modulo `--split N`.
+Schemes 3 and 4 reproduce their historical assignments; changing N rehashes the
+inputs, so subdividing a part does not preserve membership. Use the same scheme
+and partition count for training and held-out evaluation.
+
 Split scheme 5 hashes only the **problem key** with MD5, interprets the full
 digest as a big-endian integer, and takes its remainder modulo `--split N`.
 The key is the TPTP prefix (e.g. `ABC123`), the Mizar article name before
@@ -136,7 +149,7 @@ The key is the TPTP prefix (e.g. `ABC123`), the Mizar article name before
 Thus `--split 20 --parts 9 19` selects exactly the same problems as
 `--split 10 --parts 9`; variants of a problem stay together.
 This changes assignments from older split schemes. Evaluation warns about
-older checkpoints, and existing output files cannot resume across schemes.
+checkpoints with different or unknown schemes, and existing output files cannot resume across schemes.
 The trainer saves a checkpoint after every epoch, independently of logging,
 including optimizer/RNG state. It has no validation-based early stopping.
 For example, repeat the same training command with `--resume --epochs 200`

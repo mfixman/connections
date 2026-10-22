@@ -48,10 +48,12 @@ def test_journal_refuses_mixed_configuration_and_concurrent_writers(tmp_path):
     with pytest.raises(ValueError, match = "different command"):
         open_journal(path, identity = {"command": "different"})
 
+@pytest.mark.parametrize("scheme", [3, 4, 5])
 def test_run_cli_resumes_only_unfinished_and_keeps_summary_totals(
     tmp_path,
     monkeypatch,
     capsys,
+    scheme,
 ):
     from axiom_prediction import cli, run
 
@@ -65,7 +67,7 @@ def test_run_cli_resumes_only_unfinished_and_keeps_summary_totals(
         raise KeyboardInterrupt()
 
     monkeypatch.setattr(run, "run_problems", interrupted)
-    args = ["run", "--output", str(path), "--no-wandb", "--device", "cpu"]
+    args = ["run", "--output", str(path), "--no-wandb", "--device", "cpu", "--split-scheme", str(scheme)]
 
     with pytest.raises(KeyboardInterrupt):
         cli.main(args)
@@ -93,8 +95,8 @@ def test_run_cli_resumes_only_unfinished_and_keeps_summary_totals(
     assert len(calls) == 2
     assert capsys.readouterr().out == ""
 
-    monkeypatch.setattr(cli, "split_scheme", cli.split_scheme + 1)
-    assert cli.main(args) == 2
+    other_scheme = 4 if scheme == 5 else 5
+    assert cli.main([*args, "--split-scheme", str(other_scheme)]) == 2
     assert path.read_text() == contents
     assert len(calls) == 2
 
