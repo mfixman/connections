@@ -4,6 +4,34 @@
 python axiom_predictor.py COMMAND --help
 ```
 
+## Argument overrides
+
+At startup, every command checks for `argument_override.json` in the current
+working directory. Its keys are option names without `--`; values override
+explicit command-line options and defaults. For example:
+
+```json
+{
+  "split-scheme": 3,
+  "split": 5
+}
+```
+
+With this file, `python axiom_predictor.py run --split 10` uses scheme 3 and
+5 parts. Use valid JSON with double quotes and no trailing commas.
+Use arrays for options such as `"parts": [1, 3]`, booleans for flags such as
+`"multiprocess": true` or `"no-wandb": true`, and strings for paths. A false
+boolean disables that flag; `null` clears an optional value. Required options
+such as training's `data-dir` may be supplied by the file.
+
+Overrides use the selected command's option types and choices. Unknown options,
+invalid values, duplicate aliases, and mutually exclusive override keys fail
+before execution. An enabled override replaces a conflicting CLI option (for
+example, `"cpu": true` overrides `--device cuda`). Positional inputs and the
+command itself still come from the command line. Help bypasses the file.
+Saved run configurations and checkpoint metadata use the effective arguments;
+changing overrides cannot bypass resume compatibility checks.
+
 ## Commands
 
 | Command | Purpose |
