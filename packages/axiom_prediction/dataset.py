@@ -482,7 +482,7 @@ def load_axiom_dataset(
     if root.is_file():
         return load_axiom_dataset_shards((root,), dataset_path = root)
 
-    shards = sorted(root.glob("*.csv"))
+    shards = sorted(root.glob("*.csv")) or sorted(root.glob("*.jsonl"))
     if shards:
         if (root / "metadata.json").exists() or (root / "examples").exists():
             raise ValueError(
@@ -521,6 +521,15 @@ def load_axiom_dataset(
 
     return examples, failures, metadata
 
+def read_dataset_rows(path):
+    if path.suffix == ".jsonl":
+        with path.open() as stream:
+            yield from map(json.loads, filter(str.strip, stream))
+
+        return
+
+    yield from read_csv(path)
+
 def load_axiom_dataset_shards(
     shards: Sequence[Path],
     *,
@@ -532,7 +541,7 @@ def load_axiom_dataset_shards(
     shard_collections: dict[str, dict[str, Any]] = {}
 
     for shard in track_progress(shards, "loading dataset shards", len(shards)):
-        rows = iter(read_csv(shard))
+        rows = iter(read_dataset_rows(shard))
         try:
             header = next(rows)
         except StopIteration:
