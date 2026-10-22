@@ -48,10 +48,12 @@ def test_journal_refuses_mixed_configuration_and_concurrent_writers(tmp_path):
     with pytest.raises(ValueError, match = "different command"):
         open_journal(path, identity = {"command": "different"})
 
+@pytest.mark.parametrize("scheme", [3, 4, 5])
 def test_run_cli_resumes_only_unfinished_and_keeps_summary_totals(
     tmp_path,
     monkeypatch,
     capsys,
+    scheme,
 ):
     from axiom_prediction import cli, run
 
@@ -65,7 +67,7 @@ def test_run_cli_resumes_only_unfinished_and_keeps_summary_totals(
         raise KeyboardInterrupt()
 
     monkeypatch.setattr(run, "run_problems", interrupted)
-    args = ["run", "--output", str(path), "--no-wandb", "--device", "cpu"]
+    args = ["run", "--output", str(path), "--no-wandb", "--device", "cpu", "--split-scheme", str(scheme)]
 
     with pytest.raises(KeyboardInterrupt):
         cli.main(args)
@@ -93,8 +95,8 @@ def test_run_cli_resumes_only_unfinished_and_keeps_summary_totals(
     assert len(calls) == 2
     assert capsys.readouterr().out == ""
 
-    monkeypatch.setattr(cli, "split_scheme", cli.split_scheme + 1)
-    assert cli.main(args) == 2
+    other_scheme = 4 if scheme == 5 else 5
+    assert cli.main([*args, "--split-scheme", str(other_scheme)]) == 2
     assert path.read_text() == contents
     assert len(calls) == 2
 
@@ -213,3 +215,19 @@ def test_run_resume_rejects_changed_model(tmp_path):
     first.close()
     with pytest.raises(ValueError, match = "different command/configuration"):
         open_journal(path, identity = {**identity, "model": "epoch-0002.pt"})
+
+@pytest.mark.parametrize("errors, expected", [([True, False], 0), ([True, True], 2), ([False], 0)])
+def test_run_exit_status_includes_saved_results(tmp_path, errors, expected):
+    path = tmp_path / "results.csv"
+    journal = open_journal(path)
+    for index, error in enumerate(errors):
+        journal.write({"problem": f"{index}.p", "error": error, "proved": False})
+
+    assert journal.exit_code() == expected
+    # Older completion markers treated any input error as a batch failure.
+    journal.finish(2)
+    journal.close()
+    journal = open_journal(path)
+    assert journal.complete()
+    assert journal.exit_code() == expected
+    journal.close()

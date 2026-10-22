@@ -11,14 +11,19 @@ split_scheme = 5
 class ProblemSplit:
     split: int
     parts: list[int]
+    scheme: int
 
-    def __init__(self, split: int = 1, parts: list[int] | None = None):
+    def __init__(self, split: int = 1, parts: list[int] | None = None, scheme: int = split_scheme):
         self.split = split
         self.parts = [0] if parts is None else parts
+        self.scheme = scheme
 
         self.validate()
 
     def validate(self):
+        if self.scheme not in (3, 4, 5):
+            raise ValueError("--split-scheme must be one of 3, 4, 5")
+
         if self.split < 1:
             raise ValueError("--split must be at least 1")
 
@@ -44,7 +49,15 @@ class ProblemSplit:
         if self.split == 1:
             return 0
 
-        digest = hashlib.md5(split_key(problem).encode("utf-8"), usedforsecurity = False).digest()
+        key = split_key(problem, self.scheme)
+        if self.scheme == 5:
+            digest = hashlib.md5(key.encode("utf-8"), usedforsecurity = False).digest()
+        else:
+            digest = hashlib.blake2b(
+                f"{self.split}\0{key}".encode("utf-8"),
+                digest_size = 8,
+                person = b"lcsplit",
+            ).digest()
 
         return int.from_bytes(digest, "big") % self.split
 
@@ -58,16 +71,16 @@ class ProblemSplit:
         if self.is_everything():
             return "every problem"
 
-        return f"part{'s' if len(self.parts) > 1 else ''} {' '.join(map(str, self.parts))} of {self.split} (by problem prefix)"
+        return f"part{'s' if len(self.parts) > 1 else ''} {' '.join(map(str, self.parts))} of {self.split} (scheme {self.scheme})"
 
     def to_dict(self) -> dict[str, object]:
         return {
             "split": self.split,
             "parts": list(self.parts),
-            "scheme": split_scheme,
+            "scheme": self.scheme,
         }
 
-def split_key(problem: str | Path) -> str:
+def split_key(problem: str | Path, scheme = split_scheme) -> str:
     tptp_name = re.compile(r"[A-Z]{3}\d{3}")
 
     name = Path(problem).stem
@@ -75,4 +88,4 @@ def split_key(problem: str | Path) -> str:
     if match:
         return match.group()
 
-    return name.split("__", 1)[0] if "__" in name else name
+    return name.split("__", 1)[0] if scheme >= 4 else name
