@@ -158,14 +158,13 @@ class OutputJournal:
         return completion["output_bytes"] == self.path.stat().st_size
 
     def exit_code(self):
+        if self.command == "run":
+            return 0 if any(not row.get("error") for row in self.records) else 2
+
         if self.complete():
             return json.loads((self.directory / "completion.json").read_text())["exit_code"]
 
-        return (
-            2
-            if self.command == "run" and any(row.get("error") for row in self.records)
-            else 0
-        )
+        return 0
 
     def finish(self, exit_code):
         self.stream.flush()

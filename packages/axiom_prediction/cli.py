@@ -398,7 +398,7 @@ def execute_command(args: argparse.Namespace) -> int:
                 summary = {**summary, "dataset_shard": str(shard)}
 
             write_record(summary)
-            return 0
+            return 1 if summary["problems_unparseable"] == summary["problems_requested"] else 0
 
         if args.command == "run":
             return run_command(args)
@@ -700,7 +700,7 @@ def run_command(args: argparse.Namespace) -> int:
     if tracker is not None:
         tracker.finish()
 
-    return 2 if any(result.get("error") for result in results) else 0
+    return 0 if any(not result.get("error") for result in results) else 2
 
 def run_model(args: argparse.Namespace) -> Path | None:
     if args.model is not None:
