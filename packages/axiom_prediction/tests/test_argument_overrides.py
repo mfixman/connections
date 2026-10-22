@@ -87,7 +87,11 @@ def test_invalid_overrides_fail_before_execution(override_file, monkeypatch, tex
     assert error.value.code == 2
     assert "argument_override.json" in capsys.readouterr().err
 
-def test_main_uses_overrides_for_execution_and_resume(override_file, monkeypatch):
+@pytest.mark.parametrize("name", [None, "trial"])
+def test_main_uses_overrides_for_execution_and_resume(override_file, monkeypatch, name):
+    if name is not None:
+        override_file = override_file.with_name(f"argument_override_{name}.json")
+
     override_file.write_text(json.dumps({"split-scheme": 3, "split": 5}))
     calls = []
     def execute(args):
@@ -98,6 +102,9 @@ def test_main_uses_overrides_for_execution_and_resume(override_file, monkeypatch
 
     monkeypatch.setattr(cli, "execute_command", execute)
     args = ["run", "--split", "10", "--output", "result.csv"]
+    if name is not None:
+        args.extend(["--run-name", name])
+
     assert cli.main(args) == 0
     assert calls == [{"split": 5, "parts": list(range(5)), "scheme": 3}]
     config = json.loads(Path("result.csv.resume/config.json").read_text())
@@ -114,3 +121,49 @@ def test_help_works_with_invalid_override_file(override_file):
         parse(["run", "--help"])
 
     assert error.value.code == 0
+
+@pytest.mark.parametrize("command", ["run", "train", "evaluate"])
+@pytest.mark.parametrize("name_args", [["--run-name", "trial"], ["--run-name=trial"]])
+def test_named_file_without_global_file(override_file, command, name_args):
+    named = override_file.with_name("argument_override_trial.json")
+    named.write_text(json.dumps({"split-scheme": 3, "split": 5}))
+    argv = [command, *name_args, "--split", "10"]
+    if command == "train":
+        argv.extend(["--data-dir", "training"])
+
+    args = parse(argv)
+    assert args.run_name == "trial"
+    assert args.split_scheme == 3 and args.split == 5
+    assert not override_file.exists()
+
+def test_named_file_overrides_global_aliases_and_conflicting_flags(override_file):
+    override_file.write_text(json.dumps({"split": 10, "split-scheme": 3, "cpu": True, "sine": True}))
+    override_file.with_name("argument_override_trial.json").write_text(json.dumps({
+        "splits": 5, "device": "auto", "model": "model.ts",
+    }))
+    args = parse(["run", "--run-name", "trial", "--split", "20"])
+    assert args.split == 5 and args.split_scheme == 3
+    assert args.device == "auto"
+    assert args.model == Path("model.ts") and not args.sine
+
+@pytest.mark.parametrize("name_args", [[], ["--run-name", "other"], ["--", "--run-name", "trial"]])
+def test_nonmatching_named_file_is_ignored(override_file, name_args):
+    override_file.with_name("argument_override_trial.json").write_text("invalid json")
+    assert parse(["run", *name_args]).split == 1
+
+def test_name_selection_uses_last_cli_name_not_override_name(override_file):
+    override_file.write_text(json.dumps({"run-name": "renamed"}))
+    override_file.with_name("argument_override_first.json").write_text("invalid json")
+    override_file.with_name("argument_override_renamed.json").write_text("invalid json")
+    override_file.with_name("argument_override_trial.json").write_text('{"split": 5}')
+    args = parse(["run", "--run-name", "first", "--run-name", "trial"])
+    assert args.split == 5 and args.run_name == "renamed"
+
+@pytest.mark.parametrize("text", ["invalid json", "[]", '{"split": 0}'])
+def test_invalid_named_file_reports_its_path(override_file, text, capsys):
+    override_file.with_name("argument_override_trial.json").write_text(text)
+    with pytest.raises(SystemExit) as error:
+        parse(["run", "--run-name", "trial"])
+
+    assert error.value.code == 2
+    assert "argument_override_trial.json" in capsys.readouterr().err
