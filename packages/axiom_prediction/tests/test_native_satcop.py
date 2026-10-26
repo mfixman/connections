@@ -3,7 +3,8 @@ import json
 import pytest
 
 from axiom_prediction.data import axiom_training_example_from_json
-from axiom_prediction.dataset import collection_settings, load_axiom_dataset
+from axiom_prediction.dataset import collection_settings, dataset_fields, load_axiom_dataset
+from axiom_prediction.io import read_csv, write_csv
 from axiom_prediction.satcop import convert_example, convert_exports, expand_matrix
 from axiom_prediction.satcop_dump import parse_dump, rust_string, symbol_name
 from axiom_prediction.training import label_policy
@@ -70,7 +71,7 @@ def test_native_labels_use_matrix_ids_and_preserve_symbol_identity(native_export
     assert provenance["disequations"]["0"] == native_export["matrix"]["clauses"][0]["disequations"]
     assert len(provenance["matrix_sha256"]) == 64
 
-def test_native_csv_is_trainable_and_duplicate_exports_fail_atomically(native_export, tmp_path):
+def test_native_csv_is_trainable_and_repeated_exports_have_no_extra_weight(native_export, tmp_path):
     export = tmp_path / "proof.json"
     export.write_text(json.dumps(native_export))
     output = tmp_path / "dataset.csv"
@@ -84,10 +85,29 @@ def test_native_csv_is_trainable_and_duplicate_exports_fail_atomically(native_ex
         convert_exports([export], output)
 
     duplicate = tmp_path / "duplicate.csv"
-    with pytest.raises(ValueError, match = "multiple exports"):
-        convert_exports([export, export], duplicate)
+    assert convert_exports([export, export], duplicate) == 2
+    examples, failures, _ = load_axiom_dataset(duplicate)
+    assert len(examples) == 1
+    assert examples[0].labels == [1, 0]
+    assert failures == []
 
-    assert not duplicate.exists()
+    alternative = tmp_path / "alternative.json"
+    native_export.update(seed = 9, core_clause_ids = [1, 2])
+    alternative.write_text(json.dumps(native_export))
+    mixed = tmp_path / "mixed.csv"
+    assert convert_exports([export, export, alternative], mixed) == 3
+    examples, _, _ = load_axiom_dataset(mixed)
+    assert [example.labels for example in examples] == [[1, 0], [0, 1]]
+
+    for path, seed in [(output, 3), (mixed, 9)]:
+        rows = list(read_csv(path))
+        rows[0]["collection"]["seed"] = seed
+        write_csv(path, rows, dataset_fields)
+
+    examples, _, metadata = load_axiom_dataset(tmp_path)
+    assert len(examples) == 2
+    assert metadata["collection"]["prover_backend"] == "rust-satcop"
+    assert label_policy(None, metadata) == ProverPolicy.SatCoP
 
 def test_historical_satcop_metadata_selects_python_policy():
     assert label_policy(None, {"collection": {"sat_policy": "satcop"}}) == ProverPolicy.SatCoPCon
