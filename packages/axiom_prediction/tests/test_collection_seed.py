@@ -1,11 +1,11 @@
 import csv
 import io
-import json
 
 import pytest
 
 from axiom_prediction.cli import main
-from axiom_prediction.dataset import load_axiom_dataset
+from axiom_prediction.dataset import dataset_fields, load_axiom_dataset
+from axiom_prediction.io import read_csv, write_csv
 from axiom_prediction.tptp import collect_proof_example
 
 @pytest.mark.parametrize("policy", ["satresetcop", "satcopcon"])
@@ -36,10 +36,10 @@ def test_collection_seed_changes_labels_and_protects_resume(tmp_path, policy, ca
     capsys.readouterr()
 
     output = tmp_path / "default"
-    metadata_path = output / ".cache/problems/metadata.json"
-    metadata = json.loads(metadata_path.read_text())
-    metadata["collection"].pop("seed")
-    metadata_path.write_text(json.dumps(metadata))
+    cache = output / ".cache/problems/cache.csv"
+    rows = list(read_csv(cache))
+    rows[0]["collection"].pop("seed")
+    write_csv(cache, rows, dataset_fields)
 
     assert main([*common, "--dataset", str(output), "--seed", "0"]) == 0
     summary = next(csv.DictReader(io.StringIO(capsys.readouterr().out)))

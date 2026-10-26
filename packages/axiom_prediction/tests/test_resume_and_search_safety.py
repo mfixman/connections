@@ -187,10 +187,13 @@ def test_resume_matches_uninterrupted_training_and_rejects_damage(
     assert (resumed / "model.ts").read_bytes() == before
     assert not (resumed / "epoch-0004.ts").exists()
 
-    record = next((dataset / "examples").glob("*.json"))
-    payload = json.loads(record.read_text())
-    payload["labels"][0] = 1 - payload["labels"][0]
-    record.write_text(json.dumps(payload))
+    from axiom_prediction.dataset import dataset_fields
+    from axiom_prediction.io import read_csv, write_csv
+
+    record = dataset / "cache.csv"
+    rows = list(read_csv(record))
+    rows[1]["labels"][0] = 1 - rows[1]["labels"][0]
+    write_csv(record, rows, dataset_fields)
     with pytest.raises(ValueError, match = "same data and configuration"):
         train_axiom_predictor(
             output_dir = resumed,
@@ -275,7 +278,7 @@ def test_supervisor_terminates_unresponsive_workers(tmp_path, monkeypatch):
     assert marker.exists(), "worker must enter the hanging function before timing out"
     assert results[0].outcome == "Timeout"
 
-    monkeypatch.setattr(dataset, "collect_one_problem_to_partial", ignores_alarm)
+    monkeypatch.setattr(dataset, "collect_one_problem_record", ignores_alarm)
     output = tmp_path / "dataset"
     summary = dataset.collect_axiom_dataset(
         [str(tmp_path / "record")],
@@ -284,8 +287,9 @@ def test_supervisor_terminates_unresponsive_workers(tmp_path, monkeypatch):
     )
 
     assert summary["problems_failed"] == 1
-    failure = next((output / "failures").glob("*.json"))
-    assert json.loads(failure.read_text())["outcome"] == "Timeout"
+    from axiom_prediction.io import read_csv
+
+    assert list(read_csv(output / "cache.csv"))[1]["outcome"] == "Timeout"
     assert {child.pid for child in mp.active_children()} == before
 
 def test_policy_inheritance_and_fresh_evaluation(

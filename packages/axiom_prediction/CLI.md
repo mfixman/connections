@@ -98,8 +98,12 @@ CLI options.
 
 With --dataset, collect writes CATEGORY.csv for a single category/directory,
 or problems.csv for explicit files, multiple inputs, or the default corpus.
-Resumable intermediate records live in PATH/.cache. Do not run simultaneous
-collectors writing the same shard; finish collection before training readers.
+Resumable intermediate records append to PATH/.cache/CATEGORY/cache.csv (or
+PATH/.cache/problems/cache.csv). One file holds settings, successes and failures.
+Old per-problem JSON caches, including partial results, are imported automatically
+when resuming; no extra option is needed, and the old files are preserved.
+Do not run simultaneous collectors writing the same shard; finish collection
+before training readers.
 Legacy dataset directories and individual CSV shards are readable. Dataset CSV cells
 contain JSON-encoded values, preserving graphs, labels, strings, and nulls exactly.
 Empty cells represent absent fields.
