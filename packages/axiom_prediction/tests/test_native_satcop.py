@@ -4,7 +4,7 @@ import pytest
 
 from axiom_prediction.data import axiom_training_example_from_json
 from axiom_prediction.dataset import collection_settings, load_axiom_dataset
-from axiom_prediction.satcop import convert_example, convert_exports
+from axiom_prediction.satcop import convert_example, convert_exports, expand_matrix
 from axiom_prediction.training import label_policy
 from axiom_prediction.choices import ProverPolicy
 
@@ -123,3 +123,33 @@ def test_native_export_rejects_unproved_or_wrong_matrix_core(native_export, tmp_
     native_export["core_clause_ids"] = [999]
     with pytest.raises(ValueError, match = "out-of-matrix"):
         convert_example(native_export, tmp_path / "export.json")
+
+def test_compact_tables_reconstruct_terms_scopes_and_sources(native_export, tmp_path):
+    tables = {
+        "symbols": [["sG", 0, False], ["sPE", 2, True], ["p", 1, True], ["f", 1, False], ["a", 0, False]],
+        "terms": [0, 4, 3, 0, 2, 2, 3, 1, 2, 6, -1, 1, 10, 10],
+        "literals": [[1, 4], [0, 8], [1, 11]],
+        "disequations": [[0, 1]],
+        "clauses": [[1, 0, 1, 0, 1, 0], [0, 1, 2, 1, 1, 1], [2, 2, 3, 1, 1, 0]],
+        "sources": [["'example.p'", "a"], ["'example.p'", "c"], None],
+        "start_clause_ids": [1],
+        "have_conjecture": True,
+        "grounding_constant": 4,
+    }
+    matrix = expand_matrix(tables)
+    variable = {"variable": 0}
+    constant = {"symbol": 4, "args": []}
+    assert matrix["clauses"][0]["literals"][0]["atom"] == {
+        "symbol": 2, "args": [{"symbol": 3, "args": [variable]}],
+    }
+    assert matrix["clauses"][0]["disequations"] == [[variable, constant]]
+    assert matrix["clauses"][1]["literals"][0]["atom"] == {
+        "symbol": 2, "args": [{"symbol": 3, "args": [constant]}],
+    }
+    assert matrix["clauses"][2]["source"] == {"kind": "equality"}
+    assert matrix["clauses"][2]["literals"][0]["atom"]["args"] == [{"variable": 1}] * 2
+    payload = {**native_export, "schema": "satcop.collection.v2", "matrix": tables, "core_clause_ids": [0, 1]}
+    example = convert_example(payload, tmp_path / "export.json")
+    assert example["axiom_clause_ids"] == [0, 2]
+    assert example["conjecture_clause_ids"] == [1]
+    assert example["labels"] == [1, 0]
