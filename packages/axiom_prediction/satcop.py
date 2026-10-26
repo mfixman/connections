@@ -1,6 +1,7 @@
 # Convert native SATCoP matrices and PicoSAT cores into training CSV shards.
 
 import argparse
+from functools import cache
 import hashlib
 import json
 import math
@@ -25,8 +26,55 @@ from axiom_prediction.dataset import axiom_dataset_shard_schema, dataset_fields
 from axiom_prediction.io import write_csv
 from axiom_prediction.logs import log
 
-export_schema = "satcop.collection.v1"
+export_schema = "satcop.collection.v2"
 label_semantics = "native SATCoP PicoSAT clause-core membership projected to matrix clauses"
+
+def expand_matrix(tables):
+    @cache
+    def term(index):
+        value = tables["terms"][index]
+        if value <= 0:
+            return {"variable": -value}
+
+        return {
+            "symbol": value,
+            "args": [
+                term(tables["terms"][index + position + 1])
+                for position in range(tables["symbols"][value][1])
+            ],
+        }
+
+    clauses = []
+    for row, source in zip(tables["clauses"], tables["sources"], strict = True):
+        variables, lit_start, lit_stop, diseq_start, diseq_stop, goal = row
+        clauses.append(
+            {
+                "variables": variables,
+                "is_goal": bool(goal),
+                "source": {"kind": "equality"} if source is None else {
+                    "kind": "input", "path": source[0], "name": source[1],
+                },
+                "literals": [
+                    {"positive": bool(positive), "atom": term(atom)}
+                    for positive, atom in tables["literals"][lit_start:lit_stop]
+                ],
+                "disequations": [
+                    [term(left), term(right)]
+                    for left, right in tables["disequations"][diseq_start:diseq_stop]
+                ],
+            }
+        )
+
+    return {
+        "symbols": [
+            {"name": name, "arity": arity, "predicate": predicate}
+            for name, arity, predicate in tables["symbols"]
+        ],
+        "clauses": clauses,
+        "start_clause_ids": tables["start_clause_ids"],
+        "have_conjecture": tables["have_conjecture"],
+        "grounding_constant": tables["grounding_constant"],
+    }
 
 def binary_identity(binary):
     with Path(binary).open("rb") as stream:
@@ -161,13 +209,15 @@ def decode_clause(value, symbols, index):
 
 @deep_recursion()
 def convert_example(payload, path):
-    if payload.get("schema") != export_schema:
+    if payload.get("schema") not in (export_schema, "satcop.collection.v1"):
         raise ValueError(f"unsupported SATCoP export schema in {path}")
 
     if payload.get("status") not in ("Theorem", "Unsatisfiable"):
         raise ValueError(f"SATCoP export has no successful refutation: {path}")
 
     native = payload["matrix"]
+    if payload["schema"] == export_schema:
+        native = expand_matrix(native)
     # Native IDs distinguish generated and input symbols even if their names collide.
     symbols = [f"{index}:{symbol['name']}" for index, symbol in enumerate(native["symbols"])]
     clauses = tuple(
@@ -229,7 +279,7 @@ def convert_exports(paths, output):
                 "prover_backend": "rust-satcop",
                 "prover_version": payload["prover_version"],
                 "prover_revision": payload.get("prover_revision"),
-                "export_schema": export_schema,
+                "export_schema": payload["schema"],
                 "label_semantics": label_semantics,
             }
 

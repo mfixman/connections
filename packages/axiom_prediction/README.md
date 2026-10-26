@@ -122,7 +122,10 @@ executables, seeds or budgets in one cache. Use a separate dataset for each
 collection configuration.
 
 Successful native JSON exports and command/output logs are retained under
-`DATASET/.cache/SHARD/native/`. The converter uses SATCoP's own clauses and
+`DATASET/.cache/SHARD/native/`. Rust writes its internal tables using only
+standard-library formatting, with no JSON dependencies. Python reconstructs
+the clauses and terms from those tables; saved v1 exports remain readable.
+The converter uses SATCoP's own clauses and
 clause IDs, including equality axioms and definitions, without reclausifying
 the original input. An axiom is positive if at least one of its ground
 instances occurs in PicoSAT's observed UNSAT core; this core is not necessarily
@@ -145,6 +148,16 @@ rejects multiple exports for the same problem. Native collection and training
 do not yet provide neural guidance inside Rust SATCoP. Python guided search
 uses `--policy SATCoPCon`; using a native-trained model there is transfer
 across different clausifications.
+
+The compact `satcop.collection.v2` matrix stores symbols as `[name, arity,
+predicate]`, literals as `[positive, atom_term_id]`, and disequations as
+`[left_term_id, right_term_id]`. Clause rows contain `[variable_count,
+literal_start, literal_stop, disequation_start, disequation_stop, is_goal]`;
+ranges exclude their stop index. A term starts with a positive symbol ID or
+a nonpositive variable code (`-variable_id`). A symbol's arity determines how
+many following cells contain argument term IDs. Sources are `[path, name]`
+or `null` for equality axioms. The converter expands this representation
+before using the existing graph builder.
 
 For the initial four-run comparison, use DefaultFull, SmallFull,
 DefaultNoTerms and DefaultNoComplements. Keep the dataset and policy fixed,
