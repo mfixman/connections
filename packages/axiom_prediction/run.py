@@ -76,6 +76,9 @@ class RunConfig:
         if self.policy is not None:
             self.policy = ProverPolicy(self.policy)
 
+        if self.policy == ProverPolicy.SatCoP:
+            raise ValueError("native SatCoP supports collect; use SATCoPCon for Python guided search")
+
         if self.mode == GuidanceMode.Sine and self.checkpoint is not None:
             raise ValueError("SInE does not use a checkpoint")
 
@@ -179,7 +182,7 @@ def search_problem(problem, *, tptp_root, config):
 
         policy_class = {
             ProverPolicy.SatResetCoP: SATResetCoP,
-            ProverPolicy.SatCoP: SATCoPCon,
+            ProverPolicy.SatCoPCon: SATCoPCon,
         }[config.policy]
 
         args: dict[str, Any] = {"seed": config.seed}
@@ -205,7 +208,7 @@ def search_problem(problem, *, tptp_root, config):
             weights.update({i: 1.0 for i in loaded.conjecture_clause_ids})
             policy_class = {
                 ProverPolicy.SatResetCoP: AxiomGuidedSATResetCoP,
-                ProverPolicy.SatCoP: AxiomGuidedSATCoP,
+                ProverPolicy.SatCoPCon: AxiomGuidedSATCoP,
             }[config.policy]
 
             args.update(

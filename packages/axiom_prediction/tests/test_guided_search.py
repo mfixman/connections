@@ -9,7 +9,7 @@ from axiom_prediction.training import AxiomTrainingConfig, train_axiom_predictor
 from axiom_prediction.wandb_tracking import WandbConfig
 from axiom_prediction.cli import main
 
-@pytest.mark.parametrize("policy", ["satcop", "satresetcop"])
+@pytest.mark.parametrize("policy", ["satcopcon", "satresetcop"])
 def test_trained_checkpoint_guides_search(tmp_path, tiny_problem_path, policy, capsys):
     train_axiom_predictor(
         [str(tiny_problem_path)],
@@ -40,7 +40,7 @@ def test_trained_checkpoint_guides_search(tmp_path, tiny_problem_path, policy, c
 
         assert result["proved"], result
 
-    other = "satcop" if policy == "satresetcop" else "satresetcop"
+    other = "satcopcon" if policy == "satresetcop" else "satresetcop"
     capsys.readouterr()
     result = run_problem(
         str(tiny_problem_path),

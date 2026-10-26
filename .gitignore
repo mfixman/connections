@@ -267,6 +267,7 @@ src/connections/Axioms
 dataset/
 runs/
 results/
+external_results/
 .jupyter
 plots
 

@@ -83,7 +83,9 @@ with --model or --data-dir and supply only problem paths.
 | `--log-every N` | train | **10**. Report training-set prediction metrics every N epochs plus first/final epochs. Zero disables intermediate metric evaluations. Loss and checkpoint saving happen every epoch, independently of this option. |
 | `--device DEVICE` | train, evaluate, predict, run | **cuda**, failing when CUDA is unavailable. auto selects CUDA if available and CPU otherwise; cpu forces CPU; cuda:N selects a visible device. Baseline search does not use a neural device. |
 | `--num-workers N` | collect, train, evaluate, run | Maximum available CPUs, bounded by SLURM allocation and affinity, except guided CUDA search defaults to one worker. Processes for collection/search, CPU threads for training/evaluation. Processes are also capped by problem count. Explicit N overrides automatic selection. |
-| `--policy SatCoP\|SatResetCoP` | collect, train, evaluate, run | Inherit the checkpoint policy for run/evaluate, or dataset policy for training; otherwise **SatResetCoP**. Explicit conflicts with recorded checkpoint/dataset policies fail. |
+| `--policy SatCoP\|SATCoPCon\|SatResetCoP` | collect, train, evaluate, run | **SatCoP** collects using native Rust SATCoP; **SATCoPCon** is the previous Python policy. Native guided run is not implemented. Inherit the checkpoint policy for run/evaluate, or dataset policy for training; otherwise **SatResetCoP**. |
+| `--satcop-location PATH` | collect | Native SATCoP checkout or executable; default `~/TP/satcop`. Requires the small `--collect` debug-output patch and a release build. |
+| `--seed N` | collect | **0**. Proof-search seed for SatCoP, SATCoPCon and SatResetCoP. Native SatCoP receives `--seed N` unchanged. Use a separate collection cache for each seed. |
 | `--step-limit N` | collect, train, evaluate, run | **1,000,000,000 prover steps per problem for collect; 1,000,000 prover steps per problem for other commands**. Only affects fresh search, not optimization or saved-label evaluation. |
 | `--timeout-seconds S` | collect, train, evaluate, run | **900 seconds (15 minutes) per problem for collect; 120 seconds for other commands** for fresh search. Collection and run supervise workers, including startup, parsing and any worker-side checkpoint loading/prediction. Overdue workers are terminated, including with one worker. Not the total job duration. |
 | `--wandb`, `--no-wandb` | train, evaluate, run | Tracking **on** by default. Missing package/credentials or startup failure produces a warning and execution continues. --no-wandb disables it quietly. |
@@ -103,16 +105,20 @@ contain JSON-encoded values, preserving graphs, labels, strings, and nulls exact
 Empty cells represent absent fields.
 Do not mix legacy metadata.json/examples/ records and public CSV shards in
 one directory: the loader rejects this instead of silently ignoring records.
-Shard compatibility ignores the machine-specific TPTP installation path;
-policy and collection budgets must still match. Use the same corpus version
-on each machine: ignoring its path does not verify its contents.
+Training shards may differ in seed, predictor, prover revision, collection budget
+and machine-specific TPTP installation path; policy, backend and label semantics
+must still match. Different seeds and predictors remain recorded per shard in the metadata.
+For each problem, the loader retains one example per distinct positive axiom-clause
+set, ignoring repeated observations of the same core. It rejects conflicting
+graphs or clause identities for the same problem. All cores of a problem stay
+in the same split. Use the same corpus version on each machine.
 
 Resuming on another allocation does not require the same number of visible
 GPUs. Only the training device's CUDA RNG is saved; CPU training saves none.
 Changing CPU/GPU or hardware is supported but need not be numerically identical.
 
 Fixed choices use TitleCase StrEnum members and values internally. Policy
-arguments also accept the older lowercase spellings (satcop/satresetcop).
+arguments also accept lowercase spellings (satcop/satcopcon/satresetcop).
 Checkpoints and dataset metadata retain their existing lowercase strings;
 loading them converts those values to enums where used by configuration.
 

@@ -28,7 +28,7 @@ def test_real_multiprocess_collection():
             tptp_root = None,
             step_limit = 2_000,
             timeout_s = 30,
-            sat_policy = "satcop",
+            sat_policy = "satcopcon",
             num_workers = 2,
         )
     )

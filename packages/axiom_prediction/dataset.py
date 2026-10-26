@@ -61,6 +61,8 @@ def collect_axiom_dataset(
 
     num_workers: int | None = None,
     progress: Callable[[int, int, int, int, str, str], None] | None = None,
+    satcop_location: str | Path | None = None,
+    seed: int = 0,
 ) -> dict[str, Any]:
     # Save each problem atomically; resume skips recorded successes and failures.
 
@@ -80,6 +82,7 @@ def collect_axiom_dataset(
 
     collection = {
         "sat_policy": ProverPolicy(sat_policy).wire_value(),
+        "seed": seed,
         "step_limit": step_limit,
         "timeout_seconds": timeout_s,
         "tptp_root": (
@@ -88,6 +91,22 @@ def collect_axiom_dataset(
             )
         ),
     }
+
+    native_options = None
+    if ProverPolicy(sat_policy) == ProverPolicy.SatCoP:
+        from .satcop import native_binary, binary_identity, label_semantics
+
+        binary = native_binary(satcop_location)
+        native_options = {"binary": str(binary), "output_dir": str(output / "native")}
+        collection.update(
+            prover_backend = "rust-satcop",
+            binary_sha256 = binary_identity(binary),
+            label_semantics = label_semantics,
+        )
+        collection.pop("step_limit")
+        log("native SATCoP uses the wall-clock timeout; --step-limit applies to Python policies only")
+    elif satcop_location is not None:
+        raise ValueError("--satcop-location requires --policy SatCoP")
 
     metadata_path = output / "metadata.json"
     if metadata_path.exists():
@@ -188,6 +207,8 @@ def collect_axiom_dataset(
         timeout_s = timeout_s,
         sat_policy = sat_policy,
         num_workers = workers,
+        native_options = native_options,
+        seed = seed,
     ):
         if result.proved:
             proved += 1
@@ -224,6 +245,8 @@ def collect_axiom_dataset_shard(
     timeout_s: float = default_collection_timeout_s,
     sat_policy: str = ProverPolicy.SatResetCoP,
     num_workers: int | None = None,
+    satcop_location: str | Path | None = None,
+    seed: int = 0,
 ) -> tuple[Path, dict[str, Any]]:
     # Resume from per-problem caches and publish the finished shard atomically.
 
@@ -241,6 +264,8 @@ def collect_axiom_dataset_shard(
         timeout_s = timeout_s,
         sat_policy = sat_policy,
         num_workers = num_workers,
+        satcop_location = satcop_location,
+        seed = seed,
     )
 
     if summary.get(
@@ -319,6 +344,8 @@ def collect_problem_records_parallel(
     timeout_s: float,
     sat_policy: str,
     num_workers: int | None = None,
+    native_options: dict | None = None,
+    seed: int = 0,
 ) -> Iterator[CollectedAxiomRecord]:
     workers = determine_worker_count(len(problems), num_workers)
     if workers == 0:
@@ -332,6 +359,8 @@ def collect_problem_records_parallel(
             step_limit,
             timeout_s,
             sat_policy,
+            native_options,
+            seed,
         )
         for problem in problems
     )
@@ -395,16 +424,21 @@ def collect_one_problem_to_partial(
     step_limit: int,
     timeout_s: float,
     sat_policy: str,
+    native_options: dict | None = None,
+    seed: int = 0,
 ) -> CollectedAxiomRecord:
     parseable = True
     collection_error = False
     try:
+        options = {} if native_options is None else {"native_options": native_options}
         example, outcome = collect_proof_example(
             problem,
             tptp_root = tptp_root,
             step_limit = step_limit,
             timeout_s = timeout_s,
             sat_policy = sat_policy,
+            seed = seed,
+            **options,
         )
     except TPTPParseError as error:
         example = None
@@ -501,10 +535,14 @@ def load_axiom_dataset(
             f"unsupported axiom dataset {root} (schema {metadata.get('schema')!r}); {outdated_dataset_hint}"
         )
 
-    examples = [
-        axiom_training_example_from_json(read_object(record))
-        for record in track_progress(sorted((root / "examples").glob("*.json")), "loading examples")
-    ]
+    examples_by_problem = {}
+    for record in track_progress(sorted((root / "examples").glob("*.json")), "loading examples"):
+        add_core_example(
+            examples_by_problem,
+            axiom_training_example_from_json(read_object(record)),
+        )
+
+    examples = list(core_examples(examples_by_problem))
 
     failures: list[dict[str, str]] = []
     for record in track_progress(sorted((root / "failures").glob("*.json")), "loading failure records"):
@@ -530,12 +568,41 @@ def read_dataset_rows(path):
 
     yield from read_csv(path)
 
+def example_matrix(example):
+    graph = example.graph
+    return (
+        graph.axiom_clause_ids,
+        graph.conjecture_clause_ids,
+        example.axiom_clause_texts,
+
+        graph.graph.nodes,
+        graph.graph.edges,
+        graph.graph.actions,
+        graph.graph.metadata.get("satcop", {}).get("matrix_sha256"),
+    )
+
+def add_core_example(examples_by_problem, example):
+    cores = examples_by_problem.setdefault(example.problem_path, {})
+    if cores and example_matrix(next(iter(cores.values()))) != example_matrix(example):
+        raise ValueError(f"conflicting matrices for {example.problem_path!r} in axiom dataset")
+
+    core = frozenset(
+        clause_id
+        for clause_id, label in zip(example.graph.axiom_clause_ids, example.labels)
+        if label
+    )
+    cores.setdefault(core, example)
+
+def core_examples(examples_by_problem):
+    for cores in examples_by_problem.values():
+        yield from cores.values()
+
 def load_axiom_dataset_shards(
     shards: Sequence[Path],
     *,
     dataset_path: Path,
 ) -> tuple[list[AxiomTrainingExample], list[dict[str, str]], dict[str, Any]]:
-    examples_by_problem: dict[str, AxiomTrainingExample] = {}
+    examples_by_problem: dict[str, dict[frozenset[int], AxiomTrainingExample]] = {}
     failures_by_problem: dict[str, dict[str, str]] = {}
     collection: dict[str, Any] | None = None
     shard_collections: dict[str, dict[str, Any]] = {}
@@ -584,7 +651,7 @@ def load_axiom_dataset_shards(
 
             example = axiom_training_example_from_json(row)
             failures_by_problem.pop(example.problem_path, None)
-            examples_by_problem.setdefault(example.problem_path, example)
+            add_core_example(examples_by_problem, example)
 
     if not examples_by_problem:
         raise RuntimeError(f"axiom dataset contains no training examples: {dataset_path}")
@@ -597,7 +664,7 @@ def load_axiom_dataset_shards(
         }
     ) > 1:
         dataset_collection = {
-            "sat_policy": dataset_collection.get("sat_policy"),
+            **dataset_compatibility_settings(dataset_collection),
             "source_shards": shard_collections,
         }
 
@@ -608,19 +675,26 @@ def load_axiom_dataset_shards(
     }
 
     return (
-        list(examples_by_problem.values()),
+        list(core_examples(examples_by_problem)),
         list(failures_by_problem.values()),
         metadata,
     )
 
 def collection_settings(collection):
-    return {key: value for key, value in collection.items() if key != "tptp_root"}
+    settings = {key: value for key, value in collection.items() if key != "tptp_root"}
+    if settings.get("sat_policy") == "satcop" and settings.get("prover_backend") != "rust-satcop":
+        settings["sat_policy"] = "satcopcon"
+
+    if settings.get("seed") == 0:
+        settings.pop("seed")
+
+    return settings
 
 def dataset_compatibility_settings(collection):
     return {
         key: value
         for key, value in collection_settings(collection).items()
-        if key not in {"step_limit", "timeout_seconds"}
+        if key in {"sat_policy", "prover_backend", "label_semantics"}
     }
 
 def problem_key(problem: str) -> str:
