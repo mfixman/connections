@@ -105,9 +105,13 @@ contain JSON-encoded values, preserving graphs, labels, strings, and nulls exact
 Empty cells represent absent fields.
 Do not mix legacy metadata.json/examples/ records and public CSV shards in
 one directory: the loader rejects this instead of silently ignoring records.
-Shard compatibility ignores the machine-specific TPTP installation path;
-policy and collection budgets must still match. Use the same corpus version
-on each machine: ignoring its path does not verify its contents.
+Training shards may differ in seed, predictor, prover revision, collection budget
+and machine-specific TPTP installation path; policy, backend and label semantics
+must still match. Different seeds and predictors remain recorded per shard in the metadata.
+For each problem, the loader retains one example per distinct positive axiom-clause
+set, ignoring repeated observations of the same core. It rejects conflicting
+graphs or clause identities for the same problem. All cores of a problem stay
+in the same split. Use the same corpus version on each machine.
 
 Resuming on another allocation does not require the same number of visible
 GPUs. Only the training device's CUDA RNG is saved; CPU training saves none.

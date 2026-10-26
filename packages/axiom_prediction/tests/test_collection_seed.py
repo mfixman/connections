@@ -59,3 +59,54 @@ def test_collection_still_passes_seed_to_native_policy(monkeypatch):
     monkeypatch.setattr(satcop, "collect_native_example", collect)
     assert collect_proof_example("unused.p", sat_policy = "satcop", seed = 7) == (None, "Timeout")
     assert calls[0]["seed"] == 7
+
+def test_training_visits_each_distinct_core_once(tmp_path, monkeypatch):
+    from axiom_prediction import training
+    from axiom_prediction.data import axiom_training_example_to_json
+    from axiom_prediction.dataset import axiom_dataset_shard_schema, dataset_fields
+    from axiom_prediction.io import write_csv
+    from axiom_prediction.split import ProblemSplit
+    from axiom_prediction.wandb_tracking import WandbConfig
+
+    problem = tmp_path / "choices.p"
+    problem.write_text(
+        "fof(a0,axiom,p(a0)).\nfof(a1,axiom,p(a1)).\nfof(a2,axiom,p(a2)).\n"
+        "fof(c,conjecture,? [X]:p(X)).\n"
+    )
+    dataset = tmp_path / "dataset"
+    dataset.mkdir()
+    expected = []
+    for seed in (0, 1):
+        example, outcome = collect_proof_example(problem, seed = seed)
+        assert outcome == "proved"
+        expected.append(tuple(example.labels))
+        row = axiom_training_example_to_json(example)
+        header = {
+            "schema": axiom_dataset_shard_schema, "record": "metadata",
+            "collection": {"sat_policy": "satresetcop", "seed": seed},
+        }
+        write_csv(dataset / f"seed{seed}.csv", [header, row, row], dataset_fields)
+
+    seen = []
+    collate = training.collate_axiom_graphs
+
+    def record_batch(chunk):
+        seen.extend(tuple(labels) for graph, labels in chunk)
+        return collate(chunk)
+
+    monkeypatch.setattr(training, "collate_axiom_graphs", record_batch)
+    part = ProblemSplit(10).part(problem)
+    metrics = training.train_axiom_predictor(
+        dataset = dataset,
+        output_dir = tmp_path / "model",
+        config = training.AxiomTrainingConfig(
+            epochs = 1, hidden_dim = 8, message_rounds = 1,
+            batch_size = 1, device = "cpu", num_workers = 1,
+        ),
+        split = ProblemSplit(10, [part]),
+        wandb_config = WandbConfig(enabled = False),
+    )
+
+    assert expected[0] != expected[1]
+    assert sorted(seen) == sorted(expected)
+    assert metrics["problems_proved"] == 2

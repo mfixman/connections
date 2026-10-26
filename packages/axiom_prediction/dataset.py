@@ -535,10 +535,14 @@ def load_axiom_dataset(
             f"unsupported axiom dataset {root} (schema {metadata.get('schema')!r}); {outdated_dataset_hint}"
         )
 
-    examples = [
-        axiom_training_example_from_json(read_object(record))
-        for record in track_progress(sorted((root / "examples").glob("*.json")), "loading examples")
-    ]
+    examples_by_problem = {}
+    for record in track_progress(sorted((root / "examples").glob("*.json")), "loading examples"):
+        add_core_example(
+            examples_by_problem,
+            axiom_training_example_from_json(read_object(record)),
+        )
+
+    examples = list(core_examples(examples_by_problem))
 
     failures: list[dict[str, str]] = []
     for record in track_progress(sorted((root / "failures").glob("*.json")), "loading failure records"):
@@ -564,12 +568,41 @@ def read_dataset_rows(path):
 
     yield from read_csv(path)
 
+def example_matrix(example):
+    graph = example.graph
+    return (
+        graph.axiom_clause_ids,
+        graph.conjecture_clause_ids,
+        example.axiom_clause_texts,
+
+        graph.graph.nodes,
+        graph.graph.edges,
+        graph.graph.actions,
+        graph.graph.metadata.get("satcop", {}).get("matrix_sha256"),
+    )
+
+def add_core_example(examples_by_problem, example):
+    cores = examples_by_problem.setdefault(example.problem_path, {})
+    if cores and example_matrix(next(iter(cores.values()))) != example_matrix(example):
+        raise ValueError(f"conflicting matrices for {example.problem_path!r} in axiom dataset")
+
+    core = frozenset(
+        clause_id
+        for clause_id, label in zip(example.graph.axiom_clause_ids, example.labels)
+        if label
+    )
+    cores.setdefault(core, example)
+
+def core_examples(examples_by_problem):
+    for cores in examples_by_problem.values():
+        yield from cores.values()
+
 def load_axiom_dataset_shards(
     shards: Sequence[Path],
     *,
     dataset_path: Path,
 ) -> tuple[list[AxiomTrainingExample], list[dict[str, str]], dict[str, Any]]:
-    examples_by_problem: dict[str, AxiomTrainingExample] = {}
+    examples_by_problem: dict[str, dict[frozenset[int], AxiomTrainingExample]] = {}
     failures_by_problem: dict[str, dict[str, str]] = {}
     collection: dict[str, Any] | None = None
     shard_collections: dict[str, dict[str, Any]] = {}
@@ -618,7 +651,7 @@ def load_axiom_dataset_shards(
 
             example = axiom_training_example_from_json(row)
             failures_by_problem.pop(example.problem_path, None)
-            examples_by_problem.setdefault(example.problem_path, example)
+            add_core_example(examples_by_problem, example)
 
     if not examples_by_problem:
         raise RuntimeError(f"axiom dataset contains no training examples: {dataset_path}")
@@ -631,7 +664,7 @@ def load_axiom_dataset_shards(
         }
     ) > 1:
         dataset_collection = {
-            "sat_policy": dataset_collection.get("sat_policy"),
+            **dataset_compatibility_settings(dataset_collection),
             "source_shards": shard_collections,
         }
 
@@ -642,7 +675,7 @@ def load_axiom_dataset_shards(
     }
 
     return (
-        list(examples_by_problem.values()),
+        list(core_examples(examples_by_problem)),
         list(failures_by_problem.values()),
         metadata,
     )
@@ -661,7 +694,7 @@ def dataset_compatibility_settings(collection):
     return {
         key: value
         for key, value in collection_settings(collection).items()
-        if key not in {"step_limit", "timeout_seconds"}
+        if key in {"sat_policy", "prover_backend", "label_semantics"}
     }
 
 def problem_key(problem: str) -> str:

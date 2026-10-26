@@ -170,11 +170,16 @@ The debug parser matches this SATCoP revision and fails on changed layouts or
 incomplete proofs. Matrix decoding, JSON serialization, process monitoring,
 and training graph construction live in the axiom predictor.
 
-The training loader currently keeps one example per problem, so the converter
-rejects multiple exports for the same problem. Native collection and training
-do not yet provide neural guidance inside Rust SATCoP. Python guided search
-uses `--policy SATCoPCon`; using a native-trained model there is transfer
-across different clausifications.
+The converter accepts multiple exports for the same problem. Training retains
+one example per distinct positive axiom-clause set for each problem, so repeated
+cores have no extra weight. Shards may use different search seeds; collect each
+seed in a separate cache and give its CSV shard a unique name in the training
+dataset directory. Policy, backend and label semantics must match, and repeated
+problems must have matching graphs and clause identities. Predictor and prover
+revision differences are retained as provenance rather than compatibility checks.
+Native collection and training do not yet provide neural guidance inside Rust
+SATCoP. Python guided search uses `--policy SATCoPCon`; using a native-trained
+model there is transfer across different clausifications.
 
 The Python-written `satcop.collection.v3` matrix stores symbols as `[name, arity,
 predicate]` and literals as `[positive, atom_term_id]`. Clause rows contain

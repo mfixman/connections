@@ -309,7 +309,6 @@ def convert_exports(paths, output, **metadata):
     if output.exists():
         raise FileExistsError(f"refusing to replace an existing dataset shard: {output}")
 
-    seen = set()
     collection = None
     count = 0
 
@@ -337,13 +336,9 @@ def convert_exports(paths, output, **metadata):
             elif settings != collection:
                 raise ValueError(f"incompatible SATCoP versions in {path}; use separate datasets")
 
-            problem = row["problem_path"]
-            if problem in seen:
-                raise ValueError(f"multiple exports for {problem}; the training loader keeps one per problem")
-
-            seen.add(problem)
             yield row
             count += 1
+            problem = row["problem_path"]
             log(f"converted {problem}: {int(sum(row['labels']))}/{len(row['labels'])} core axioms")
 
         if count == 0:
