@@ -58,7 +58,9 @@ def restore_training(path, model, optimizer, random, config, fingerprint):
         raise ValueError("this checkpoint has no optimizer/RNG state and cannot resume")
 
     mutable = {"epochs", "device", "num_workers", "log_every"}
-    previous = checkpoint["training_config"]
+    previous = dict(checkpoint["training_config"])
+    if previous.get("sat_policy") == "satcop" and not previous.get("collection"):
+        previous["sat_policy"] = "satcopcon"
     differences = [
         name
         for name in previous.keys() | config.keys()

@@ -16,6 +16,7 @@ class Choice(StrEnum):
 class ProverPolicy(Choice):
     SatResetCoP = "SatResetCoP"
     SatCoP = "SatCoP"
+    SatCoPCon = "SATCoPCon"
 
 class GraphInputKind(Choice):
     Full = "Full"
