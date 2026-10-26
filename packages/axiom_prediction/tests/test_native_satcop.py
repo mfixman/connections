@@ -5,6 +5,7 @@ import pytest
 from axiom_prediction.data import axiom_training_example_from_json
 from axiom_prediction.dataset import collection_settings, load_axiom_dataset
 from axiom_prediction.satcop import convert_example, convert_exports, expand_matrix
+from axiom_prediction.satcop_dump import parse_dump, rust_string, symbol_name
 from axiom_prediction.training import label_policy
 from axiom_prediction.choices import ProverPolicy
 
@@ -153,3 +154,66 @@ def test_compact_tables_reconstruct_terms_scopes_and_sources(native_export, tmp_
     assert example["axiom_clause_ids"] == [0, 2]
     assert example["conjecture_clause_ids"] == [1]
     assert example["labels"] == [1, 0]
+
+@pytest.fixture
+def native_stdout():
+    return '''% SATCoP matrix (true, #0, "example.p", 3, Some(5))
+% SATCoP terms Block([2])
+% SATCoP literals Block([#0, ¬#0])
+% SATCoP disequations Block([])
+% SATCoP start [#1]
+% SATCoP symbol #0 0 false Grounding
+% SATCoP symbol #1 2 true Equality
+% SATCoP symbol #2 0 true Atom("p")
+% SATCoP clause #0 Clause { vars: #0, literals: #0-#1, disequations: #0-#0 } Info { is_goal: false, source: Axiom { path: "'example.p'", name: "a1" } }
+% SATCoP clause #1 Clause { vars: #0, literals: #1-#2, disequations: #0-#0 } Info { is_goal: true, source: Axiom { path: "'example.p'", name: "c" } }
+% SZS status Theorem for example
+% SZS output start ListOfCNF for example
+% SATCoP core 1
+% SATCoP core 0
+% SATCoP core 0
+% SZS output end ListOfCNF for example
+'''
+
+def test_debug_dump_can_be_converted_directly_to_training_csv(native_stdout, tmp_path):
+    path = tmp_path / "example.out"
+    path.write_text(native_stdout)
+    payload = parse_dump(native_stdout)
+    assert payload["seed"] == 3
+    assert payload["core_clause_ids"] == [0, 1]
+    assert payload["problem_path"] == "example.p"
+    assert payload["matrix"]["symbols"][2] == ["p", 0, True]
+    output = tmp_path / "dataset.csv"
+    assert convert_exports([path], output) == 1
+    examples, _, _ = load_axiom_dataset(output)
+    assert examples[0].labels == [1]
+
+def test_debug_dump_rejects_truncated_or_changed_output(native_stdout):
+    with pytest.raises(ValueError, match = "complete successful proof"):
+        parse_dump(native_stdout.replace("% SZS output end ListOfCNF", "% truncated"))
+
+    with pytest.raises(ValueError, match = "literal format"):
+        parse_dump(native_stdout.replace("Block([#0, ¬#0])", "Block([broken])"))
+
+def test_rust_debug_strings_and_generated_names():
+    assert rust_string(r'"\u{1f}\0\n\r\t\"\\ café🦀"') == '\x1f\0\n\r\t"\\ café🦀'
+    assert rust_string(r'"\\u{1f}\\0"') == r'\u{1f}\0'
+    assert symbol_name('Quoted("p")') == "'p'"
+    assert symbol_name('Distinct("a")') == '"a"'
+    assert symbol_name('Skolem(#3)') == 'sK3'
+    assert symbol_name('Definition(#5)') == 'sP5'
+
+def test_native_wrapper_reaps_a_panicking_search_process(tmp_path):
+    import os
+    import sys
+    import time
+    from axiom_prediction.satcop import run_process
+
+    log_path = tmp_path / "panic.log"
+    code = 'import time; print("thread satcop panicked at failure", flush=True); time.sleep(30)'
+    started = time.monotonic()
+    with log_path.open("w") as log_file:
+        with pytest.raises(RuntimeError, match = "search panicked"):
+            run_process([sys.executable, "-c", code], dict(os.environ), log_file, log_path, 10)
+
+    assert time.monotonic() - started < 3

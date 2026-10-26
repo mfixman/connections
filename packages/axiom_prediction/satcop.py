@@ -12,6 +12,7 @@ import signal
 import subprocess
 import sys
 import tempfile
+import time
 
 if __package__ in (None, ""):
     root = Path(__file__).resolve().parents[2]
@@ -23,8 +24,9 @@ from connections.syntax.matrix import Clause, Literal, Matrix
 
 from axiom_prediction.data import axiom_training_example_from_json, axiom_training_example_to_json, training_example_from_sat_core
 from axiom_prediction.dataset import axiom_dataset_shard_schema, dataset_fields
-from axiom_prediction.io import write_csv
+from axiom_prediction.io import write_csv, write_json_atomic
 from axiom_prediction.logs import log
+from axiom_prediction.satcop_dump import parse_dump, read_export
 
 export_schema = "satcop.collection.v2"
 label_semantics = "native SATCoP PicoSAT clause-core membership projected to matrix clauses"
@@ -87,8 +89,8 @@ def native_binary(location = None):
         raise FileNotFoundError(f"SATCoP executable not found: {binary}; build with cargo build --release")
 
     result = subprocess.run([str(binary), "--help"], capture_output = True, text = True, timeout = 10)
-    required = ("--collection-output", "--threads", "--seed")
-    if result.returncode or any(option not in result.stdout for option in required):
+    required = ("--collect", "--seed")
+    if result.returncode or any(re.search(rf"(?m)^\s*{option}(?:\s|$)", result.stdout) is None for option in required):
         raise ValueError(f"{binary} needs the native collection export patch; see packages/axiom_prediction/README.md")
 
     return binary
@@ -98,51 +100,85 @@ def run_native(binary, problem, root, output, timeout_s, seed):
     if root is not None:
         environment["TPTP_DIR"] = str(root)
 
-    with tempfile.TemporaryDirectory(prefix = ".satcop-", dir = output.parent) as temporary:
-        export = Path(temporary) / "collection.json"
-        command = [
-            str(binary), str(problem), "--quiet", "--threads", "1",
-            "--seed", str(seed), "--time", str(max(1, math.ceil(timeout_s))),
-            "--collection-output", str(export),
-        ]
+    command = [
+        str(binary), str(problem), "--collect", "--seed", str(seed),
+        "--time", str(max(1, math.ceil(timeout_s))),
+    ]
+    log_path = output.with_suffix(".log")
+    with log_path.open("w") as log_file:
+        log_file.write(json.dumps(command) + "\n")
+        log_file.flush()
+        previous = signal.signal(signal.SIGTERM, stop_native)
+        try:
+            returncode = run_process(command, environment, log_file, log_path, timeout_s)
+        finally:
+            signal.signal(signal.SIGTERM, previous)
 
-        with output.with_suffix(".log").open("w") as log_file:
-            log_file.write(json.dumps(command) + "\n")
-            log_file.flush()
-            previous = signal.signal(signal.SIGTERM, stop_native)
-            try:
-                result = subprocess.run(
-                    command,
-                    stdout = log_file,
-                    stderr = subprocess.STDOUT,
-                    env = environment,
-                    timeout = timeout_s,
-                )
-            except subprocess.TimeoutExpired:
-                return "Timeout"
-            finally:
-                signal.signal(signal.SIGTERM, previous)
+    text = log_path.read_text()
+    if re.search(r"^thread .*panicked at", text, re.MULTILINE):
+        raise RuntimeError(f"SATCoP search panicked; see {log_path}")
 
-        statuses = re.findall(r"% SZS status (\w+)", output.with_suffix(".log").read_text())
-        if statuses and statuses[-1] == "SyntaxError":
-            from connections.parsing.tptp import TPTPParseError
+    statuses = re.findall(r"% SZS status (\w+)", text)
+    status = statuses[-1] if statuses else "Unknown"
+    if status == "SyntaxError":
+        from connections.parsing.tptp import TPTPParseError
 
-            raise TPTPParseError("SATCoP", f"native parse error; see {output.with_suffix('.log')}", 0, 0)
+        raise TPTPParseError("SATCoP", f"native parse error; see {log_path}", 0, 0)
 
-        if result.returncode:
-            raise RuntimeError(f"SATCoP exited with code {result.returncode}; see {output.with_suffix('.log')}")
+    if returncode is None:
+        return "Timeout"
 
-        if export.exists():
-            export.replace(output)
-            return "proved"
+    if returncode != 0:
+        raise RuntimeError(f"SATCoP exited with code {returncode}; see {log_path}")
 
-    if statuses and statuses[-1] in ("Theorem", "Unsatisfiable"):
-        raise RuntimeError(f"SATCoP reported success without exporting its core: {output}")
+    if status not in ("Theorem", "Unsatisfiable"):
+        return status
 
-    return statuses[-1] if statuses else "Unknown"
+    payload = parse_dump(text)
+    payload.update(native_details(binary))
+    write_json_atomic(output, payload)
+    return "proved"
+
+def run_process(command, environment, log_file, log_path, timeout_s):
+    deadline = time.monotonic() + timeout_s
+    process = subprocess.Popen(command, stdout = log_file, stderr = subprocess.STDOUT, env = environment)
+    try:
+        with log_path.open() as monitor:
+            while process.poll() is None:
+                if re.search(r"^thread .*panicked at", monitor.read(), re.MULTILINE):
+                    raise RuntimeError(f"SATCoP search panicked; see {log_path}")
+
+                remaining_s = deadline - time.monotonic()
+                if remaining_s <= 0:
+                    return None
+
+                try:
+                    return process.wait(timeout = min(0.2, remaining_s))
+                except subprocess.TimeoutExpired:
+                    pass
+
+        return process.returncode
+    finally:
+        if process.poll() is None:
+            process.kill()
+
+        process.wait()
+
+def native_details(binary):
+    version = subprocess.run([str(binary), "--version"], capture_output = True, text = True, check = True)
+    revision = subprocess.run(
+        ["git", "-C", str(Path(binary).parent), "describe", "--always", "--dirty", "--abbrev=40"],
+        capture_output = True,
+        text = True,
+    )
+    return {
+        "prover_version": version.stdout.strip(),
+        "checkout_revision": revision.stdout.strip() if revision.returncode == 0 else None,
+        "binary_sha256": binary_identity(binary),
+    }
 
 def stop_native(signum, frame):
-    # subprocess.run kills and reaps the Rust child when its worker is terminated.
+    # run_process kills and reaps the Rust child when its worker is terminated.
     raise SystemExit
 
 def collect_native_example(
@@ -272,7 +308,7 @@ def convert_exports(paths, output):
     def records():
         nonlocal collection, count
         for path in paths:
-            payload = json.loads(path.read_text())
+            payload = read_export(path)
             row = convert_example(payload, path)
             settings = {
                 "sat_policy": "satcop",
@@ -311,7 +347,7 @@ def convert_exports(paths, output):
 
 def main():
     parser = argparse.ArgumentParser(description = "Convert native SATCoP exports to a training CSV")
-    parser.add_argument("exports", nargs = "+", type = Path, help = "export JSON files or flat directories")
+    parser.add_argument("exports", nargs = "+", type = Path, help = "saved JSON exports, raw SATCoP stdout files, or flat directories")
     parser.add_argument("--output", required = True, type = Path, help = "new training CSV shard")
     args = parser.parse_args()
 
@@ -320,7 +356,7 @@ def main():
 
     paths = []
     for path in args.exports:
-        paths.extend(sorted(path.glob("*.json")) if path.is_dir() else [path])
+        paths.extend((sorted(path.glob("*.json")) or sorted(path.glob("*.out"))) if path.is_dir() else [path])
 
     count = convert_exports(paths, args.output)
     log(f"wrote {count} examples to {args.output}")
