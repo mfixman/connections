@@ -98,8 +98,21 @@ are interpreted as `SATCoPCon` when training or inheriting a checkpoint policy.
 Build the [`axiom_selection` branch](https://github.com/mfixman/satcop/tree/axiom_selection)
 of `~/TP/satcop` following its README. It needs
 PicoSAT compiled with `--trace`: the clause-core API requires that feature.
-The unmodified SATCoP executable has no matrix/core export and is rejected
+The unmodified SATCoP executable has no matrix debug dump and is rejected
 with a build instruction. There is no automatic build or source modification.
+
+If the system PicoSAT library lacks trace support, build a private copy:
+
+```bash
+cd ~/TP/satcop
+curl -fL https://fmv.jku.at/picosat/picosat-965.tar.gz -o /tmp/picosat-965.tar.gz
+tar -xzf /tmp/picosat-965.tar.gz -C /tmp
+(cd /tmp/picosat-965 && ./configure.sh -O --trace && make -j4 libpicosat.a)
+cp /tmp/picosat-965/libpicosat.a .
+RUSTFLAGS="-L native=$PWD" cargo build --release
+```
+
+Use the same `RUSTFLAGS` for later builds. The library is ignored by Git.
 
 From this repository, either launcher accepts:
 
@@ -122,9 +135,10 @@ executables, seeds or budgets in one cache. Use a separate dataset for each
 collection configuration.
 
 Successful native JSON exports and command/output logs are retained under
-`DATASET/.cache/SHARD/native/`. Rust writes its internal tables using only
-standard-library formatting, with no JSON dependencies. Python reconstructs
-the clauses and terms from those tables; saved v1 exports remain readable.
+`DATASET/.cache/SHARD/native/`. SATCoP's `--collect` flag prints its existing
+debug representations and uses one search thread; its proof output identifies
+each ground core clause's matrix origin. Python captures stdout, parses it,
+and writes the JSON files. Saved v1 and v2 JSON exports remain readable.
 The converter uses SATCoP's own clauses and
 clause IDs, including equality axioms and definitions, without reclausifying
 the original input. An axiom is positive if at least one of its ground
@@ -132,16 +146,23 @@ instances occurs in PicoSAT's observed UNSAT core; this core is not necessarily
 minimal. Conjecture clauses are context rather than prediction targets.
 Native symbol IDs distinguish generated symbols from equally named input
 symbols. Source formula names, search constraints, actual start clauses,
-seed, revision, binary hash and matrix hash are retained as graph metadata.
+seed, observed checkout revision, binary hash and matrix hash are retained as
+graph metadata. `checkout_revision` describes the checkout at collection time;
+the binary hash identifies the executable actually run.
 Constraints and the search start set are recorded for provenance; the existing
 graph features continue to use clause roles and conjecture context.
 
-Existing exports can also be converted separately into a new CSV shard:
+Raw stdout or existing JSON exports can also be converted separately:
 
 ```bash
-python packages/axiom_prediction/satcop.py path/to/native/ \
+~/TP/satcop/target/release/satcop problem.p --collect --seed 0 --time 900 > proof.out
+python packages/axiom_prediction/satcop.py proof.out \
   --output datasets/ImportedSATCoP/proofs.csv
 ```
+
+The debug parser matches this SATCoP revision and fails on changed layouts or
+incomplete proofs. Matrix decoding, JSON serialization, process monitoring,
+and training graph construction live in the axiom predictor.
 
 The training loader currently keeps one example per problem, so the converter
 rejects multiple exports for the same problem. Native collection and training
@@ -149,7 +170,7 @@ do not yet provide neural guidance inside Rust SATCoP. Python guided search
 uses `--policy SATCoPCon`; using a native-trained model there is transfer
 across different clausifications.
 
-The compact `satcop.collection.v2` matrix stores symbols as `[name, arity,
+The Python-written `satcop.collection.v2` matrix stores symbols as `[name, arity,
 predicate]`, literals as `[positive, atom_term_id]`, and disequations as
 `[left_term_id, right_term_id]`. Clause rows contain `[variable_count,
 literal_start, literal_stop, disequation_start, disequation_stop, is_goal]`;
