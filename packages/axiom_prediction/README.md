@@ -84,7 +84,9 @@ python axiom_predictor.py evaluate \
 `--dataset` overrides `--data-dir/dataset`. Collection writes CSV shards
 directly into that directory; training and evaluation only read them.
 Single-category/directory collection uses its name for the shard; other inputs
-use `problems.csv`. Collection resumes using records in `.cache`.
+use `problems.csv`. Collection appends resumable results to a single `cache.csv`
+inside each shard's `.cache` directory. Old per-problem JSON caches are read
+automatically, including partial results from interrupted collections.
 Finish collection before launching readers, and avoid simultaneous writers
 to the same shard. Separate policies still require separate datasets.
 

@@ -24,7 +24,7 @@ def test_collection_records_problem_errors_and_resumes_past_them(tmp_path, monke
         workers = kwargs.pop("num_workers")
         assert workers == (1 if problems else 0)
         for problem in problems:
-            yield dataset.collect_one_problem_to_partial(problem, **kwargs)
+            yield dataset.collect_one_problem_record(problem, **kwargs)
 
     monkeypatch.setattr(dataset, "collect_proof_example", search)
     monkeypatch.setattr(dataset, "collect_problem_records_parallel", sequential_collection)
