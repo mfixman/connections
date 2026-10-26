@@ -79,7 +79,7 @@ def no_neural(monkeypatch):
     monkeypatch.setattr(cli, "print_device", forbidden)
     monkeypatch.setattr(training.torch.cuda, "is_available", forbidden)
 
-@pytest.mark.parametrize("policy", ["satcop", "satresetcop"])
+@pytest.mark.parametrize("policy", ["satcopcon", "satresetcop"])
 def test_search_binary_weights_and_floor(tmp_path, tiny_problem_path, monkeypatch, no_neural, policy):
     from axiom_prediction import guided
 
@@ -151,7 +151,7 @@ def test_cli_fresh_results_and_resume(tmp_path, tiny_problem_path, no_neural, co
 def test_saved_dataset_policy_and_wandb(tmp_path, tiny_problem_path, monkeypatch, no_neural):
     example, _ = collect_proof_example(str(tiny_problem_path), step_limit = 100)
     monkeypatch.setattr(training, "load_axiom_dataset", lambda _: (
-        [example], [], {"collection": {"sat_policy": "satcop"}},
+        [example], [], {"collection": {"sat_policy": "satcopcon"}},
     ))
     monkeypatch.setattr(training, "collect_examples", forbidden)
     run = _FakeRun()
@@ -159,7 +159,7 @@ def test_saved_dataset_policy_and_wandb(tmp_path, tiny_problem_path, monkeypatch
     monkeypatch.setitem(sys.modules, "wandb", fake_wandb(run, init))
     monkeypatch.setenv("WANDB_API_KEY", "test-key")
     metrics = training.evaluate_axiom_predictor(None, sine = True, dataset = tmp_path)
-    assert metrics["sat_policy"] == "satcop"
+    assert metrics["sat_policy"] == "satcopcon"
     assert metrics["network_size"] == 0
     assert init["config"]["sine_settings"] == sine.settings()["sine_settings"]
     assert "model_config" not in init["config"]

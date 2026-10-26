@@ -264,8 +264,8 @@ def test_supervisor_terminates_unresponsive_workers(tmp_path, monkeypatch):
     options: dict[str, Any] = {
         "tptp_root": None,
         "step_limit": 100,
-        "timeout_s": 3,
-        "sat_policy": "satcop",
+        "timeout_s": 10,
+        "sat_policy": "satcopcon",
         "num_workers": 1,
     }
 
@@ -300,7 +300,7 @@ def test_policy_inheritance_and_fresh_evaluation(
         hidden_dim = 8,
         device = "cpu",
         num_workers = 1,
-        sat_policy = "SatCoP",
+        sat_policy = "SATCoPCon",
     )
 
     trained = train_axiom_predictor(
@@ -315,7 +315,7 @@ def test_policy_inheritance_and_fresh_evaluation(
     capsys.readouterr()
     assert main(["evaluate", str(tmp_path), str(tiny_problem_path), *common]) == 0
     metrics = json.loads(capsys.readouterr().err.strip().splitlines()[-1])
-    assert metrics["sat_policy"] == "satcop"
+    assert metrics["sat_policy"] == "satcopcon"
     run_dir = tmp_path / "run"
     run_dir.mkdir()
     (run_dir / "model").symlink_to(tmp_path, target_is_directory = True)
@@ -324,7 +324,7 @@ def test_policy_inheritance_and_fresh_evaluation(
     ) == 0
 
     metrics = json.loads(capsys.readouterr().err.strip().splitlines()[-1])
-    assert metrics["sat_policy"] == "satcop"
+    assert metrics["sat_policy"] == "satcopcon"
     assert main(
         [
             "evaluate", str(tmp_path), str(tiny_problem_path), *common,
@@ -341,7 +341,7 @@ def test_policy_inheritance_and_fresh_evaluation(
 
     search = RunConfig(checkpoint = str(tmp_path), device = "cpu", timeout_s = 10)
     result = run_problem(str(cnf), tptp_root = None, config = search)
-    assert result["proved"] and result["policy"] == "satcop"
+    assert result["proved"] and result["policy"] == "satcopcon"
     assert "guidance_fallback" not in result
     assert result["axioms"] == 2
 
@@ -357,7 +357,7 @@ def test_policy_inheritance_and_fresh_evaluation(
     assert result["proved"] and "guidance_fallback" not in result
     capsys.readouterr()
     assert main(["run", str(cnf), "--model", str(tmp_path), *common]) == 0
-    assert next(csv.DictReader(io.StringIO(capsys.readouterr().out)))["policy"] == "satcop"
+    assert next(csv.DictReader(io.StringIO(capsys.readouterr().out)))["policy"] == "satcopcon"
 
     assert main(
         [

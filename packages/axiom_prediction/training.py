@@ -138,6 +138,9 @@ def label_policy(requested, metadata = None, *, allow_mismatch = False):
 
     if recorded is not None:
         recorded = ProverPolicy(recorded)
+        backend = collection.get("prover_backend") or collection.get("collection", {}).get("prover_backend")
+        if recorded == ProverPolicy.SatCoP and backend != "rust-satcop":
+            recorded = ProverPolicy.SatCoPCon
 
     if requested is not None and recorded is not None and requested != recorded:
         message = f"dataset labels were collected with {recorded}, but --policy requests {requested}"
@@ -336,6 +339,14 @@ def train_axiom_predictor(
     config_payload.update(network_config.to_dict())
     config_payload["sat_policy"] = effective_sat_policy.wire_value()
     config_payload["split"] = split.to_dict()
+    if effective_sat_policy == ProverPolicy.SatCoP:
+        from .satcop import label_semantics
+
+        config_payload["collection"] = (dataset_metadata or {}).get("collection") or {
+            "sat_policy": "satcop",
+            "prover_backend": "rust-satcop",
+            "label_semantics": label_semantics,
+        }
 
     run_count = next_training_run(output, resume)
     run_name = config.model or AxiomPredictionNetwork.__name__
@@ -624,7 +635,9 @@ def train_axiom_predictor(
         metrics.update(
             {
                 "evaluation_kind": "training-set overfit (not held-out generalization)",
-                "label_semantics": "native CaDiCaL failed-assumption SAT-core membership",
+                "label_semantics": config_payload.get("collection", {}).get(
+                    "label_semantics", "native CaDiCaL failed-assumption SAT-core membership"
+                ),
                 "sat_policy": effective_sat_policy.wire_value(),
                 "dataset": None if dataset is None else str(dataset),
 
@@ -729,6 +742,7 @@ def evaluate_axiom_predictor(
 
     dataset_examples: list[AxiomTrainingExample] | None = None
     dataset_skipped: list[dict[str, str]] = []
+    metadata = {}
     if dataset is not None:
         log_message(f"loading dataset from {dataset}")
         dataset_examples, dataset_skipped, metadata = load_axiom_dataset(dataset)
@@ -816,7 +830,9 @@ def evaluate_axiom_predictor(
                 "evaluation_kind": "labelled SAT-core-membership evaluation",
                 "network_size": network_size,
                 **model_metadata,
-                "label_semantics": "native CaDiCaL failed-assumption SAT-core membership",
+                "label_semantics": metadata.get("collection", {}).get(
+                    "label_semantics", "native CaDiCaL failed-assumption SAT-core membership"
+                ),
                 "sat_policy": sat_policy.wire_value(),
 
                 "dataset": None if dataset is None else str(dataset),

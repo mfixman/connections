@@ -146,6 +146,15 @@ def build_parser() -> argparse.ArgumentParser:
     )
 
     add_worker_argument(collect)
+    collect.add_argument(
+        "--satcop-location",
+        type = Path,
+        help = "native SATCoP checkout (target/release/satcop) or executable; default: ~/TP/satcop",
+    )
+    collect.add_argument(
+        "--seed", type = nonnegative_int, default = 0,
+        help = "proof-search seed for all collection policies (default: 0)",
+    )
 
     evaluate = subparsers.add_parser(
         "evaluate",
@@ -382,6 +391,8 @@ def execute_command(args: argparse.Namespace) -> int:
                 "timeout_s": args.timeout_s,
                 "sat_policy": args.policy,
                 "num_workers": args.num_workers,
+                "satcop_location": args.satcop_location,
+                "seed": args.seed,
             }
 
             if input_directory is None and args.dataset is None:
