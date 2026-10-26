@@ -88,6 +88,64 @@ use `problems.csv`. Collection resumes using records in `.cache`.
 Finish collection before launching readers, and avoid simultaneous writers
 to the same shard. Separate policies still require separate datasets.
 
+### Collecting with native Rust SATCoP
+
+`SatCoP` selects Rust SATCoP for collection. `SATCoPCon` selects the previous
+Python implementation; `SatResetCoP` keeps its existing meaning. Historical
+datasets and checkpoints labelled `satcop` without Rust backend provenance
+are interpreted as `SATCoPCon` when training or inheriting a checkpoint policy.
+
+Build the [`axiom_selection` branch](https://github.com/mfixman/satcop/tree/axiom_selection)
+of `~/TP/satcop` following its README. It needs
+PicoSAT compiled with `--trace`: the clause-core API requires that feature.
+The unmodified SATCoP executable has no matrix/core export and is rejected
+with a build instruction. There is no automatic build or source modification.
+
+From this repository, either launcher accepts:
+
+```bash
+python axiom_selector.py collect SYN --policy SatCoP \
+  --satcop-location ~/TP/satcop --dataset datasets/NativeSATCoP \
+  --timeout-seconds 900 --num-workers 8 --seed 0
+
+python axiom_selector.py train --dataset datasets/NativeSATCoP \
+  --data-dir runs/NativeSATCoP --network SmallFull \
+  --split 10 --parts 0 1 2 3 4 5 6 7 --evaluate 8
+```
+
+`--satcop-location` accepts a checkout containing `target/release/satcop` or
+an executable; its default is `~/TP/satcop`. Each worker uses one Rust search
+thread. Native SATCoP uses the wall-clock budget; `--step-limit` applies only
+to Python policies. Collection resumes from the existing per-problem cache,
+including failure records, and refuses to combine results from different
+executables, seeds or budgets in one cache. Use a separate dataset for each
+collection configuration.
+
+Successful native JSON exports and command/output logs are retained under
+`DATASET/.cache/SHARD/native/`. The converter uses SATCoP's own clauses and
+clause IDs, including equality axioms and definitions, without reclausifying
+the original input. An axiom is positive if at least one of its ground
+instances occurs in PicoSAT's observed UNSAT core; this core is not necessarily
+minimal. Conjecture clauses are context rather than prediction targets.
+Native symbol IDs distinguish generated symbols from equally named input
+symbols. Source formula names, search constraints, actual start clauses,
+seed, revision, binary hash and matrix hash are retained as graph metadata.
+Constraints and the search start set are recorded for provenance; the existing
+graph features continue to use clause roles and conjecture context.
+
+Existing exports can also be converted separately into a new CSV shard:
+
+```bash
+python packages/axiom_prediction/satcop.py path/to/native/ \
+  --output datasets/ImportedSATCoP/proofs.csv
+```
+
+The training loader currently keeps one example per problem, so the converter
+rejects multiple exports for the same problem. Native collection and training
+do not yet provide neural guidance inside Rust SATCoP. Python guided search
+uses `--policy SATCoPCon`; using a native-trained model there is transfer
+across different clausifications.
+
 For the initial four-run comparison, use DefaultFull, SmallFull,
 DefaultNoTerms and DefaultNoComplements. Keep the dataset and policy fixed,
 train on parts 0–7, validate on part 8, and reserve part 9 for final proof
@@ -165,10 +223,10 @@ automatically. See the [argument reference](CLI.md) for the full search order.
 
 ```bash
 # Unguided baseline:
-python axiom_predictor.py run SYN --policy SatCoP
+python axiom_predictor.py run SYN --policy SATCoPCon
 
 # Guided by the named checkpoint:
-python axiom_predictor.py run SYN --policy SatCoP \
+python axiom_predictor.py run SYN --policy SATCoPCon \
   --data-dir artifacts/SATCoP --model-name SmallFull
 ```
 

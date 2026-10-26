@@ -83,7 +83,9 @@ with --model or --data-dir and supply only problem paths.
 | `--log-every N` | train | **10**. Report training-set prediction metrics every N epochs plus first/final epochs. Zero disables intermediate metric evaluations. Loss and checkpoint saving happen every epoch, independently of this option. |
 | `--device DEVICE` | train, evaluate, predict, run | **cuda**, failing when CUDA is unavailable. auto selects CUDA if available and CPU otherwise; cpu forces CPU; cuda:N selects a visible device. Baseline search does not use a neural device. |
 | `--num-workers N` | collect, train, evaluate, run | Maximum available CPUs, bounded by SLURM allocation and affinity, except guided CUDA search defaults to one worker. Processes for collection/search, CPU threads for training/evaluation. Processes are also capped by problem count. Explicit N overrides automatic selection. |
-| `--policy SatCoP\|SatResetCoP` | collect, train, evaluate, run | Inherit the checkpoint policy for run/evaluate, or dataset policy for training; otherwise **SatResetCoP**. Explicit conflicts with recorded checkpoint/dataset policies fail. |
+| `--policy SatCoP\|SATCoPCon\|SatResetCoP` | collect, train, evaluate, run | **SatCoP** collects using native Rust SATCoP; **SATCoPCon** is the previous Python policy. Native guided run is not implemented. Inherit the checkpoint policy for run/evaluate, or dataset policy for training; otherwise **SatResetCoP**. |
+| `--satcop-location PATH` | collect | Native SATCoP checkout or executable; default `~/TP/satcop`. Requires the matrix/core export patch and a release build. |
+| `--seed N` | collect | Native search seed (default 0); one Rust thread per collection worker. |
 | `--step-limit N` | collect, train, evaluate, run | **1,000,000,000 prover steps per problem for collect; 1,000,000 prover steps per problem for other commands**. Only affects fresh search, not optimization or saved-label evaluation. |
 | `--timeout-seconds S` | collect, train, evaluate, run | **900 seconds (15 minutes) per problem for collect; 120 seconds for other commands** for fresh search. Collection and run supervise workers, including startup, parsing and any worker-side checkpoint loading/prediction. Overdue workers are terminated, including with one worker. Not the total job duration. |
 | `--wandb`, `--no-wandb` | train, evaluate, run | Tracking **on** by default. Missing package/credentials or startup failure produces a warning and execution continues. --no-wandb disables it quietly. |
@@ -112,7 +114,7 @@ GPUs. Only the training device's CUDA RNG is saved; CPU training saves none.
 Changing CPU/GPU or hardware is supported but need not be numerically identical.
 
 Fixed choices use TitleCase StrEnum members and values internally. Policy
-arguments also accept the older lowercase spellings (satcop/satresetcop).
+arguments also accept lowercase spellings (satcop/satcopcon/satresetcop).
 Checkpoints and dataset metadata retain their existing lowercase strings;
 loading them converts those values to enums where used by configuration.
 

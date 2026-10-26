@@ -61,6 +61,8 @@ def collect_axiom_dataset(
 
     num_workers: int | None = None,
     progress: Callable[[int, int, int, int, str, str], None] | None = None,
+    satcop_location: str | Path | None = None,
+    seed: int = 0,
 ) -> dict[str, Any]:
     # Save each problem atomically; resume skips recorded successes and failures.
 
@@ -88,6 +90,23 @@ def collect_axiom_dataset(
             )
         ),
     }
+
+    native_options = None
+    if ProverPolicy(sat_policy) == ProverPolicy.SatCoP:
+        from .satcop import native_binary, binary_identity, label_semantics
+
+        binary = native_binary(satcop_location)
+        native_options = {"binary": str(binary), "output_dir": str(output / "native"), "seed": seed}
+        collection.update(
+            prover_backend = "rust-satcop",
+            binary_sha256 = binary_identity(binary),
+            label_semantics = label_semantics,
+            seed = seed,
+        )
+        collection.pop("step_limit")
+        log("native SATCoP uses the wall-clock timeout; --step-limit applies to Python policies only")
+    elif satcop_location is not None:
+        raise ValueError("--satcop-location requires --policy SatCoP")
 
     metadata_path = output / "metadata.json"
     if metadata_path.exists():
@@ -188,6 +207,7 @@ def collect_axiom_dataset(
         timeout_s = timeout_s,
         sat_policy = sat_policy,
         num_workers = workers,
+        native_options = native_options,
     ):
         if result.proved:
             proved += 1
@@ -224,6 +244,8 @@ def collect_axiom_dataset_shard(
     timeout_s: float = default_collection_timeout_s,
     sat_policy: str = ProverPolicy.SatResetCoP,
     num_workers: int | None = None,
+    satcop_location: str | Path | None = None,
+    seed: int = 0,
 ) -> tuple[Path, dict[str, Any]]:
     # Resume from per-problem caches and publish the finished shard atomically.
 
@@ -241,6 +263,8 @@ def collect_axiom_dataset_shard(
         timeout_s = timeout_s,
         sat_policy = sat_policy,
         num_workers = num_workers,
+        satcop_location = satcop_location,
+        seed = seed,
     )
 
     if summary.get(
@@ -319,6 +343,7 @@ def collect_problem_records_parallel(
     timeout_s: float,
     sat_policy: str,
     num_workers: int | None = None,
+    native_options: dict | None = None,
 ) -> Iterator[CollectedAxiomRecord]:
     workers = determine_worker_count(len(problems), num_workers)
     if workers == 0:
@@ -332,6 +357,7 @@ def collect_problem_records_parallel(
             step_limit,
             timeout_s,
             sat_policy,
+            native_options,
         )
         for problem in problems
     )
@@ -395,16 +421,19 @@ def collect_one_problem_to_partial(
     step_limit: int,
     timeout_s: float,
     sat_policy: str,
+    native_options: dict | None = None,
 ) -> CollectedAxiomRecord:
     parseable = True
     collection_error = False
     try:
+        options = {} if native_options is None else {"native_options": native_options}
         example, outcome = collect_proof_example(
             problem,
             tptp_root = tptp_root,
             step_limit = step_limit,
             timeout_s = timeout_s,
             sat_policy = sat_policy,
+            **options,
         )
     except TPTPParseError as error:
         example = None
@@ -614,7 +643,11 @@ def load_axiom_dataset_shards(
     )
 
 def collection_settings(collection):
-    return {key: value for key, value in collection.items() if key != "tptp_root"}
+    settings = {key: value for key, value in collection.items() if key != "tptp_root"}
+    if settings.get("sat_policy") == "satcop" and settings.get("prover_backend") != "rust-satcop":
+        settings["sat_policy"] = "satcopcon"
+
+    return settings
 
 def dataset_compatibility_settings(collection):
     return {

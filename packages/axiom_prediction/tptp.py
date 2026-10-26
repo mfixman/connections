@@ -245,13 +245,24 @@ def collect_proof_example(
     step_limit: int = default_collection_step_limit,
     timeout_s: float = default_collection_timeout_s,
     sat_policy: str = ProverPolicy.SatResetCoP,
+    native_options: dict | None = None,
 ) -> tuple[AxiomTrainingExample | None, str]:
+    if ProverPolicy(sat_policy) == ProverPolicy.SatCoP:
+        from .satcop import collect_native_example
+
+        return collect_native_example(
+            problem,
+            tptp_root = tptp_root,
+            timeout_s = timeout_s,
+            **(native_options or {}),
+        )
+
     non_refutable_declared_outcomes = {
         "satisfiable": "DeclaredSatisfiable",
         "countersatisfiable": "DeclaredCounterSatisfiable",
     }
 
-    policies = {ProverPolicy.SatCoP: SATCoPCon, ProverPolicy.SatResetCoP: SATResetCoP}
+    policies = {ProverPolicy.SatCoPCon: SATCoPCon, ProverPolicy.SatResetCoP: SATResetCoP}
     sat_policy = ProverPolicy(sat_policy)
     if sat_policy not in policies:
         raise ValueError(f"unsupported SAT policy: {sat_policy!r}")
