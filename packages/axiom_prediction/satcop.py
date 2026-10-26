@@ -28,7 +28,7 @@ from axiom_prediction.io import write_csv, write_json_atomic
 from axiom_prediction.logs import log
 from axiom_prediction.satcop_dump import parse_dump, read_export
 
-export_schema = "satcop.collection.v2"
+export_schema = "satcop.collection.v3"
 label_semantics = "native SATCoP PicoSAT clause-core membership projected to matrix clauses"
 
 def expand_matrix(tables):
@@ -47,25 +47,28 @@ def expand_matrix(tables):
         }
 
     clauses = []
-    for row, source in zip(tables["clauses"], tables["sources"], strict = True):
-        variables, lit_start, lit_stop, diseq_start, diseq_stop, goal = row
-        clauses.append(
-            {
-                "variables": variables,
-                "is_goal": bool(goal),
-                "source": {"kind": "equality"} if source is None else {
-                    "kind": "input", "path": source[0], "name": source[1],
-                },
-                "literals": [
-                    {"positive": bool(positive), "atom": term(atom)}
-                    for positive, atom in tables["literals"][lit_start:lit_stop]
-                ],
-                "disequations": [
-                    [term(left), term(right)]
-                    for left, right in tables["disequations"][diseq_start:diseq_stop]
-                ],
+    for index, row in enumerate(tables["clauses"]):
+        variables, lit_start, lit_stop, *constraints, goal = row
+        clause = {
+            "variables": variables,
+            "is_goal": bool(goal),
+            "literals": [
+                {"positive": bool(positive), "atom": term(atom)}
+                for positive, atom in tables["literals"][lit_start:lit_stop]
+            ],
+        }
+        if constraints:
+            diseq_start, diseq_stop = constraints
+            source = tables["sources"][index]
+            clause["source"] = {"kind": "equality"} if source is None else {
+                "kind": "input", "path": source[0], "name": source[1],
             }
-        )
+            clause["disequations"] = [
+                [term(left), term(right)]
+                for left, right in tables["disequations"][diseq_start:diseq_stop]
+            ]
+
+        clauses.append(clause)
 
     return {
         "symbols": [
@@ -73,9 +76,8 @@ def expand_matrix(tables):
             for name, arity, predicate in tables["symbols"]
         ],
         "clauses": clauses,
-        "start_clause_ids": tables["start_clause_ids"],
         "have_conjecture": tables["have_conjecture"],
-        "grounding_constant": tables["grounding_constant"],
+        **{key: tables[key] for key in ("start_clause_ids", "grounding_constant") if key in tables},
     }
 
 def binary_identity(binary):
@@ -104,6 +106,9 @@ def run_native(binary, problem, root, output, timeout_s, seed):
         str(binary), str(problem), "--collect", "--seed", str(seed),
         "--time", str(max(1, math.ceil(timeout_s))),
     ]
+    # Native SATCoP starts one search per available CPU; index 0 uses exactly seed.
+    cpus = sorted(os.sched_getaffinity(0))
+    command = ["taskset", "--cpu-list", str(cpus[os.getpid() % len(cpus)]), *command]
     log_path = output.with_suffix(".log")
     with log_path.open("w") as log_file:
         log_file.write(json.dumps(command) + "\n")
@@ -134,7 +139,7 @@ def run_native(binary, problem, root, output, timeout_s, seed):
     if status not in ("Theorem", "Unsatisfiable"):
         return status
 
-    payload = parse_dump(text)
+    payload = parse_dump(text, problem = problem, seed = seed, timeout_s = timeout_s)
     payload.update(native_details(binary))
     write_json_atomic(output, payload)
     return "proved"
@@ -245,14 +250,14 @@ def decode_clause(value, symbols, index):
 
 @deep_recursion()
 def convert_example(payload, path):
-    if payload.get("schema") not in (export_schema, "satcop.collection.v1"):
+    if payload.get("schema") not in (export_schema, "satcop.collection.v2", "satcop.collection.v1"):
         raise ValueError(f"unsupported SATCoP export schema in {path}")
 
     if payload.get("status") not in ("Theorem", "Unsatisfiable"):
         raise ValueError(f"SATCoP export has no successful refutation: {path}")
 
     native = payload["matrix"]
-    if payload["schema"] == export_schema:
+    if payload["schema"] != "satcop.collection.v1":
         native = expand_matrix(native)
     # Native IDs distinguish generated and input symbols even if their names collide.
     symbols = [f"{index}:{symbol['name']}" for index, symbol in enumerate(native["symbols"])]
@@ -285,19 +290,22 @@ def convert_example(payload, path):
         matrix_sha256 = hashlib.sha256(
             json.dumps(native, sort_keys = True, separators = (",", ":")).encode()
         ).hexdigest(),
-        start_clause_ids = native["start_clause_ids"],
-        clause_sources = [clause["source"] for clause in native["clauses"]],
-        disequations = {
+    )
+    if "start_clause_ids" in native:
+        provenance.update(start_clause_ids = native["start_clause_ids"])
+
+    if "source" in native["clauses"][0]:
+        provenance.update(clause_sources = [clause["source"] for clause in native["clauses"]])
+        provenance["disequations"] = {
             str(index): clause["disequations"]
             for index, clause in enumerate(native["clauses"])
             if clause["disequations"]
-        },
-    )
+        }
 
     example.graph.graph.metadata["satcop"] = provenance
     return axiom_training_example_to_json(example)
 
-def convert_exports(paths, output):
+def convert_exports(paths, output, **metadata):
     if output.exists():
         raise FileExistsError(f"refusing to replace an existing dataset shard: {output}")
 
@@ -308,7 +316,7 @@ def convert_exports(paths, output):
     def records():
         nonlocal collection, count
         for path in paths:
-            payload = read_export(path)
+            payload = read_export(path, **metadata)
             row = convert_example(payload, path)
             settings = {
                 "sat_policy": "satcop",
@@ -349,6 +357,9 @@ def main():
     parser = argparse.ArgumentParser(description = "Convert native SATCoP exports to a training CSV")
     parser.add_argument("exports", nargs = "+", type = Path, help = "saved JSON exports, raw SATCoP stdout files, or flat directories")
     parser.add_argument("--output", required = True, type = Path, help = "new training CSV shard")
+    parser.add_argument("--problem", help = "original input path for a single raw stdout dump")
+    parser.add_argument("--seed", type = int, help = "seed used for a raw stdout dump")
+    parser.add_argument("--timeout-seconds", type = float, help = "budget used for a raw stdout dump")
     args = parser.parse_args()
 
     if args.output.suffix != ".csv":
@@ -358,7 +369,10 @@ def main():
     for path in args.exports:
         paths.extend((sorted(path.glob("*.json")) or sorted(path.glob("*.out"))) if path.is_dir() else [path])
 
-    count = convert_exports(paths, args.output)
+    if args.problem is not None and len(paths) != 1:
+        parser.error("--problem requires exactly one export")
+
+    count = convert_exports(paths, args.output, problem = args.problem, seed = args.seed, timeout_s = args.timeout_seconds)
     log(f"wrote {count} examples to {args.output}")
 
 if __name__ == "__main__":

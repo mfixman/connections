@@ -119,7 +119,7 @@ From this repository, either launcher accepts:
 ```bash
 python axiom_selector.py collect SYN --policy SatCoP \
   --satcop-location ~/TP/satcop --dataset datasets/NativeSATCoP \
-  --timeout-seconds 900 --num-workers 8 --seed 0
+  --timeout-seconds 900 --num-workers 8 --seed 123
 
 python axiom_selector.py train --dataset datasets/NativeSATCoP \
   --data-dir runs/NativeSATCoP --network SmallFull \
@@ -127,8 +127,11 @@ python axiom_selector.py train --dataset datasets/NativeSATCoP \
 ```
 
 `--satcop-location` accepts a checkout containing `target/release/satcop` or
-an executable; its default is `~/TP/satcop`. Each worker uses one Rust search
-thread. Native SATCoP uses the wall-clock budget; `--step-limit` applies only
+an executable; its default is `~/TP/satcop`. On Linux, Python uses `taskset` to
+give each child one CPU, so SATCoP starts one search thread. `--seed 123` is
+forwarded unchanged as `satcop ... --seed 123`; that thread receives seed 123.
+The original SATCoP has an internal seeding method but needs the small CLI
+addition to expose it. Native SATCoP uses the wall-clock budget; `--step-limit` applies only
 to Python policies. Collection resumes from the existing per-problem cache,
 including failure records, and refuses to combine results from different
 executables, seeds or budgets in one cache. Use a separate dataset for each
@@ -136,7 +139,7 @@ collection configuration.
 
 Successful native JSON exports and command/output logs are retained under
 `DATASET/.cache/SHARD/native/`. SATCoP's `--collect` flag prints its existing
-debug representations and uses one search thread; its proof output identifies
+debug representations; its proof output identifies
 each ground core clause's matrix origin. Python captures stdout, parses it,
 and writes the JSON files. Saved v1 and v2 JSON exports remain readable.
 The converter uses SATCoP's own clauses and
@@ -145,20 +148,23 @@ the original input. An axiom is positive if at least one of its ground
 instances occurs in PicoSAT's observed UNSAT core; this core is not necessarily
 minimal. Conjecture clauses are context rather than prediction targets.
 Native symbol IDs distinguish generated symbols from equally named input
-symbols. Source formula names, search constraints, actual start clauses,
-seed, observed checkout revision, binary hash and matrix hash are retained as
-graph metadata. `checkout_revision` describes the checkout at collection time;
+symbols. Symbol display names are generated from their IDs. Python records the
+seed, observed checkout revision, binary hash and matrix hash as graph metadata.
+The minimal dump omits source formula names, search constraints and the start set.
+`checkout_revision` describes the checkout at collection time;
 the binary hash identifies the executable actually run.
-Constraints and the search start set are recorded for provenance; the existing
-graph features continue to use clause roles and conjecture context.
 
 Raw stdout or existing JSON exports can also be converted separately:
 
 ```bash
-~/TP/satcop/target/release/satcop problem.p --collect --seed 0 --time 900 > proof.out
+taskset -c 0 ~/TP/satcop/target/release/satcop problem.p --collect --seed 123 --time 900 > proof.out
 python packages/axiom_prediction/satcop.py proof.out \
+  --problem problem.p --seed 123 --timeout-seconds 900 \
   --output datasets/ImportedSATCoP/proofs.csv
 ```
+
+Replace CPU 0 with a CPU allowed by your allocation. Raw dumps need `--problem`
+because Rust no longer exports the input path; JSON exports already contain it.
 
 The debug parser matches this SATCoP revision and fails on changed layouts or
 incomplete proofs. Matrix decoding, JSON serialization, process monitoring,
@@ -170,14 +176,12 @@ do not yet provide neural guidance inside Rust SATCoP. Python guided search
 uses `--policy SATCoPCon`; using a native-trained model there is transfer
 across different clausifications.
 
-The Python-written `satcop.collection.v2` matrix stores symbols as `[name, arity,
-predicate]`, literals as `[positive, atom_term_id]`, and disequations as
-`[left_term_id, right_term_id]`. Clause rows contain `[variable_count,
-literal_start, literal_stop, disequation_start, disequation_stop, is_goal]`;
+The Python-written `satcop.collection.v3` matrix stores symbols as `[name, arity,
+predicate]` and literals as `[positive, atom_term_id]`. Clause rows contain
+`[variable_count, literal_start, literal_stop, is_goal]`;
 ranges exclude their stop index. A term starts with a positive symbol ID or
 a nonpositive variable code (`-variable_id`). A symbol's arity determines how
-many following cells contain argument term IDs. Sources are `[path, name]`
-or `null` for equality axioms. The converter expands this representation
+many following cells contain argument term IDs. The converter expands this representation
 before using the existing graph builder.
 
 For the initial four-run comparison, use DefaultFull, SmallFull,
