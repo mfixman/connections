@@ -246,6 +246,7 @@ def collect_proof_example(
     timeout_s: float = default_collection_timeout_s,
     sat_policy: str = ProverPolicy.SatResetCoP,
     native_options: dict | None = None,
+    seed: int = 0,
 ) -> tuple[AxiomTrainingExample | None, str]:
     if ProverPolicy(sat_policy) == ProverPolicy.SatCoP:
         from .satcop import collect_native_example
@@ -254,6 +255,7 @@ def collect_proof_example(
             problem,
             tptp_root = tptp_root,
             timeout_s = timeout_s,
+            seed = seed,
             **(native_options or {}),
         )
 
@@ -289,11 +291,11 @@ def collect_proof_example(
         matrix = MatrixOptions(mark_conjecture = True),
         policy = PolicyOptions(
             policy_class = policies[sat_policy],
-            args = {"debug_sat_core": True},
+            args = {"debug_sat_core": True, "seed": seed},
         ),
     )
 
-    agent = policies[sat_policy](debug_sat_core = True)
+    agent = policies[sat_policy](debug_sat_core = True, seed = seed)
     result = run_schedule(
         Problem(
             path,
