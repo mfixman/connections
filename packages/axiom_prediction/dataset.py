@@ -82,6 +82,7 @@ def collect_axiom_dataset(
 
     collection = {
         "sat_policy": ProverPolicy(sat_policy).wire_value(),
+        "seed": seed,
         "step_limit": step_limit,
         "timeout_seconds": timeout_s,
         "tptp_root": (
@@ -96,12 +97,11 @@ def collect_axiom_dataset(
         from .satcop import native_binary, binary_identity, label_semantics
 
         binary = native_binary(satcop_location)
-        native_options = {"binary": str(binary), "output_dir": str(output / "native"), "seed": seed}
+        native_options = {"binary": str(binary), "output_dir": str(output / "native")}
         collection.update(
             prover_backend = "rust-satcop",
             binary_sha256 = binary_identity(binary),
             label_semantics = label_semantics,
-            seed = seed,
         )
         collection.pop("step_limit")
         log("native SATCoP uses the wall-clock timeout; --step-limit applies to Python policies only")
@@ -208,6 +208,7 @@ def collect_axiom_dataset(
         sat_policy = sat_policy,
         num_workers = workers,
         native_options = native_options,
+        seed = seed,
     ):
         if result.proved:
             proved += 1
@@ -344,6 +345,7 @@ def collect_problem_records_parallel(
     sat_policy: str,
     num_workers: int | None = None,
     native_options: dict | None = None,
+    seed: int = 0,
 ) -> Iterator[CollectedAxiomRecord]:
     workers = determine_worker_count(len(problems), num_workers)
     if workers == 0:
@@ -358,6 +360,7 @@ def collect_problem_records_parallel(
             timeout_s,
             sat_policy,
             native_options,
+            seed,
         )
         for problem in problems
     )
@@ -422,6 +425,7 @@ def collect_one_problem_to_partial(
     timeout_s: float,
     sat_policy: str,
     native_options: dict | None = None,
+    seed: int = 0,
 ) -> CollectedAxiomRecord:
     parseable = True
     collection_error = False
@@ -433,6 +437,7 @@ def collect_one_problem_to_partial(
             step_limit = step_limit,
             timeout_s = timeout_s,
             sat_policy = sat_policy,
+            seed = seed,
             **options,
         )
     except TPTPParseError as error:
@@ -646,6 +651,9 @@ def collection_settings(collection):
     settings = {key: value for key, value in collection.items() if key != "tptp_root"}
     if settings.get("sat_policy") == "satcop" and settings.get("prover_backend") != "rust-satcop":
         settings["sat_policy"] = "satcopcon"
+
+    if settings.get("seed") == 0:
+        settings.pop("seed")
 
     return settings
 

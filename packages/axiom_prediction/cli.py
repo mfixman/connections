@@ -151,7 +151,10 @@ def build_parser() -> argparse.ArgumentParser:
         type = Path,
         help = "native SATCoP checkout (target/release/satcop) or executable; default: ~/TP/satcop",
     )
-    collect.add_argument("--seed", type = nonnegative_int, default = 0)
+    collect.add_argument(
+        "--seed", type = nonnegative_int, default = 0,
+        help = "proof-search seed for all collection policies (default: 0)",
+    )
 
     evaluate = subparsers.add_parser(
         "evaluate",
