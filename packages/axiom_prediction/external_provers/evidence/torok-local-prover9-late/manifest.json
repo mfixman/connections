@@ -1,0 +1,1613 @@
+{
+  "previous": "/home/mfixman/Dropbox/continuous/TP/vampire/results/torok-local-prover9-final",
+  "problems": [
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/LCL/LCL319-3.p",
+      "sample": "development",
+      "sha256": "932c60bd4ef6f3f4c5e4505b416b4f30fdf03d378155576e7bfa042ba2bab57a"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/SWC/SWC049-1.p",
+      "sample": "heldout",
+      "sha256": "a8ae8701bdbccbaabad63071261de712ca29dc7222ad46d8ae2a31ac634d6646"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/GRP/GRP197-1.p",
+      "sample": "development",
+      "sha256": "0af10607a5dd86cabd5ec7fac181cc185e0596c1f6d6760e62d6a9891b2c3b4d"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/SCT/SCT040-1.p",
+      "sample": "heldout",
+      "sha256": "266da0ef363cb0f771f55df18691279c0f85fdcb7cb358ab3de91a71c4df22d6"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/LAT/LAT017-1.p",
+      "sample": "development",
+      "sha256": "7d8173e62bdde5a7c90d9ae22e9ad54d16e1960a93672381fce50b543fd2e72a"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/SYO/SYO613-1.p",
+      "sample": "heldout",
+      "sha256": "32af338e6fb5544af25641e9c511de944de8bc485a8c62dd12e4a93f77528b91"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/CAT/CAT019-3.p",
+      "sample": "development",
+      "sha256": "979dec3cc64b227fcd8035c50e5cc15cec81c8f39599f9b9701f757304f12b2d"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/GEO/GEO035-3.p",
+      "sample": "development",
+      "sha256": "b0fac74ff3b94d67c656c4632b8b2eee4460fe6a0566bcd86b48c827ec2248fa"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/GRP/GRP186-2.p",
+      "sample": "development",
+      "sha256": "72005b309e397f9051e84cd5817391bd2f10cfe5305fbd12336e06f77e017d84"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/SWC/SWC146-1.p",
+      "sample": "heldout",
+      "sha256": "af9dba4cbede843ed6af3ef3ee74cbcce553e31153a24e84df7e199c8677246f"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/LAT/LAT147-1.p",
+      "sample": "development",
+      "sha256": "8ed9f043479fdebdf8cb5bfbddf454156e972eab15ac824ce4592d41878f7a70"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/LAT/LAT245-1.p",
+      "sample": "heldout",
+      "sha256": "c57bb0ecabb2d80363cabea7055fd6d120bfb1e4e61dfe445a657e07cd039d9d"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/HWV/HWV102-1.p",
+      "sample": "heldout",
+      "sha256": "f2a3d98432a8b0e17780e054cb7481938d0aa84319edd869fd8b3987efa1a75d"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/CAT/CAT007-3.p",
+      "sample": "development",
+      "sha256": "d4fbaaa39a12a8bfe4effc224c5b3ed7c4902c561d4694d3e89c34b56e1017b0"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/COL/COL017-1.p",
+      "sample": "development",
+      "sha256": "f8b9b25246ff76694dff9911ec86b052bc732c752a65477cc0fad9ceb949d81a"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/LAT/LAT260-1.p",
+      "sample": "development",
+      "sha256": "dd2cd43216e31d1dd5d4e427375cbc19e92f852696e40d2d811f920cbaa9e6dd"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/SWV/SWV597-1.p",
+      "sample": "development",
+      "sha256": "451e31b656206156fae2744da9954381cb6a960acddc0fe1165f43117c465bad"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/SYN/SYN013-1.p",
+      "sample": "development",
+      "sha256": "36df1a350ac9f3f4361b2faab26ace791e2556807d62dfab026917989cc59a95"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/SYN/SYN184-1.p",
+      "sample": "development",
+      "sha256": "10d7ace019fcbfebaea7f6ea68ddbc22e1e6a2c4c13b379ad1f0e0adc363fc03"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/SWV/SWV301-1.p",
+      "sample": "development",
+      "sha256": "8a6db8e076469f1825565f45353c56ebc9a8d9eb11ef53a323d1dd8e88cf7889"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/SET/SET145-6.p",
+      "sample": "development",
+      "sha256": "7d8718133299c37bc1a4f68eaeea3163ab2f4024d0a7c3ae1599ec8ceba0d3b1"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/COL/COL114-1.p",
+      "sample": "development",
+      "sha256": "d5daaa5075ef9cfd829c729b481d6fc7b133e0b10627072c0c62731d55e22018"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/SYN/SYN349-1.p",
+      "sample": "heldout",
+      "sha256": "28ea463a724a1e7438f88f21deefc87ad5f9069c9507eb6d4ae9daf5f04f2deb"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/LCL/LCL844-1.p",
+      "sample": "development",
+      "sha256": "86d15e8038ab362b9a5a7da31314476509e5cffc7eede3922c33911a24d9171a"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/REL/REL033-2.p",
+      "sample": "heldout",
+      "sha256": "8d93235a4fcc107ee3b74d1f52879c6edbc0b907601dfac5f72323a5d1c3ebf4"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/GRP/GRP247-1.p",
+      "sample": "heldout",
+      "sha256": "0b8940f0f5d622334e4e1bb9596bfd96089109a994c636cdfea91ec329734bb0"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/REL/REL016-2.p",
+      "sample": "development",
+      "sha256": "1750ca586a6e91e6477350782f979ea566d2bbff94fed445529c7af5a47f21d1"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/SET/SET117-6.p",
+      "sample": "development",
+      "sha256": "3c30f26c320d708d22780db4b96a617a5accdb24d4a516e3f535f2f073285db7"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/GRP/GRP162-1.p",
+      "sample": "development",
+      "sha256": "ecda22e6c94648d094a987d3eacf3b87d8298aaa389230e075fcdd43429b94ce"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/COL/COL119-1.p",
+      "sample": "development",
+      "sha256": "82c8eccd763d7448fd5d93e95b95426a29e48175dfe4efe77f2e19708130bf78"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/REL/REL050-3.p",
+      "sample": "development",
+      "sha256": "f6c2b8a4354ebdde46e29824d6ca9db88cc4d250574e4d5b0a6f0941f6829726"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/COL/COL095-2.p",
+      "sample": "development",
+      "sha256": "c0dceb5c7ed1d1e6128bd0e67624886ac145871df7f181e80005fc396c2f8304"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/SYN/SYN848-1.p",
+      "sample": "development",
+      "sha256": "90f3ffc72ece338e5ab45831a8e7bbc870c1d6bcea17978d6b087bae05164570"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/SYN/SYN784-1.p",
+      "sample": "heldout",
+      "sha256": "5289d827d4811b740c533f235d958fde2e8033fae632e4e6953482e3df73f358"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/LCL/LCL044-1.p",
+      "sample": "development",
+      "sha256": "476ba1c31b6a52db98e9058934dcce1cebf1db798260f0c575b8de5b98403163"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/SET/SET053-6.p",
+      "sample": "heldout",
+      "sha256": "db7206a2397783736653192c1d236f65820b96df3b0ee75ae777685a330960f5"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/SWV/SWV501-1.040.p",
+      "sample": "heldout",
+      "sha256": "644e5905ed7b7bfed8336da77d7b1c414f5a0187002a3d3f6c6649a9dadc1b94"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/SWV/SWV515-1.030.p",
+      "sample": "heldout",
+      "sha256": "ba8f33d6a85efe63b5926951561c136e72f8c82ebb91c2c39cb436e4bb6668b2"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/LCL/LCL216-3.p",
+      "sample": "development",
+      "sha256": "edc4d826b38b75d3121656a4928f88402336fb1feac1c9a1cdf9bdec13941e91"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/GEO/GEO112-1.p",
+      "sample": "development",
+      "sha256": "c4e2d6ae45adfbe7585ec2a39a9201285231582560ffb07881bc46e0245ca9a6"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/ANA/ANA037-2.p",
+      "sample": "heldout",
+      "sha256": "94e81b917ded7604feafe88c32c27201f8787c2a3374a80efb1d0479e2a2cbd9"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/SWC/SWC108-1.p",
+      "sample": "development",
+      "sha256": "df11ab9bd36279906c99e7cdd4ae8d4047d6313eb22cc54a24affd7463966107"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/SWC/SWC244-1.p",
+      "sample": "development",
+      "sha256": "e01c785138c5419b08ed688b92538af88d28637440666244253d5000cd293ac9"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/SET/SET031-3.p",
+      "sample": "development",
+      "sha256": "dfb1c00f30cb6b3379f9971793104f66d5d7c3dc0bc508e83d0d52e854a13d88"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/SWV/SWV271-1.p",
+      "sample": "development",
+      "sha256": "c67e56832d828fb78698644fdb4ba065b0f965303a1b1b2bbba125dea869716f"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/NUM/NUM017-1.p",
+      "sample": "development",
+      "sha256": "d59c3ae1578746bd18b09cbfdf50e3ec2522e49e85bfcc35501490ba32b736d0"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/SET/SET862-1.p",
+      "sample": "heldout",
+      "sha256": "c4e7a0550d716d6e027e884ade7006f3e763f1a41b84d714132d6f42130d74ac"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/COL/COL110-2.p",
+      "sample": "development",
+      "sha256": "b191789e7e6275f699f8f5f23a82a0e3c36dd578d36ee455d5ed4b860da7c9aa"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/SYO/SYO676-1.p",
+      "sample": "development",
+      "sha256": "69c7bb084d72251d41a61682f9e3b6f9c06936688e6c9593b4bd154eb19bc5b5"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/FLD/FLD069-1.p",
+      "sample": "development",
+      "sha256": "d7a6a28fa72df31a5d2208aab18d8c04b0f4bd96b14ac91c5ef0e6571f980804"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/SYO/SYO673-1.p",
+      "sample": "heldout",
+      "sha256": "3b1c3c7bcc4f7d20725bda021d01613f6870f689a1a5684b3479dd027825cb3c"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/HWV/HWV043-2.p",
+      "sample": "development",
+      "sha256": "3f08d9f46b5768f3689fdb373655e1f94439194a21ffed2ae731cfdb1705b188"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/GRP/GRP424-1.p",
+      "sample": "development",
+      "sha256": "6e3d9d14dc2435f438843b842e91cd0b53e8083d0387b33fd7729eb77c401c30"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/SWC/SWC078-1.p",
+      "sample": "development",
+      "sha256": "fb91ac1639966938b15fdc517288fee8662d63b1452c3209524ac6867a2d14ee"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/SWC/SWC356-1.p",
+      "sample": "heldout",
+      "sha256": "3a704b933ac2618f9ebc092034d25074efa297a74dea5f0233cac2ff5e31247f"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/LAT/LAT218-1.p",
+      "sample": "development",
+      "sha256": "434d6e0f0e74dd00e5d895778385dc457edb75147df7920d364de757184d8fd6"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/SWC/SWC230-1.p",
+      "sample": "heldout",
+      "sha256": "2fedd7610d9d0fd1d9703e0783f3d4929ef8a89d93574e7b9e38ff141b076fc7"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/GEO/GEO045-3.p",
+      "sample": "development",
+      "sha256": "0c192d2e31f46a4974300742108ec3f62b9886199194b4cf22ffc31aadfdb8d1"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/SWC/SWC225-1.p",
+      "sample": "development",
+      "sha256": "f7d82f7932dd811be0b20300f95d32c4128dd69f0f0c751f2288a4609ea4e120"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/GRP/GRP407-1.p",
+      "sample": "development",
+      "sha256": "e745036268640640a4d13522a98836b078f006ccb1b225b1d759e45eded45c4a"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/GRP/GRP295-1.p",
+      "sample": "development",
+      "sha256": "4931da9092b0bd351b71a878a987ef0ee8753860cefa68d1eaa40880fff18977"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/SYN/SYN098-1.002.p",
+      "sample": "development",
+      "sha256": "dd1d4f8fe773bfb9f6bdd3e2ac6ccd9cde6101386f369fada474694750d5d737"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/GRP/GRP570-1.p",
+      "sample": "heldout",
+      "sha256": "c249c1b6f4c33a72d6a7172eabc686491c6e209d93e4a471a426d153e7bc6ee4"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/GRP/GRP127-4.004.p",
+      "sample": "heldout",
+      "sha256": "ccb87709c5da13b6e66f4210205db59434da77d2072abd8d674c0f1b9d562d2b"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/GRP/GRP010-1.p",
+      "sample": "development",
+      "sha256": "414851a87775aef5d0ca11f15f9d9e7f120965c1350cbe1805ed769bbaecc9af"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/SWW/SWW430-1.p",
+      "sample": "heldout",
+      "sha256": "a67c80419dfab9eeb40ea4fd47945437ffd79b65570b4de75836430a3168978b"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/GRP/GRP224-1.p",
+      "sample": "development",
+      "sha256": "f76b62c0b8041279393c709ff1bd2e13aca8f51624567caf94d44c4e08d7619a"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/GRP/GRP121-1.p",
+      "sample": "heldout",
+      "sha256": "f47e492cf99434c2d2cddf80dd58b69b1bada23d8d9a9a2d844f3cbabd91f087"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/SET/SET054-6.p",
+      "sample": "development",
+      "sha256": "e1de9d84169e041095da552263cdba9650b8ac52b56eb013e56a1de5a20b1ae3"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/MGT/MGT060-1.p",
+      "sample": "heldout",
+      "sha256": "5b6614b8961ea374f6f70261215d1f8e1e9f18fa9c9c60f1ed046db63ca0f8ab"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/LCL/LCL842-1.p",
+      "sample": "heldout",
+      "sha256": "1d3ab0eca76d2da29b7fa6a9ff954c034282f55e76d6601ab793c3299d4db728"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/GEO/GEO037-2.p",
+      "sample": "heldout",
+      "sha256": "2cbb6019edc42b61047d868ba3fd3ec11fd554b050605028a7941f81ee911b2e"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/SYN/SYN035-1.p",
+      "sample": "development",
+      "sha256": "cf3d947e2179aa05dbae21e3b3d249e0ab7e6a2c370ec76f5e56d991b6839e78"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/SWV/SWV768-1.p",
+      "sample": "heldout",
+      "sha256": "6c7cb3ee86321d6005e100da00d04d625d5452d8d6e4cf2a755d46d7ba1cf101"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/LCL/LCL390-1.p",
+      "sample": "development",
+      "sha256": "b589e0adaa267ec51a8dfcff3ddc151d8d25eabeec75242f8002526d12246678"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/LAT/LAT191-1.p",
+      "sample": "development",
+      "sha256": "5fbf73e25695b53b9965af925e391ecb60ece5d867ab68b8f2ec16e3ba8a288b"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/SET/SET337-6.p",
+      "sample": "development",
+      "sha256": "648c0f0b083883a823b6b8f1f865da1deabca18642a0e9ca34e1ae22ba7cfea4"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/SWV/SWV798-1.p",
+      "sample": "development",
+      "sha256": "f0f66a7cddcc0821b01d6374403d441f99b917154c92c20081e4ad174afd8b7d"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/LCL/LCL180-3.p",
+      "sample": "development",
+      "sha256": "5ae4a570eee007ffde749d1ba0f9a35b0e3545c1788757763d7cf1162e5081cd"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/SWC/SWC234-1.p",
+      "sample": "development",
+      "sha256": "a21f217ead123a6eb52dafe00b10c8e70cd359d602ab0c7ea84523b35ccd9b0f"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/GEO/GEO015-2.p",
+      "sample": "heldout",
+      "sha256": "4564418a52be709d19c645be1728eba4ad1ce20da3bdeaba0134f27313bd8875"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/SET/SET025-8.p",
+      "sample": "development",
+      "sha256": "ed3f6f71ee8a5537f6d030ea0c3362c0e907e4df8eabbbc0ac0ee88a248ae767"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/SYO/SYO683-1.p",
+      "sample": "heldout",
+      "sha256": "154dbad9084f7acf840e7b17f2f312cdc73fb4cd77342f1ee662afb2638b1ca9"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/SYN/SYN099-1.003.p",
+      "sample": "heldout",
+      "sha256": "d02e51dc81926d26c5390ada03efa46814757a90f66cfe31d90ed65443021749"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/GRP/GRP572-1.p",
+      "sample": "development",
+      "sha256": "fd1aab75ea19cb513f079154d2c152e2ef0d7b9951d677141fb753fda9768eec"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/GRP/GRP135-2.002.p",
+      "sample": "development",
+      "sha256": "4bf3b5889e19317189dd17b34acdf93016aef708f84c77bdd76f57db60f44bea"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/LCL/LCL257-1.p",
+      "sample": "development",
+      "sha256": "c90d6e2757d139ea7ad9099d6bff4b18c27fc7136cd34ce40eb6542249067b37"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/LAT/LAT002-1.p",
+      "sample": "development",
+      "sha256": "2d311169c4105ad3cc20ec0b03401642b1ac90cdb30379c7f41c6d494fce4844"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/SYN/SYN122-1.p",
+      "sample": "heldout",
+      "sha256": "424f8741a97d40832e281a027e85fac77dbb964667ff2853a629eb4ee3af7886"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/GRP/GRP494-1.p",
+      "sample": "heldout",
+      "sha256": "77e49573071d554f3431e699e1b6652088998bc275036ab1038cbbfd174bb7dc"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/SWC/SWC181-1.p",
+      "sample": "development",
+      "sha256": "e8390fa6c10701ae3218d3a72d353e94626db6be7ccd7485257ecc2c65d7ee78"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/SET/SET078-7.p",
+      "sample": "development",
+      "sha256": "ea213f1efce4502f0e937acf2ce928251a992dad51e08f8087bbddc15dce702e"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/SCT/SCT030-1.p",
+      "sample": "development",
+      "sha256": "c50ecc744660a5a304dcebf831d12cd5bec0dc12a6a4c3b88f6cdff4ed9017a2"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/GRP/GRP772-1.p",
+      "sample": "heldout",
+      "sha256": "193e37d61ccaca6a7bf19575ac906e4d56215ab3706da8416618f13d827fbd7e"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/GRP/GRP446-1.p",
+      "sample": "heldout",
+      "sha256": "514feb662f3613607a86ff19c46d8f4e94425c79f2444496555eadbc6ff84444"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/SYN/SYN260-1.p",
+      "sample": "development",
+      "sha256": "d904be0b2bbf945f4f1a8555c807c2da4ae090c614ed713783c5ab4dd127981a"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/SWC/SWC069-1.p",
+      "sample": "development",
+      "sha256": "1e6af65135fcb0d5dc751084c4d9a586759fbb83c28f8087a0614aaf9b5d4a31"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/SWV/SWV275-2.p",
+      "sample": "development",
+      "sha256": "2ab428900e9c998d762169a72e0ac778973fcda7053c28fc3601e455e5795fec"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/GEO/GEO051-3.p",
+      "sample": "development",
+      "sha256": "65aee533339da2f9ea2c87ef45275702593478e7c4a168cef5ab2654b0cc9a10"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/COL/COL076-2.p",
+      "sample": "heldout",
+      "sha256": "f5b25d0fc661f671109be7abd07479a40a9b4c240e999037c5f2317fa10de396"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/GRP/GRP606-1.p",
+      "sample": "development",
+      "sha256": "89476b7d0f47936ce1227377aa710d13f0213343c435dfcf4d53df8936124708"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/FLD/FLD028-1.p",
+      "sample": "development",
+      "sha256": "0109f2c903e414d3ab6d29a3934a9dbd960335bb49627ca46eba911a3754113f"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/SWV/SWV330-1.p",
+      "sample": "development",
+      "sha256": "57bc79193f5e9ba403f1e687768131892e25366488bc8ef7e15bd8a7068acdd8"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/SET/SET073-7.p",
+      "sample": "development",
+      "sha256": "9462733adfc227b3eb6d195a5af5975f8fb977d47964c153ce53e45783601e33"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/BOO/BOO011-1.p",
+      "sample": "development",
+      "sha256": "e5a67f58ca69c551c255739d602fb0e57c2b489071cc3e3da3d2f4279ca06f88"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/LCL/LCL112-1.p",
+      "sample": "development",
+      "sha256": "bf7aa324fe042afe3589ff8d066f24f41344e92c883dbb0c73c36a8c09227c1e"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/GRP/GRP082-1.p",
+      "sample": "development",
+      "sha256": "cbbc6f9059d9f54123aaa507f75f71e5f94a6703e4f51cc2bdde71243f258da1"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/GRP/GRP291-1.p",
+      "sample": "heldout",
+      "sha256": "9d5bd5b8401d0d73871a0a7125ea83ca0552f738c3ffbc6dba737b9ff90ff981"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/SWV/SWV829-1.p",
+      "sample": "heldout",
+      "sha256": "58fffaed35bf32365bca3edf442813ad05caaedbb552f81e0e8ec2b1c0d26123"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/SWC/SWC384-1.p",
+      "sample": "heldout",
+      "sha256": "445d4cb369794dd3818d9bcecf8ea4eee5f05c6117fd5bd19a023c393db828b2"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/SWV/SWV968-1.p",
+      "sample": "heldout",
+      "sha256": "96afaeec1fd62cb197923f7d9871be7ffab420f064c439d19b72daa877789bf0"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/GRP/GRP235-1.p",
+      "sample": "development",
+      "sha256": "888afa2258b230f2cbbcef0ed93e715a2828bd4ba2d548dffb7224c9e03a2d6b"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/GRP/GRP750-1.p",
+      "sample": "heldout",
+      "sha256": "fea345323bcab6566dc1aa35591a4c74a3285916158c2a14b9123eab5961e8f8"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/GRP/GRP713-1.p",
+      "sample": "heldout",
+      "sha256": "45bedb5f9843839ee1650542c1014a657de1f55994b676c67049824238a87b15"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/SET/SET125-6.p",
+      "sample": "heldout",
+      "sha256": "eec80d5d49c39b4aca0a6965746d148bfe56e9a2654d660285816ce9a47d5261"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/LAT/LAT077-1.p",
+      "sample": "development",
+      "sha256": "ebc7c9d09440c2f4d5b4817a3f6ab91734ef2951a4bff305402e885306f10a4a"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/SWV/SWV834-1.p",
+      "sample": "heldout",
+      "sha256": "c347ce1cee4c0f050c76a17e03317a0d3e08c407a648e3cd461bb3a223669575"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/SWV/SWV621-1.p",
+      "sample": "development",
+      "sha256": "f51a070732f715a7634689023f928fa93db7e7eff30e4ece973de2ab1cd4273b"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/LCL/LCL110-1.p",
+      "sample": "development",
+      "sha256": "de37f80468f8fe6748e295a4d765d4f59f477639fe88fc721bf28ebe07dbdb89"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/SET/SET077-6.p",
+      "sample": "development",
+      "sha256": "0c36fc9c3ff55f70ce64f51bce595c8a032ea5334cc9ddb2abbe9e16270d6c23"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/SET/SET129-6.p",
+      "sample": "heldout",
+      "sha256": "cea7ab0759a6d5999de2af22f9492cfc9e157b55ce58da7d3c60c3007f3aea3f"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/LCL/LCL220-10.p",
+      "sample": "development",
+      "sha256": "864d886b007c762bb1177bea07fd669d148f976a550a47952c92a6d320b69fad"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/SWV/SWV991-1.p",
+      "sample": "heldout",
+      "sha256": "f7b655ce942ee116fae6c0f86409a3b70a66a68c07e747bdaf92a1fdb31bae4d"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/ALG/ALG433-1.p",
+      "sample": "heldout",
+      "sha256": "a116302d9bb7655e366a1e15ddea241b3ff245b891fc4c57d701191311851576"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/SYN/SYN647-1.p",
+      "sample": "heldout",
+      "sha256": "4bf589ad5ce85954deedadccd049643d09b76bc53a20844e79107e2f5ab47dc7"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/FLD/FLD005-3.p",
+      "sample": "development",
+      "sha256": "cd531c3d15777bdcce67d6c5430a969055b8d7024cd732457f04236250a1279d"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/NUM/NUM232-1.p",
+      "sample": "development",
+      "sha256": "597b77e14e5037fb5a616b48e82be523d7b997fb3231b6a0c71a14329629289a"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/SWC/SWC246-1.p",
+      "sample": "heldout",
+      "sha256": "9b08e4ff021c0bb2a40ae6cd8402f20480c92d98685968d099cffad2347e8bed"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/LCL/LCL247-3.p",
+      "sample": "development",
+      "sha256": "6d6126fed143a5e99633731c3dec1aa49a0727a34370ebe7094cc1746147539a"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/COM/COM003-2.p",
+      "sample": "heldout",
+      "sha256": "95bc42e844a99fa1d00c69606779e19ea9e4ce4d51abe518dfe8ee0b354e37cc"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/GEO/GEO111-1.p",
+      "sample": "development",
+      "sha256": "6f6cd0a2531ab13e9ecde54fbf7b99e32c04458e29ed816509929c6aa3167742"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/NUM/NUM233-1.p",
+      "sample": "development",
+      "sha256": "1cc1e2dadbbf423288df9e0a90763227851f34ab35a19ae2c39b8861bc7af1d2"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/GRP/GRP203-1.p",
+      "sample": "heldout",
+      "sha256": "e72e37c7318bafb2b59e38204cd413f47b8b5a27bd1621f8206d9208b738b581"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/GRP/GRP018-1.p",
+      "sample": "development",
+      "sha256": "1080abe32aeb8bf58c8953c21e27c5dcbfedfe9935484c4357df2ede31ff03c7"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/LCL/LCL253-3.p",
+      "sample": "development",
+      "sha256": "fc6983650043158d701a5abcbac125b00892350ec87fbfe485ae205d03cb9252"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/SYN/SYN186-1.p",
+      "sample": "development",
+      "sha256": "9d30f86815c9316ca31619a7f9fe901c162be2cbacf6bdcf6e20433ef08f5689"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/SET/SET135-6.p",
+      "sample": "heldout",
+      "sha256": "7f9a3a43b0c4db43ffcd566859015bdba6d43b947fefe08ed5ca1822c4e34f59"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/ALG/ALG354-1.p",
+      "sample": "development",
+      "sha256": "6572d453721ca9e6af01194b92c98f95d3db0743091b861ecd88cbc2d0512a2f"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/GRP/GRP375-1.p",
+      "sample": "heldout",
+      "sha256": "fcbf3b533847ac5ce6fddd7bcd41a8a0cff8cbda649325b832a71ba2c611cd03"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/SWC/SWC011-1.p",
+      "sample": "development",
+      "sha256": "19781fdeae20f046a88fc5574cb1922e13b9cdd0a7557b416e23a41e12d705b9"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/SWV/SWV772-1.p",
+      "sample": "heldout",
+      "sha256": "38a8c28a1751218ae4e67e7ad6e1a16a7f14a7f41df86a51fdbca5a3f2b91d79"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/GRP/GRP298-1.p",
+      "sample": "heldout",
+      "sha256": "29e7902993c2bc003e9547496bafa9ecfcc85b0fce5ab2d2a9920fbfced0ddc3"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/GRP/GRP296-1.p",
+      "sample": "heldout",
+      "sha256": "1fdb808405c79b6c6edeefa6685ba1082f6a5c26a2de91b7f50aa749213642d4"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/SWW/SWW431-1.p",
+      "sample": "heldout",
+      "sha256": "9f81a02b9a8d7850e65f5d1ce3151c2005aa3504cfefb89951bdc452bcb7030b"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/COL/COL094-1.p",
+      "sample": "heldout",
+      "sha256": "bf0b219eb4922bf76e951781255799b0ec3fc207602ecfcc14e34ad51d356c7a"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/HWV/HWV044-2.p",
+      "sample": "heldout",
+      "sha256": "6376a5e31f22d271749211d8fbf8452920a4a46d521d5ca008fbbc9698660256"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/SWV/SWV783-1.p",
+      "sample": "development",
+      "sha256": "306877faa32f621e91ec39999bc15e06c9564add6546d03249a228165784485f"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/RNG/RNG024-7.p",
+      "sample": "development",
+      "sha256": "73a9748630c86c01e4dfc406180f7165e5a6f9854d3598be26a94ed2eef1ef5a"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/SWV/SWV924-1.p",
+      "sample": "heldout",
+      "sha256": "d9c884468a3ec0023b97b690e15b63231becc396a5d4e755bb345a0b060d3fff"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/LCL/LCL088-1.p",
+      "sample": "development",
+      "sha256": "3cbb11dc89426a8dbb85a580317f39803cff998ab4fe6a45243579b2725020f7"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/GRP/GRP069-1.p",
+      "sample": "heldout",
+      "sha256": "19492ef17d4a948b207ca2437a05ad84cf078a58a5e42bcdd980444fa0d2f84b"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/SYN/SYN716-1.p",
+      "sample": "development",
+      "sha256": "d75d2661242f4de836463b72592afc63da041305ed37d17dbc2664b3d1d5f70e"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/GEO/GEO067-2.p",
+      "sample": "development",
+      "sha256": "b0ddf4647811e8ab0eee424715835f34378c8e96264886e43c7708db1767e40b"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/LCL/LCL225-1.p",
+      "sample": "development",
+      "sha256": "c0a3eb8e2baaee9f29a522fdc18320568e62a12aa634d83917d94e973231e2e6"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/CSR/CSR040-10.p",
+      "sample": "development",
+      "sha256": "89cec409867a0e8d147791ba55baf41b3dd15d9a283fd083020e2f66c61fce1e"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/SWW/SWW455-1.p",
+      "sample": "development",
+      "sha256": "19092d41d55b8cdde4a63a8fc5b684c1ce670bd892818450859301533083198f"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/SWV/SWV662-1.p",
+      "sample": "heldout",
+      "sha256": "16a42c11644f456e0415147ac2ea0506105e83acad85b355246bd216718c347b"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/COL/COL064-5.p",
+      "sample": "development",
+      "sha256": "debdf10030c5308f1e0679e50a8d9918f6436d0ba238720fbdc5ca87b406fa91"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/SYN/SYN585-1.p",
+      "sample": "heldout",
+      "sha256": "7a819f05d373ce8e6ec82e9074346647961378dd911f17351c76d28bf95eecc2"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/SWV/SWV883-1.p",
+      "sample": "heldout",
+      "sha256": "b55f026f3c4576e2fa30367191cb74e7a538aa32d3f3be8986dbece4dd230993"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/SYO/SYO630-1.p",
+      "sample": "development",
+      "sha256": "3c0c446293baf2988df801621a0ca51458e975636a08c37c7e5bf4c428bac1e9"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/SWC/SWC176-1.p",
+      "sample": "heldout",
+      "sha256": "bfe505d31ca4239f7f8fff357301e28ab328630e6e35d0f20a826b90e987a065"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/CAT/CAT003-2.p",
+      "sample": "heldout",
+      "sha256": "bb4013992ca9f271382e735acca51e343865179aab0355282cf109e0f4d8daae"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/HWV/HWV108-1.p",
+      "sample": "development",
+      "sha256": "f8792dfa13b47b131d27c87e9e7029050404e348d72e589470be056b9b5c4361"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/LCL/LCL779-1.p",
+      "sample": "heldout",
+      "sha256": "c48d33db111f0b9d4f4cda56ec7190538712196c53487d9671d2a4fb6edd6401"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/SYO/SYO598-1.p",
+      "sample": "development",
+      "sha256": "982801b4e90aabc61fc2eade245a83251a69d7abae10f64ab82ac8c3fd5ac045"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/SYN/SYN294-1.p",
+      "sample": "heldout",
+      "sha256": "21e0d78d6d54dfce7525a1b2b79e6c96011631fe4541c7d2d488ac71c489f927"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/GRP/GRP330-1.p",
+      "sample": "heldout",
+      "sha256": "6dcdfce23d4a3e8ed6c26178c09ec911bf5a1be4714f585e7988651a397a997a"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/NUM/NUM012-1.p",
+      "sample": "heldout",
+      "sha256": "c67f107f747a79bcfdd754b9e50a5920963243cc40a0639c5c2746cf3e7117fd"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/SYN/SYN336-1.p",
+      "sample": "development",
+      "sha256": "46fe1267c3e9cf3fd145f65dd0ae58cf0cc88af249e9fe88c6a5d47ad6b38c7f"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/SET/SET168-6.p",
+      "sample": "heldout",
+      "sha256": "afd820836c7b8ced646d20724fc0555935b4e158d87d9d483f5e6904ef891ad3"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/SET/SET018-6.p",
+      "sample": "development",
+      "sha256": "311d29a2fcec961b8085dc1afac69b92affd9a3bdbf5d37a8fe47907c9dc614f"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/SWC/SWC088-1.p",
+      "sample": "development",
+      "sha256": "b21021f15af14a6c303e54537b048b03052e68553846d0191688614011d51e9b"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/COL/COL020-1.p",
+      "sample": "heldout",
+      "sha256": "98be9ef103341ea4010de393ed46e8134982dfe2d1d656de5c292c749168e47a"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/NUM/NUM055-1.p",
+      "sample": "development",
+      "sha256": "380634f147ffd9c9b1707e2837fe31bc6619c37869c1a64d3bd6fa997f3907cb"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/SYN/SYN699-1.p",
+      "sample": "heldout",
+      "sha256": "096806f4fe21c31148770bfa419c83e18e976597e624d69c502f587b3e237495"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/SET/SET071-6.p",
+      "sample": "development",
+      "sha256": "98c525096f38578eb3fe673c1f0bde5e59698e1919e2a856a61405636383130e"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/GEO/GEO083-1.p",
+      "sample": "development",
+      "sha256": "49a59405afef5a921b98786430569f5283d889dab068ac976657694636ef62fa"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/SET/SET149-6.p",
+      "sample": "development",
+      "sha256": "d5287011d785533cb9c922ef6e8f5406ee9401ed785012c3b99c68210919b7c7"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/HWV/HWV040-2.p",
+      "sample": "heldout",
+      "sha256": "636bc90925b2f74c13013e7050db8ae70891cd625db3da5a11df3e80b016928b"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/GRP/GRP025-1.p",
+      "sample": "development",
+      "sha256": "478e7ca4c2e886f3dbd70274fde00611b098e0e6fe3d50eb10c0f31c6608a6b2"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/PLA/PLA015-10.p",
+      "sample": "heldout",
+      "sha256": "48ee11223ca11c841671391f9df1508e1914fec9220ec73e69aca89511b48f40"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/SWV/SWV315-2.p",
+      "sample": "heldout",
+      "sha256": "7e9ce453e518bb37ef3905e3bed056a3a17f5a8c23b0c3d2e92b386d3b0e54fe"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/COL/COL002-1.p",
+      "sample": "development",
+      "sha256": "dc6d82b1cfa33caa23773b5a074f718b03e554c7e6b4cab8feb2d332c68f2a03"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/SYN/SYN216-1.p",
+      "sample": "heldout",
+      "sha256": "a626a035aa785affb94c840999bfd8da71e3df630cdd0f046ecf79f08bab40ed"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/SWV/SWV575-1.p",
+      "sample": "heldout",
+      "sha256": "60b5bd8c87036cf69299a9df0b908be3bf49fff30c4af008aa8ea28ad96cceaf"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/SWV/SWV665-1.p",
+      "sample": "development",
+      "sha256": "04078208727f8d16398b680328418346bedaa85dd40f5a067a535de6feadfeb7"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/LCL/LCL400-10.p",
+      "sample": "heldout",
+      "sha256": "4ee4c4f5ad27b1f37f437aa038b556c37e7990ab9f782d5c1b6776fdfedde4e3"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/SWC/SWC281-1.p",
+      "sample": "development",
+      "sha256": "064dff4d2e2f996ca117efbeb9708e2ca022acd4cf1922fc1859e016d44bf378"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/GRP/GRP378-1.p",
+      "sample": "heldout",
+      "sha256": "d0ca8087565491acabdcc026f92f2a2351511fb13a22e4518e3854451bfa2288"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/LAT/LAT007-1.p",
+      "sample": "development",
+      "sha256": "00d021137868a273b4de4b3cbaa814ea2cc9e351ec4b36ab44a4b48fba70af14"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/LCL/LCL423-1.p",
+      "sample": "development",
+      "sha256": "fe7e35c8943cda1b3881327924e431448167c4fd7685e52bf2f16688a584a802"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/GRP/GRP166-4.p",
+      "sample": "heldout",
+      "sha256": "a326a88f3582982b006edb4d2a98e149238be7138b82dbebe66bb0afd2bfd387"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/GEO/GEO057-2.p",
+      "sample": "development",
+      "sha256": "35774f13862e693743b2fbba5818bf6b5ca78b891736bd5dbc983161ee5f3589"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/SCT/SCT096-1.p",
+      "sample": "heldout",
+      "sha256": "b8862aec7c21dec4c58d9bbaf4829cb168dc663c30ce6987171f3e53cc3280ff"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/SWW/SWW448-1.p",
+      "sample": "development",
+      "sha256": "85acfa6462767f2cf1a924fe0b14466467acc338adb3940040c42a294756159c"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/SYN/SYN554-1.p",
+      "sample": "heldout",
+      "sha256": "77094e60445f9965fd24547e61beca4575d3c9286afa0fd2be9aec4ae9083d4c"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/GRP/GRP434-1.p",
+      "sample": "development",
+      "sha256": "953eebfcc0100e93aa07fc1e9077eaffc0df52c65dd905674bc8d65e5670eaba"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/SCT/SCT042-1.p",
+      "sample": "development",
+      "sha256": "cec80accc3ead409240c4035038e245551a13d1049af76105ad5cf0469865253"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/ALG/ALG438-1.p",
+      "sample": "development",
+      "sha256": "ab7b4ba7099f31fca781001da660be9b74893e1261888ac877ec12084562b03b"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/SET/SET163-6.p",
+      "sample": "development",
+      "sha256": "a1e971e4fbb1841d2436c1ef269ae21b17c87b6b71133264dc95c0badb5928b6"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/SYN/SYN890-1.p",
+      "sample": "development",
+      "sha256": "1270c80c6767c2cfc62f07a19cd05931cc7da9a9b86d25e1afdb1e90288543b4"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/FLD/FLD074-4.p",
+      "sample": "development",
+      "sha256": "59f7679e2b3fa8a11135e926a23e83c13690d637d92cc29383f6f04b1133775d"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/SYN/SYN639-1.p",
+      "sample": "heldout",
+      "sha256": "0fb7bca19fc528ed61ff180982f5ff2d28f25edbf75d229e547fed8b1bb7dab8"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/SWV/SWV261-1.p",
+      "sample": "heldout",
+      "sha256": "36359dde0b953155b58385ce52695ec0feae38cf1489f60a9beefb69392c0be8"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/SWC/SWC399-1.p",
+      "sample": "development",
+      "sha256": "ca1ca01bc7988bd5985f088df1c48929b3822778f54b27dbf41b67329be41c59"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/LAT/LAT074-1.p",
+      "sample": "heldout",
+      "sha256": "d17156d05eeba9745e684b72a477245d4c8c10dc2c291106f04823b32321350b"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/NUM/NUM024-1.p",
+      "sample": "development",
+      "sha256": "2619b5b1f0ffccb853aae18b71e110164901e7707672c7e067a3abb959c7d97d"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/GRP/GRP408-1.p",
+      "sample": "heldout",
+      "sha256": "21019e40bf166f2e458389634253e16b1651f9fe4d66a9eccce5d960c0bc9dd0"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/SWV/SWV837-1.p",
+      "sample": "development",
+      "sha256": "84c736236318314767134a5f5841dcf48ba492f0d8681b33b27ff36dbdb14a5d"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/SYN/SYN062-1.p",
+      "sample": "development",
+      "sha256": "4dc54ddc93b0d52320310fc82f4b567ebc9adf23eb7fdb36e3d27bee76ad0be3"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/HWV/HWV003-1.p",
+      "sample": "development",
+      "sha256": "1cae56a5736197dda1666736d59fbf248a2554816e1fc9d278c7a0bcf9fb0d91"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/LCL/LCL226-3.p",
+      "sample": "development",
+      "sha256": "9d60676a830e1ac3f35a4a4ae3b516b0efcbe20d1528d2ed12f5e32b5924227c"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/SYN/SYN982-1.p",
+      "sample": "heldout",
+      "sha256": "2c0ee27974ff91c1b162717c11d306f17973082fead9ad87d061fa3ed9e621a7"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/ALG/ALG348-1.p",
+      "sample": "development",
+      "sha256": "0114539f5316666e98ec903c9239900216cc3507339086b7e510fcc7a1796d3a"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/SWC/SWC383-1.p",
+      "sample": "development",
+      "sha256": "0fc4bcf1276a4e12582221d6aca568c3f5f8e393f0367640109bd4162a1aeea9"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/LCL/LCL394-1.p",
+      "sample": "heldout",
+      "sha256": "65c2c451072908dd61a4d36685e3a1aca783b171fe40a9ec4dff894dcaf19e1f"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/ALG/ALG394-1.p",
+      "sample": "development",
+      "sha256": "8bdaeec9ea1e3e165b22c236a18792e88de969b44f33f5faa1b70126f3709fda"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/FLD/FLD030-3.p",
+      "sample": "development",
+      "sha256": "800acb911863e1130159bb61b3b8a0ba7a0e9beca13da5a96d8326809d9792bf"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/NLP/NLP004-1.p",
+      "sample": "heldout",
+      "sha256": "5447924e00f4a03be5287c7b2885dd854e883ceb9d58e6706809ab73d082fe64"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/REL/REL049-1.p",
+      "sample": "heldout",
+      "sha256": "51cb312c9ea24e80e5704ce7b00e81a1f7ba10e4890f90d92ed8be5add75a33c"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/SYN/SYN595-1.p",
+      "sample": "development",
+      "sha256": "359417ceb0916606c277583dfbf9c1c9ddd7511468f7ef1e6f6a0f0ad4fdce71"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/LCL/LCL128-1.p",
+      "sample": "heldout",
+      "sha256": "ec9dd5125aa07ddc650515b613a81875210ad8d78433d27a7b8ce00705cad0a2"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/TOP/TOP004-1.p",
+      "sample": "heldout",
+      "sha256": "18fa2ef7a6bf494cb4d4069c50fa9c1762d72e4ee17836f54da631a3adf03110"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/GRP/GRP499-1.p",
+      "sample": "development",
+      "sha256": "807280da60707df9fe94c0ccb2af6a8952d6b48b6e1c66b0bfd802d52cbd49a9"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/ALG/ALG434-1.p",
+      "sample": "heldout",
+      "sha256": "90046cca8789682caf2888b736fc22a528d4ac09742e0446c1f4ea452a954a8a"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/SWV/SWV842-1.p",
+      "sample": "development",
+      "sha256": "168409fca7c45becf9214148971d92d7f5cb340a744f8a0be52a78f6cb73a8a8"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/PUZ/PUZ016-1.p",
+      "sample": "heldout",
+      "sha256": "5a96af13e9fb2701db75b06907859b004e70bf2724df15f0f3ab1a3d1486f51f"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/SWV/SWV302-1.p",
+      "sample": "heldout",
+      "sha256": "705999e426d94a50a5f03fa79e1bef3f3f83f46ee894e0436aee84af91a9635d"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/SYN/SYN604-1.p",
+      "sample": "heldout",
+      "sha256": "cab64bfeaba9321f970ff41ca7ad70f0fcd97861c602f84e480f5aceef991a33"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/LCL/LCL806-1.p",
+      "sample": "development",
+      "sha256": "fac9b99cc5c86d74676420e939f13bc39733e499e2d648504bf8576ff5d2fb7d"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/ALG/ALG346-1.p",
+      "sample": "development",
+      "sha256": "dd4d9b588f3873a540e7375ee477914958f3da1dbc04010698e1a07997b3b5ea"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/LCL/LCL109-10.p",
+      "sample": "development",
+      "sha256": "652fe89aa6f11a2442a41979c1094f517a69ca854512015b35b2dc5aa5639447"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/SWV/SWV749-1.p",
+      "sample": "heldout",
+      "sha256": "692ffe67370c4e21165f319078a7b88b54f78b536ced7faa8a20ce43154d2c89"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/GEO/GEO077-4.p",
+      "sample": "development",
+      "sha256": "c264c0d1f7e16035696491d370d52a02bbeb5cdcd7188bccc243ea7b5238d9cd"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/PLA/PLA007-1.p",
+      "sample": "development",
+      "sha256": "6d019588760162c76b1c32b901b0ecd3c816338f21d983c46e8f2bfdcc1443b5"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/COL/COL046-1.p",
+      "sample": "development",
+      "sha256": "b3facb74f33d99a5a0d95fa9cf9c54747c6bac2498d1f74a7f8480f1e48c25de"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/GRP/GRP349-1.p",
+      "sample": "development",
+      "sha256": "eff37b33daafbcd25cdc849cb42a383d435f4fd46819b7c83941ea27064858d2"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/LAT/LAT072-1.p",
+      "sample": "development",
+      "sha256": "9b949c23975d44834a26ae6203863ea5765d203503775906533640ab99ed8c9d"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/GRP/GRP251-1.p",
+      "sample": "heldout",
+      "sha256": "93d5c24a4535c127076461da589473554a39f4bec15f5d407269a2c2a6a00a9a"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/SET/SET072-7.p",
+      "sample": "heldout",
+      "sha256": "12bdfa5f9ecc7f8b86cdd1c78b5c83a39c0d0e51f92bf984c642d63574ce5d75"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/SYN/SYN085-1.010.p",
+      "sample": "development",
+      "sha256": "085af7f7b60fb4eff2fae0c9290570b5b218c3616fac205b2d77743870ab2e67"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/ANA/ANA027-2.p",
+      "sample": "heldout",
+      "sha256": "5cdec230358f21bf19aebeb1996f186bbaa51a2ff2f21be06ff6c1e2c2159421"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/NLP/NLP141-1.p",
+      "sample": "development",
+      "sha256": "3f56c844c99002360153c65d49332bf27f766ccf9a92f2293da649e6dcd8bc4e"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/GRP/GRP654-10.p",
+      "sample": "heldout",
+      "sha256": "d30bc6d1972aff1a1acf1129dd117d6f14ff74ec051bf179f0654b094000958d"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/LCL/LCL248-3.p",
+      "sample": "heldout",
+      "sha256": "b90bf086a205744c00c1581cf23922f32f8e39fec95542351f9303dfdb04570b"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/LCL/LCL124-1.p",
+      "sample": "heldout",
+      "sha256": "fd9f16890da50138aba74fef9ad1caf38d35d515fedc93ecae2dc98f09b2c271"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/SET/SET036-3.p",
+      "sample": "heldout",
+      "sha256": "c9c9f5cf97f54110b98706697c956cdf318c8e5ec6c2b07abd83d7bc16401b56"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/SWC/SWC180-1.p",
+      "sample": "development",
+      "sha256": "aa7c9529626721b2efeb882c80781ee45498d92b8c8fab881478eb7f15a05120"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/SWC/SWC191-1.p",
+      "sample": "development",
+      "sha256": "e3aa7bdc373406a4967f53179d6bdf775d54387a37320ce01c2c25bafa4d6a80"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/SYN/SYN046-1.p",
+      "sample": "development",
+      "sha256": "3069350b94e986a31f80c10feccde52c73e6df873848a4f62d396b0484efd0d7"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/SET/SET063-6.p",
+      "sample": "development",
+      "sha256": "09e5adfe625b326b0d789e0ad97d94c44e9c056e2396e582d1d87ea49e99bd73"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/GRP/GRP708-1.p",
+      "sample": "heldout",
+      "sha256": "7b1cdcfc2d8654a758afc9f0ce8589cea2c021033e9b499ca181da23ce561401"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/LCL/LCL322-3.p",
+      "sample": "development",
+      "sha256": "0e0087741430416b3f7b20f56f94949c9fa17316998a26e60e7da6047fa3aa05"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/ALG/ALG335-1.p",
+      "sample": "heldout",
+      "sha256": "42178734e25abd6bfacdc9ec146ddc8941aa869131116522f9626278b69050c8"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/HEN/HEN012-3.p",
+      "sample": "heldout",
+      "sha256": "b35bacafef536147b62459113a7767f13f9c12175854215f6f85a81896a860bc"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/SWV/SWV005-1.p",
+      "sample": "development",
+      "sha256": "9909f3fb4e1be93ca696861e45d79bcd1b346f2f4a8a442ca76bd48d0b0d2261"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/SYN/SYN711-1.p",
+      "sample": "heldout",
+      "sha256": "28f27b069f9f812e8f7daf3dd895f1177ab0125f66e2111bb77b2c6a79b5dc0e"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/BOO/BOO006-2.p",
+      "sample": "development",
+      "sha256": "928f25b0708792824a19c4cea9c26d948407f70c145eb3b7242557940bec17a9"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/SYN/SYN560-1.p",
+      "sample": "development",
+      "sha256": "0b83e8b522b14fc94b4f0f9f84e73c496a5d444097bd3ef7823d216a8b7dccde"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/GRP/GRP196-1.p",
+      "sample": "development",
+      "sha256": "dd1bc5e041171ab173a158affec6dc42aa8827a84d3adaba7d33d9d81c557be7"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/SWC/SWC209-1.p",
+      "sample": "development",
+      "sha256": "ea44873cab6f94890b7bd4fafbf3b0dc20f6fd9090a199875ffafb7b920cf23e"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/SET/SET285-6.p",
+      "sample": "heldout",
+      "sha256": "0c597f757771433bec8954b80d19df69c027f9ec758b9eef63ff421c3d9d38f0"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/SYN/SYN275-1.p",
+      "sample": "development",
+      "sha256": "4b78709a6c18e74a5663754f3d3f29e5c32b06ae6a3610f150263a5cbf37d907"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/LCL/LCL444-1.p",
+      "sample": "development",
+      "sha256": "dd5b42ca903cae93b903f7ca50498786b2d5a6756228078a8e6a0501e337d454"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/SWV/SWV603-1.p",
+      "sample": "development",
+      "sha256": "9c0aa99efeddf443b586c33d5d27ad5ed7ba0cf54423d1ef53a075d488a9c4c0"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/GRP/GRP130-3.003.p",
+      "sample": "development",
+      "sha256": "226c2481da78ebfb5771a12149d97733dc7069333cfb08408cddf1b991ae3e24"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/SWV/SWV419-1.050.p",
+      "sample": "development",
+      "sha256": "3c350399243f2d1dba2894713a3fb086288a93d3bb11cc18d44db24d67faa4f0"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/SYN/SYN319-1.p",
+      "sample": "development",
+      "sha256": "2e50f5688919229313843932ea087f08cf9e422c5962c9b6c464ddb169fa4090"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/GRP/GRP485-1.p",
+      "sample": "development",
+      "sha256": "4a5b4609f8bb62429c3c738f498648b664a657db29e3023ab8f1f64567b370a6"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/SWC/SWC389-1.p",
+      "sample": "heldout",
+      "sha256": "746282dfa7c32702f35b3948828c9c5f72754f178fa53c073f7f147075f1b0f0"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/SYN/SYN080-1.p",
+      "sample": "development",
+      "sha256": "f8c273f63518fa001edb095e4eb1f72a0154c8c1d7bce05f061ab84df7a06299"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/SYN/SYN896-1.p",
+      "sample": "heldout",
+      "sha256": "1c91d0d027a1b5c7acfe29ef947aaba10f16b54e4fa1c37c1592d7e96a295bc5"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/SWC/SWC294-1.p",
+      "sample": "heldout",
+      "sha256": "7fbb3b040dffbe78974e929554cf459addba6a2347826e0fa380b733134282c6"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/LCL/LCL850-1.p",
+      "sample": "development",
+      "sha256": "638fffba655c9fa08a310bd6fb168771f04b54960ad9900e80d09e3e4b2362fe"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/LCL/LCL009-1.p",
+      "sample": "heldout",
+      "sha256": "fd84aea6e845b93a0356257e07352267eddca2267c90eacfcf8e52f11c3a82a4"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/LCL/LCL111-1.p",
+      "sample": "development",
+      "sha256": "1636370a18a0a25724d84bc8bc381101c55cbcbe4ba4e10b492995f2847534fd"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/SYN/SYN689-1.p",
+      "sample": "development",
+      "sha256": "58e7060028cab491e8c1212c0fcbae842cfccc56e022721dbd291a74c6fca7cc"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/SWV/SWV718-1.p",
+      "sample": "heldout",
+      "sha256": "69ffc679a119a340192a0dba3ea7e2cacb9136a70b1ccba00bc59895d7586f29"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/SYN/SYN325-1.p",
+      "sample": "development",
+      "sha256": "8f6e2b9dd234aae1051cd50af1ae1af09b2f72e25f5f9ab6d3859343ba25a459"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/RNG/RNG011-5.p",
+      "sample": "development",
+      "sha256": "7911797a94b65eb712498775388d46eeaaad0968d33295c906a5b96a998eb13c"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/LCL/LCL141-1.p",
+      "sample": "heldout",
+      "sha256": "c75c1383f8193ec21b28fe8f2954925d0e650ed3a04b154f7c12b311c66e521b"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/LAT/LAT089-1.p",
+      "sample": "development",
+      "sha256": "35723c04c820eef18187ef27d8a4c48005c554bb8fcf2fe11b0cf8ef46e40a91"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/SYN/SYN684-1.p",
+      "sample": "heldout",
+      "sha256": "d277c59c600bcfbe0b660409b934eced7de2053e1f7b15c0483059ce76f7a3bd"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/HWV/HWV010-2.p",
+      "sample": "development",
+      "sha256": "6ccdfa4416ac248f2c1dc6fb8a78b8488444e97bdeb6cd0b34d090753c38ec05"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/SWC/SWC313-1.p",
+      "sample": "development",
+      "sha256": "2d4da6819d7982d49ddb6192cc9009bc599e725364ee4dee0a32eb06f1f139fe"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/GRP/GRP002-3.p",
+      "sample": "heldout",
+      "sha256": "f1f0d835c011689e6e297886a3cf3bbe7051c07c39bee7e2513a78eb7375ba7a"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/SWC/SWC164-1.p",
+      "sample": "heldout",
+      "sha256": "445688f33b4db407b033173613fc4d78920adf553c4d5f80f92de683a849fa04"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/COL/COL101-2.p",
+      "sample": "heldout",
+      "sha256": "942d1c274204911844a6141776bafe266b1c63c37d4a2fcaba4be394d9f35189"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/SWV/SWV986-1.p",
+      "sample": "heldout",
+      "sha256": "499ead19c9da63b98de88d7ea449c5abdc35579263fe2ff3eddcb4075394c8ab"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/LCL/LCL430-1.p",
+      "sample": "development",
+      "sha256": "f084d56b6a2f7bcd671fa8c54a59953cf84e7090b4e36fe60669b0cab8179e21"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/GRP/GRP164-2.p",
+      "sample": "development",
+      "sha256": "5fe8afbc052b02a8cb5be76a16c62a79c6db635871d4cf48a1efc44cafd99ca0"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/LCL/LCL766-1.p",
+      "sample": "development",
+      "sha256": "2a781cbdcdfae041ce8ef7be502a854538e52cf9aa5d12eeb6b906b4a85fbfb1"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/FLD/FLD048-3.p",
+      "sample": "development",
+      "sha256": "b846888ba8b3e8e1a4771ee792c456bc7996d84bdf98b47b4a2144da7d708044"
+    },
+    {
+      "path": "/home/mfixman/TP/TPTP/Problems/SYN/SYN596-1.p",
+      "sample": "heldout",
+      "sha256": "5b7b7f3422a4c4bf549d55a02313c21bd9cf5ea02219ad28518d7090b1939bac"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/GRP/GRP400-1.p",
+      "sample": "development",
+      "sha256": "d21f2fabbe93fa8be8b3ec74a599d6f5a81088872edee573f81518de91a7bdb9"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/SWV/SWV648-1.p",
+      "sample": "development",
+      "sha256": "04de31cf930fc105c6cff05776c39dded056b15f73259ab2e84b1fde78f87bf9"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/LAT/LAT200-1.p",
+      "sample": "development",
+      "sha256": "be21fe98054de227dd8e1cb5e6a4d4850470bacb2cc32307e6598bb7f0d74b35"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/LCL/LCL211-1.p",
+      "sample": "development",
+      "sha256": "5f73d959414f786ad5a6879c851ac8cc4d21d78f04dffeb2687f3e4bafea7627"
+    },
+    {
+      "path": "/home/mfixman/Dropbox/continuous/TP/TPTP/Problems/SYN/SYN038-1.p",
+      "sample": "development",
+      "sha256": "fd3aef9150ccd0046ba8390bf2dbfe4c0aaa892c4f0f8b7eddb923033785fe18"
+    }
+  ],
+  "modes": {
+    "Prover9Late10": 10,
+    "Prover9Late20": 20
+  },
+  "seconds": 60,
+  "cpus": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17
+  ],
+  "hashes": {
+    "/home/mfixman/Dropbox/continuous/TP/vampire/build/vampire": "2c12d087b352b93651dc336e8eb75e7299712f3bec235c6b4b0d68acb2185310",
+    "/home/mfixman/Dropbox/continuous/TP/vampire/Shell/Torok/torok.ts": "76e6274eedb3d8530886a0d4c69c2e190934890d7b8da87ae05ac0e0be2217b4",
+    "/home/mfixman/TP/Prover9/provers.src/prover9": "4d993c0f3777957e78a26412ec4a1dc4475f9c2d709221e350fcc596d4bebbe2",
+    "/home/mfixman/TP/Prover9/axiom_selection/models/torok.ts": "76e6274eedb3d8530886a0d4c69c2e190934890d7b8da87ae05ac0e0be2217b4",
+    "/home/mfixman/TP/Prover9/axiom_selection/analyse.py": "162bea3b261050397d078bd9410e86f1caf7aa7f5fc136b5564ebfdc602d042f",
+    "/home/mfixman/TP/Prover9/axiom_selection/experiment_resume.py": "e2f0d5216dcc048e7b43eb7051846b20a3112335f613ba68cfdd162e490fd2f0",
+    "/home/mfixman/TP/Prover9/axiom_selection/build.py": "1f50baf525f1c44b7d968daf2a4408c6ee5a21c790abd6bbcaaf5cb519bf3aa9",
+    "/home/mfixman/TP/Prover9/axiom_selection/bounded.py": "7759b93d116fe062a2c2787e3573d2ac52004a3725881924baa774501260cd3a",
+    "/home/mfixman/TP/Prover9/axiom_selection/benchmark.py": "f33796d92c9c489fcc82d26b12afdc08bdf0165cc040b54433807f47c4db6a7d",
+    "/home/mfixman/TP/Prover9/axiom_selection/problem.py": "adf627d3a4ec95b54cc06a14d58a488f645a05800d8e6bc2ed79e81947bae9e9",
+    "/home/mfixman/TP/Prover9/axiom_selection/predict.py": "6f402c55489d7aa370c6f8b823719927c26daac6c46349fdb99455feff061829",
+    "/home/mfixman/TP/Prover9/axiom_selection/experiment_output.py": "097ee828ace0daa38fe47be371a381afa88a0428dc921fa92a6ec1ec28115548",
+    "/home/mfixman/TP/Prover9/axiom_selection/live_search.py": "60185683a4202f9d7688206ac17891403a51e028467c8e0799a855e305b8a66b",
+    "/home/mfixman/TP/Prover9/axiom_selection/problem_split.py": "cbdde3bdd9bbb056e956d8d7df46850fc40b52660984678e01d06d4903960344",
+    "/home/mfixman/TP/Prover9/axiom_selection/run.py": "85b94767bcaca612bf8a134dc9863d5710c99d5d5a0f52f85c572304c715b7e4",
+    "/home/mfixman/TP/Prover9/axiom_selection/export_results.py": "8055de032e94ffabe110f5cb0f4ed620ce06e733939cb244bcc90c7224369490",
+    "/home/mfixman/TP/Prover9/axiom_selection/half_support.py": "e65d77bbc447a89f53631d667d62cb1e60941b73c2cdcfc204335acaadde10ee",
+    "/home/mfixman/TP/Prover9/axiom_selection/portfolio.py": "ede4aece983c9a23439aa5fa0558145e88bd284361ba126c7294c71250845424",
+    "/home/mfixman/TP/Prover9/axiom_selection/compare.py": "4abb478b75cc432bb41c9351c58e503098c7baf43884ae79793bb077ab030baf",
+    "/home/mfixman/TP/Prover9/axiom_selection/premise_run.py": "2be2355e696a4102b35fd881be94ee61c6381d322025eec84e5eddbcd875634a",
+    "/home/mfixman/TP/Prover9/axiom_selection/strategies/support16_snapshot.py": "14bc3a0c1813ee22e6d77a96138fc5c5715c33898b10aef6353f9223ace3afc0",
+    "/home/mfixman/TP/Prover9/axiom_selection/experiments/summary.py": "bd960fd1299580dc2cd0664931d2aa3e022532d37197120af1ea02ca737a8449",
+    "/home/mfixman/TP/Prover9/axiom_selection/experiments/sizes.py": "ffc3a110645cede76d4ac85ae8be4503ba65d570c2bfda1945cd0cec94f08259",
+    "/home/mfixman/TP/Prover9/axiom_selection/experiments/supplement.py": "c56db56156be7eb5b177535c9e21d9d1bf8821143f3b2a8cbcd1ec0fa8671104",
+    "/home/mfixman/TP/Prover9/axiom_selection/experiments/prepare.py": "d130c99f8cf2b223103db138f0e3ee95866a57855711ca2efc2a48d7c40dc50b",
+    "/home/mfixman/TP/Prover9/axiom_selection/experiments/support.py": "a463c26e107623e97a350ffc37ecacf43d5d10681c7e690588c1bbb5991d587b",
+    "/home/mfixman/TP/Prover9/axiom_selection/experiments/validation.py": "ef11a4c3a25188ba0793ceb0d106117d14184a0ffa10b4967c6b654f00c42236",
+    "/home/mfixman/TP/Prover9/axiom_selection/experiments/paired_summary.py": "d5ba6f8d5cd5fbf22ea8eb3ece9c22768f81e37f1d6136e6ce5e112be0594cd7",
+    "/home/mfixman/TP/Prover9/axiom_selection/experiments/auto.py": "26769dbf72bcaea45930662cab55b60a0b6444e48086004bb1a552179fe430b5",
+    "/home/mfixman/TP/Prover9/axiom_selection/experiments/paired.py": "e49d6daac9b61003d5658deacfcc52803d31cf55fdc0f6847ea425f87120093b",
+    "/home/mfixman/TP/Prover9/axiom_selection/experiments/compare.py": "4c6fbbe02c90a449ad6ccdb8af0aab4ad0a4e1a267fe7bdd673c641ffeb8ac87",
+    "/home/mfixman/TP/Prover9/axiom_selection/experiments/soft.py": "5cd8d0d7a1fab601efa7f2f16a2f1cb60b47d99a6cbbd186dae8e153d4b3234d",
+    "/home/mfixman/TP/Prover9/axiom_selection/torok_vendor/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "/home/mfixman/TP/Prover9/axiom_selection/tests/compact_output.py": "b7805059ee7bc8e4a027ba47e6f0ac9a0958e2e25d80071bab9b7f1d5d682f0e",
+    "/home/mfixman/TP/Prover9/axiom_selection/tests/partitions.py": "2ddb40d9ac3c782058c4af890701ba9c7d5a2b73fb9a60c4c13e114d4eef9d01",
+    "/home/mfixman/TP/Prover9/axiom_selection/tests/first_proof.py": "5c79203d785e7300f02c7c39d99db3ce85c62e635410c80998bab97fcd2df251",
+    "/home/mfixman/TP/Prover9/axiom_selection/tests/live_search.py": "e0f7aa3619a0935b3ece9ee4c3c4962eab7e753ae5c9dc865d02a20562f0f061",
+    "/home/mfixman/TP/Prover9/axiom_selection/tests/preprocessing.py": "06fe8ff7fd16ec30710e3e6a3997e7118589c67cb0ea8609ba245a14e6cacc81",
+    "/home/mfixman/TP/Prover9/axiom_selection/tests/standalone.py": "2fdd86cf2c034fe66664529585b828ffcbe1f1aca036b4d5fe1009e13952fc92",
+    "/home/mfixman/TP/Prover9/axiom_selection/tests/check.py": "052f1407347e4e02e7ae1f8d79aaf36e1f3e9772a806e6aa53d3082d361d00c0",
+    "/home/mfixman/TP/Prover9/axiom_selection/torok_vendor/connections/trace_logging.py": "df875e36c177c10c1c6997ee4d04cdd0bead4fa1a0dab9b26096443adbcfebe9",
+    "/home/mfixman/TP/Prover9/axiom_selection/torok_vendor/connections/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "/home/mfixman/TP/Prover9/axiom_selection/torok_vendor/connections/recursion.py": "4905e5a6aa71ffebdbeaaf3255bc68b34e449337b8ebd2478212e6a34527b890",
+    "/home/mfixman/TP/Prover9/axiom_selection/torok_vendor/axiom_prediction/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "/home/mfixman/TP/Prover9/axiom_selection/torok_vendor/axiom_prediction/graph.py": "0b6c06432cf835609cffd4cca51a15e4788bb6bf71367dd9d63111b6fe29d72e",
+    "/home/mfixman/TP/Prover9/axiom_selection/torok_vendor/axiom_prediction/representation/schema.py": "92ab165db1ed92c4fadbc65d9bedb5a27d4b83a2baaf04104ed84b0c5cbe3bfd",
+    "/home/mfixman/TP/Prover9/axiom_selection/torok_vendor/axiom_prediction/representation/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "/home/mfixman/TP/Prover9/axiom_selection/torok_vendor/axiom_prediction/representation/matrix.py": "61a40e9347d35893ffaa04556cd2f9fe99ab8bca974ede6f06a945aa5f71e398",
+    "/home/mfixman/TP/Prover9/axiom_selection/torok_vendor/connections/constraints/term_types.py": "fa33e5477dc11a1cb61c9b00920e60214bb541f6c51372ac378e17a36f53850b",
+    "/home/mfixman/TP/Prover9/axiom_selection/torok_vendor/connections/constraints/term_unifier.py": "fa192f31d3f02ffff49c32b6f0b023e1d7ad1bc6668595e86ffd2e37bf5bf459",
+    "/home/mfixman/TP/Prover9/axiom_selection/torok_vendor/connections/constraints/delta.py": "735f663a3e67390e1e4aa142fc21904d22593255b2224c7a10a5e8df880e9ddc",
+    "/home/mfixman/TP/Prover9/axiom_selection/torok_vendor/connections/constraints/term.py": "bb0cadbcd5d41d7d2fac868506e2acd5d04d901d1928eda9fcd920ecd6798468",
+    "/home/mfixman/TP/Prover9/axiom_selection/torok_vendor/connections/constraints/__init__.py": "b95b1f3d91563aa381415a2aa11607d58b53f04451d52955133755bc7e7e6857",
+    "/home/mfixman/TP/Prover9/axiom_selection/torok_vendor/connections/constraints/term_unification.py": "b33532973bbac54b9cfa8270955b9b93a42a6ae19d5d7e2671c7083098c13548",
+    "/home/mfixman/TP/Prover9/axiom_selection/torok_vendor/connections/constraints/prefix_types.py": "8058f069182d863c8f99af16f2e38fe54c184eca10dee5c7e5a4e4142d739366",
+    "/home/mfixman/TP/Prover9/axiom_selection/torok_vendor/connections/constraints/prefix.py": "44cc82125880ab2ad5ef0701a26092d21db24ef56076fd1e71727e93bd54fc6e",
+    "/home/mfixman/TP/Prover9/axiom_selection/torok_vendor/connections/constraints/term_resolution.py": "ab0116e257640edb8d8d20413be90436362c0c2f5d1c06d3555410d1adf70d9f",
+    "/home/mfixman/TP/Prover9/axiom_selection/torok_vendor/connections/constraints/store.py": "27590885c9a4d288b26215519616e8643214daa80bb0979595714713ec604c7d",
+    "/home/mfixman/TP/Prover9/axiom_selection/torok_vendor/connections/constraints/prefix_unifier.py": "fc605799645d81b0f6d877e2ee12fc9d1c59b46a01263d55d645e765411316de",
+    "/home/mfixman/TP/Prover9/axiom_selection/torok_vendor/connections/clausification/formula_ops.py": "278d8c282bd958bfb1c012e93e96bf3c4a6f5bef189614c6003207ee9dd32350",
+    "/home/mfixman/TP/Prover9/axiom_selection/torok_vendor/connections/clausification/reorder.py": "1bdfe208493329850b3de7d3f2cf014ba358af7720fea6b9ac8b0752525927ab",
+    "/home/mfixman/TP/Prover9/axiom_selection/torok_vendor/connections/clausification/conversion.py": "e2fd8acfc6c8f63989346912e0f4f8239507a2cf1bd8d5dfa8fc5ef549d7a160",
+    "/home/mfixman/TP/Prover9/axiom_selection/torok_vendor/connections/clausification/translate.py": "eb1e843cff3e25f7a3fc513cc4be7b18d130bcd987cdb6d7b349cbbfec21b3d4",
+    "/home/mfixman/TP/Prover9/axiom_selection/torok_vendor/connections/clausification/__init__.py": "5be50bf3e03ee5c7292e14e4c79eb364d20c1889de3ea7d90fb924defaf6ef4e",
+    "/home/mfixman/TP/Prover9/axiom_selection/torok_vendor/connections/clausification/files.py": "64df3c1c00b12be016d93f703ee74e804297392cba0dc64e5b01ae4d7e7b4910",
+    "/home/mfixman/TP/Prover9/axiom_selection/torok_vendor/connections/clausification/equality.py": "56023370579a68c528f9eb1a5d93095e2f90f6589a349c1699d02bda674f5280",
+    "/home/mfixman/TP/Prover9/axiom_selection/torok_vendor/connections/syntax/__init__.py": "bfec5e74211836adcfcb4304728833ff89e594ab999edce7f80de6e5249d614a",
+    "/home/mfixman/TP/Prover9/axiom_selection/torok_vendor/connections/syntax/logic.py": "2dc7b83c2d071dfdee904a82d6ca511026dfa6a025c11f2da1d4aac12132052f",
+    "/home/mfixman/TP/Prover9/axiom_selection/torok_vendor/connections/syntax/matrix.py": "c153508024d79f1f6b7a80a0857822aed767bcbdef45d9f563e0c81e58e0df3e",
+    "/home/mfixman/TP/Prover9/axiom_selection/torok_vendor/connections/syntax/formula.py": "8e548ccf6c0f92ce775b444816eb68795a3a6c7a305321f02d6d028eee6c8c5f",
+    "/home/mfixman/TP/Prover9/axiom_selection/torok_vendor/connections/parsing/__init__.py": "8eea9df4f6d7b38ca0e39ccc27b04700e3d08dbeec8046d613d22706d19985fa",
+    "/home/mfixman/TP/Prover9/axiom_selection/torok_vendor/connections/parsing/tptp/grammar.py": "274e3eec8155ba65946c88316dab01d76b1e992cc67a82c3da047a645a833446",
+    "/home/mfixman/TP/Prover9/axiom_selection/torok_vendor/connections/parsing/tptp/parser.py": "f600fbd586b56e58668957c97680601dea50db4b4df3092cf75aff6d651d407c",
+    "/home/mfixman/TP/Prover9/axiom_selection/torok_vendor/connections/parsing/tptp/transformer.py": "2b89fbe12c44043b887383a90c79d618d2ebcb25ce4a0168303b6f15bb9586fd",
+    "/home/mfixman/TP/Prover9/axiom_selection/torok_vendor/connections/parsing/tptp/__init__.py": "bf41b96d559ec760c11dcaf2e91038e7f1465d23e6c366b4035b2d3cc320ad48",
+    "/home/mfixman/TP/Prover9/axiom_selection/build/native-search": "2030b979dedcaaffa117078cf8dcec0c2b65b85cd66543d80facc94bea43c61d",
+    "/home/mfixman/TP/Prover9/axiom_selection/build/native-search-control": "d571d661619d55642326874729e904464a04af7cc6585daea9e4538e0195175d",
+    "/home/mfixman/Dropbox/continuous/TP/vampire/Shell/Torok/experiments/local_prover9.py": "72ff93c9e04cb9128148f4667bbc4c9b3f4f965c7daca0eed31dd5dfaabd0cfd",
+    "/home/mfixman/Dropbox/continuous/TP/vampire/Shell/Torok/experiments/compare.py": "d084efa6d6b3e313af107202bb1c34bef436139e6fd6fb4f6455fb51df9a7b50"
+  },
+  "source_sha256": "83ba476ae97fbc7f32ec94598028daa1570d8e0aebb4256e34d5c458f407a715",
+  "protocol": "Separate follow-up batch, same CPU per problem as the preceding comparison; baseline then top-1 Torok support; scoring inside final 10/20 seconds; no resumed baseline stage; warm model per worker."
+}

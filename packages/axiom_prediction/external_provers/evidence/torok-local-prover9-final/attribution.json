@@ -1,0 +1,43 @@
+{
+  "vampire_proof_stages": {
+    "baseline": 208,
+    "Torok": 3,
+    "SInE": 1
+  },
+  "vampire_guided_proofs": [
+    {
+      "problem": "LCL319-3",
+      "sample": "development",
+      "elapsed_s": 53.95818115400107,
+      "ranking": [
+        "Torok ranking: selected 10 of 10 axioms",
+        "Torok filter: removed 0 axioms"
+      ]
+    },
+    {
+      "problem": "LCL247-3",
+      "sample": "development",
+      "elapsed_s": 55.200287676998414,
+      "ranking": [
+        "Torok ranking: selected 9 of 9 axioms",
+        "Torok filter: removed 0 axioms"
+      ]
+    },
+    {
+      "problem": "SET149-6",
+      "sample": "development",
+      "elapsed_s": 47.89992900699872,
+      "ranking": [
+        "Torok ranking: selected 16 of 112 axioms",
+        "Torok filter: removed 96 axioms"
+      ]
+    }
+  ],
+  "prover9_resume_gain_stages": {
+    "MGT060-1": "guided",
+    "GEO083-1": "guided",
+    "NUM017-1": "guided",
+    "SCT040-1": "guided",
+    "LCL806-1": "guided"
+  }
+}

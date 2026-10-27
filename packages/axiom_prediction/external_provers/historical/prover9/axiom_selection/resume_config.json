@@ -1,0 +1,30 @@
+{
+  "mode": "ResumeSupport1",
+  "cli_strategy": "resume1",
+  "initial_baseline_seconds": 1,
+  "guided_budget_fraction": 0.3333333333333333,
+  "scoring_cap_budget_fraction": 0.25,
+  "support_axioms": 1,
+  "ranking": "highest Torok probability; input index breaks ties",
+  "conjectures": "all in support",
+  "remaining_axioms": "usable; no deletion",
+  "fallback": "resume paused baseline process",
+  "workers": 18,
+  "seconds": 30,
+  "model_service": "one warmed single-thread model per worker; scoring charged per problem",
+  "sha256": {
+    "premise_run.py": "2be2355e696a4102b35fd881be94ee61c6381d322025eec84e5eddbcd875634a",
+    "half_support.py": "e65d77bbc447a89f53631d667d62cb1e60941b73c2cdcfc204335acaadde10ee",
+    "live_search.py": "60185683a4202f9d7688206ac17891403a51e028467c8e0799a855e305b8a66b",
+    "native_search.c": "8eeb0c0d1578c4ad08c38724993dea8308ec1d326a4f72047d66f8aa458a2c2c",
+    "portfolio.py": "ede4aece983c9a23439aa5fa0558145e88bd284361ba126c7294c71250845424",
+    "bounded.py": "7759b93d116fe062a2c2787e3573d2ac52004a3725881924baa774501260cd3a",
+    "predict.py": "2936f93c0de36c211fe18d84d5e5e4335e39d36f5d7057471049ed4038730a33",
+    "experiments/paired.py": "8b695808d11ba880efc4f871e8a93a0b945a09c4ce767d495d612d0c3dcba358",
+    "compare.py": "4abb478b75cc432bb41c9351c58e503098c7baf43884ae79793bb077ab030baf",
+    "models/torok.ts": "76e6274eedb3d8530886a0d4c69c2e190934890d7b8da87ae05ac0e0be2217b4"
+  },
+  "prover9_sha256": "4d993c0f3777957e78a26412ec4a1dc4475f9c2d709221e350fcc596d4bebbe2",
+  "results": "results/resume1-comparison",
+  "repetitions": "results/resume1-repeats"
+}

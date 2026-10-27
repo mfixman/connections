@@ -1,0 +1,64 @@
+{
+  "Vampire": {
+    "counts": {
+      "+": 86,
+      "m": 8,
+      "t": 32,
+      "parser error": 3
+    },
+    "wall_seconds": 493.0
+  },
+  "SInE axioms": {
+    "counts": {
+      "t": 35,
+      "m": 4,
+      "+": 56,
+      "i": 30,
+      "parser error": 3,
+      "n": 1
+    },
+    "wall_seconds": 435.0
+  },
+  "SInE included": {
+    "counts": {
+      "t": 34,
+      "m": 7,
+      "+": 70,
+      "i": 15,
+      "parser error": 3
+    },
+    "wall_seconds": 488.0
+  },
+  "Torok": {
+    "counts": {
+      "t": 58,
+      "+": 34,
+      "m": 20,
+      "!": 14,
+      "parser error": 3
+    },
+    "wall_seconds": 523.0
+  },
+  "SInE axioms + Torok": {
+    "counts": {
+      "m": 10,
+      "t": 52,
+      "+": 32,
+      "i": 29,
+      "parser error": 3,
+      "!": 3
+    },
+    "wall_seconds": 401.0
+  },
+  "SInE included + Torok": {
+    "counts": {
+      "m": 17,
+      "t": 50,
+      "+": 37,
+      "i": 15,
+      "!": 7,
+      "parser error": 3
+    },
+    "wall_seconds": 441.0
+  }
+}
