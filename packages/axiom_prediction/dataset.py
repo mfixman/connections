@@ -5,6 +5,7 @@ from .choices import ProverPolicy
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
 
+import hashlib
 import json
 import time
 from pathlib import Path
@@ -267,6 +268,7 @@ def shard_rows(
     *,
     metadata: Mapping[str, Any],
     summary: Mapping[str, object],
+    max_bytes: int | None = None,
 ) -> Iterator[Mapping[str, Any]]:
     yield {
         "schema": axiom_dataset_shard_schema,
@@ -276,7 +278,7 @@ def shard_rows(
     }
 
     if (cache / "cache.csv").exists():
-        rows = iter(read_csv(cache / "cache.csv"))
+        rows = iter(read_csv(cache / "cache.csv", max_bytes))
         next(rows)
         yield from rows
         return
@@ -284,6 +286,9 @@ def shard_rows(
     seen = set()
     for stage in ("examples", "failures", "partial/examples", "partial/failures"):
         for record in sorted((cache / stage).glob("*.json")):
+            if max_bytes is not None and record.stat().st_size > max_bytes:
+                continue
+
             payload = read_object(record)
             if record.name not in seen:
                 seen.add(record.name)
@@ -461,14 +466,19 @@ def collect_one_problem(
     return CollectedAxiomProblem(problem, example, outcome, parseable)
 
 def load_axiom_dataset(
-    path: str | Path
+    path: str | Path,
+    max_example_mb: float | None = None,
 ) -> tuple[list[AxiomTrainingExample], list[dict[str, str]], dict[str, Any]]:
     root = Path(path)
     log(f"discovering dataset records in {root}")
-    if root.is_file():
-        return load_axiom_dataset_shards((root,), dataset_path = root)
+    max_bytes = None if max_example_mb is None else int(max_example_mb * 1e6)
+    if max_bytes is not None:
+        log(f"skipping dataset records larger than {max_example_mb} MB")
 
-    shards = sorted(root.glob("*.csv")) or sorted(root.glob("*.jsonl"))
+    if root.is_file():
+        return load_axiom_dataset_shards((root,), dataset_path = root, max_bytes = max_bytes)
+
+    shards = sorted(root.glob("*.csv")) or sorted(root.glob("*.jsonl")) or collection_caches(root)
     if shards:
         legacy = (root / "metadata.json").exists() or (root / "examples").exists()
         if legacy and shards != [root / "cache.csv"]:
@@ -476,7 +486,7 @@ def load_axiom_dataset(
                 f"mixed dataset formats in {root}: separate CSV shards from legacy records"
             )
 
-        return load_axiom_dataset_shards(shards, dataset_path = root)
+        return load_axiom_dataset_shards(shards, dataset_path = root, max_bytes = max_bytes)
 
     metadata_path = root / "metadata.json"
     if not metadata_path.is_file():
@@ -488,14 +498,14 @@ def load_axiom_dataset(
             f"unsupported axiom dataset {root} (schema {metadata.get('schema')!r}); {outdated_dataset_hint}"
         )
 
-    examples_by_problem = {}
+    examples_by_input = {}
     for record in track_progress(sorted((root / "examples").glob("*.json")), "loading examples"):
         add_core_example(
-            examples_by_problem,
+            examples_by_input,
             axiom_training_example_from_json(read_object(record)),
         )
 
-    examples = list(core_examples(examples_by_problem))
+    examples = list(core_examples(examples_by_input))
 
     failures: list[dict[str, str]] = []
     for record in track_progress(sorted((root / "failures").glob("*.json")), "loading failure records"):
@@ -512,14 +522,35 @@ def load_axiom_dataset(
 
     return examples, failures, metadata
 
-def read_dataset_rows(path):
+def collection_caches(root):
+    # Links to collection caches let training read shards before they finish.
+    return sorted(
+        path
+        for path in root.iterdir()
+        if (path / "cache.csv").exists() or (path / "metadata.json").exists()
+    )
+
+def read_dataset_rows(path, max_bytes = None):
+    if path.is_dir() and (path / "cache.csv").exists():
+        yield from read_csv(path / "cache.csv", max_bytes)
+        return
+
+    if path.is_dir():
+        metadata = read_object(path / "metadata.json")
+        yield from shard_rows(path, metadata = metadata, summary = {}, max_bytes = max_bytes)
+        return
+
     if path.suffix == ".jsonl":
         with path.open() as stream:
-            yield from map(json.loads, filter(str.strip, stream))
+            lines = filter(str.strip, stream)
+            if max_bytes is not None:
+                lines = (line for line in lines if len(line) <= max_bytes)
+
+            yield from map(json.loads, lines)
 
         return
 
-    yield from read_csv(path)
+    yield from read_csv(path, max_bytes)
 
 def example_matrix(example):
     graph = example.graph
@@ -534,11 +565,13 @@ def example_matrix(example):
         graph.graph.metadata.get("satcop", {}).get("matrix_sha256"),
     )
 
-def add_core_example(examples_by_problem, example):
-    cores = examples_by_problem.setdefault(example.problem_path, {})
-    if cores and example_matrix(next(iter(cores.values()))) != example_matrix(example):
-        raise ValueError(f"conflicting matrices for {example.problem_path!r} in axiom dataset")
+def matrix_digest(example):
+    text = json.dumps(example_matrix(example), sort_keys = True)
+    return hashlib.sha256(text.encode()).hexdigest()
 
+def add_core_example(examples_by_input, example):
+    # Distinct matrices of one problem, such as from different SAT policies, are separate inputs.
+    cores = examples_by_input.setdefault((example.problem_path, matrix_digest(example)), {})
     core = frozenset(
         clause_id
         for clause_id, label in zip(example.graph.axiom_clause_ids, example.labels)
@@ -546,22 +579,24 @@ def add_core_example(examples_by_problem, example):
     )
     cores.setdefault(core, example)
 
-def core_examples(examples_by_problem):
-    for cores in examples_by_problem.values():
+def core_examples(examples_by_input):
+    for cores in examples_by_input.values():
         yield from cores.values()
 
 def load_axiom_dataset_shards(
     shards: Sequence[Path],
     *,
     dataset_path: Path,
+    max_bytes: int | None = None,
 ) -> tuple[list[AxiomTrainingExample], list[dict[str, str]], dict[str, Any]]:
-    examples_by_problem: dict[str, dict[frozenset[int], AxiomTrainingExample]] = {}
+    examples_by_input: dict[tuple[str, str], dict[frozenset[int], AxiomTrainingExample]] = {}
     failures_by_problem: dict[str, dict[str, str]] = {}
+    proved: set[str] = set()
     collection: dict[str, Any] | None = None
     shard_collections: dict[str, dict[str, Any]] = {}
 
     for shard in track_progress(shards, "loading dataset shards", len(shards)):
-        rows = iter(read_dataset_rows(shard))
+        rows = iter(read_dataset_rows(shard, max_bytes))
         try:
             header = next(rows)
         except StopIteration:
@@ -578,20 +613,11 @@ def load_axiom_dataset_shards(
 
         shard_collection = dict(header["collection"])
         shard_collections[shard.name] = shard_collection
-        if collection is None:
-            collection = shard_collection
-        elif (
-            dataset_compatibility_settings(collection)
-            != dataset_compatibility_settings(shard_collection)
-        ):
-            raise ValueError(
-                f"axiom dataset shards have incompatible collection settings: {shard}"
-            )
-
+        collection = collection or shard_collection
         for row in track_progress(rows, f"reading {shard.name}"):
             if row.get("schema") == axiom_dataset_schema:
                 problem = str(row.get("problem", ""))
-                if problem and problem not in examples_by_problem:
+                if problem and problem not in proved:
                     failures_by_problem.setdefault(
                         problem,
                         {
@@ -603,10 +629,11 @@ def load_axiom_dataset_shards(
                 continue
 
             example = axiom_training_example_from_json(row)
+            proved.add(example.problem_path)
             failures_by_problem.pop(example.problem_path, None)
-            add_core_example(examples_by_problem, example)
+            add_core_example(examples_by_input, example)
 
-    if not examples_by_problem:
+    if not examples_by_input:
         raise RuntimeError(f"axiom dataset contains no training examples: {dataset_path}")
 
     dataset_collection = collection or {}
@@ -628,7 +655,7 @@ def load_axiom_dataset_shards(
     }
 
     return (
-        list(core_examples(examples_by_problem)),
+        list(core_examples(examples_by_input)),
         list(failures_by_problem.values()),
         metadata,
     )

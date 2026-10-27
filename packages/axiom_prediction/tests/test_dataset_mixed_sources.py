@@ -51,7 +51,7 @@ def test_combined_dataset_retains_per_shard_collection_settings(tmp_path):
     assert metadata["collection"]["source_shards"]["TPTP.csv"]["step_limit"] == 1_000_000
 
 
-def test_combined_dataset_rejects_different_label_policies(tmp_path):
+def test_combined_dataset_keeps_different_label_policies(tmp_path):
     write_shard(tmp_path / "Mizar40.csv", step_limit = 1_000_000_000, timeout_seconds = 900)
     write_shard(
         tmp_path / "TPTP.csv",
@@ -60,8 +60,31 @@ def test_combined_dataset_rejects_different_label_policies(tmp_path):
         sat_policy = "satcop",
     )
 
-    with pytest.raises(ValueError, match="incompatible collection settings"):
-        load_axiom_dataset(tmp_path)
+    examples, _, metadata = load_axiom_dataset(tmp_path)
+    assert len(examples) == 2
+    assert metadata["collection"]["source_shards"]["TPTP.csv"]["sat_policy"] == "satcop"
+
+def test_unfinished_collection_caches_are_read_in_both_formats(tmp_path):
+    write_shard(tmp_path / "source.csv", step_limit = 100, timeout_seconds = 10)
+    header, example = read_csv(tmp_path / "source.csv")
+    example["axiom_clause_texts"] = ["p(a)" * 5_000]
+    current = tmp_path / "caches" / "current"
+    current.mkdir(parents = True)
+    write_csv(current / "cache.csv", [header, example], dataset_fields)
+    with (current / "cache.csv").open("a") as stream:
+        stream.write('"{""schema"": ""unfinished')
+
+    legacy = tmp_path / "caches" / "legacy"
+    (legacy / "partial" / "examples").mkdir(parents = True)
+    metadata = {"schema": axiom_dataset_schema, "collection": header["collection"]}
+    (legacy / "metadata.json").write_text(json.dumps(metadata))
+    example["problem_path"] = "other.p"
+    (legacy / "partial" / "examples" / "0.json").write_text(json.dumps(example))
+
+    examples, _, _ = load_axiom_dataset(tmp_path / "caches")
+    assert sorted(example.problem_path for example in examples) == ["other.p", "source.p"]
+    with pytest.raises(RuntimeError, match = "no training examples"):
+        load_axiom_dataset(tmp_path / "caches", max_example_mb = 0.01)
 
 def test_combined_dataset_keeps_distinct_cores_across_seeds(tmp_path):
     for seed, label in enumerate([1.0, 0.0, 1.0, 0.0]):
@@ -102,7 +125,7 @@ def test_legacy_dataset_keeps_each_distinct_core_once(tmp_path):
     assert [example.labels for example in examples] == [[1.0], [0.0]]
 
 @pytest.mark.parametrize("change", ["graph", "native_matrix"])
-def test_repeated_core_rejects_conflicting_matrices(tmp_path, change):
+def test_repeated_core_keeps_each_distinct_matrix(tmp_path, change):
     for index in range(2):
         path = tmp_path / f"run{index}.csv"
         write_shard(path, step_limit = 100, timeout_seconds = 10)
@@ -115,8 +138,8 @@ def test_repeated_core_rejects_conflicting_matrices(tmp_path, change):
 
         write_csv(path, rows, dataset_fields)
 
-    with pytest.raises(ValueError, match = "conflicting matrices"):
-        load_axiom_dataset(tmp_path)
+    examples, _, _ = load_axiom_dataset(tmp_path)
+    assert len(examples) == 2
 
 def test_dataset_csv_preserves_large_nested_records_and_empty_values(tmp_path):
     path = tmp_path / "records.csv"

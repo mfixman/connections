@@ -55,6 +55,12 @@ def build_parser() -> argparse.ArgumentParser:
     )
 
     train.add_argument("--tptp", type = Path)
+    train.add_argument(
+        "--max-example-mb",
+        type = float,
+        help = "skip dataset examples whose stored record is larger than this",
+    )
+
     add_split_arguments(train)
     train.add_argument(
         "--evaluate",
@@ -460,6 +466,7 @@ def execute_command(args: argparse.Namespace) -> int:
                 evaluation_problems = evaluation_problems,
                 evaluate_every = args.evaluate_every,
                 resume = args.resume,
+                max_example_mb = args.max_example_mb,
             )
 
             report_metrics(metrics)

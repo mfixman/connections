@@ -28,7 +28,7 @@ def test_held_out_logging(tmp_path, tiny_problem_path, monkeypatch, interval, sl
     eval_name = next(name for name in names if held.contains(name))
 
     examples = [replace(example, problem_path = name) for name in (train_name, eval_name)]
-    monkeypatch.setattr(training, "load_axiom_dataset", lambda _: (examples, [], {}))
+    monkeypatch.setattr(training, "load_axiom_dataset", lambda *_: (examples, [], {}))
     run = _FakeRun()
     init = {}
     monkeypatch.setitem(sys.modules, "wandb", fake_wandb(run, init))
@@ -93,7 +93,7 @@ def test_evaluation_split_validation(tmp_path, monkeypatch):
             wandb_config = WandbConfig(enabled = False),
         )
 
-    monkeypatch.setattr(training, "load_axiom_dataset", lambda _: ([], [], {}))
+    monkeypatch.setattr(training, "load_axiom_dataset", lambda *_: ([], [], {}))
     with pytest.raises(ValueError, match = "no evaluation examples"):
         training.train_axiom_predictor(
             dataset = tmp_path, output_dir = tmp_path / "model", config = config,
