@@ -131,17 +131,20 @@ def run_native(binary, problem, root, output, timeout_s, seed):
         raise TPTPParseError("SATCoP", f"native parse error; see {log_path}", 0, 0)
 
     if returncode is None:
+        log_path.unlink()
         return "Timeout"
 
     if returncode != 0:
         raise RuntimeError(f"SATCoP exited with code {returncode}; see {log_path}")
 
     if status not in ("Theorem", "Unsatisfiable"):
+        log_path.unlink()
         return status
 
     payload = parse_dump(text, problem = problem, seed = seed, timeout_s = timeout_s)
     payload.update(native_details(binary))
     write_json_atomic(output, payload)
+    log_path.unlink()
     return "proved"
 
 def run_process(command, environment, log_file, log_path, timeout_s):
@@ -224,6 +227,8 @@ def collect_native_example(
     payload["problem_path"] = str(problem)
     example = axiom_training_example_from_json(convert_example(payload, output))
     example.graph.graph.metadata["satcop"]["binary_sha256"] = binary_identity(binary)
+    # The collection cache keeps the converted example; only failures keep their native files.
+    output.unlink()
     return example, "proved"
 
 def decode_term(value, symbols, variables):
