@@ -5,10 +5,15 @@ this Connections checkout. Prover9 ResumeSupport1 has a measured HPC coverage
 improvement. Vampire has repeatable individual learned-filtering speedups, but
 no demonstrated aggregate held-out advantage from Torok.
 
+The [27 October Vampire pilot](PILOT_20261027.md) tested the proposed 40s
+ordinary / 20s top-1 support schedule and its ranking controls on 54 additional
+checkpoint-held-out families. All five arms proved the same 42 problems, with
+no guided-stage proofs. Neither support variant improved on ordinary Vampire.
+
 The native integrations, models, and runners remain in `~/TP/Prover9` and
 `~/TP/vampire`; this directory contains documentation and compact evidence.
-No new proof runs or HPC jobs were started for this handoff. The latest saved
-local batches completed on 26 October. An SSH attempt on 27 October failed to
+The initial documentation handoff started no proof runs or HPC jobs; the later
+local pilot is recorded separately above. An SSH attempt on 27 October failed to
 authenticate, so current remote state and older Vampire HPC outcomes are unknown.
 
 ## Reading order and evidence
