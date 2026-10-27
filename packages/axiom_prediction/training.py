@@ -233,6 +233,7 @@ def train_axiom_predictor(
     evaluation_problems: list[str] | tuple[str, ...] | None = None,
     evaluate_every: int = 1,
     resume: bool = False,
+    max_example_mb: float | None = None,
 ) -> dict[str, Any]:
     progress_interval_s = 60.0
 
@@ -274,7 +275,7 @@ def train_axiom_predictor(
     if dataset is not None:
         log_message(f"loading dataset from {dataset}")
         started = time.monotonic()
-        dataset_examples, dataset_skipped, dataset_metadata = load_axiom_dataset(dataset)
+        dataset_examples, dataset_skipped, dataset_metadata = load_axiom_dataset(dataset, max_example_mb)
         if evaluation_split is not None:
             held_out = [
                 example

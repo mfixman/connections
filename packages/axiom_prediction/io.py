@@ -7,10 +7,16 @@ from pathlib import Path
 import tempfile
 from typing import Any
 
-def read_csv(path: str | Path) -> Iterator[dict[str, Any]]:
+def read_csv(path: str | Path, max_bytes: int | None = None) -> Iterator[dict[str, Any]]:
     csv.field_size_limit(sys.maxsize)
     with Path(path).open("r", encoding = "utf-8", newline = "") as file:
-        for row in csv.DictReader(file, strict = True):
+        # Each record is one line, so an unterminated last line is a row still being appended.
+        lines = (
+            line
+            for line in file
+            if line.endswith("\n") and (max_bytes is None or len(line) <= max_bytes)
+        )
+        for row in csv.DictReader(lines, strict = True):
             if None in row or any(value is None for value in row.values()):
                 raise ValueError(f"corrupt dataset CSV row in {path}")
 
