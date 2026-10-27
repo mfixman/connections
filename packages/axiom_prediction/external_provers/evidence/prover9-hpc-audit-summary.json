@@ -1,0 +1,57 @@
+{
+  "source": "/home/mfixman/TP/Prover9/axiom_selection/results/hpc-three-way-60s.csv",
+  "csv_sha256": "7eb52480a855afbcfa4da1014239be55016e0cabe5df0f398289dad6705e5dd3",
+  "archive_rows": {
+    "WeightedSupport16": 6269,
+    "Baseline": 6269,
+    "ResumeSupport1": 6269
+  },
+  "missing_archive_rows": [],
+  "proof_flag_mismatches": [],
+  "manifest_parts": [
+    [
+      1
+    ],
+    [
+      7
+    ],
+    [
+      3
+    ],
+    [
+      4
+    ],
+    [
+      9
+    ],
+    [
+      8
+    ],
+    [
+      0
+    ],
+    [
+      5
+    ],
+    [
+      2
+    ],
+    [
+      6
+    ]
+  ],
+  "manifest_seconds": [
+    60.0
+  ],
+  "manifest_models": [
+    "76e6274eedb3d8530886a0d4c69c2e190934890d7b8da87ae05ac0e0be2217b4"
+  ],
+  "manifest_binaries": [
+    "af443f5b8fb54ef0ac2e46f4436edfe085dbbd92e030a78de561ef98a8024bac"
+  ],
+  "resume_gain_count": 142,
+  "resume_gain_stages": {
+    "guided": 142
+  },
+  "resume_loss_count": 46
+}

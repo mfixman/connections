@@ -1,0 +1,981 @@
+{
+  "development": {
+    "completed": 180,
+    "modes": {
+      "Prover9Baseline": {
+        "proofs": 106,
+        "par2_s": 51.691329443788746,
+        "errors": {
+          "ValueError(\"Unsupported symbol 'E'; numeric and distinct objects need explicit encoding.\")": 2
+        },
+        "maximum_elapsed_s": 60.165768299000774
+      },
+      "Prover9ResumeSupport1": {
+        "proofs": 107,
+        "par2_s": 51.83821312113328,
+        "errors": {
+          "ValueError(\"Unsupported symbol 'E'; numeric and distinct objects need explicit encoding.\")": 2
+        },
+        "maximum_elapsed_s": 60.17784566000046
+      },
+      "VampireFinal": {
+        "proofs": 129,
+        "par2_s": 37.313462198538936,
+        "errors": {},
+        "maximum_elapsed_s": 60.18903228199997
+      }
+    },
+    "comparisons": {
+      "Prover9ResumeSupport1 vs Prover9Baseline": {
+        "gains": [
+          "GEO083-1",
+          "LCL806-1",
+          "NUM017-1"
+        ],
+        "losses": [
+          "GRP186-2",
+          "SWV330-1"
+        ],
+        "relative_percent": 0.9433962264150944,
+        "union": 109,
+        "common_total_s": 548.847745331992,
+        "common_reference_s": 308.02661683797487
+      },
+      "VampireFinal vs Prover9Baseline": {
+        "gains": [
+          "CSR040-10",
+          "GEO083-1",
+          "GRP224-1",
+          "HWV043-2",
+          "HWV108-1",
+          "LAT260-1",
+          "LCL216-3",
+          "LCL247-3",
+          "LCL319-3",
+          "LCL430-1",
+          "LCL766-1",
+          "LCL806-1",
+          "SET018-6",
+          "SET031-3",
+          "SET071-6",
+          "SET149-6",
+          "SWC011-1",
+          "SWC069-1",
+          "SWC078-1",
+          "SWC108-1",
+          "SWC181-1",
+          "SWC313-1",
+          "SWC383-1",
+          "SWC399-1",
+          "SWV271-1",
+          "SWV275-2",
+          "SWV301-1",
+          "SWV621-1",
+          "SYN848-1",
+          "SYN890-1",
+          "SYO630-1",
+          "SYO676-1"
+        ],
+        "losses": [
+          "COL046-1",
+          "GRP186-2",
+          "GRP197-1",
+          "GRP400-1",
+          "GRP407-1",
+          "LAT017-1",
+          "LCL390-1",
+          "REL050-3",
+          "SWV798-1"
+        ],
+        "relative_percent": 21.69811320754717,
+        "union": 138,
+        "common_total_s": 160.19005206900692,
+        "common_reference_s": 310.28067945297516
+      },
+      "Prover9Baseline vs Prover9ResumeSupport1": {
+        "gains": [
+          "GRP186-2",
+          "SWV330-1"
+        ],
+        "losses": [
+          "GEO083-1",
+          "LCL806-1",
+          "NUM017-1"
+        ],
+        "relative_percent": -0.9345794392523364,
+        "union": 109,
+        "common_total_s": 308.02661683797487,
+        "common_reference_s": 548.847745331992
+      },
+      "VampireFinal vs Prover9ResumeSupport1": {
+        "gains": [
+          "CSR040-10",
+          "GRP224-1",
+          "HWV043-2",
+          "HWV108-1",
+          "LAT260-1",
+          "LCL216-3",
+          "LCL247-3",
+          "LCL319-3",
+          "LCL430-1",
+          "LCL766-1",
+          "SET018-6",
+          "SET031-3",
+          "SET071-6",
+          "SET149-6",
+          "SWC011-1",
+          "SWC069-1",
+          "SWC078-1",
+          "SWC108-1",
+          "SWC181-1",
+          "SWC313-1",
+          "SWC383-1",
+          "SWC399-1",
+          "SWV271-1",
+          "SWV275-2",
+          "SWV301-1",
+          "SWV330-1",
+          "SWV621-1",
+          "SYN848-1",
+          "SYN890-1",
+          "SYO630-1",
+          "SYO676-1"
+        ],
+        "losses": [
+          "COL046-1",
+          "GRP197-1",
+          "GRP400-1",
+          "GRP407-1",
+          "LAT017-1",
+          "LCL390-1",
+          "NUM017-1",
+          "REL050-3",
+          "SWV798-1"
+        ],
+        "relative_percent": 20.560747663551403,
+        "union": 138,
+        "common_total_s": 179.42274898000323,
+        "common_reference_s": 393.16154318399094
+      }
+    },
+    "expected": 180,
+    "unsupported": [
+      "SYO630-1",
+      "SYO676-1"
+    ],
+    "supported_only": {
+      "completed": 178,
+      "modes": {
+        "Prover9Baseline": {
+          "proofs": 106,
+          "par2_s": 50.923816291471766,
+          "errors": {},
+          "maximum_elapsed_s": 60.165768299000774
+        },
+        "Prover9ResumeSupport1": {
+          "proofs": 107,
+          "par2_s": 51.07235034721343,
+          "errors": {},
+          "maximum_elapsed_s": 60.17784566000046
+        },
+        "VampireFinal": {
+          "proofs": 127,
+          "par2_s": 37.72290052573037,
+          "errors": {},
+          "maximum_elapsed_s": 60.18903228199997
+        }
+      },
+      "comparisons": {
+        "Prover9ResumeSupport1 vs Prover9Baseline": {
+          "gains": [
+            "GEO083-1",
+            "LCL806-1",
+            "NUM017-1"
+          ],
+          "losses": [
+            "GRP186-2",
+            "SWV330-1"
+          ],
+          "relative_percent": 0.9433962264150944,
+          "union": 109,
+          "common_total_s": 548.847745331992,
+          "common_reference_s": 308.02661683797487
+        },
+        "VampireFinal vs Prover9Baseline": {
+          "gains": [
+            "CSR040-10",
+            "GEO083-1",
+            "GRP224-1",
+            "HWV043-2",
+            "HWV108-1",
+            "LAT260-1",
+            "LCL216-3",
+            "LCL247-3",
+            "LCL319-3",
+            "LCL430-1",
+            "LCL766-1",
+            "LCL806-1",
+            "SET018-6",
+            "SET031-3",
+            "SET071-6",
+            "SET149-6",
+            "SWC011-1",
+            "SWC069-1",
+            "SWC078-1",
+            "SWC108-1",
+            "SWC181-1",
+            "SWC313-1",
+            "SWC383-1",
+            "SWC399-1",
+            "SWV271-1",
+            "SWV275-2",
+            "SWV301-1",
+            "SWV621-1",
+            "SYN848-1",
+            "SYN890-1"
+          ],
+          "losses": [
+            "COL046-1",
+            "GRP186-2",
+            "GRP197-1",
+            "GRP400-1",
+            "GRP407-1",
+            "LAT017-1",
+            "LCL390-1",
+            "REL050-3",
+            "SWV798-1"
+          ],
+          "relative_percent": 19.81132075471698,
+          "union": 136,
+          "common_total_s": 160.19005206900692,
+          "common_reference_s": 310.28067945297516
+        },
+        "Prover9Baseline vs Prover9ResumeSupport1": {
+          "gains": [
+            "GRP186-2",
+            "SWV330-1"
+          ],
+          "losses": [
+            "GEO083-1",
+            "LCL806-1",
+            "NUM017-1"
+          ],
+          "relative_percent": -0.9345794392523364,
+          "union": 109,
+          "common_total_s": 308.02661683797487,
+          "common_reference_s": 548.847745331992
+        },
+        "VampireFinal vs Prover9ResumeSupport1": {
+          "gains": [
+            "CSR040-10",
+            "GRP224-1",
+            "HWV043-2",
+            "HWV108-1",
+            "LAT260-1",
+            "LCL216-3",
+            "LCL247-3",
+            "LCL319-3",
+            "LCL430-1",
+            "LCL766-1",
+            "SET018-6",
+            "SET031-3",
+            "SET071-6",
+            "SET149-6",
+            "SWC011-1",
+            "SWC069-1",
+            "SWC078-1",
+            "SWC108-1",
+            "SWC181-1",
+            "SWC313-1",
+            "SWC383-1",
+            "SWC399-1",
+            "SWV271-1",
+            "SWV275-2",
+            "SWV301-1",
+            "SWV330-1",
+            "SWV621-1",
+            "SYN848-1",
+            "SYN890-1"
+          ],
+          "losses": [
+            "COL046-1",
+            "GRP197-1",
+            "GRP400-1",
+            "GRP407-1",
+            "LAT017-1",
+            "LCL390-1",
+            "NUM017-1",
+            "REL050-3",
+            "SWV798-1"
+          ],
+          "relative_percent": 18.69158878504673,
+          "union": 136,
+          "common_total_s": 179.42274898000323,
+          "common_reference_s": 393.16154318399094
+        }
+      }
+    }
+  },
+  "heldout": {
+    "completed": 120,
+    "modes": {
+      "Prover9Baseline": {
+        "proofs": 68,
+        "par2_s": 54.17742992232502,
+        "errors": {
+          "ValueError(\"Unsupported symbol 'E'; numeric and distinct objects need explicit encoding.\")": 2
+        },
+        "maximum_elapsed_s": 60.09817217800082
+      },
+      "Prover9ResumeSupport1": {
+        "proofs": 70,
+        "par2_s": 53.46374918694164,
+        "errors": {
+          "ValueError(\"Unsupported symbol 'E'; numeric and distinct objects need explicit encoding.\")": 2
+        },
+        "maximum_elapsed_s": 60.092525247000594
+      },
+      "VampireFinal": {
+        "proofs": 83,
+        "par2_s": 39.218356068066775,
+        "errors": {},
+        "maximum_elapsed_s": 60.2873170999992
+      }
+    },
+    "comparisons": {
+      "Prover9ResumeSupport1 vs Prover9Baseline": {
+        "gains": [
+          "MGT060-1",
+          "SCT040-1"
+        ],
+        "losses": [],
+        "relative_percent": 2.9411764705882355,
+        "union": 70,
+        "common_total_s": 388.7258008619974,
+        "common_reference_s": 261.2915906790022
+      },
+      "VampireFinal vs Prover9Baseline": {
+        "gains": [
+          "COL094-1",
+          "GRP330-1",
+          "GRP375-1",
+          "GRP378-1",
+          "GRP772-1",
+          "HWV044-2",
+          "LCL394-1",
+          "MGT060-1",
+          "SET129-6",
+          "SWC164-1",
+          "SWC294-1",
+          "SWC356-1",
+          "SWC384-1",
+          "SWC389-1",
+          "SWV261-1",
+          "SWW430-1",
+          "SYN896-1",
+          "SYN982-1",
+          "SYO673-1",
+          "SYO683-1"
+        ],
+        "losses": [
+          "COL076-2",
+          "GRP654-10",
+          "PUZ016-1",
+          "SWV749-1",
+          "SYO613-1"
+        ],
+        "relative_percent": 22.058823529411764,
+        "union": 88,
+        "common_total_s": 122.4332552700107,
+        "common_reference_s": 206.0591603920002
+      },
+      "Prover9Baseline vs Prover9ResumeSupport1": {
+        "gains": [],
+        "losses": [
+          "MGT060-1",
+          "SCT040-1"
+        ],
+        "relative_percent": -2.857142857142857,
+        "union": 70,
+        "common_total_s": 261.2915906790022,
+        "common_reference_s": 388.7258008619974
+      },
+      "VampireFinal vs Prover9ResumeSupport1": {
+        "gains": [
+          "COL094-1",
+          "GRP330-1",
+          "GRP375-1",
+          "GRP378-1",
+          "GRP772-1",
+          "HWV044-2",
+          "LCL394-1",
+          "SET129-6",
+          "SWC164-1",
+          "SWC294-1",
+          "SWC356-1",
+          "SWC384-1",
+          "SWC389-1",
+          "SWV261-1",
+          "SWW430-1",
+          "SYN896-1",
+          "SYN982-1",
+          "SYO673-1",
+          "SYO683-1"
+        ],
+        "losses": [
+          "COL076-2",
+          "GRP654-10",
+          "PUZ016-1",
+          "SCT040-1",
+          "SWV749-1",
+          "SYO613-1"
+        ],
+        "relative_percent": 18.571428571428573,
+        "union": 89,
+        "common_total_s": 123.65665036901191,
+        "common_reference_s": 302.95404957599567
+      }
+    },
+    "expected": 120,
+    "unsupported": [
+      "SYO673-1",
+      "SYO683-1"
+    ],
+    "supported_only": {
+      "completed": 118,
+      "modes": {
+        "Prover9Baseline": {
+          "proofs": 68,
+          "par2_s": 53.06179314134748,
+          "errors": {},
+          "maximum_elapsed_s": 60.09817217800082
+        },
+        "Prover9ResumeSupport1": {
+          "proofs": 70,
+          "par2_s": 52.33601612231353,
+          "errors": {},
+          "maximum_elapsed_s": 60.092525247000594
+        },
+        "VampireFinal": {
+          "proofs": 81,
+          "par2_s": 39.846239013949265,
+          "errors": {},
+          "maximum_elapsed_s": 60.2873170999992
+        }
+      },
+      "comparisons": {
+        "Prover9ResumeSupport1 vs Prover9Baseline": {
+          "gains": [
+            "MGT060-1",
+            "SCT040-1"
+          ],
+          "losses": [],
+          "relative_percent": 2.9411764705882355,
+          "union": 70,
+          "common_total_s": 388.7258008619974,
+          "common_reference_s": 261.2915906790022
+        },
+        "VampireFinal vs Prover9Baseline": {
+          "gains": [
+            "COL094-1",
+            "GRP330-1",
+            "GRP375-1",
+            "GRP378-1",
+            "GRP772-1",
+            "HWV044-2",
+            "LCL394-1",
+            "MGT060-1",
+            "SET129-6",
+            "SWC164-1",
+            "SWC294-1",
+            "SWC356-1",
+            "SWC384-1",
+            "SWC389-1",
+            "SWV261-1",
+            "SWW430-1",
+            "SYN896-1",
+            "SYN982-1"
+          ],
+          "losses": [
+            "COL076-2",
+            "GRP654-10",
+            "PUZ016-1",
+            "SWV749-1",
+            "SYO613-1"
+          ],
+          "relative_percent": 19.11764705882353,
+          "union": 86,
+          "common_total_s": 122.4332552700107,
+          "common_reference_s": 206.0591603920002
+        },
+        "Prover9Baseline vs Prover9ResumeSupport1": {
+          "gains": [],
+          "losses": [
+            "MGT060-1",
+            "SCT040-1"
+          ],
+          "relative_percent": -2.857142857142857,
+          "union": 70,
+          "common_total_s": 261.2915906790022,
+          "common_reference_s": 388.7258008619974
+        },
+        "VampireFinal vs Prover9ResumeSupport1": {
+          "gains": [
+            "COL094-1",
+            "GRP330-1",
+            "GRP375-1",
+            "GRP378-1",
+            "GRP772-1",
+            "HWV044-2",
+            "LCL394-1",
+            "SET129-6",
+            "SWC164-1",
+            "SWC294-1",
+            "SWC356-1",
+            "SWC384-1",
+            "SWC389-1",
+            "SWV261-1",
+            "SWW430-1",
+            "SYN896-1",
+            "SYN982-1"
+          ],
+          "losses": [
+            "COL076-2",
+            "GRP654-10",
+            "PUZ016-1",
+            "SCT040-1",
+            "SWV749-1",
+            "SYO613-1"
+          ],
+          "relative_percent": 15.714285714285714,
+          "union": 87,
+          "common_total_s": 123.65665036901191,
+          "common_reference_s": 302.95404957599567
+        }
+      }
+    }
+  },
+  "all": {
+    "completed": 300,
+    "modes": {
+      "Prover9Baseline": {
+        "proofs": 174,
+        "par2_s": 52.68576963520326,
+        "errors": {
+          "ValueError(\"Unsupported symbol 'E'; numeric and distinct objects need explicit encoding.\")": 4
+        },
+        "maximum_elapsed_s": 60.165768299000774
+      },
+      "Prover9ResumeSupport1": {
+        "proofs": 177,
+        "par2_s": 52.488427547456624,
+        "errors": {
+          "ValueError(\"Unsupported symbol 'E'; numeric and distinct objects need explicit encoding.\")": 4
+        },
+        "maximum_elapsed_s": 60.17784566000046
+      },
+      "VampireFinal": {
+        "proofs": 212,
+        "par2_s": 38.07541974635007,
+        "errors": {},
+        "maximum_elapsed_s": 60.2873170999992
+      }
+    },
+    "comparisons": {
+      "Prover9ResumeSupport1 vs Prover9Baseline": {
+        "gains": [
+          "GEO083-1",
+          "LCL806-1",
+          "MGT060-1",
+          "NUM017-1",
+          "SCT040-1"
+        ],
+        "losses": [
+          "GRP186-2",
+          "SWV330-1"
+        ],
+        "relative_percent": 1.7241379310344827,
+        "union": 179,
+        "common_total_s": 937.5735461939894,
+        "common_reference_s": 569.318207516977
+      },
+      "VampireFinal vs Prover9Baseline": {
+        "gains": [
+          "COL094-1",
+          "CSR040-10",
+          "GEO083-1",
+          "GRP224-1",
+          "GRP330-1",
+          "GRP375-1",
+          "GRP378-1",
+          "GRP772-1",
+          "HWV043-2",
+          "HWV044-2",
+          "HWV108-1",
+          "LAT260-1",
+          "LCL216-3",
+          "LCL247-3",
+          "LCL319-3",
+          "LCL394-1",
+          "LCL430-1",
+          "LCL766-1",
+          "LCL806-1",
+          "MGT060-1",
+          "SET018-6",
+          "SET031-3",
+          "SET071-6",
+          "SET129-6",
+          "SET149-6",
+          "SWC011-1",
+          "SWC069-1",
+          "SWC078-1",
+          "SWC108-1",
+          "SWC164-1",
+          "SWC181-1",
+          "SWC294-1",
+          "SWC313-1",
+          "SWC356-1",
+          "SWC383-1",
+          "SWC384-1",
+          "SWC389-1",
+          "SWC399-1",
+          "SWV261-1",
+          "SWV271-1",
+          "SWV275-2",
+          "SWV301-1",
+          "SWV621-1",
+          "SWW430-1",
+          "SYN848-1",
+          "SYN890-1",
+          "SYN896-1",
+          "SYN982-1",
+          "SYO630-1",
+          "SYO673-1",
+          "SYO676-1",
+          "SYO683-1"
+        ],
+        "losses": [
+          "COL046-1",
+          "COL076-2",
+          "GRP186-2",
+          "GRP197-1",
+          "GRP400-1",
+          "GRP407-1",
+          "GRP654-10",
+          "LAT017-1",
+          "LCL390-1",
+          "PUZ016-1",
+          "REL050-3",
+          "SWV749-1",
+          "SWV798-1",
+          "SYO613-1"
+        ],
+        "relative_percent": 21.839080459770116,
+        "union": 226,
+        "common_total_s": 282.62330733901763,
+        "common_reference_s": 516.3398398449754
+      },
+      "Prover9Baseline vs Prover9ResumeSupport1": {
+        "gains": [
+          "GRP186-2",
+          "SWV330-1"
+        ],
+        "losses": [
+          "GEO083-1",
+          "LCL806-1",
+          "MGT060-1",
+          "NUM017-1",
+          "SCT040-1"
+        ],
+        "relative_percent": -1.694915254237288,
+        "union": 179,
+        "common_total_s": 569.318207516977,
+        "common_reference_s": 937.5735461939894
+      },
+      "VampireFinal vs Prover9ResumeSupport1": {
+        "gains": [
+          "COL094-1",
+          "CSR040-10",
+          "GRP224-1",
+          "GRP330-1",
+          "GRP375-1",
+          "GRP378-1",
+          "GRP772-1",
+          "HWV043-2",
+          "HWV044-2",
+          "HWV108-1",
+          "LAT260-1",
+          "LCL216-3",
+          "LCL247-3",
+          "LCL319-3",
+          "LCL394-1",
+          "LCL430-1",
+          "LCL766-1",
+          "SET018-6",
+          "SET031-3",
+          "SET071-6",
+          "SET129-6",
+          "SET149-6",
+          "SWC011-1",
+          "SWC069-1",
+          "SWC078-1",
+          "SWC108-1",
+          "SWC164-1",
+          "SWC181-1",
+          "SWC294-1",
+          "SWC313-1",
+          "SWC356-1",
+          "SWC383-1",
+          "SWC384-1",
+          "SWC389-1",
+          "SWC399-1",
+          "SWV261-1",
+          "SWV271-1",
+          "SWV275-2",
+          "SWV301-1",
+          "SWV330-1",
+          "SWV621-1",
+          "SWW430-1",
+          "SYN848-1",
+          "SYN890-1",
+          "SYN896-1",
+          "SYN982-1",
+          "SYO630-1",
+          "SYO673-1",
+          "SYO676-1",
+          "SYO683-1"
+        ],
+        "losses": [
+          "COL046-1",
+          "COL076-2",
+          "GRP197-1",
+          "GRP400-1",
+          "GRP407-1",
+          "GRP654-10",
+          "LAT017-1",
+          "LCL390-1",
+          "NUM017-1",
+          "PUZ016-1",
+          "REL050-3",
+          "SCT040-1",
+          "SWV749-1",
+          "SWV798-1",
+          "SYO613-1"
+        ],
+        "relative_percent": 19.774011299435028,
+        "union": 227,
+        "common_total_s": 303.07939934901515,
+        "common_reference_s": 696.1155927599866
+      }
+    },
+    "expected": 300,
+    "unsupported": [
+      "SYO630-1",
+      "SYO673-1",
+      "SYO676-1",
+      "SYO683-1"
+    ],
+    "supported_only": {
+      "completed": 296,
+      "modes": {
+        "Prover9Baseline": {
+          "proofs": 174,
+          "par2_s": 51.77611787351682,
+          "errors": {},
+          "maximum_elapsed_s": 60.165768299000774
+        },
+        "Prover9ResumeSupport1": {
+          "proofs": 177,
+          "par2_s": 51.576109000800635,
+          "errors": {},
+          "maximum_elapsed_s": 60.17784566000046
+        },
+        "VampireFinal": {
+          "proofs": 208,
+          "par2_s": 38.569366544682495,
+          "errors": {},
+          "maximum_elapsed_s": 60.2873170999992
+        }
+      },
+      "comparisons": {
+        "Prover9ResumeSupport1 vs Prover9Baseline": {
+          "gains": [
+            "GEO083-1",
+            "LCL806-1",
+            "MGT060-1",
+            "NUM017-1",
+            "SCT040-1"
+          ],
+          "losses": [
+            "GRP186-2",
+            "SWV330-1"
+          ],
+          "relative_percent": 1.7241379310344827,
+          "union": 179,
+          "common_total_s": 937.5735461939894,
+          "common_reference_s": 569.318207516977
+        },
+        "VampireFinal vs Prover9Baseline": {
+          "gains": [
+            "COL094-1",
+            "CSR040-10",
+            "GEO083-1",
+            "GRP224-1",
+            "GRP330-1",
+            "GRP375-1",
+            "GRP378-1",
+            "GRP772-1",
+            "HWV043-2",
+            "HWV044-2",
+            "HWV108-1",
+            "LAT260-1",
+            "LCL216-3",
+            "LCL247-3",
+            "LCL319-3",
+            "LCL394-1",
+            "LCL430-1",
+            "LCL766-1",
+            "LCL806-1",
+            "MGT060-1",
+            "SET018-6",
+            "SET031-3",
+            "SET071-6",
+            "SET129-6",
+            "SET149-6",
+            "SWC011-1",
+            "SWC069-1",
+            "SWC078-1",
+            "SWC108-1",
+            "SWC164-1",
+            "SWC181-1",
+            "SWC294-1",
+            "SWC313-1",
+            "SWC356-1",
+            "SWC383-1",
+            "SWC384-1",
+            "SWC389-1",
+            "SWC399-1",
+            "SWV261-1",
+            "SWV271-1",
+            "SWV275-2",
+            "SWV301-1",
+            "SWV621-1",
+            "SWW430-1",
+            "SYN848-1",
+            "SYN890-1",
+            "SYN896-1",
+            "SYN982-1"
+          ],
+          "losses": [
+            "COL046-1",
+            "COL076-2",
+            "GRP186-2",
+            "GRP197-1",
+            "GRP400-1",
+            "GRP407-1",
+            "GRP654-10",
+            "LAT017-1",
+            "LCL390-1",
+            "PUZ016-1",
+            "REL050-3",
+            "SWV749-1",
+            "SWV798-1",
+            "SYO613-1"
+          ],
+          "relative_percent": 19.54022988505747,
+          "union": 222,
+          "common_total_s": 282.62330733901763,
+          "common_reference_s": 516.3398398449754
+        },
+        "Prover9Baseline vs Prover9ResumeSupport1": {
+          "gains": [
+            "GRP186-2",
+            "SWV330-1"
+          ],
+          "losses": [
+            "GEO083-1",
+            "LCL806-1",
+            "MGT060-1",
+            "NUM017-1",
+            "SCT040-1"
+          ],
+          "relative_percent": -1.694915254237288,
+          "union": 179,
+          "common_total_s": 569.318207516977,
+          "common_reference_s": 937.5735461939894
+        },
+        "VampireFinal vs Prover9ResumeSupport1": {
+          "gains": [
+            "COL094-1",
+            "CSR040-10",
+            "GRP224-1",
+            "GRP330-1",
+            "GRP375-1",
+            "GRP378-1",
+            "GRP772-1",
+            "HWV043-2",
+            "HWV044-2",
+            "HWV108-1",
+            "LAT260-1",
+            "LCL216-3",
+            "LCL247-3",
+            "LCL319-3",
+            "LCL394-1",
+            "LCL430-1",
+            "LCL766-1",
+            "SET018-6",
+            "SET031-3",
+            "SET071-6",
+            "SET129-6",
+            "SET149-6",
+            "SWC011-1",
+            "SWC069-1",
+            "SWC078-1",
+            "SWC108-1",
+            "SWC164-1",
+            "SWC181-1",
+            "SWC294-1",
+            "SWC313-1",
+            "SWC356-1",
+            "SWC383-1",
+            "SWC384-1",
+            "SWC389-1",
+            "SWC399-1",
+            "SWV261-1",
+            "SWV271-1",
+            "SWV275-2",
+            "SWV301-1",
+            "SWV330-1",
+            "SWV621-1",
+            "SWW430-1",
+            "SYN848-1",
+            "SYN890-1",
+            "SYN896-1",
+            "SYN982-1"
+          ],
+          "losses": [
+            "COL046-1",
+            "COL076-2",
+            "GRP197-1",
+            "GRP400-1",
+            "GRP407-1",
+            "GRP654-10",
+            "LAT017-1",
+            "LCL390-1",
+            "NUM017-1",
+            "PUZ016-1",
+            "REL050-3",
+            "SCT040-1",
+            "SWV749-1",
+            "SWV798-1",
+            "SYO613-1"
+          ],
+          "relative_percent": 17.51412429378531,
+          "union": 223,
+          "common_total_s": 303.07939934901515,
+          "common_reference_s": 696.1155927599866
+        }
+      }
+    }
+  }
+}

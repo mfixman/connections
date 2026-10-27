@@ -11,6 +11,17 @@
 * Read `packages/axiom_prediction/plan.txt` for the proposed research experiments and their controls. The plan does not authorize job submissions or resuming monitoring.
 * Prefer clear, direct code over exhaustive edge-case machinery. Keep checks that protect proof correctness and saved results.
 
+## Prover9 and Vampire experiment handoff (2026-10-27)
+
+* Continue the cross-prover axiom-selection research from this checkout. Read `packages/axiom_prediction/external_provers/README.md` and `SESSION_NOTES.md` in that directory before planning experiments. The original notes, configurations, sample manifests, and compact summaries are preserved there under `historical/` and `evidence/`; `sources.json` records their origins and hashes.
+* The native integrations and runners still live in `~/TP/Prover9/axiom_selection/` and `~/TP/vampire/Shell/Torok/`. This documentation handoff does not move their code, models, or raw results into Connections. Read each target repository's current AGENTS.md before editing it.
+* Prover9 ResumeSupport1 has the strongest positive evidence: HPC baseline 3,825 versus 3,921 proofs on 6,269 inputs; checkpoint-held-out part 9 is 372 versus 387 on 597 inputs. There is no matching random-support control for that schedule.
+* Vampire's final 45s baseline / 4s SInE / 10s filtered AVATAR-off schedule is experimental. Its latest held-out result is 83/120, all proved by ordinary Vampire; standalone ordinary Vampire was not measured on that same sample. Shuffled rankings match the final schedule on development. Do not describe this as a demonstrated Torok improvement.
+* Torok used split scheme 4, training parts 0–7, checkpoint validation part 8, and held-out part 9. Scheme-5 job partitions do not establish training separation. The two 120-family Vampire held-out samples are different, and reused held-out samples are no longer untouched final tests.
+* Use at most 18 single-core local proof workers and keep total local experiment CPU usage within the 19-core limit. Compare paired inputs under one end-to-end deadline per strategy, record proof-producing stages, and include ordinary and random-ranking controls.
+* Preserve original results. Keep historical Prover9 final-marker measurements separate from first-refutation runs, and early Vampire pause-clock measurements separate from corrected runs. Support retains other axioms; filtering deletes them and cannot certify satisfiability after failure.
+* The last recorded local cross-prover batches completed and stopped on 2026-10-26. The 2026-10-27 audit could not authenticate to the HPC; current remote job state and older Vampire HPC outcomes are unknown. These notes do not authorize new proof runs, job submissions, timeout continuations, monitoring, HPC pulls, or notifications.
+
 ## Axiom predictor style
 
 * Use lowercase snake_case for constants; do not define constants in ALL_CAPS.
