@@ -45,14 +45,14 @@ def run_baseline(problems, configs, **options) -> dict[str, float] | None:
     return proof_rates(problems, configs, "base_", **options)
 
 # Returns None once stop is set, after closing the running workers.
-def proof_rates(problems, configs, prefix, *, tptp_root, num_workers, stop) -> dict[str, float] | None:
+def proof_rates(problems, configs, prefix, *, tptp_root, num_workers, stop = None) -> dict[str, float] | None:
     metrics = {}
     for config in configs:
         name = f"{prefix}{config.policy.wire_value()}"
         results = []
         search = run_problems(problems, tptp_root = tptp_root, config = config, num_workers = num_workers)
         for result in search:
-            if stop.is_set():
+            if stop is not None and stop.is_set():
                 search.close()
                 return None
 

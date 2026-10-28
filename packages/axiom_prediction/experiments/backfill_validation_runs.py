@@ -132,15 +132,19 @@ def evaluate_epochs(problems, configs, checkpoints, path, args, tptp_root):
             log(f"validation backfill: epoch {epoch} recorded {metrics}")
 
 # Epoch 0 is the unguided baseline, repeated on every guided epoch.
+# Older results files store run_POLICY and base_run_POLICY solved ratios instead.
 def epoch_metrics(results, epoch, policies, selection):
     tested = len(selection["problems"])
     metrics = {name: value for (e, name), value in results.items() if e in (0, epoch)}
     for policy in policies:
-        solved = metrics[f"run_{policy}"]
-        metrics[f"test_{policy}_num"] = tested
-        metrics[f"test_{policy}_ratio"] = tested / selection["held_out"]
-        metrics[f"test_{policy}_solved_num"] = round(solved * tested)
-        metrics[f"test_{policy}_solved_ratio"] = solved
+        for name, old in ((policy, f"run_{policy}"), (f"base_{policy}", f"base_run_{policy}")):
+            if old in metrics:
+                metrics[f"test_{name}_solved_ratio"] = metrics.pop(old)
+                metrics[f"test_{name}_solved_num"] = metrics[f"test_{name}_solved_ratio"] * tested
+
+            metrics[f"test_{name}_solved_num"] = round(metrics[f"test_{name}_solved_num"])
+            metrics[f"test_{name}_size"] = tested
+            metrics[f"test_{name}_ratio"] = tested / selection["held_out"]
 
     return metrics
 
