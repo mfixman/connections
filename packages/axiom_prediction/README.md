@@ -179,8 +179,8 @@ seed in a separate cache and give its CSV shard a unique name in the training
 dataset directory. Policy, backend and label semantics must match, and repeated
 problems must have matching graphs and clause identities. Predictor and prover
 revision differences are retained as provenance rather than compatibility checks.
-Native collection and training do not yet provide neural guidance inside Rust
-SATCoP. Python guided search uses `--policy SATCoPCon`; using a native-trained
+`run --policy SatCoP` searches with Rust SATCoP; see [Native SATCoP search](#native-satcop-search).
+Python guided search uses `--policy SATCoPCon`; using a native-trained
 model there is transfer across different clausifications.
 
 The Python-written `satcop.collection.v3` matrix stores symbols as `[name, arity,
@@ -280,6 +280,29 @@ axioms retained. Without a checkpoint, search is unguided. The CLI no longer
 exposes mode, temperature, or axiom filtering.
 
 See the [complete command-line reference](CLI.md) for every remaining option.
+
+### Native SATCoP search
+
+```bash
+python axiom_predictor.py run SYN --policy SatCoP --model torok
+```
+
+`--policy SatCoP` (also spelled `SATCoP`) runs `~/TP/satcop/target/release/satcop`
+on one CPU, as in collection; build it with the traced PicoSAT above. A bare
+`--model NAME` refers to `models/NAME.pt` in this checkout. Without a model it
+runs ordinary SATCoP. With a model or `--sine`, Python first runs
+`satcop --collect --clausify` to obtain SATCoP's own clausification, scores its
+axiom clauses, and passes one weight per clause through `--weights`. SATCoP then
+orders each extension's alternative clauses by a weighted random permutation,
+proportional to the weight, instead of its uniform shuffle; the seed fixes the
+permutation. Conjectures weigh 1, weights are floored at `1e-6`, and the
+distribution matches Python Weighted guidance at temperature 1. Start clauses
+and literal order are unchanged. Strict mode is unsupported. The clausification,
+prediction and search share the `--timeout-seconds` deadline; `--step-limit` is
+ignored. Errors keep their native logs in a `satcop-run-*` temporary directory.
+
+Checkpoints trained on Python matrices, such as `torok`, score a different
+clausification here: SATCoP's definitions, Skolem symbols and equality axioms.
 
 SInE provides a checkpoint-free comparison through `run --sine` and
 `evaluate --sine`. It selects axiom clauses using basic SInE (tolerance 1,

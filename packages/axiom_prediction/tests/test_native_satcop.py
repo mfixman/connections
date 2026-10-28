@@ -5,8 +5,8 @@ import pytest
 from axiom_prediction.data import axiom_training_example_from_json
 from axiom_prediction.dataset import collection_settings, dataset_fields, load_axiom_dataset
 from axiom_prediction.io import read_csv, write_csv
-from axiom_prediction.satcop import convert_example, convert_exports, expand_matrix
-from axiom_prediction.satcop_dump import parse_dump, rust_string, symbol_name
+from axiom_prediction.satcop import convert_example, convert_exports, decode_matrix, expand_matrix
+from axiom_prediction.satcop_dump import parse_dump, parse_matrix, rust_string, symbol_name
 from axiom_prediction.training import label_policy
 from axiom_prediction.choices import ProverPolicy
 
@@ -214,6 +214,36 @@ def test_debug_dump_rejects_truncated_or_changed_output(native_stdout):
 
     with pytest.raises(ValueError, match = "literal format"):
         parse_dump(native_stdout.replace("Block([#0, ¬#0])", "Block([broken])"))
+
+# `satcop tiny.p --collect --clausify` for p(a), p(X) => q(X) |- q(a).
+clausified_stdout = '''% SATCoP terms Block([3, 2, 0, 0, 2, 3, 4, 3, 4, 0])
+% SATCoP literals Block([#1, ¬#4, #6, ¬#8])
+% SATCoP symbol #0 0
+% SATCoP symbol #1 2
+% SATCoP symbol #2 1
+% SATCoP symbol #3 0
+% SATCoP symbol #4 1
+% SATCoP clause #0 #0 #0-#1 false
+% SATCoP clause #1 #1 #1-#3 false
+% SATCoP clause #2 #0 #3-#4 true
+cnf(c0, axiom, p(a)). % 
+cnf(c1, axiom, ~p(X0) | q(X0)). % 
+cnf(c2, negated_conjecture, ~q(a)). % 
+'''
+
+def test_matrix_dump_before_search_matches_the_proof_dump():
+    proof = "\n".join([
+        *clausified_stdout.splitlines()[:10],
+        "% SZS status Theorem for tiny",
+        "% SZS output start ListOfCNF for tiny",
+        "% SATCoP core 0",
+        "% SZS output end ListOfCNF for tiny",
+    ])
+
+    before = decode_matrix(expand_matrix(parse_matrix(clausified_stdout)))
+    after = decode_matrix(expand_matrix(parse_dump(proof, problem = "tiny.p")["matrix"]))
+    assert list(map(str, before.clauses)) == list(map(str, after.clauses))
+    assert before.conjecture_clauses == after.conjecture_clauses == (2,)
 
 def test_rust_debug_strings_and_generated_names():
     assert rust_string(r'"\u{1f}\0\n\r\t\"\\ café🦀"') == '\x1f\0\n\r\t"\\ café🦀'

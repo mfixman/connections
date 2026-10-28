@@ -76,8 +76,8 @@ class RunConfig:
         if self.policy is not None:
             self.policy = ProverPolicy(self.policy)
 
-        if self.policy == ProverPolicy.SatCoP:
-            raise ValueError("native SatCoP supports collect; use SATCoPCon for Python guided search")
+        if self.policy == ProverPolicy.SatCoP and self.mode == GuidanceMode.Strict:
+            raise ValueError("native SatCoP supports Weighted guidance only")
 
         if self.mode == GuidanceMode.Sine and self.checkpoint is not None:
             raise ValueError("SInE does not use a checkpoint")
@@ -180,6 +180,12 @@ def search_problem(problem, *, tptp_root, config):
             out.update(outcome = skip, proved = False, seconds = 0.0)
             return out
 
+        if config.policy == ProverPolicy.SatCoP:
+            from .satcop_search import search_native
+
+            out.update(search_native(path, root, config, predictor, started))
+            return out
+
         policy_class = {
             ProverPolicy.SatResetCoP: SATResetCoP,
             ProverPolicy.SatCoPCon: SATCoPCon,
@@ -188,24 +194,14 @@ def search_problem(problem, *, tptp_root, config):
         args: dict[str, Any] = {"seed": config.seed}
         if predictor is not None or config.mode == GuidanceMode.Sine:
             loaded = load_tptp_problem(problem, tptp_root = tptp_root)
-            from .guided import AxiomGuidedSATCoP, AxiomGuidedSATResetCoP, matrix_digest
+            from .guided import AxiomGuidedSATCoP, AxiomGuidedSATResetCoP, clause_weights, matrix_digest
 
-            if config.mode == GuidanceMode.Sine:
-                from .sine import score_matrix
-
-                scores = score_matrix(
-                    loaded.matrix, loaded.axiom_clause_ids, loaded.conjecture_clause_ids,
-                )
-                weights = dict(zip(loaded.axiom_clause_ids, scores, strict = True))
-            else:
-                predictions = predictor.predict(
-                    loaded.matrix,
-                    axiom_clause_ids = loaded.axiom_clause_ids,
-                    conjecture_clause_ids = loaded.conjecture_clause_ids,
-                )
-                weights = {p.clause_index: p.probability for p in predictions}
-
-            weights.update({i: 1.0 for i in loaded.conjecture_clause_ids})
+            weights = clause_weights(
+                loaded.matrix,
+                loaded.axiom_clause_ids,
+                loaded.conjecture_clause_ids,
+                predictor,
+            )
             policy_class = {
                 ProverPolicy.SatResetCoP: AxiomGuidedSATResetCoP,
                 ProverPolicy.SatCoPCon: AxiomGuidedSATCoP,

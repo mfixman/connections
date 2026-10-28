@@ -607,7 +607,7 @@ def selected_checkpoint(args: argparse.Namespace) -> Path:
         if args.checkpoint is not None or args.model_name is not None:
             raise ValueError("give either --model, CHECKPOINT or --model-name")
 
-        return args.model
+        return named_checkpoint(args.model)
 
     if args.checkpoint is not None:
         if args.model_name is not None:
@@ -619,6 +619,11 @@ def selected_checkpoint(args: argparse.Namespace) -> Path:
         raise ValueError(f"{args.command} needs a CHECKPOINT or --data-dir")
 
     return model_directory(args.data_dir, args.model_name)
+
+# A bare name such as `torok` refers to this checkout's models/NAME.pt.
+def named_checkpoint(path: Path) -> Path:
+    named = Path(__file__).resolve().parents[2] / "models" / f"{path}.pt"
+    return named if not path.exists() and named.is_file() else path
 
 def add_sine_argument(parser):
     parser.add_argument(
@@ -746,7 +751,7 @@ def run_model(args: argparse.Namespace) -> Path | None:
         if args.model_name is not None:
             raise ValueError("give either --model or --model-name, not both")
 
-        return args.model
+        return named_checkpoint(args.model)
 
     if args.data_dir is None:
         if args.model_name is not None:

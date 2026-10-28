@@ -98,18 +98,36 @@ def native_binary(location = None):
     return binary
 
 def run_native(binary, problem, root, output, timeout_s, seed):
+    options = ["--collect", "--seed", str(seed), "--time", str(max(1, math.ceil(timeout_s)))]
+    log_path = output.with_suffix(".log")
+    returncode, status, text = run_logged(binary, problem, options, root, log_path, timeout_s)
+    if returncode is None:
+        log_path.unlink()
+        return "Timeout"
+
+    if returncode != 0:
+        raise RuntimeError(f"SATCoP exited with code {returncode}; see {log_path}")
+
+    if status not in ("Theorem", "Unsatisfiable"):
+        log_path.unlink()
+        return status
+
+    payload = parse_dump(text, problem = problem, seed = seed, timeout_s = timeout_s)
+    payload.update(native_details(binary))
+    write_json_atomic(output, payload)
+    log_path.unlink()
+    return "proved"
+
+# Returns (exit code or None on timeout, last SZS status, output); panics and parse errors raise.
+def run_logged(binary, problem, options, root, log_path, timeout_s):
     environment = dict(os.environ)
     if root is not None:
         environment["TPTP_DIR"] = str(root)
 
-    command = [
-        str(binary), str(problem), "--collect", "--seed", str(seed),
-        "--time", str(max(1, math.ceil(timeout_s))),
-    ]
     # Native SATCoP starts one search per available CPU; index 0 uses exactly seed.
     cpus = sorted(os.sched_getaffinity(0))
-    command = ["taskset", "--cpu-list", str(cpus[os.getpid() % len(cpus)]), *command]
-    log_path = output.with_suffix(".log")
+    cpu = str(cpus[os.getpid() % len(cpus)])
+    command = ["taskset", "--cpu-list", cpu, str(binary), str(problem), *options]
     with log_path.open("w") as log_file:
         log_file.write(json.dumps(command) + "\n")
         log_file.flush()
@@ -130,22 +148,7 @@ def run_native(binary, problem, root, output, timeout_s, seed):
 
         raise TPTPParseError("SATCoP", f"native parse error; see {log_path}", 0, 0)
 
-    if returncode is None:
-        log_path.unlink()
-        return "Timeout"
-
-    if returncode != 0:
-        raise RuntimeError(f"SATCoP exited with code {returncode}; see {log_path}")
-
-    if status not in ("Theorem", "Unsatisfiable"):
-        log_path.unlink()
-        return status
-
-    payload = parse_dump(text, problem = problem, seed = seed, timeout_s = timeout_s)
-    payload.update(native_details(binary))
-    write_json_atomic(output, payload)
-    log_path.unlink()
-    return "proved"
+    return returncode, status, text
 
 def run_process(command, environment, log_file, log_path, timeout_s):
     deadline = time.monotonic() + timeout_s
@@ -253,6 +256,19 @@ def decode_clause(value, symbols, index):
         free_variables = tuple(variables),
     )
 
+def decode_matrix(native):
+    # Native IDs distinguish generated and input symbols even if their names collide.
+    symbols = [f"{index}:{symbol['name']}" for index, symbol in enumerate(native["symbols"])]
+    clauses = tuple(
+        decode_clause(clause, symbols, index)
+        for index, clause in enumerate(native["clauses"])
+    )
+
+    return Matrix(clauses, source_has_conjecture = native["have_conjecture"])
+
+def axiom_clause_ids(matrix):
+    return [index for index, clause in enumerate(matrix.clauses) if clause.role == "axiom"]
+
 @deep_recursion()
 def convert_example(payload, path):
     if payload.get("schema") not in (export_schema, "satcop.collection.v2", "satcop.collection.v1"):
@@ -264,18 +280,12 @@ def convert_example(payload, path):
     native = payload["matrix"]
     if payload["schema"] != "satcop.collection.v1":
         native = expand_matrix(native)
-    # Native IDs distinguish generated and input symbols even if their names collide.
-    symbols = [f"{index}:{symbol['name']}" for index, symbol in enumerate(native["symbols"])]
-    clauses = tuple(
-        decode_clause(clause, symbols, index)
-        for index, clause in enumerate(native["clauses"])
-    )
 
-    matrix = Matrix(clauses, source_has_conjecture = native["have_conjecture"])
+    matrix = decode_matrix(native)
     conjectures = list(matrix.conjecture_clauses)
-    axioms = [index for index, clause in enumerate(clauses) if clause.role == "axiom"]
+    axioms = axiom_clause_ids(matrix)
     core = payload["core_clause_ids"]
-    if not core or not set(core) <= set(range(len(clauses))):
+    if not core or not set(core) <= set(range(len(matrix.clauses))):
         raise ValueError(f"empty or out-of-matrix SATCoP core in {path}")
 
     example = training_example_from_sat_core(
