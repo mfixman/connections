@@ -61,11 +61,6 @@ selected class.
 
 ## Experiments
 
-The [Prover9 and Vampire handoff](external_provers/README.md) records the
-cross-prover schedules, local and HPC results, session corrections, original
-notes, and remaining controls as of 27 October 2026. Read it before continuing
-those experiments from this checkout.
-
 ### Sharing one dataset across runs
 
 Collect once, then give each training job its own output directory:

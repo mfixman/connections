@@ -275,3 +275,7 @@ data/
 experiments/
 models/
 nohup.out
+
+/AGENTS.md
+packages/axiom_prediction/plan.txt
+packages/axiom_prediction/external_provers/
