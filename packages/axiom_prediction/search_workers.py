@@ -3,6 +3,7 @@ import math
 import multiprocessing as mp
 from multiprocessing.connection import Connection, wait
 from multiprocessing.process import BaseProcess
+import os
 import time
 
 from .logs import progress_interval_s, log
@@ -13,9 +14,14 @@ class SearchWorker:
     pipe: Connection
     problem: str
     started: float
+    cpu: int | None
     completed: int = 0
 
-def worker_loop(pipe, function):
+def worker_loop(pipe, function, cpu):
+    # One CPU per worker slot, inherited by native SATCoP children.
+    if cpu is not None:
+        os.sched_setaffinity(0, {cpu})
+
     try:
         while True:
             arguments = pipe.recv()
@@ -48,11 +54,11 @@ def stop_worker(worker):
 
     worker.process.close()
 
-def start_worker(function, arguments):
+def start_worker(function, arguments, cpu):
     context = mp.get_context("spawn")
     parent, child = context.Pipe()
-    process = context.Process(target = worker_loop, args = (child, function))
-    worker = SearchWorker(process, parent, arguments[0], time.monotonic())
+    process = context.Process(target = worker_loop, args = (child, function, cpu))
+    worker = SearchWorker(process, parent, arguments[0], time.monotonic(), cpu)
     try:
         process.start()
         child.close()
@@ -76,14 +82,15 @@ def supervised_results(function, arguments, *, workers, timeout):
     active = []
     completed = 0
     last_report = time.monotonic()
+    cpus = sorted(os.sched_getaffinity(0)) if hasattr(os, "sched_getaffinity") else [None]
     log(f"starting proof search with up to {workers} workers; timeout {timeout:g}s per problem")
     try:
-        for _ in range(workers):
+        for slot in range(workers):
             args = next(pending, None)
             if args is None:
                 break
 
-            active.append(start_worker(function, args))
+            active.append(start_worker(function, args, cpus[slot % len(cpus)]))
 
         while active:
             delay = min(w.started + timeout for w in active) - time.monotonic()
@@ -128,7 +135,7 @@ def supervised_results(function, arguments, *, workers, timeout):
                     stop_worker(worker)
                     active.remove(worker)
                     if args is not None:
-                        active.append(start_worker(function, args))
+                        active.append(start_worker(function, args, worker.cpu))
 
                 yield result
     finally:

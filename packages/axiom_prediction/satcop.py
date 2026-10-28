@@ -84,16 +84,15 @@ def binary_identity(binary):
     with Path(binary).open("rb") as stream:
         return hashlib.file_digest(stream, "sha256").hexdigest()
 
-def native_binary(location = None):
+def native_binary(location = None, options = ("--collect", "--seed")):
     path = Path(location or "~/TP/satcop").expanduser().resolve()
     binary = path / "target/release/satcop" if path.is_dir() else path
     if not binary.is_file():
         raise FileNotFoundError(f"SATCoP executable not found: {binary}; build with cargo build --release")
 
     result = subprocess.run([str(binary), "--help"], capture_output = True, text = True, timeout = 10)
-    required = ("--collect", "--seed")
-    if result.returncode or any(re.search(rf"(?m)^\s*{option}(?:\s|$)", result.stdout) is None for option in required):
-        raise ValueError(f"{binary} needs the native collection export patch; see packages/axiom_prediction/README.md")
+    if result.returncode or any(re.search(rf"(?m)^\s*{option}(?:\s|$)", result.stdout) is None for option in options):
+        raise ValueError(f"{binary} lacks {' '.join(options)}; build the axiom_selection branch, see packages/axiom_prediction/README.md")
 
     return binary
 
