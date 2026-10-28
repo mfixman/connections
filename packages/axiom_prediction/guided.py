@@ -21,6 +21,23 @@ def matrix_digest(matrix: Matrix) -> str:
 
     return h.hexdigest()
 
+# Scores axioms with the predictor, or SInE without one; conjectures weigh 1.
+def clause_weights(matrix, axiom_ids, conjecture_ids, predictor = None) -> dict[int, float]:
+    if predictor is None:
+        from .sine import score_matrix
+
+        weights = dict(zip(axiom_ids, score_matrix(matrix, axiom_ids, conjecture_ids), strict = True))
+    else:
+        predictions = predictor.predict(
+            matrix,
+            axiom_clause_ids = axiom_ids,
+            conjecture_clause_ids = conjecture_ids,
+        )
+        weights = {p.clause_index: p.probability for p in predictions}
+
+    weights.update({i: 1.0 for i in conjecture_ids})
+    return weights
+
 class AxiomGuided:
     def __init__(
         self,

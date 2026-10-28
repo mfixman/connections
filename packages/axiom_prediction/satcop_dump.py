@@ -71,8 +71,6 @@ def parse_block(value, kind):
     return [list(map(int, match.groups())) for match in matches]
 
 def parse_dump(text, *, problem = None, seed = None, timeout_s = None):
-    tables = {"symbols": [], "clauses": [], "sources": []}
-    core = set()
     payload = {"schema": "satcop.collection.v2", "prover_version": None, "prover_revision": None, "threads": 1}
     status = re.search(r"^% SZS status (Theorem|Unsatisfiable)\b", text, re.MULTILINE)
     end = re.search(r"^% SZS output end ListOfCNF(?: |$)", text, re.MULTILINE)
@@ -80,6 +78,35 @@ def parse_dump(text, *, problem = None, seed = None, timeout_s = None):
         raise ValueError("SATCoP dump is missing a complete successful proof")
 
     payload["status"] = status[1]
+    header, tables, core = parse_records(text)
+    payload.update(header)
+    if "problem_path" not in payload:
+        if problem is None:
+            raise ValueError("a raw SATCoP dump requires --problem with the original input path")
+
+        payload.update(schema = "satcop.collection.v3", problem_path = str(problem), seed = seed, timeout_seconds = timeout_s)
+        minimal_tables(tables, status[1] == "Theorem")
+
+    return {**payload, "matrix": tables, "core_clause_ids": sorted(core)}
+
+# The matrix that `satcop --collect --clausify` prints without searching.
+def parse_matrix(text):
+    header, tables, _ = parse_records(text)
+    if not header:
+        minimal_tables(tables, None)
+
+    return tables
+
+def minimal_tables(tables, have_conjecture):
+    tables.pop("sources")
+    tables["have_conjecture"] = have_conjecture
+    for _, atom in tables["literals"]:
+        tables["symbols"][tables["terms"][atom]][2] = True
+
+def parse_records(text):
+    tables = {"symbols": [], "clauses": [], "sources": []}
+    header = {}
+    core = set()
     for line in text.splitlines():
         if not line.startswith("% SATCoP "):
             continue
@@ -93,9 +120,9 @@ def parse_dump(text, *, problem = None, seed = None, timeout_s = None):
 
             tables["have_conjecture"] = match[1] == "true"
             tables["grounding_constant"] = int(match[2])
-            payload["problem_path"] = rust_string(match[3])
-            payload["seed"] = int(match[4])
-            payload["timeout_seconds"] = None if match[6] is None else int(match[6])
+            header["problem_path"] = rust_string(match[3])
+            header["seed"] = int(match[4])
+            header["timeout_seconds"] = None if match[6] is None else int(match[6])
         elif kind in ("terms", "literals", "disequations"):
             tables[kind] = parse_block(value, kind)
         elif kind == "start":
@@ -133,17 +160,7 @@ def parse_dump(text, *, problem = None, seed = None, timeout_s = None):
     if not required <= tables.keys() or not tables["symbols"] or not tables["clauses"]:
         raise ValueError("incomplete SATCoP matrix dump")
 
-    if "problem_path" not in payload:
-        if problem is None:
-            raise ValueError("a raw SATCoP dump requires --problem with the original input path")
-
-        payload.update(schema = "satcop.collection.v3", problem_path = str(problem), seed = seed, timeout_seconds = timeout_s)
-        tables.pop("sources")
-        tables["have_conjecture"] = status[1] == "Theorem"
-        for _, atom in tables.get("literals", []):
-            tables["symbols"][tables["terms"][atom]][2] = True
-
-    return {**payload, "matrix": tables, "core_clause_ids": sorted(core)}
+    return header, tables, core
 
 def read_export(path, **metadata):
     text = path.read_text()
