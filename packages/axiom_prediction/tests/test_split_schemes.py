@@ -88,3 +88,15 @@ def test_training_rejects_different_evaluation_scheme(tmp_path):
             dataset = tmp_path, output_dir = tmp_path / "model",
             split = ProblemSplit(10, [0], 3), evaluation_split = ProblemSplit(10, [8], 4),
         )
+
+@pytest.mark.parametrize("scheme", [3, 4, 5])
+def test_validation_subsample_stays_in_held_out_parts(scheme):
+    names = [f"article{index}__t1.p" for index in range(2000)]
+    held_out = ProblemSplit(10, [8, 9], scheme)
+    chosen = held_out.subsample(held_out.select(names), 10)
+    assert set(chosen) <= set(held_out.select(names))
+    assert 0 < len(chosen) < len(held_out.select(names)) / 5
+    assert held_out.subsample(names, 1) == names
+    assert held_out.subsample(names, 0) == []
+    if scheme == 5:
+        assert chosen == ProblemSplit(100, [8, 9], 5).select(names)

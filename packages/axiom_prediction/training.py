@@ -42,6 +42,7 @@ from .model import (
 from .parallel import determine_worker_count
 from .models import load_model_class
 from .split import ProblemSplit
+from .validation_run import run_baseline, run_validation, validation_run_configs, validation_run_problems
 from .limits import default_step_limit, default_timeout_s
 from .wandb_tracking import WandbConfig, WandbTracker
 from .resume import check_training_target, dataset_fingerprint, next_training_run, restore_training, snapshot_training
@@ -232,6 +233,8 @@ def train_axiom_predictor(
     evaluation_split: ProblemSplit | None = None,
     evaluation_problems: list[str] | tuple[str, ...] | None = None,
     evaluate_every: int = 1,
+    validation_run_ratio: int = 0,
+    validation_run_provers: list[ProverPolicy] | None = None,
     resume: bool = False,
     max_example_mb: float | None = None,
 ) -> dict[str, Any]:
@@ -249,6 +252,14 @@ def train_axiom_predictor(
 
     if evaluation_problems is not None and (evaluation_split is None or dataset is not None):
         raise ValueError("evaluation_problems requires evaluation_split and no dataset")
+
+    run_configs = []
+    if evaluation_split is not None and validation_run_ratio:
+        run_configs = validation_run_configs(
+            validation_run_provers or [],
+            config,
+            Path(output_dir) / "model.ts",
+        )
 
     problem_list = list(problems or [])
     if dataset is not None and problem_list:
@@ -366,6 +377,8 @@ def train_axiom_predictor(
             "dataset": None if dataset is None else str(dataset),
             "evaluation_split": None if evaluation_split is None else evaluation_split.to_dict(),
             "evaluate_every": evaluate_every,
+            "validation_run_ratio": validation_run_ratio,
+            "validation_run_provers": [c.policy.wire_value() for c in run_configs],
             "cli_arguments": dict(run_properties or {}),
         },
         output_dir = output,
@@ -389,6 +402,27 @@ def train_axiom_predictor(
                 tptp_root = tptp_root,
                 config = config,
             )
+
+        validation_problems = []
+        base_metrics = {}
+        if run_configs:
+            validation_problems = validation_run_problems(
+                held_out,
+                evaluation_split,
+                validation_run_ratio,
+                tptp_root,
+            )
+
+            log_message(f"validation runs: {len(validation_problems)} held-out problems per prover each epoch")
+            base_metrics = run_baseline(
+                validation_problems,
+                run_configs,
+                tptp_root = tptp_root,
+                num_workers = config.num_workers,
+            )
+
+            if tracker is not None:
+                tracker.run.summary.update({f"evaluation/{k}": v for k, v in base_metrics.items()})
 
         if tracker is not None:
             tracker.run.summary.update(
@@ -602,16 +636,6 @@ def train_axiom_predictor(
                 metrics = epoch_metrics,
             )
 
-            if tracker is not None:
-                tracker.log_epoch(
-                    epoch,
-                    loss = loss_value,
-                    duration_s = train_s,
-                    grad_norm = sum(norms) / len(norms) if norms else None,
-                    metrics = epoch_metrics,
-                    evaluation = current_evaluation,
-                )
-
             epoch_path = output / f"epoch-{epoch:04d}.ts"
             log_message(f"saving epoch {epoch} checkpoint to {epoch_path}")
             save_checkpoint(
@@ -624,6 +648,28 @@ def train_axiom_predictor(
 
             write_durably(output / "model.ts", epoch_path.read_bytes())
             log_message(f"saved epoch {epoch} checkpoint to {epoch_path}")
+
+            run_metrics = {}
+            if validation_problems:
+                run_metrics = run_validation(
+                    validation_problems,
+                    run_configs,
+                    epoch_path,
+                    tptp_root = tptp_root,
+                    num_workers = config.num_workers,
+                )
+
+                run_metrics.update(base_metrics)
+
+            if tracker is not None:
+                tracker.log_epoch(
+                    epoch,
+                    loss = loss_value,
+                    duration_s = train_s,
+                    grad_norm = sum(norms) / len(norms) if norms else None,
+                    metrics = epoch_metrics,
+                    evaluation = {**(current_evaluation or {}), **run_metrics},
+                )
 
         if epoch_metrics is None:
             _, probabilities, epoch_metrics = example_outputs(
