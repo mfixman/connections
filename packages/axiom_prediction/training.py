@@ -42,7 +42,7 @@ from .model import (
 from .parallel import determine_worker_count
 from .models import load_model_class
 from .split import ProblemSplit
-from .validation_run import run_baseline, run_validation, validation_run_configs, validation_run_problems
+from .validation_run import run_baseline, run_validation, subset_sizes, validation_run_configs, validation_run_problems
 from .limits import default_step_limit, default_timeout_s
 from .wandb_tracking import WandbConfig, WandbTracker
 from .resume import check_training_target, dataset_fingerprint, next_training_run, restore_training, snapshot_training
@@ -422,7 +422,8 @@ def train_axiom_predictor(
             )
 
             if tracker is not None:
-                tracker.run.summary.update({f"evaluation/{k}": v for k, v in base_metrics.items()})
+                constants = subset_sizes(validation_problems, held_out, run_configs) | base_metrics
+                tracker.run.summary.update({f"evaluation/{k}": v for k, v in constants.items()})
 
         if tracker is not None:
             tracker.run.summary.update(
