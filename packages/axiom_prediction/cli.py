@@ -83,7 +83,7 @@ def build_parser() -> argparse.ArgumentParser:
         type = nonnegative_int,
         default = 10,
         metavar = "R",
-        help = "after every epoch, run guided proof search on 1/R of the --evaluate problems (0 disables)",
+        help = "run guided proof search on 1/R of the --evaluate problems for each epoch, in the background on all but one CPU (0 disables)",
     )
 
     train.add_argument(

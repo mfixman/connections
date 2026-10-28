@@ -42,7 +42,8 @@ from .model import (
 from .parallel import determine_worker_count
 from .models import load_model_class
 from .split import ProblemSplit
-from .validation_run import run_baseline, run_validation, subset_sizes, validation_run_configs, validation_run_problems
+from .background_validation import BackgroundValidation
+from .validation_run import subset_sizes, validation_run_configs, validation_run_problems
 from .limits import default_step_limit, default_timeout_s
 from .wandb_tracking import WandbConfig, WandbTracker
 from .resume import check_training_target, dataset_fingerprint, next_training_run, restore_training, snapshot_training
@@ -385,6 +386,7 @@ def train_axiom_predictor(
         resume = resume,
     )
 
+    background = None
     try:
         if dataset_examples is None:
             examples, skipped = collect_examples(
@@ -403,8 +405,7 @@ def train_axiom_predictor(
                 config = config,
             )
 
-        validation_problems = []
-        base_metrics = {}
+        training_workers = determine_worker_count(None, config.num_workers)
         if run_configs:
             validation_problems = validation_run_problems(
                 held_out,
@@ -413,17 +414,20 @@ def train_axiom_predictor(
                 tptp_root,
             )
 
-            log_message(f"validation runs: {len(validation_problems)} held-out problems per prover each epoch")
-            base_metrics = run_baseline(
+            log_message(f"validation runs: {len(validation_problems)} held-out problems per prover for each epoch")
+            if tracker is not None:
+                constants = subset_sizes(validation_problems, held_out, run_configs)
+                tracker.run.summary.update({f"evaluation/{k}": v for k, v in constants.items()})
+
+            background = BackgroundValidation(
                 validation_problems,
                 run_configs,
+                tracker,
+                count = training_workers,
                 tptp_root = tptp_root,
-                num_workers = config.num_workers,
             )
 
-            if tracker is not None:
-                constants = subset_sizes(validation_problems, held_out, run_configs) | base_metrics
-                tracker.run.summary.update({f"evaluation/{k}": v for k, v in constants.items()})
+            training_workers = 1
 
         if tracker is not None:
             tracker.run.summary.update(
@@ -437,7 +441,6 @@ def train_axiom_predictor(
             dataset_summary(examples, skipped, batch_size = config.batch_size)
         )
 
-        training_workers = determine_worker_count(None, config.num_workers)
         torch.set_num_threads(training_workers)
         log(
             f"axiom-predictor: using {training_workers} Torch CPU "
@@ -650,17 +653,8 @@ def train_axiom_predictor(
             write_durably(output / "model.ts", epoch_path.read_bytes())
             log_message(f"saved epoch {epoch} checkpoint to {epoch_path}")
 
-            run_metrics = {}
-            if validation_problems:
-                run_metrics = run_validation(
-                    validation_problems,
-                    run_configs,
-                    epoch_path,
-                    tptp_root = tptp_root,
-                    num_workers = config.num_workers,
-                )
-
-                run_metrics.update(base_metrics)
+            if background is not None:
+                background.submit(epoch, epoch_path)
 
             if tracker is not None:
                 tracker.log_epoch(
@@ -669,7 +663,7 @@ def train_axiom_predictor(
                     duration_s = train_s,
                     grad_norm = sum(norms) / len(norms) if norms else None,
                     metrics = epoch_metrics,
-                    evaluation = {**(current_evaluation or {}), **run_metrics},
+                    evaluation = current_evaluation,
                 )
 
         if epoch_metrics is None:
@@ -709,6 +703,11 @@ def train_axiom_predictor(
             write_json(output / "evaluation_metrics.json", evaluation_metrics)
 
         log_message(f"saved checkpoint, config and metrics to {output}")
+        if background is not None:
+            log_message("waiting for the final validation run")
+            background.finish()
+            background = None
+
         if tracker is not None:
             tracker.log_results(examples, probabilities, metrics, split = split)
             if evaluation_metrics is not None:
@@ -723,6 +722,9 @@ def train_axiom_predictor(
 
         return metrics
     except BaseException:
+        if background is not None:
+            background.finish(abort = True)
+
         if tracker is not None:
             tracker.finish(exit_code = 1)
             tracker = None
