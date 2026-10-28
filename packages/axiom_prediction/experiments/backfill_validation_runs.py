@@ -26,6 +26,8 @@ def parse_arguments():
     parser.add_argument("--epoch-jobs", type = int, default = 4)
     parser.add_argument("--num-workers", type = int, default = 19)
     parser.add_argument("--dry-run", action = "store_true")
+    parser.add_argument("--skip-upload", action = "store_true")
+    parser.add_argument("--replace-from-step", type = int, metavar = "STEP")
     return parser.parse_args()
 
 def wandb_key():
@@ -142,7 +144,8 @@ def epoch_metrics(results, epoch, policies, selection):
 
     return metrics
 
-def upload(run_id, rows, details, output):
+# Rewinding archives the history from that step on, replacing an earlier backfill.
+def upload(run_id, rows, details, output, replace_step = None):
     import wandb
 
     if training_run(run_id).state == "running":
@@ -150,12 +153,15 @@ def upload(run_id, rows, details, output):
 
     wandb_config = WandbConfig()
     wandb.login(key = wandb_key())
+    target = dict(id = run_id, resume = "must")
+    if replace_step is not None:
+        target = dict(resume_from = f"{run_id}?_step={replace_step}")
+
     run = wandb.init(
         entity = wandb_config.entity,
         project = wandb_config.project,
-        id = run_id,
-        resume = "must",
         dir = str(output),
+        **target,
     )
 
     run.define_metric("epoch")
@@ -198,6 +204,9 @@ def main():
         "job_id": os.environ.get("SLURM_JOB_ID"),
     }
 
+    if args.skip_upload:
+        return
+
     if (args.output / "uploaded.json").exists():
         log(f"validation backfill: already uploaded to W&B run {args.run_id}")
         return
@@ -208,7 +217,7 @@ def main():
         for epoch in checkpoints
     }
 
-    upload(args.run_id, rows, details, args.output)
+    upload(args.run_id, rows, details, args.output, args.replace_from_step)
     (args.output / "uploaded.json").write_text(json.dumps(details, indent = 2) + "\n")
     log(f"validation backfill: uploaded {len(rows)} epochs to W&B run {args.run_id}")
 
