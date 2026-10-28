@@ -1,0 +1,122 @@
+\documentclass{beamer}
+
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{microtype}
+\usepackage[size=custom,width=120,height=72,scale=1.0]{beamerposter}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage[numbers]{natbib}
+\usepackage{tikz}
+\usepackage{pgfplots}
+\usepackage{calc}
+% \usepackage{anyfontsize}
+
+\usetheme{gemini}
+\usecolortheme{cam}
+
+\pgfplotsset{compat=1.14}
+
+\newlength{\sepwidth}
+\setlength{\sepwidth}{0.025\paperwidth}
+
+% \newlength{\colwidth}
+% \setlength{\colwidth}{0.3\paperwidth}
+
+\newlength{\centerwidth}
+\setlength{\centerwidth}{0.5\paperwidth}
+
+\newlength{\edgewidth}
+\setlength{\edgewidth}{(\paperwidth - \centerwidth - 4\sepwidth) / 2}
+
+\newcommand{\separatorcolumn}{\begin{column}{\sepwidth}\end{column}}
+
+\title{All Axioms are Equal, but Some are More Equal than Others: \\ \huge Predicting relevance of first-order axioms }
+
+\author{Martin S.\ Fixman\inst{1} \and Fredrik Rømming \inst{2} \and Sean Holden \inst{3}}
+
+\newcommand{\crest}[1]{\raisebox{-0.5em}{\includegraphics[height=1.8em]{logos/#1-shield.pdf}}}
+
+\institute[shortinst]{\inst{1} Hughes Hall \crest{hughes-hall} \hspace{1em} \inst{2} Emmanuel College \crest{emmanuel} \hspace{1em} \inst{3} Trinity College \crest{trinity} }
+
+\footercontent{
+	% \href{https://www.example.com}{https://www.example.com} \hfill
+	\hfill
+	\href{mailto:msf43@cl.cam.ac.uk}{msf43@cl.cam.ac.uk}
+}
+
+\begin{document}
+
+\addtobeamertemplate{headline}{}
+{
+\begin{tikzpicture}[remember picture,overlay]
+	\node [anchor=north west, inner sep=3cm] at ([xshift=0.0cm,yshift=1.0cm]current page.north west)
+	{\includegraphics[height=4.5cm]{logos/cambridge-reversed-color-logo.eps}}; 
+\end{tikzpicture}
+}
+
+\begin{frame}[t]
+\begin{columns}[t]
+	\separatorcolumn
+
+	\begin{column}{\edgewidth}
+
+		\begin{block}{A block title}
+
+		\end{block}
+
+		\begin{block}{A block containing a list}
+
+		\end{block}
+
+		\begin{alertblock}{A highlighted block}
+		\end{alertblock}
+
+	\end{column}
+
+	\separatorcolumn
+
+	\begin{column}{\centerwidth}
+
+		\begin{block}{A block containing an enumerated list}
+		\end{block}
+
+		\begin{block}{Fusce aliquam magna velit}
+		\end{block}
+
+		\begin{block}{Nam cursus consequat egestas}
+		\end{block}
+
+	\end{column}
+
+	\separatorcolumn
+
+	\begin{column}{\edgewidth}
+
+		\begin{exampleblock}{A highlighted block containing some math}
+
+		\end{exampleblock}
+
+		\begin{block}{Nullam vel erat at velit convallis laoreet}
+		\end{block}
+
+		\begin{block}{References}
+
+			\nocite{*}
+			\footnotesize{\bibliographystyle{plainnat}\bibliography{poster}}
+
+		\end{block}
+
+	\end{column}
+
+	\separatorcolumn
+\end{columns}
+
+\begin{block}{Results}
+	\centering
+	Results go here.
+\end{block}
+
+\end{frame}
+
+\end{document}
