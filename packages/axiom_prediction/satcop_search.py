@@ -25,8 +25,11 @@ def search_native(path, root, config, predictor, started):
     shutil.rmtree(directory)
     return out
 
+def search_binary():
+    return native_binary(options = ("--collect", "--seed", "--weights"))
+
 def search_in(directory, path, root, config, predictor, started):
-    binary = native_binary()
+    binary = search_binary()
     deadline = started + config.timeout_s
     options = ["--seed", str(config.seed), "--quiet"]
     out = {}

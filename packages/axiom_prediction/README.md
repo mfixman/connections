@@ -129,8 +129,9 @@ python axiom_selector.py train --dataset datasets/NativeSATCoP \
 ```
 
 `--satcop-location` accepts a checkout containing `target/release/satcop` or
-an executable; its default is `~/TP/satcop`. On Linux, Python uses `taskset` to
-give each child one CPU, so SATCoP starts one search thread. `--seed 123` is
+an executable; its default is `~/TP/satcop`. On Linux, each worker slot is pinned
+to one allowed CPU, and `taskset` gives its SATCoP child that CPU, so SATCoP
+starts one search thread and concurrent children never share a core. `--seed 123` is
 forwarded unchanged as `satcop ... --seed 123`; that thread receives seed 123.
 The original SATCoP has an internal seeding method but needs the small CLI
 addition to expose it. Native SATCoP uses the wall-clock budget; `--step-limit` applies only

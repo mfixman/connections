@@ -284,6 +284,11 @@ def run_problems(
     config: RunConfig,
     num_workers: int | None = None,
 ) -> Iterator[dict[str, Any]]:
+    if config.policy == ProverPolicy.SatCoP:
+        from .satcop_search import search_binary
+
+        search_binary()
+
     workers = determine_worker_count(len(problems), num_workers)
     if config.multiprocess and config.mode not in (GuidanceMode.Base, GuidanceMode.Sine) and workers:
         from .multiprocess import inference_service
