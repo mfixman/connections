@@ -281,3 +281,4 @@ packages/axiom_prediction/plan.txt
 packages/axiom_prediction/external_provers/
 poster/gemini-cam/
 poster/tex/
+*/tex/*
