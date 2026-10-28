@@ -17,7 +17,8 @@ class SearchWorker:
     cpu: int | None
     completed: int = 0
 
-def worker_loop(pipe, function, cpu):
+# Spawned workers import this module afresh, so supervisors started before CPU pinning omit cpu.
+def worker_loop(pipe, function, cpu = None):
     # One CPU per worker slot, inherited by native SATCoP children.
     if cpu is not None:
         os.sched_setaffinity(0, {cpu})
