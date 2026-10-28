@@ -49,6 +49,9 @@ class ProblemSplit:
         if self.split == 1:
             return 0
 
+        return self.digest(problem) % self.split
+
+    def digest(self, problem: str | Path) -> int:
         key = split_key(problem, self.scheme)
         if self.scheme == 5:
             digest = hashlib.md5(key.encode("utf-8"), usedforsecurity = False).digest()
@@ -59,7 +62,14 @@ class ProblemSplit:
                 person = b"lcsplit",
             ).digest()
 
-        return int.from_bytes(digest, "big") % self.split
+        return int.from_bytes(digest, "big")
+
+    # Under scheme 5 this is exactly parts P of split N * ratio, which nest inside parts P of N.
+    def subsample(self, problems: list[str], ratio: int) -> list[str]:
+        if ratio == 0:
+            return []
+
+        return [p for p in problems if self.digest(p) // self.split % ratio == 0]
 
     def contains(self, problem: str | Path) -> bool:
         return self.is_everything() or self.part(problem) in self.parts

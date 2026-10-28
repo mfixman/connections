@@ -78,6 +78,24 @@ def build_parser() -> argparse.ArgumentParser:
         help = "held-out evaluation interval; 0 adapts to about 10%% training overhead",
     )
 
+    train.add_argument(
+        "--validation-run-ratio",
+        type = nonnegative_int,
+        default = 10,
+        metavar = "R",
+        help = "after every epoch, run guided proof search on 1/R of the --evaluate problems (0 disables)",
+    )
+
+    train.add_argument(
+        "--validation-run-provers",
+        type = ProverPolicy,
+        choices = list(ProverPolicy),
+        nargs = "+",
+        default = [ProverPolicy.SatResetCoP],
+        metavar = "POLICY",
+        help = "policies for the per-epoch validation runs, logged as evaluation/run_POLICY, plus an unguided evaluation/base_run_POLICY",
+    )
+
     train.add_argument("--seed", type = int, default = 0)
     train.add_argument(
         "--batch-size",
@@ -465,6 +483,8 @@ def execute_command(args: argparse.Namespace) -> int:
                 evaluation_split = evaluation_split,
                 evaluation_problems = evaluation_problems,
                 evaluate_every = args.evaluate_every,
+                validation_run_ratio = args.validation_run_ratio,
+                validation_run_provers = args.validation_run_provers,
                 resume = args.resume,
                 max_example_mb = args.max_example_mb,
             )
