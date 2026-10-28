@@ -93,7 +93,7 @@ def build_parser() -> argparse.ArgumentParser:
         nargs = "+",
         default = [ProverPolicy.SatResetCoP],
         metavar = "POLICY",
-        help = "policies for the per-epoch validation runs, logged as evaluation/run_POLICY, plus an unguided evaluation/base_run_POLICY",
+        help = "policies for the per-epoch validation runs, logged as evaluation/test_POLICY_solved_*, plus an unguided evaluation/test_base_POLICY_solved_*",
     )
 
     train.add_argument("--seed", type = int, default = 0)
