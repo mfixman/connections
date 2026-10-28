@@ -1,4 +1,4 @@
-# Guided proof search on a fixed slice of the held-out parts, run after every epoch.
+# Guided proof search on a fixed slice of the held-out parts, run for every epoch.
 
 from __future__ import annotations
 
@@ -35,20 +35,29 @@ def validation_run_problems(held_out, split: ProblemSplit, ratio: int, tptp_root
 
     return problems
 
-def run_validation(problems, configs, checkpoint: Path, **options) -> dict[str, float]:
+def run_validation(problems, configs, checkpoint: Path, **options) -> dict[str, float] | None:
     configs = [replace(config, checkpoint = str(checkpoint)) for config in configs]
     return proof_rates(problems, configs, "", **options)
 
 # Unguided control on the same problems; it does not change between epochs.
-def run_baseline(problems, configs, **options) -> dict[str, float]:
+def run_baseline(problems, configs, **options) -> dict[str, float] | None:
     configs = [replace(config, mode = GuidanceMode.Base, checkpoint = None) for config in configs]
     return proof_rates(problems, configs, "base_", **options)
 
-def proof_rates(problems, configs, prefix, *, tptp_root, num_workers) -> dict[str, float]:
+# Returns None once stop is set, after closing the running workers.
+def proof_rates(problems, configs, prefix, *, tptp_root, num_workers, stop) -> dict[str, float] | None:
     metrics = {}
     for config in configs:
         name = f"{prefix}{config.policy.wire_value()}"
-        results = list(run_problems(problems, tptp_root = tptp_root, config = config, num_workers = num_workers))
+        results = []
+        search = run_problems(problems, tptp_root = tptp_root, config = config, num_workers = num_workers)
+        for result in search:
+            if stop.is_set():
+                search.close()
+                return None
+
+            results.append(result)
+
         proved = sum(bool(result.get("proved")) for result in results)
         errors = sum(bool(result.get("error")) for result in results)
         log(f"validation {name}: {proved}/{len(problems)} proved, {errors} errors")
