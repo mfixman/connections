@@ -37,7 +37,8 @@ def worker_loop(pipe, function, cpu = None):
                 }
 
             pipe.send((result, time.monotonic()))
-    except (EOFError, BrokenPipeError):
+    # Closing the pipe with an unread late result resets the connection instead of sending EOF.
+    except (EOFError, ConnectionError):
         pass
     finally:
         pipe.close()
