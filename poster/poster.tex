@@ -16,6 +16,7 @@
 \usecolortheme{cam}
 
 \pgfplotsset{compat=1.14}
+\usetikzlibrary{arrows.meta,positioning,fit,backgrounds}
 
 \newlength{\sepwidth}
 \setlength{\sepwidth}{0.025\paperwidth}
@@ -30,6 +31,8 @@
 \setlength{\edgewidth}{(\paperwidth - \centerwidth - 4\sepwidth) / 2}
 
 \newcommand{\separatorcolumn}{\begin{column}{\sepwidth}\end{column}}
+
+\newcommand{\flowarrow}{\begin{center}\tikz\draw[-{Latex[length=40pt,width=56pt]},line width=12pt,camblue] (0pt,0pt) -- (0pt,-64pt);\end{center}}
 
 \title{All Axioms are Equal, but Some are More Equal than Others: \\ \huge Predicting relevance of first-order axioms }
 
@@ -78,13 +81,23 @@
 
 	\begin{column}{\centerwidth}
 
-		\begin{block}{A block containing an enumerated list}
+		\begin{block}{SAT cores label relevant axioms}
+			\centering
+			\resizebox{0.8\textwidth}{!}{\input{tikz/tree.tikz}}
 		\end{block}
 
-		\begin{block}{Fusce aliquam magna velit}
+		\flowarrow
+
+		\begin{block}{Predicting axiom relevance}
+			\centering
+			\resizebox{0.8\textwidth}{!}{\input{tikz/network.tikz}}
 		\end{block}
 
-		\begin{block}{Nam cursus consequat egestas}
+		\flowarrow
+
+		\begin{block}{Guiding first-order provers}
+			\centering
+			\parbox{0.9\textwidth}{\veryHuge\bfseries\color{camblue} Vampire \hfill Prover9 \hfill SATResetCoP \hfill SATCoP}
 		\end{block}
 
 	\end{column}

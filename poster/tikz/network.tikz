@@ -1,0 +1,33 @@
+\begin{tikzpicture}[
+	x=1em,
+	y=1em,
+	font=\large,
+	neuron/.style={circle,draw,thick,fill=white,minimum size=1em,inner sep=0pt},
+	link/.style={draw,thick,gray}
+]
+	\node[draw,thick,rounded corners=2pt,minimum width=7em,minimum height=7em] (gnn) at (-5,0) {GNN};
+	\foreach \corner in {north east,south east} {
+		\foreach \y in {-5,5} {
+			\draw[link] (gnn.\corner) -- (4,\y);
+		}
+	}
+
+	\foreach \x/\h/\nh in {4/5/3,12/3/3,20/3/3,28/3/3} {
+		\foreach \a in {-1,1} {
+			\foreach \b in {-1,1} {
+				\draw[link] (\x,\a*\h) -- (\x+8,\b*\nh);
+			}
+		}
+	}
+
+	\draw[link] (36,3) -- (44,0) -- (36,-3);
+	\foreach \x/\w/\h in {4/1280/5,12/256/3,20/256/3,28/256/3,36/256/3} {
+		\draw[thick] (\x,-\h) -- (\x,\h);
+		\node[neuron] at (\x,\h) {};
+		\node[neuron] at (\x,-\h) {};
+		\node[fill=white,inner sep=4pt] at (\x,0) {\w};
+	}
+
+	\node[neuron,fill=camblue!20,minimum size=2em] (out) at (44,0) {};
+	\node[right=1em of out] {$p_x$};
+\end{tikzpicture}
