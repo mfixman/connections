@@ -54,7 +54,9 @@
 {
 \begin{tikzpicture}[remember picture,overlay]
 	\node [anchor=north west, inner sep=3cm] at ([xshift=0.0cm,yshift=1.0cm]current page.north west)
-	{\includegraphics[height=4.5cm]{logos/cambridge-reversed-color-logo.eps}}; 
+	{\includegraphics[height=4.5cm]{logos/cambridge-reversed-color-logo.eps}};
+	\node [anchor=north east, inner sep=0pt, opacity=0.5] at ([xshift=-350pt,yshift=-16pt]current page.north east)
+	{\includegraphics[height=280pt]{pictures/Napoleon.png}};
 \end{tikzpicture}
 }
 
@@ -97,7 +99,8 @@
 
 		\begin{block}{Guiding first-order provers}
 			\centering
-			\parbox{0.9\textwidth}{\veryHuge\bfseries\color{camblue} Vampire \hfill Prover9 \hfill SATResetCoP \hfill SATCoP}
+			\vspace{40pt}
+			\parbox{0.9\textwidth}{\huge\bfseries\color{camblue} Vampire \hfill Prover9 \hfill SATResetCoP \hfill SATCoP}
 		\end{block}
 
 	\end{column}
@@ -110,16 +113,12 @@
 
 		\end{exampleblock}
 
-		\begin{block}{Nullam vel erat at velit convallis laoreet}
-		\end{block}
+		\vspace{650pt}
 
 		\begin{block}{References}
-
 			\nocite{*}
 			\footnotesize{\bibliographystyle{plainnat}\bibliography{poster}}
-
 		\end{block}
-
 	\end{column}
 
 	\separatorcolumn

@@ -20,17 +20,16 @@
 			}
 		};
 
-	\node[clause] (g3) at (-4,-17) {$P(a) \lor \neg T(a)$};
+	\node[clause] (g3) at (237pt,-17em) {$P(a) \lor \neg T(a)$};
 	\node[clause,core,left=1em of g3] (g2) {$R(a) \lor \neg P(a) \lor \neg Q(a)$};
 	\node[clause,core,left=1em of g2] (g1) {$\neg R(a)$};
 	\node[font=\Large\bfseries,left=2em of g1] (sat) {SAT};
 	\node[clause,core,right=1em of g3] (g4) {$P(a)$};
-	\node[clause,core,right=1em of g4] (g5) {$Q(a) \lor \neg S(a)$};
+	\node[clause,core,below=1em of g1] (g5) {$Q(a) \lor \neg S(a)$};
 	\node[clause,core,right=1em of g5] (g6) {$S(a)$};
 	\node[clause,right=1em of g6] (g7) {$T(b)$};
-	\node[clause,very thick,right=2em of g7] (bot) {$\bot$};
 
 	\begin{scope}[on background layer]
-		\node[draw,thick,rounded corners=4pt,fill=black!4,inner sep=12pt,fit=(sat) (g1) (bot)] {};
+		\node[draw,thick,rounded corners=4pt,fill=black!4,inner sep=12pt,fit=(sat) (g4) (g5) (g7)] {};
 	\end{scope}
 \end{tikzpicture}
