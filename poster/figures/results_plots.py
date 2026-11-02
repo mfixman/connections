@@ -24,7 +24,7 @@ charts = {
     'vampire': ('Vampire', 59, {'Ordinary': 38, torok: 38, kusrow: 36}),
 }
 
-notes = {'vampire': 'still some way to go'}
+notes = {'vampire': 'Still some way to go!'}
 
 def set_style():
     for path in fonts.glob('Lato-*.ttf'):
@@ -34,7 +34,11 @@ def set_style():
     rc = {'font.weight': 300, 'pdf.fonttype': 42, **dict.fromkeys(sizes, 26)}
     seaborn.set_theme(style = 'darkgrid', font = 'Lato', rc = rc)
 
-def draw_bars(axis, proved, total):
+def bar_text(model, percentage, starred):
+    suffix = '*' if starred and model in (torok, kusrow) else ''
+    return f'{percentage:.1f}%{suffix}'
+
+def draw_bars(axis, proved, total, starred):
     names = list(proved)
     percentages = [100 * count / total for count in proved.values()]
     seaborn.barplot(
@@ -48,12 +52,12 @@ def draw_bars(axis, proved, total):
         ax = axis,
     )
 
-    for bars in axis.containers:
-        axis.bar_label(bars, fmt = '{:.1f}%', padding = 4)
+    for bars, model, percentage in zip(axis.containers, names, percentages):
+        axis.bar_label(bars, labels = [bar_text(model, percentage, starred)], padding = 4)
 
 def draw(name, title, total, proved):
     figure, axis = pyplot.subplots(figsize = (13.9, 3.5), layout = 'constrained')
-    draw_bars(axis, proved, total)
+    draw_bars(axis, proved, total, name in notes)
 
     axis.set(ylim = (0, 90), yticks = [0, 25, 50, 75], ylabel = 'Proved')
     axis.yaxis.set_major_formatter(PercentFormatter())

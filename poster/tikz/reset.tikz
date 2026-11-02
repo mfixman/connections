@@ -1,8 +1,7 @@
 \begin{tikzpicture}[
 	x=24pt,
-	y=28pt,
-	font=\large,
-	link/.style={-{Latex[length=12pt,width=14pt]},thick}
+	y=32pt,
+	font=\large
 ]
 	\node at (8,3.5) {\cop{SYN052-1}};
 
@@ -20,7 +19,6 @@
 	\draw[thick] (b1) -- (b2);
 	\draw[thick] (b2) -- (b3);
 
-	\draw[link] (a2.east) -- node[above=4pt] {reset} (b2.west);
 	\draw[flow] (0,-6.6) -- (0,-8.3);
 	\draw[flow] (16,-6.6) -- (16,-8.3);
 

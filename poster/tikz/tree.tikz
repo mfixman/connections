@@ -26,20 +26,22 @@
 			}
 		};
 
+	\node[overlay,font=\normalsize] at (16,1) {Filled: in the SAT core};
+
 	\draw[flow] (22,-8) -- (26,-8);
 	\draw[panel] (27,1) rectangle (51,-18);
-	\node[heading] at (39,-1) {SAT Clauses};
+	\node[heading] at (39,-1) {SAT Clauses (UNSAT)};
 
 	\foreach \x/\y/\kind/\ground in {
-		28/-4/core/{\neg P(a) \lor \neg R(a)},
-		38/-4/core/{\neg P(a) \lor Q(a) \lor R(a)},
-		28/-7/core/{P(a) \lor Q(b)},
-		38/-7/other/{\neg R(a) \lor S(a)},
-		28/-10/core/{\neg S(a) \lor \neg Q(a)},
-		38/-10/core/{\neg Q(a) \lor S(a)},
-		28/-13/core/{\neg S(b) \lor \neg Q(b)},
-		38/-13/core/{\neg Q(b) \lor S(b)},
-		28/-16/other/{\neg R(b) \lor S(b)},
+		28/-4/core/{\neg Q(a) \lor S(a)},
+		38/-4/other/{\neg R(b) \lor S(b)},
+		28/-7/core/{\neg P(a) \lor \neg R(a)},
+		38/-7/core/{\neg S(b) \lor \neg Q(b)},
+		28/-10/other/{\neg R(a) \lor S(a)},
+		38/-10/core/{\neg P(a) \lor Q(a) \lor R(a)},
+		28/-13/core/{\neg Q(b) \lor S(b)},
+		38/-13/core/{P(a) \lor Q(b)},
+		28/-16/core/{\neg S(a) \lor \neg Q(a)},
 		38/-16/other/{\neg P(b) \lor Q(b) \lor R(b)}
 	} {
 		\node[clause,\kind,anchor=west] at (\x,\y) {$\ground$};

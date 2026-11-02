@@ -7,7 +7,8 @@
 	\node[clause,right=1em of a1] (a2) {$\forall x\, (P(x) \to Q(x) \lor R(x))$};
 	\node[clause,right=1em of a2] (a3) {$(\neg \exists x\, P(x)) \to \exists y\, Q(y)$};
 	\node[clause,right=1em of a3] (a4) {$\forall x\, (Q(x) \lor R(x) \to S(x))$};
-	\node[clause,right=4em of a4] (goal) {$\exists x\, (P(x) \land R(x))$};
+	\node[font=\huge,right=1em of a4] (proves) {$\vdash$};
+	\node[clause,right=1em of proves] (goal) {$\exists x\, (P(x) \land R(x))$};
 
 	\begin{scope}[on background layer]
 		\node[panel,inner sep=12pt,fit=(a1) (goal)] {};

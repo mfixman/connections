@@ -14,5 +14,5 @@
 		\draw[thick,core] (\axiom-1,-\seed-0.5) rectangle (\axiom,-\seed+0.5);
 	}
 
-	\node[anchor=north] at (7.5,-4.7) {Axioms of \cop{PUZ008-1} in the SAT core};
+	\node[anchor=north] at (7.5,-4.7) {Sets of axioms of \cop{PUZ008-1} which are UNSAT};
 \end{tikzpicture}
