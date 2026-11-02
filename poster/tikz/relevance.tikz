@@ -1,0 +1,20 @@
+\begin{tikzpicture}[
+	x=1em,
+	y=1em,
+	font=\large,
+	other/.style={}
+]
+	\foreach \y/\p/\kind/\axiom in {
+		0/0.84/core/{Leaders on two legs are more equal},
+		-2/0.31/core/{Napoleon is a leader},
+		-4/0.27/other/{All heroes are leaders},
+		-6/0.27/core/{All pigs walk on two legs},
+		-8/0.06/other/{Boxer is a hero},
+		-10/0.05/core/{Napoleon is a pig}
+	} {
+		\node[clause,\kind,anchor=east,minimum width=19em,minimum height=44pt] at (0,\y) {\axiom};
+		\draw[black!8,line width=24pt] (1,\y) -- (9,\y);
+		\draw[camblue,line width=24pt] (1,\y) -- (1+\p*8,\y);
+		\node at (11,\y) {$\p$};
+	}
+\end{tikzpicture}

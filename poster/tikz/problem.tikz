@@ -1,0 +1,22 @@
+\begin{tikzpicture}[
+	x=1em,
+	y=1em,
+	font=\large,
+	card/.style={clause,align=center}
+]
+	\draw[panel] (-1,-2) rectangle (49,8);
+	\draw[panel] (50,-2) rectangle (68,8);
+	\node[heading] at (24,7) {Axioms: what we know};
+	\node[heading] at (59,7) {Conjecture: to prove};
+
+	\foreach \x/\w/\law/\lawform/\fact/\factform in {
+		10/20/{\keyletter{L}eaders on \keyletter{T}wo legs are \keyletter{M}ore equal}/{\forall x\, (L(x) \land T(x) \to M(x))}/{\keyletter{N}apoleon is a \keyletter{L}eader}/{L(n)},
+		28/14/{All \keyletter{P}igs walk on \keyletter{T}wo legs}/{\forall x\, (P(x) \to T(x))}/{\keyletter{N}apoleon is a \keyletter{P}ig}/{P(n)},
+		42/12/{All \keyletter{H}eroes are \keyletter{L}eaders}/{\forall x\, (H(x) \to L(x))}/{\keyletter{B}oxer is a \keyletter{H}ero}/{H(b)}
+	} {
+		\node[card,minimum width=\w em] at (\x,4) {\law \\ $\lawform$};
+		\node[card,minimum width=\w em] at (\x,0) {\fact \\ $\factform$};
+	}
+
+	\node[card,minimum width=16em] at (59,2) {Is \keyletter{N}apoleon \keyletter{M}ore equal? \\ $M(n)$};
+\end{tikzpicture}

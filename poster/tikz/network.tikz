@@ -1,11 +1,11 @@
 \begin{tikzpicture}[
-	x=1em,
-	y=1em,
-	font=\large,
+	x=20pt,
+	y=40pt,
+	font=\Large,
 	neuron/.style={circle,draw,thick,fill=white,minimum size=1em,inner sep=0pt},
 	link/.style={draw,thick,gray}
 ]
-	\node[draw,thick,rounded corners=2pt,minimum width=7em,minimum height=7em] (gnn) at (-5,0) {GNN};
+	\node[draw,thick,rounded corners=2pt,fill=black!4,minimum width=7em,minimum height=7em] (gnn) at (-5,0) {GNN};
 	\foreach \corner in {north east,south east} {
 		\foreach \y in {-5,5} {
 			\draw[link] (gnn.\corner) -- (4,\y);
@@ -29,5 +29,5 @@
 	}
 
 	\node[neuron,fill=camblue!20,minimum size=2em] (out) at (44,0) {};
-	\node[right=1em of out] {$p_x$};
+	\node[font=\huge,right=1em of out] {$p_x$};
 \end{tikzpicture}

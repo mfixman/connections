@@ -2,34 +2,31 @@
 	x=1em,
 	y=1em,
 	font=\large,
-	clause/.style={draw,thick,rounded corners=2pt,fill=white,inner xsep=8pt,inner ysep=6pt},
-	core/.style={fill=camblue!20},
 	failed/.style={dashed},
 	level distance=4em,
-	sibling distance=18em,
+	sibling distance=16em,
 	edge from parent/.style={draw,thick}
 ]
-	\node[clause,core] {$\neg R(a)$}
-		child {node[clause,core] {$R(a) \lor \neg P(a) \lor \neg Q(a)$}
-			child[failed] {node[clause] {$P(a) \lor \neg T(a)$}
-				child {node[clause] {$T(b)$}}
+	\node[clause,core] {$\neg M(n)$}
+		child {node[clause,core] {$M(n) \lor \neg L(n) \lor \neg T(n)$}
+			child[failed] {node[clause] {$L(n) \lor \neg H(n)$}
+				child {node[clause] {$H(b)$}}
 			}
-			child {node[clause,core] {$P(a)$}}
-			child {node[clause,core] {$Q(a) \lor \neg S(a)$}
-				child {node[clause,core] {$S(a)$}}
+			child {node[clause,core] {$L(n)$}}
+			child {node[clause,core] {$T(n) \lor \neg P(n)$}
+				child {node[clause,core] {$P(n)$}}
 			}
 		};
 
-	\node[clause] (g3) at (237pt,-17em) {$P(a) \lor \neg T(a)$};
-	\node[clause,core,left=1em of g3] (g2) {$R(a) \lor \neg P(a) \lor \neg Q(a)$};
-	\node[clause,core,left=1em of g2] (g1) {$\neg R(a)$};
-	\node[font=\Large\bfseries,left=2em of g1] (sat) {SAT};
-	\node[clause,core,right=1em of g3] (g4) {$P(a)$};
-	\node[clause,core,below=1em of g1] (g5) {$Q(a) \lor \neg S(a)$};
-	\node[clause,core,right=1em of g5] (g6) {$S(a)$};
-	\node[clause,right=1em of g6] (g7) {$T(b)$};
+	\draw[flow] (21,-6) -- (25,-6);
+	\draw[panel] (26,1) rectangle (46,-12);
+	\node[heading] at (36,-1) {SAT core in blue};
 
-	\begin{scope}[on background layer]
-		\node[draw,thick,rounded corners=4pt,fill=black!4,inner sep=12pt,fit=(sat) (g4) (g5) (g7)] {};
-	\end{scope}
+	\node[clause,core,anchor=west] (g1) at (27,-4) {$\neg M(n)$};
+	\node[clause,core,right=1em of g1] (g2) {$M(n) \lor \neg L(n) \lor \neg T(n)$};
+	\node[clause,anchor=west] (g3) at (27,-7) {$L(n) \lor \neg H(n)$};
+	\node[clause,core,right=1em of g3] (g4) {$L(n)$};
+	\node[clause,core,anchor=west] (g5) at (27,-10) {$T(n) \lor \neg P(n)$};
+	\node[clause,core,right=1em of g5] (g6) {$P(n)$};
+	\node[clause,right=1em of g6] (g7) {$H(b)$};
 \end{tikzpicture}
