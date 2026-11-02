@@ -32,7 +32,21 @@
 
 \newcommand{\separatorcolumn}{\begin{column}{\sepwidth}\end{column}}
 
-\newcommand{\flowarrow}{\begin{center}\tikz\draw[-{Latex[length=40pt,width=56pt]},line width=12pt,camblue] (0pt,0pt) -- (0pt,-64pt);\end{center}}
+\tikzset{
+	clause/.style={draw,thick,rounded corners=2pt,fill=white,inner xsep=8pt,inner ysep=6pt},
+	core/.style={fill=camblue!20},
+	panel/.style={draw,thick,rounded corners=4pt,fill=black!4},
+	heading/.style={font=\Large\bfseries},
+	flow/.style={-{Latex[length=24pt,width=36pt]},line width=8pt,camblue}
+}
+
+\newcommand{\flowarrow}{{\centering\tikz\draw[flow] (0pt,0pt) -- (0pt,-40pt);\par}}
+
+\newcommand{\sidearrow}{\tikz\draw[flow] (0pt,0pt) -- (40pt,0pt);}
+
+\newcommand{\diagram}[2]{\centering\vspace{16pt}\resizebox{#1\textwidth}{!}{\input{tikz/#2.tikz}}}
+
+\newcommand{\cop}[1]{\textsf{\textbf{#1}}}
 
 \title{All Axioms are Equal, but Some are More Equal than Others: \\ \huge Predicting relevance of first-order axioms }
 
@@ -65,68 +79,64 @@
 	\separatorcolumn
 
 	\begin{column}{\edgewidth}
-
-		\begin{block}{A block title}
-
-		\end{block}
-
-		\begin{block}{A block containing a list}
-
-		\end{block}
-
-		\begin{alertblock}{A highlighted block}
-		\end{alertblock}
-
+		\input{left.tex}
 	\end{column}
 
 	\separatorcolumn
 
 	\begin{column}{\centerwidth}
 
-		\begin{block}{SAT cores label relevant axioms}
-			\centering
-			\resizebox{0.8\textwidth}{!}{\input{tikz/tree.tikz}}
+		\begin{block}{First-Order TPTP Problem \cop{SYN054+1}: Do the Axioms Prove the Conjecture?}
+			\diagram{0.95}{problem}
 		\end{block}
 
 		\flowarrow
 
-		\begin{block}{Predicting axiom relevance}
-			\centering
-			\resizebox{0.8\textwidth}{!}{\input{tikz/network.tikz}}
+		\begin{block}{SAT Cores Label Relevant Axioms}
+			\diagram{0.95}{tree}
 		\end{block}
 
 		\flowarrow
 
-		\begin{block}{Guiding first-order provers}
-			\centering
-			\vspace{40pt}
-			\parbox{0.9\textwidth}{\huge\bfseries\color{camblue} Vampire \hfill Prover9 \hfill SATResetCoP \hfill SATCoP}
-		\end{block}
+		\begin{columns}[T,totalwidth=\textwidth]
+			\begin{column}{0.5\textwidth}
+				\begin{block}{Train a Neural Network on Which \\ Axioms Contribute to the SAT Core}
+					{\diagram{0.95}{network}\par}
+
+					{\footnotesize\textsuperscript{*} The GNN comes from Rømming et al., \emph{Imitation Learning for Connection-Tableau Construction} \cite{romming2026imitation}.\par}
+				\end{block}
+			\end{column}
+
+			\begin{column}{0.04\textwidth}
+				\vspace{226pt}
+				\sidearrow
+			\end{column}
+
+			\begin{column}{0.46\textwidth}
+				\begin{block}{Relevance $p_x$ of \\ Each Axiom Clause}
+					\centering
+					\vspace{16pt}
+					\includegraphics[width=0.95\textwidth]{figures/relevance.pdf}
+				\end{block}
+			\end{column}
+		\end{columns}
+
+		\flowarrow
 
 	\end{column}
 
 	\separatorcolumn
 
 	\begin{column}{\edgewidth}
-
-		\begin{exampleblock}{A highlighted block containing some math}
-
-		\end{exampleblock}
-
-		\vspace{650pt}
-
-		\begin{block}{References}
-			\nocite{*}
-			\footnotesize{\bibliographystyle{plainnat}\bibliography{poster}}
-		\end{block}
+		\input{right.tex}
 	\end{column}
 
 	\separatorcolumn
 \end{columns}
 
-\begin{block}{Results}
+\begin{block}{Results: Guiding First-Order Provers (Higher is Better)}
 	\centering
-	Results go here.
+	\input{results.tex}
 \end{block}
 
 \end{frame}

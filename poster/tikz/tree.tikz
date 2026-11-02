@@ -1,35 +1,47 @@
 \begin{tikzpicture}[
 	x=1em,
-	y=1em,
+	y=22pt,
 	font=\large,
-	clause/.style={draw,thick,rounded corners=2pt,fill=white,inner xsep=8pt,inner ysep=6pt},
-	core/.style={fill=camblue!20},
 	failed/.style={dashed},
-	level distance=4em,
+	other/.style={},
+	level distance=88pt,
 	sibling distance=18em,
+	level 2/.style={sibling distance=12em},
+	level 4/.style={sibling distance=12em},
 	edge from parent/.style={draw,thick}
 ]
-	\node[clause,core] {$\neg R(a)$}
-		child {node[clause,core] {$R(a) \lor \neg P(a) \lor \neg Q(a)$}
-			child[failed] {node[clause] {$P(a) \lor \neg T(a)$}
-				child {node[clause] {$T(b)$}}
+	\node[clause,core] {$P(a) \lor Q(b)$}
+		child {node[clause,core] {$\neg P(a) \lor \neg R(a)$}
+			child {node[clause,core] {$\neg P(a) \lor Q(a) \lor R(a)$}
+				child {node[clause,core] {$\neg S(a) \lor \neg Q(a)$}
+					child {node[clause,core] {$\neg Q(a) \lor S(a)$}}
+					child[failed] {node[clause] {$\neg R(a) \lor S(a)$}}
+				}
 			}
-			child {node[clause,core] {$P(a)$}}
-			child {node[clause,core] {$Q(a) \lor \neg S(a)$}
-				child {node[clause,core] {$S(a)$}}
+		}
+		child {node[clause,core] {$\neg S(b) \lor \neg Q(b)$}
+			child {node[clause,core] {$\neg Q(b) \lor S(b)$}}
+			child[failed] {node[clause] {$\neg R(b) \lor S(b)$}
+				child {node[clause] {$\neg P(b) \lor Q(b) \lor R(b)$}}
 			}
 		};
 
-	\node[clause] (g3) at (237pt,-17em) {$P(a) \lor \neg T(a)$};
-	\node[clause,core,left=1em of g3] (g2) {$R(a) \lor \neg P(a) \lor \neg Q(a)$};
-	\node[clause,core,left=1em of g2] (g1) {$\neg R(a)$};
-	\node[font=\Large\bfseries,left=2em of g1] (sat) {SAT};
-	\node[clause,core,right=1em of g3] (g4) {$P(a)$};
-	\node[clause,core,below=1em of g1] (g5) {$Q(a) \lor \neg S(a)$};
-	\node[clause,core,right=1em of g5] (g6) {$S(a)$};
-	\node[clause,right=1em of g6] (g7) {$T(b)$};
+	\draw[flow] (22,-8) -- (26,-8);
+	\draw[panel] (27,1) rectangle (51,-18);
+	\node[heading] at (39,-1) {SAT Clauses};
 
-	\begin{scope}[on background layer]
-		\node[draw,thick,rounded corners=4pt,fill=black!4,inner sep=12pt,fit=(sat) (g4) (g5) (g7)] {};
-	\end{scope}
+	\foreach \x/\y/\kind/\ground in {
+		28/-4/core/{\neg P(a) \lor \neg R(a)},
+		38/-4/core/{\neg P(a) \lor Q(a) \lor R(a)},
+		28/-7/core/{P(a) \lor Q(b)},
+		38/-7/other/{\neg R(a) \lor S(a)},
+		28/-10/core/{\neg S(a) \lor \neg Q(a)},
+		38/-10/core/{\neg Q(a) \lor S(a)},
+		28/-13/core/{\neg S(b) \lor \neg Q(b)},
+		38/-13/core/{\neg Q(b) \lor S(b)},
+		28/-16/other/{\neg R(b) \lor S(b)},
+		38/-16/other/{\neg P(b) \lor Q(b) \lor R(b)}
+	} {
+		\node[clause,\kind,anchor=west] at (\x,\y) {$\ground$};
+	}
 \end{tikzpicture}

@@ -1,0 +1,22 @@
+\begin{minipage}[t][1270pt][t]{\textwidth}
+	\begin{exampleblock}{Core Good, Non-Core Bad?}
+		\large
+		\vspace{14pt}
+
+		Premise selection usually relies on symbol heuristics like SInE \cite{hoder2011sine}, or learns from formal libraries \cite{wang2017premise}.
+		We learn from the prover's own refutations, like NeuroCore \cite{selsam2019neurocore} for SAT.
+		Unlike neural clause selection \cite{chvalovsky2026teaching}, we only score the input axioms.
+
+		An axiom outside the core was only unused in this proof, so we run the search on multiple seeds to find the widest variety of unsatisfiable subsets of axioms.
+
+		{\diagram{0.9}{cores}\par}
+	\end{exampleblock}
+
+	\vfill
+
+	\begin{block}{References}
+		\renewcommand{\bibsection}{}
+		\vspace{-8pt}
+		\small{\bibliographystyle{abbrvnat}\bibliography{poster}}
+	\end{block}
+\end{minipage}

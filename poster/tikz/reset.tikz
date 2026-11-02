@@ -1,0 +1,35 @@
+\begin{tikzpicture}[
+	x=24pt,
+	y=28pt,
+	font=\large,
+	link/.style={-{Latex[length=12pt,width=14pt]},thick}
+]
+	\node at (8,3.5) {\cop{SYN052-1}};
+
+	\node at (0,2) {Attempt 1};
+	\node[clause,core] (a1) at (0,0) {$\neg F(g) \lor p$};
+	\node[clause,dashed] (a2) at (0,-2.75) {$F(x_0) \lor \neg p$};
+	\node[clause,dashed] (a3) at (0,-5.5) {$F(x_1) \lor \neg p$};
+	\draw[thick] (a1) -- (a2);
+	\draw[thick,dashed] (a2) -- (a3);
+
+	\node at (16,2) {Attempt 2};
+	\node[clause,core] (b1) at (16,0) {$p \lor F(g)$};
+	\node[clause,core] (b2) at (16,-2.75) {$\neg p \lor \neg F(a)$};
+	\node[clause,core] (b3) at (16,-5.5) {$F(a) \lor \neg p$};
+	\draw[thick] (b1) -- (b2);
+	\draw[thick] (b2) -- (b3);
+
+	\draw[link] (a2.east) -- node[above=4pt] {reset} (b2.west);
+	\draw[flow] (0,-6.6) -- (0,-8.3);
+	\draw[flow] (16,-6.6) -- (16,-8.3);
+
+	\draw[panel] (-6,-8.5) rectangle (22,-14.75);
+	\node[heading] at (8,-9.5) {SAT Clauses (UNSAT)};
+	\node[clause,core] at (-1.5,-11) {$F(a) \lor \neg p$};
+	\node[clause] at (8,-11) {$F(x_0) \lor \neg p$};
+	\node[clause,core] at (17.5,-11) {$\neg F(g) \lor p$};
+	\node[clause] at (-1.5,-13.25) {$F(x_1) \lor \neg p$};
+	\node[clause,core] at (8,-13.25) {$\neg p \lor \neg F(a)$};
+	\node[clause,core] at (17.5,-13.25) {$p \lor F(g)$};
+\end{tikzpicture}

@@ -1,0 +1,18 @@
+\begin{tikzpicture}[
+	x=32pt,
+	y=32pt,
+	font=\large
+]
+	\foreach \seed in {0,...,4} {
+		\node[anchor=east] at (0,-\seed) {Seed \seed};
+		\foreach \axiom in {1,...,15} {
+			\draw[thick,fill=white] (\axiom-1,-\seed-0.5) rectangle (\axiom,-\seed+0.5);
+		}
+	}
+
+	\foreach \seed/\axiom in {0/5,0/13,1/7,1/14,2/5,2/13,3/6,3/7,3/13,4/6,4/7,4/13} {
+		\draw[thick,core] (\axiom-1,-\seed-0.5) rectangle (\axiom,-\seed+0.5);
+	}
+
+	\node[anchor=north] at (7.5,-4.7) {Axioms of \cop{PUZ008-1} in the SAT core};
+\end{tikzpicture}

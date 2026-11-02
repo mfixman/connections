@@ -1,0 +1,18 @@
+\begin{block}{A Failed Tableau Can Still \\ Contribute to the Proof}
+	\large
+	Connection provers \cite{leancop} search for a closed tableau, and normally discard a failed attempt.
+
+	SATCoP \cite{rawson2021eliminating} also grounds each tableau clause and adds it to a SAT solver.
+	If these clauses become unsatisfiable the problem is refuted, even with no closed tableau.
+
+	Clauses from failed attempts stay in the solver, and its model suggests where to search next.
+\end{block}
+
+\vspace{40pt}
+
+\begin{block}{Keep the Clauses, Reset the Tree}
+	\large
+	SATResetCoP \cite{fixman2026reset} resets instead of backtracking.
+
+	{\diagram{1}{reset}\par}
+\end{block}
