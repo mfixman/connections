@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from .choices import GuidanceMode, ProverPolicy
+from .choices import GuidanceMode, LossWeighting, ProverPolicy
 
 from typing import Any
 
@@ -94,6 +94,28 @@ def build_parser() -> argparse.ArgumentParser:
         default = [ProverPolicy.SatResetCoP],
         metavar = "POLICY",
         help = "policies for the per-epoch validation runs, logged as evaluation/test_POLICY_solved_*, plus an unguided evaluation/test_base_POLICY_solved_*",
+    )
+
+    train.add_argument(
+        "--validation-all-held-out",
+        action = "store_true",
+        help = "run validation on every refutable --evaluate problem, not only those with labels",
+    )
+
+    train.add_argument(
+        "--loss-weighting",
+        type = LossWeighting,
+        choices = list(LossWeighting),
+        default = LossWeighting.Clause,
+        help = "average the loss over every clause in a batch, or per problem with its cores sharing one weight",
+    )
+
+    train.add_argument(
+        "--min-axioms",
+        type = nonnegative_int,
+        default = 0,
+        metavar = "N",
+        help = "train only on examples with more than N axiom clauses; held-out evaluation is unchanged",
     )
 
     train.add_argument("--seed", type = int, default = 0)
@@ -487,6 +509,9 @@ def execute_command(args: argparse.Namespace) -> int:
                 validation_run_provers = args.validation_run_provers,
                 resume = args.resume,
                 max_example_mb = args.max_example_mb,
+                loss_weighting = args.loss_weighting,
+                min_axioms = args.min_axioms,
+                validation_all_held_out = args.validation_all_held_out,
             )
 
             report_metrics(metrics)

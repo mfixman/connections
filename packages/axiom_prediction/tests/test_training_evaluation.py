@@ -116,3 +116,22 @@ def test_training_overlap_with_refined_split(monkeypatch, parts, legacy, warns):
 
     training.warn_on_training_overlap({"split": trained}, ProblemSplit(20, parts))
     assert bool(messages) == warns
+
+def test_problem_loss_counts_problems_not_clauses():
+    import math
+
+    import torch
+
+    from axiom_prediction.training import problem_loss
+
+    logits = torch.zeros(4)
+    labels = torch.tensor([1.0, 1.0, 1.0, 0.0])
+    even = problem_loss(logits, labels, [3, 1], torch.ones(2))
+    assert even.item() == pytest.approx(math.log(2))
+
+    logits = torch.tensor([9.0, 9.0, 9.0, 0.0])
+    large_is_easy = problem_loss(logits, labels, [3, 1], torch.ones(2))
+    assert large_is_easy.item() == pytest.approx((1.234e-4 + math.log(2)) / 2, abs = 1e-3)
+
+    shared = problem_loss(logits, labels, [3, 1], torch.tensor([1.0, 0.0]))
+    assert shared.item() < 1e-3

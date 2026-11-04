@@ -9,7 +9,7 @@ from .choices import GuidanceMode, ProverPolicy
 from .logs import log
 from .run import RunConfig, run_problems
 from .split import ProblemSplit
-from .tptp import resolve_tptp_problem
+from .tptp import declared_tptp_status, resolve_tptp_problem, tptp_problems
 
 def validation_run_configs(policies: list[ProverPolicy], config, checkpoint: Path) -> list[RunConfig]:
     # CPU workers: guided CUDA search would be clamped to a single worker.
@@ -25,8 +25,17 @@ def validation_run_configs(policies: list[ProverPolicy], config, checkpoint: Pat
         for policy in policies
     ]
 
-def validation_run_problems(held_out, split: ProblemSplit, ratio: int, tptp_root) -> list[str]:
-    problems = split.subsample(sorted({example.problem_path for example in held_out}), ratio)
+def refutable(problem) -> bool:
+    return declared_tptp_status(problem) in ("Theorem", "Unsatisfiable", "ContradictoryAxioms")
+
+# Labelled problems were all solved during collection; all_held_out also keeps the unsolved ones.
+def validation_run_problems(held_out, split: ProblemSplit, ratio: int, tptp_root, *, all_held_out = False) -> list[str]:
+    if all_held_out:
+        candidates = filter(refutable, split.select(tptp_problems(tptp_root = tptp_root)))
+    else:
+        candidates = {example.problem_path for example in held_out}
+
+    problems = split.subsample(sorted(candidates), ratio)
     if ratio and not problems:
         raise ValueError(f"--validation-run-ratio {ratio} selects no held-out problems")
 

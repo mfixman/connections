@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-from .choices import GraphInputKind, ProverPolicy, plain_values
+from .choices import GraphInputKind, LossWeighting, ProverPolicy, plain_values
 
 from typing import Any
 
+from collections import Counter
 from dataclasses import asdict, dataclass, replace
 from functools import partial
 import json
@@ -47,6 +48,12 @@ from .validation_run import subset_sizes, validation_run_configs, validation_run
 from .limits import default_step_limit, default_timeout_s
 from .wandb_tracking import WandbConfig, WandbTracker
 from .resume import check_training_target, dataset_fingerprint, next_training_run, restore_training, snapshot_training
+
+# Each problem counts once, however many clauses it has; weights share a problem between its cores.
+def problem_loss(logits, labels, counts, weights):
+    losses = nn.functional.binary_cross_entropy_with_logits(logits, labels, reduction = "none")
+    means = torch.stack([part.mean() for part in losses.split(counts)])
+    return (means * weights).sum() / weights.sum()
 
 @dataclass(slots = True, init = False)
 class AxiomTrainingConfig:
@@ -238,6 +245,9 @@ def train_axiom_predictor(
     validation_run_provers: list[ProverPolicy] | None = None,
     resume: bool = False,
     max_example_mb: float | None = None,
+    loss_weighting: LossWeighting = LossWeighting.Clause,
+    min_axioms: int = 0,
+    validation_all_held_out: bool = False,
 ) -> dict[str, Any]:
     progress_interval_s = 60.0
 
@@ -352,6 +362,13 @@ def train_axiom_predictor(
     config_payload.update(network_config.to_dict())
     config_payload["sat_policy"] = effective_sat_policy.wire_value()
     config_payload["split"] = split.to_dict()
+    # Resume compares every key, so defaults stay out for earlier checkpoints.
+    if loss_weighting != LossWeighting.Clause:
+        config_payload["loss_weighting"] = loss_weighting.wire_value()
+
+    if min_axioms:
+        config_payload["min_axioms"] = min_axioms
+
     if effective_sat_policy == ProverPolicy.SatCoP:
         from .satcop import label_semantics
 
@@ -398,6 +415,12 @@ def train_axiom_predictor(
         else:
             examples, skipped = dataset_examples, dataset_skipped
 
+        if loss_weighting == LossWeighting.Problem or min_axioms:
+            total = len(examples)
+            examples = [example for example in examples if len(example.labels) > min_axioms]
+            log_message(f"kept {len(examples)} of {total} examples with more than {min_axioms} axioms")
+
+        core_counts = Counter(example.problem_path for example in examples)
         if evaluation_split is not None and dataset is None:
             held_out, held_out_skipped = collect_examples(
                 list(evaluation_problems),
@@ -412,6 +435,7 @@ def train_axiom_predictor(
                 evaluation_split,
                 validation_run_ratio,
                 tptp_root,
+                all_held_out = validation_all_held_out,
             )
 
             log_message(f"validation runs: {len(validation_problems)} held-out problems per prover for each epoch")
@@ -531,7 +555,12 @@ def train_axiom_predictor(
                 optimizer.zero_grad()
 
                 logits = model(batch)
-                loss = loss_fn(logits, labels)
+                if loss_weighting == LossWeighting.Problem:
+                    weights = torch.tensor([1 / core_counts[example.problem_path] for example in chunk], device = device)
+                    loss = problem_loss(logits, labels, batch.axiom_counts, weights)
+                else:
+                    loss = loss_fn(logits, labels)
+
                 if not torch.isfinite(loss):
                     raise FloatingPointError("non-finite training loss; checkpoint unchanged")
 

@@ -26,6 +26,10 @@ class GraphInputKind(Choice):
     def wire_value(self) -> str:
         return self.value.replace("No", "no-").lower()
 
+class LossWeighting(Choice):
+    Clause = "Clause"
+    Problem = "Problem"
+
 class GuidanceMode(Choice):
     Weighted = "Weighted"
     Strict = "Strict"
