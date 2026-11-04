@@ -1,5 +1,6 @@
 # Native SATCoP proof search for run, optionally ordering extensions by clause weights.
 
+import os
 from pathlib import Path
 import shutil
 import tempfile
@@ -26,7 +27,7 @@ def search_native(path, root, config, predictor, started):
     return out
 
 def search_binary():
-    return native_binary(options = ("--collect", "--seed", "--weights"))
+    return native_binary(os.environ.get("SATCOP_LOCATION"), options = ("--collect", "--seed", "--weights"))
 
 def search_in(directory, path, root, config, predictor, started):
     binary = search_binary()
