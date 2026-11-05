@@ -34,6 +34,31 @@ def test_parallel_collection_appends_and_resumes(tmp_path, tiny_problem_path):
     assert path.read_bytes().startswith(original)
     assert len(list(read_csv(path))) == 3
 
+def test_files_without_a_seconds_column_keep_resuming_without_it(tmp_path, tiny_problem_path):
+    problems = [str(tiny_problem_path), str(tmp_path / "missing.p")]
+    path = tmp_path / "dataset" / "problems.csv"
+    dataset.collect_axiom_dataset(problems[:1], output_dir = path.parent, num_workers = 1)
+    assert list(read_csv(path))[0]["seconds"] >= 0
+
+    lines = path.read_text().splitlines()
+    path.write_text(lines[0].removesuffix(",seconds") + "\n" + lines[1].rsplit(",", 1)[0] + "\n")
+    summary = dataset.collect_axiom_dataset(problems, output_dir = path.parent, num_workers = 1)
+    assert summary["problems_reused"] == 1
+    assert [row["outcome"] for row in read_csv(path)][0] == "proved"
+    assert all("seconds" not in row for row in read_csv(path))
+
+def test_problems_from_a_file_are_collected_and_an_empty_file_is_refused(tmp_path, tiny_problem_path):
+    from axiom_prediction.cli import main
+
+    listed = tmp_path / "problems.txt"
+    listed.write_text(f"\n{tiny_problem_path}\n\n")
+    output = tmp_path / "dataset"
+    assert main(["collect", "--problems-from", str(listed), "--dataset", str(output), "--num-workers", "1"]) == 0
+    assert [row["problem_name"] for row in read_csv(output / "problems.csv")] == [tiny_problem_path.name]
+
+    listed.write_text("\n")
+    assert main(["collect", "--problems-from", str(listed), "--dataset", str(output)]) == 2
+
 def test_problems_sharing_a_file_name_are_rejected(tmp_path):
     with pytest.raises(ValueError, match = "share a file name"):
         dataset.collect_axiom_dataset(["one/same.p", "two/same.p"], output_dir = tmp_path)

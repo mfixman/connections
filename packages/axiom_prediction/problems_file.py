@@ -13,7 +13,7 @@ from .graph import AxiomGraph
 problem_schema = "learncop.axiom_prediction.problem.v3"
 problem_fields = (
     "schema problem_name collection outcome parseable error "
-    "graph axiom_clause_ids conjecture_clause_ids labels axiom_clause_texts"
+    "graph axiom_clause_ids conjecture_clause_ids labels axiom_clause_texts seconds"
 ).split()
 
 def problem_name(problem):
@@ -56,19 +56,22 @@ def example_from_row(row):
         axiom_clause_texts = row.get("axiom_clause_texts", []),
     )
 
-def append_row(path, row):
+def append_row(path, row, fields = problem_fields):
     with path.open("a", encoding = "utf-8", newline = "") as stream:
-        writer = csv.DictWriter(stream, fieldnames = problem_fields, lineterminator = "\n")
+        writer = csv.DictWriter(stream, fieldnames = fields, extrasaction = "ignore", lineterminator = "\n")
         writer.writerow({key: json.dumps(value, sort_keys = True) for key, value in row.items()})
         stream.flush()
         os.fsync(stream.fileno())
 
-def check_header(path):
+def header_fields(path):
     with path.open(encoding = "utf-8", newline = "") as stream:
         header = next(csv.reader([stream.readline()]))
 
-    if header != problem_fields:
+    # Files started before the seconds column keep resuming without it.
+    if header not in (problem_fields, problem_fields[:-1]):
         raise ValueError(f"{path} has an old or unknown header; collect into a new directory")
+
+    return header
 
 def repair_tail(path):
     # JSON-encoded cells keep every CSV record on one physical line.

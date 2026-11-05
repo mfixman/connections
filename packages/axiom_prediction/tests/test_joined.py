@@ -144,11 +144,14 @@ def test_join_keeps_who_found_each_core_and_every_outcome(tmp_path, choices):
 
     zero, one = ("satresetcop", "", 0), ("satresetcop", "", 1)
     assert set().union(*result.graphs[0].cores.values()) == {zero, one}
-    assert result.outcomes == {
+    assert {row[:5] for row in result.outcomes} == {
         ("choices.p", zero, "proved", True, False),
         ("choices.p", one, "proved", True, False),
         ("choices.p", ("satcop", "", 7), "Timeout", True, False),
     }
+
+    assert all(row[5] >= 0 for row in result.outcomes if row[1] != ("satcop", "", 7))
+    assert next(row[5] for row in result.outcomes if row[1] == ("satcop", "", 7)) is None
 
     described = json.loads((joined / "metadata.json").read_text())
     assert described["sources"] == [["satcop", "", 7], ["satresetcop", "", 0], ["satresetcop", "", 1]]
@@ -170,6 +173,22 @@ def test_joining_a_joined_dataset_matches_joining_its_inputs(tmp_path, choices):
 
     join_datasets([tmp_path / "second", tmp_path / "direct/data.npz"], tmp_path / "both", 1)
     assert contents(load_axiom_dataset(tmp_path / "both")[0]) == contents(load_axiom_dataset(tmp_path / "direct")[0])
+
+def test_join_reads_v2_datasets_without_seconds(tmp_path, choices):
+    joined = tmp_path / "joined"
+    join_datasets([collected(tmp_path, choices, 0)], joined, 1)
+    with np.load(joined / "data.npz") as stored:
+        arrays = {key: stored[key] for key in stored.files}
+
+    rows = json.loads(arrays["outcomes"].tobytes())
+    arrays["outcomes"] = np.frombuffer(json.dumps([row[:5] for row in rows]).encode(), dtype = np.uint8)
+    np.savez_compressed(joined / "data.npz", **arrays)
+    described = json.loads((joined / "metadata.json").read_text())
+    described["schema"] = "learncop.axiom_prediction.joined.v2"
+    (joined / "metadata.json").write_text(json.dumps(described))
+
+    assert [row[5] for row in read_joined(joined).outcomes] == [None]
+    assert len(load_axiom_dataset(joined)[0]) == 1
 
 def test_directory_inputs_skip_only_the_copies_of_their_caches(tmp_path):
     cache = tmp_path / ".cache/problems/cache.csv"

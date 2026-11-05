@@ -21,7 +21,8 @@ from .logs import progress as track_progress
 from .parallel import determine_worker_count
 from .problems_file import problem_name, problem_schema
 
-joined_schema = "learncop.axiom_prediction.joined.v2"
+joined_schema = "learncop.axiom_prediction.joined.v3"
+readable_schemas = {"learncop.axiom_prediction.joined.v2", joined_schema}
 
 table_widths = {
     "nodes.symbol": 2,
@@ -130,7 +131,7 @@ def compact_row(name, row, record_bytes, source):
 def outcome_row(name, row, source):
     outcome = str(row.get("outcome", "proved" if "graph" in row else "failed"))
     parseable = row.get("parseable", not outcome.startswith("TPTPParseError:"))
-    return name, source, outcome, bool(parseable), bool(row.get("error", False))
+    return name, source, outcome, bool(parseable), bool(row.get("error", False)), row.get("seconds")
 
 def read_input(path):
     known_schemas = {problem_schema, axiom_example_schema, axiom_dataset_schema, axiom_dataset_shard_schema}
@@ -166,7 +167,7 @@ def read_input(path):
 
 def read_metadata(directory):
     metadata = read_object(directory / "metadata.json")
-    if metadata.get("schema") != joined_schema:
+    if metadata.get("schema") not in readable_schemas:
         raise ValueError(f"unsupported joined dataset {directory} (schema {metadata.get('schema')!r})")
 
     return metadata
@@ -209,9 +210,10 @@ def read_joined(directory):
     for index, core, found_by in zip(arrays["example_graphs"].tolist(), positions, finders, strict = True):
         graphs[index].cores[tuple(core.tolist())] = {sources[source] for source in found_by.tolist()}
 
+    # Rows from v2 datasets have no seconds.
     outcomes = {
-        (name, sources[source], outcome, parseable, error)
-        for name, source, outcome, parseable, error in json.loads(arrays["outcomes"].tobytes())
+        (name, sources[source], outcome, parseable, error, seconds[0] if seconds else None)
+        for name, source, outcome, parseable, error, *seconds in json.loads(arrays["outcomes"].tobytes())
     }
 
     return JoinInput(metadata["inputs"], graphs, outcomes)
@@ -256,9 +258,12 @@ def add_table(arrays, name, rows):
 def json_array(value):
     return np.frombuffer(json.dumps(value, sort_keys = True).encode(), dtype = np.uint8)
 
+def outcome_order(row):
+    return row[:5], row[5] is None, row[5] or 0
+
 def failure_outcomes(outcomes):
     failures = {}
-    for name, _, outcome, _, _ in sorted(outcomes):
+    for name, _, outcome, *_ in sorted(outcomes, key = outcome_order):
         if outcome != "proved":
             failures.setdefault(name, outcome)
 
@@ -274,8 +279,8 @@ def stored_arrays(graphs, outcomes, sources):
     ]
 
     outcome_rows = [
-        [name, positions[source], outcome, parseable, error]
-        for name, source, outcome, parseable, error in sorted(outcomes)
+        [name, positions[source], outcome, parseable, error, seconds]
+        for name, source, outcome, parseable, error, seconds in sorted(outcomes, key = outcome_order)
     ]
 
     arrays = {

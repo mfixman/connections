@@ -87,6 +87,10 @@ as soon as the problem finishes. Resuming skips every problem already in the
 file, and a run is finished once its row count matches the number of problems
 its arguments select. Rows store the file name (`SYN012-3.p`) rather than a
 path, so validation runs need `--tptp` or `$TPTP` to find the problems again.
+`seconds` records the wall-clock time each problem took, including timed-out
+ones. `--problems-from FILE` collects the problems listed in a file, one per
+line, for example only those that earlier seeds proved. Every policy skips
+problems whose TPTP status is `Satisfiable` or `CounterSatisfiable`.
 
 Collection refuses directories holding older results (`.cache`, `cache.csv`,
 `metadata.json`, `examples` or an old `problems.csv` header); use a new
@@ -120,7 +124,7 @@ not mirrored pairs. `--max-example-mb` compares the size of each graph's source 
 `sources` list of `[prover, backend, seed]` giving the meaning of each source index:
 
 * `core_sources`: the sources that found each example's core.
-* `outcomes`: JSON rows of `[problem, source, outcome, parseable, error]`, one
+* `outcomes`: JSON rows of `[problem, source, outcome, parseable, error, seconds]`, one
   for each result of each source, proved or not.
 * `clause_texts`: the clause text of each graph. A graph that two provers share
   keeps one prover's text.

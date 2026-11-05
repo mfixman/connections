@@ -164,6 +164,13 @@ def build_parser() -> argparse.ArgumentParser:
 
     collect.add_argument("problems", metavar = "PROBLEM", nargs = "*")
     collect.add_argument(
+        "--problems-from",
+        type = Path,
+        metavar = "FILE",
+        help = "also collect the problems listed in FILE, one per line; --split and --parts still apply",
+    )
+
+    collect.add_argument(
         "--data-dir",
         type = Path,
         help = "write under DATA_DIR/dataset unless --dataset is supplied",
@@ -451,6 +458,9 @@ def execute_command(args: argparse.Namespace) -> int:
             dataset = selected_dataset(args)
             if dataset is None:
                 raise ValueError("collect needs --dataset or --data-dir")
+
+            if args.problems_from is not None:
+                args.problems = [*args.problems, *listed_problems(args.problems_from)]
 
             summary = collect_axiom_dataset(
                 selected_problems(args),
@@ -799,6 +809,13 @@ def run_model(args: argparse.Namespace) -> Path | None:
 def selected_split(args: argparse.Namespace) -> ProblemSplit:
     parts = list(range(args.split)) if args.parts is None else list(args.parts)
     return ProblemSplit(args.split, parts, scheme = args.split_scheme)
+
+def listed_problems(path: Path) -> list[str]:
+    problems = list(filter(None, map(str.strip, path.read_text().splitlines())))
+    if not problems:
+        raise ValueError(f"no problems listed in {path}")
+
+    return problems
 
 def selected_problems(args: argparse.Namespace) -> list[str]:
     from .tptp import expand_problem_inputs, tptp_problems

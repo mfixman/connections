@@ -18,10 +18,10 @@ from typing import Any
 from axiom_prediction.io import read_csv, write_csv
 from .problems_file import (
     append_row,
-    check_header,
     example_from_row,
     example_row,
     failure_row,
+    header_fields,
     problem_fields,
     problem_name,
     problem_schema,
@@ -126,11 +126,10 @@ def open_problems_file(output, collection):
     path = output / "problems.csv"
     if not path.exists():
         write_csv(path, [], problem_fields)
-        return path, {}
+        return path, problem_fields, {}
 
     repair_tail(path)
-    check_header(path)
-    return path, finished_problems(path, collection)
+    return path, header_fields(path), finished_problems(path, collection)
 
 def require_unique_names(problems):
     counts = Counter(map(problem_name, problems))
@@ -169,7 +168,7 @@ def collect_axiom_dataset(
         seed = seed,
     )
 
-    path, finished = open_problems_file(output, collection)
+    path, fields, finished = open_problems_file(output, collection)
 
     proved = 0
     failed = 0
@@ -226,7 +225,7 @@ def collect_axiom_dataset(
         native_options = native_options,
         seed = seed,
     ):
-        append_row(path, {**result.payload, "collection": collection})
+        append_row(path, {**result.payload, "collection": collection}, fields)
         if result.proved:
             proved += 1
         else:
@@ -332,7 +331,9 @@ def collect_problem_records_parallel(
         workers = workers,
         timeout = timeout_s,
     ):
-        yield result.get("collected") or interrupted_record(result)
+        record = result.get("collected") or interrupted_record(result)
+        record.payload["seconds"] = round(result.get("problem_seconds", result["seconds"]), 3)
+        yield record
 
 def supervised_collection(function, arguments, *, workers, timeout):
     requests = ((args[0], function, args[1:]) for args in arguments)
@@ -344,7 +345,10 @@ def supervised_collection(function, arguments, *, workers, timeout):
     )
 
 def collection_result(problem, function, arguments):
-    return {"collected": function(problem, *arguments)}
+    # Timed in the worker, so that starting a new worker does not count.
+    started = time.monotonic()
+    collected = function(problem, *arguments)
+    return {"collected": collected, "problem_seconds": time.monotonic() - started}
 
 def interrupted_record(result):
     payload = failure_row(result["problem"], result["outcome"], error = bool(result.get("error", False)))
