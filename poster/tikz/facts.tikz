@@ -1,0 +1,25 @@
+\begin{tikzpicture}[
+	x=1em,
+	y=13pt,
+	font=\large,
+	other/.style={}
+]
+	\foreach \x/\y/\kind/\fact in {
+		0/0/other/{S(b)},
+		12/0/core/{P(a)},
+		0/-4/other/{\forall x\, (T(x) \to S(x))},
+		12/-4/other/{\forall x\, (S(x) \to Q(x))},
+		0/-8/core/{\forall x\, (P(x) \to Q(x))},
+		12/-8/other/{P(c)},
+		0/-12/other/{\forall x\, (R(x) \to T(x))},
+		12/-12/core/{\forall x\, (Q(x) \to R(x))}
+	} {
+		\node[clause,\kind,minimum width=11em] at (\x,\y) {$\fact$};
+	}
+
+	\draw[panel] (-6,2) rectangle (18,-14);
+
+	\draw[flow] (6,-14) -- (6,-19);
+	\node[anchor=west,font=\normalsize] at (8,-17) {Filled: used in the proof};
+	\node[clause] at (6,-22) {\textbf{Claim:} $R(a)$};
+\end{tikzpicture}

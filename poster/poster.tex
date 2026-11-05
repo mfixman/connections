@@ -50,11 +50,17 @@
 
 \title{All Axioms are Equal, but Some are More Equal than Others: \\ \huge Neural guidance from SAT core to predict relevance of first-order axioms }
 
-\author{Martin S.\ Fixman\inst{1} \and Fredrik Rømming \inst{2} \and Sean Holden \inst{3}}
+\newcommand{\person}[1]{\makebox[340pt]{#1}}
+
+\author{\person{Martin S.\ Fixman\inst{1}}\person{Fredrik Rømming\inst{2}}\person{Sean Holden\inst{3}}}
+
+\hypersetup{pdfauthor={Martin S. Fixman, Fredrik Rømming, Sean Holden}}
 
 \newcommand{\crest}[1]{\raisebox{-0.5em}{\includegraphics[height=1.8em]{logos/#1-shield.pdf}}}
 
-\institute[shortinst]{\inst{1} Hughes Hall \crest{hughes-hall} \hspace{1em} \inst{2} Emmanuel College \crest{emmanuel} \hspace{1em} \inst{3} Trinity College \crest{trinity} }
+\newcommand{\college}[3]{\person{\inst{#1} #2\rlap{\hspace{8pt}\crest{#3}}}}
+
+\institute[shortinst]{\college{1}{Hughes Hall}{hughes-hall}\college{2}{Lucy Cavendish}{lucy-cavendish}\college{3}{Trinity College}{trinity}}
 
 \footercontent{
 	% \href{https://www.example.com}{https://www.example.com} \hfill
