@@ -1,0 +1,12 @@
+[submodule "external/Prover9"]
+	path = external/Prover9
+	url = git@github.com:mfixman/Prover9
+	branch = axiom_selection
+[submodule "external/satcop"]
+	path = external/satcop
+	url = git@github.com:mfixman/satcop
+	branch = axiom_selection
+[submodule "external/vampire"]
+	path = external/vampire
+	url = git@github.com:mfixman/vampire
+	branch = axiom_selection
