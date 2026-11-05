@@ -579,7 +579,7 @@ def load_axiom_dataset_shards(
             log(f"no results yet in {shard}")
             continue
 
-        # Old rows hash their clause texts, so they would not deduplicate against new ones.
+        # Old native rows hash a matrix digest that new rows lack, so they would not deduplicate.
         formats.add(header.get("schema") == problem_schema)
         if len(formats) > 1:
             raise ValueError(f"{dataset_path} mixes old and new collect results; combine them with join")

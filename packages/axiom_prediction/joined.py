@@ -1,6 +1,5 @@
-# Joins collect results into one deduplicated file of tight numerical arrays.
+# Joins collect results and joined datasets into one deduplicated file of tight numerical arrays.
 
-from collections import defaultdict
 from dataclasses import dataclass
 import gc
 import hashlib
@@ -42,23 +41,31 @@ table_widths = {
     "edges.complement": 2,
 }
 
-@dataclass(frozen = True, slots = True)
+id_tables = ["axiom_ids", "conjecture_ids"]
+
+@dataclass(slots = True)
 class CompactGraph:
     name: str
     digest: bytes
     tables: dict[str, np.ndarray]
-    core: tuple[int, ...]
+    texts: list[str]
+    cores: dict[tuple[int, ...], set[tuple]]
     record_bytes: int
 
 @dataclass(frozen = True, slots = True)
 class JoinInput:
-    path: str
-    collection: dict
+    inputs: list[dict]
     graphs: list[CompactGraph]
-    failures: dict[str, str]
+    outcomes: set[tuple]
 
 def input_files(path):
     path = Path(path)
+    if path.suffix == ".npz":
+        return [path.parent.resolve()]
+
+    if (path / "data.npz").exists():
+        return [path.resolve()]
+
     if path.is_file():
         found = [path]
     else:
@@ -72,9 +79,16 @@ def input_files(path):
         raise FileNotFoundError(f"no collect results in {path}")
 
     if any(file.suffix != ".csv" for file in found):
-        raise ValueError(f"join reads CSV collect results, not {path}")
+        raise ValueError(f"join reads CSV collect results and joined datasets, not {path}")
 
     return [file.resolve() for file in found]
+
+def source_of(collection):
+    return (
+        collection.get("sat_policy", ""),
+        collection.get("prover_backend") or "",
+        collection.get("seed") or 0,
+    )
 
 def one_way_complements(rows, name):
     # Edges come in mirrored pairs; storing one side halves the largest table.
@@ -86,7 +100,7 @@ def one_way_complements(rows, name):
 
     return rows[rows[:, 0] < rows[:, 1]]
 
-def compact_row(name, row, record_bytes):
+def compact_row(name, row, record_bytes, source):
     graph = row["graph"]
     if row["schema"] == axiom_example_schema:
         if (graph["preprocessor"], graph["version"]) != ("axiom_prediction", "1"):
@@ -110,12 +124,18 @@ def compact_row(name, row, record_bytes):
         digest.update(values.tobytes())
 
     core = tuple(index for index, label in enumerate(row["labels"]) if label)
-    return CompactGraph(name, digest.digest(), tables, core, record_bytes)
+    texts = row.get("axiom_clause_texts", [])
+    return CompactGraph(name, digest.digest(), tables, texts, {core: {source}}, record_bytes)
+
+def outcome_row(name, row, source):
+    outcome = str(row.get("outcome", "proved" if "graph" in row else "failed"))
+    parseable = row.get("parseable", not outcome.startswith("TPTPParseError:"))
+    return name, source, outcome, bool(parseable), bool(row.get("error", False))
 
 def read_input(path):
     known_schemas = {problem_schema, axiom_example_schema, axiom_dataset_schema, axiom_dataset_shard_schema}
 
-    graphs, failures = [], {}
+    graphs, outcomes = [], set()
     collection = None
     for record_bytes, row in sized_csv_rows(path):
         if row.get("schema") not in known_schemas:
@@ -125,40 +145,103 @@ def read_input(path):
         if row.get("record") == "metadata":
             continue
 
+        source = source_of(collection or {})
         name = problem_name(row.get("problem_name") or row.get("problem_path") or row["problem"])
+        outcomes.add(outcome_row(name, row, source))
         if "graph" in row:
-            graphs.append(compact_row(name, row, record_bytes))
-        else:
-            failures[name] = str(row.get("outcome", "failed"))
+            graphs.append(compact_row(name, row, record_bytes, source))
 
-    if not graphs and not failures:
+    if not outcomes:
         raise ValueError(f"{path} has no results")
 
-    return JoinInput(str(path), collection or {}, graphs, failures)
+    proved = sum(row[2] == "proved" for row in outcomes)
+    summary = {
+        "path": str(path),
+        "collection": collection or {},
+        "proved": proved,
+        "failed": len(outcomes) - proved,
+    }
+
+    return JoinInput([summary], graphs, outcomes)
+
+def read_metadata(directory):
+    metadata = read_object(directory / "metadata.json")
+    if metadata.get("schema") != joined_schema:
+        raise ValueError(f"unsupported joined dataset {directory} (schema {metadata.get('schema')!r})")
+
+    return metadata
+
+def kept_rows(arrays, name, keep = None):
+    counts = arrays[f"{name}.counts"]
+    if keep is None:
+        return np.split(arrays[name], np.cumsum(counts)[:-1])
+
+    return np.split(arrays[name][np.repeat(keep, counts)], np.cumsum(counts[keep])[:-1])
+
+def stored_texts(arrays):
+    texts = json.loads(arrays["clause_texts"].tobytes())
+    stops = np.cumsum(arrays["clause_texts.counts"]).tolist()
+    return [texts[start : stop] for start, stop in zip([0, *stops], stops)]
+
+def read_joined(directory):
+    metadata = read_metadata(directory)
+    with np.load(directory / "data.npz") as stored:
+        arrays = {key: stored[key] for key in stored.files}
+
+    log(f"read joined dataset {directory}")
+    tables = {name: kept_rows(arrays, name) for name in (*table_widths, *id_tables)}
+    texts = stored_texts(arrays)
+    graphs = [
+        CompactGraph(
+            name,
+            arrays["graph_digests"][index].tobytes(),
+            {table: rows[index] for table, rows in tables.items()},
+            texts[index],
+            {},
+            size,
+        )
+        for index, (name, size) in enumerate(zip(arrays["problem_names"].tolist(), arrays["record_bytes"].tolist()))
+    ]
+
+    sources = list(map(tuple, metadata["sources"]))
+    positions = kept_rows(arrays, "core_positions")
+    finders = kept_rows(arrays, "core_sources")
+    for index, core, found_by in zip(arrays["example_graphs"].tolist(), positions, finders, strict = True):
+        graphs[index].cores[tuple(core.tolist())] = {sources[source] for source in found_by.tolist()}
+
+    outcomes = {
+        (name, sources[source], outcome, parseable, error)
+        for name, source, outcome, parseable, error in json.loads(arrays["outcomes"].tobytes())
+    }
+
+    return JoinInput(metadata["inputs"], graphs, outcomes)
 
 def read_inputs(files, num_workers):
-    workers = determine_worker_count(len(files), num_workers)
+    yield from map(read_joined, filter(Path.is_dir, files))
+
+    collected = [file for file in files if not file.is_dir()]
+    if not collected:
+        return
+
+    workers = determine_worker_count(len(collected), num_workers)
     context = multiprocessing.get_context("spawn")
     with context.Pool(workers, initializer = gc.disable) as pool:
-        results = pool.imap_unordered(read_input, files)
-        yield from track_progress(results, "reading collect results", len(files))
+        results = pool.imap_unordered(read_input, collected)
+        yield from track_progress(results, "reading collect results", len(collected))
 
-def source_summary(result):
-    return {
-        "path": result.path,
-        "collection": result.collection,
-        "proved": len(result.graphs),
-        "failed": len(result.failures),
-    }
+def merge_graph(graphs, graph):
+    kept = graphs.setdefault((graph.name, graph.digest), graph)
+    kept.record_bytes = min(kept.record_bytes, graph.record_bytes)
+    if graph.texts and (not kept.texts or graph.texts < kept.texts):
+        kept.texts = graph.texts
 
-def sources_overview(sources):
-    collections = [source["collection"] for source in sources]
-    parts = {part for source in sources for part in re.findall(r"part-(\d+)", source["path"])}
-    return {
-        "provers": sorted({collection.get("sat_policy", "") for collection in collections}),
-        "seeds": sorted({collection.get("seed", 0) for collection in collections}),
-        "parts": sorted(map(int, parts)),
-    }
+    for core, sources in graph.cores.items():
+        kept.cores.setdefault(core, set()).update(sources)
+
+def distinct_inputs(summaries):
+    # One file can arrive twice, directly and through a joined dataset; keep its fullest state.
+    ordered = sorted(summaries, key = lambda summary: (summary["path"], summary["proved"] + summary["failed"]))
+    return list({summary["path"]: summary for summary in ordered}.values())
 
 def narrow(array):
     if array.size == 0 or array.min() < 0:
@@ -170,26 +253,50 @@ def add_table(arrays, name, rows):
     arrays[name] = narrow(np.concatenate(rows))
     arrays[f"{name}.counts"] = np.asarray(list(map(len, rows)), dtype = np.int64)
 
-def stored_arrays(graphs, cores, sizes, failures):
+def json_array(value):
+    return np.frombuffer(json.dumps(value, sort_keys = True).encode(), dtype = np.uint8)
+
+def failure_outcomes(outcomes):
+    failures = {}
+    for name, _, outcome, _, _ in sorted(outcomes):
+        if outcome != "proved":
+            failures.setdefault(name, outcome)
+
+    return failures
+
+def stored_arrays(graphs, outcomes, sources):
     keys = sorted(graphs)
+    positions = {source: index for index, source in enumerate(sources)}
     examples = [
-        (index, core)
+        (index, core, graphs[key].cores[core])
         for index, key in enumerate(keys)
-        for core in sorted(cores[key])
+        for core in sorted(graphs[key].cores)
+    ]
+
+    outcome_rows = [
+        [name, positions[source], outcome, parseable, error]
+        for name, source, outcome, parseable, error in sorted(outcomes)
     ]
 
     arrays = {
         "problem_names": np.asarray([name for name, _ in keys]),
-        "record_bytes": np.asarray([sizes[key] for key in keys], dtype = np.int64),
-        "example_graphs": np.asarray([index for index, _ in examples], dtype = np.int64),
-        "failures": np.frombuffer(json.dumps(failures, sort_keys = True).encode(), dtype = np.uint8),
+        "graph_digests": np.frombuffer(b"".join(digest for _, digest in keys), dtype = np.uint8).reshape(-1, 16),
+        "record_bytes": np.asarray([graphs[key].record_bytes for key in keys], dtype = np.int64),
+        "example_graphs": np.asarray([example[0] for example in examples], dtype = np.int64),
+
+        "failures": json_array(failure_outcomes(outcomes)),
+        "outcomes": json_array(outcome_rows),
+        "clause_texts": json_array([text for key in keys for text in graphs[key].texts]),
+        "clause_texts.counts": np.asarray([len(graphs[key].texts) for key in keys], dtype = np.int64),
     }
 
     # Popping each table lets its per-graph arrays go once they are concatenated.
-    for table in (*table_widths, "axiom_ids", "conjecture_ids"):
+    for table in (*table_widths, *id_tables):
         add_table(arrays, table, [graphs[key].tables.pop(table) for key in keys])
 
-    add_table(arrays, "core_positions", [np.asarray(core, dtype = np.int32) for _, core in examples])
+    finders = [sorted(positions[source] for source in example[2]) for example in examples]
+    add_table(arrays, "core_positions", [np.asarray(example[1], dtype = np.int32) for example in examples])
+    add_table(arrays, "core_sources", [np.asarray(found, dtype = np.int32) for found in finders])
     return arrays
 
 def write_arrays(path, arrays):
@@ -202,6 +309,21 @@ def write_arrays(path, arrays):
     finally:
         tmp.unlink(missing_ok = True)
 
+def joined_description(summaries, sources, counts):
+    collections = {summary["path"]: summary["collection"] for summary in summaries}
+    parts = {part for path in collections for part in re.findall(r"part-(\d+)", path)}
+    return {
+        "schema": joined_schema,
+        "collection": merged_collection(collections),
+        "provers": sorted({source[0] for source in sources}),
+        "seeds": sorted({source[2] for source in sources}),
+        "parts": sorted(map(int, parts)),
+        "sources": sources,
+        **counts,
+        "inputs": summaries,
+    }
+
+@paused_gc()
 def join_datasets(inputs, output_dir, num_workers = None):
     output = Path(output_dir)
     data, description = output / "data.npz", output / "metadata.json"
@@ -209,46 +331,31 @@ def join_datasets(inputs, output_dir, num_workers = None):
         raise FileExistsError(f"refusing to replace the joined dataset in {output}")
 
     files = list(dict.fromkeys(file for path in inputs for file in input_files(path)))
-    graphs, sizes, cores = {}, {}, defaultdict(set)
-    failures, sources = {}, []
+    graphs, outcomes, summaries = {}, set(), []
     for result in read_inputs(files, num_workers):
-        sources.append(source_summary(result))
+        summaries += result.inputs
+        outcomes |= result.outcomes
         for graph in result.graphs:
-            key = (graph.name, graph.digest)
-            graphs.setdefault(key, graph)
-            sizes[key] = min(sizes.get(key, graph.record_bytes), graph.record_bytes)
-            cores[key].add(graph.core)
-
-        for name, outcome in result.failures.items():
-            failures[name] = min(outcome, failures.get(name, outcome))
+            merge_graph(graphs, graph)
 
     if not graphs:
         raise RuntimeError(f"no proved problems in the {len(files)} inputs")
 
+    summaries = distinct_inputs(summaries)
+    sources = sorted({row[1] for row in outcomes})
     proved = {name for name, _ in graphs}
-    sources.sort(key = lambda source: source["path"])
+    counts = {
+        "problems": len(proved),
+        "graphs": len(graphs),
+        "examples": sum(len(graph.cores) for graph in graphs.values()),
+        "failures": len(failure_outcomes(outcomes).keys() - proved),
+    }
 
-    examples = sum(map(len, cores.values()))
-    unproved = sum(name not in proved for name in failures)
-    counts = {"problems": len(proved), "graphs": len(graphs), "examples": examples, "failures": unproved}
-    log(f"joined {len(files)} inputs: {counts}; writing {data}")
-
+    log(f"joined {len(summaries)} inputs: {counts}; writing {data}")
     output.mkdir(parents = True, exist_ok = True)
-    write_arrays(data, stored_arrays(graphs, cores, sizes, failures))
-    write_json_atomic(description, {
-        "schema": joined_schema,
-        "collection": merged_collection({source["path"]: source["collection"] for source in sources}),
-        **sources_overview(sources),
-        **counts,
-        "inputs": sources,
-    })
-
-    return {"inputs": len(files), **counts, "data_bytes": data.stat().st_size, "dataset": str(output)}
-
-def kept_rows(arrays, name, keep):
-    counts = arrays[f"{name}.counts"]
-    rows = arrays[name] if keep.all() else arrays[name][np.repeat(keep, counts)]
-    return np.split(rows, np.cumsum(counts[keep])[:-1])
+    write_arrays(data, stored_arrays(graphs, outcomes, sources))
+    write_json_atomic(description, joined_description(summaries, sources, counts))
+    return {"inputs": len(summaries), **counts, "data_bytes": data.stat().st_size, "dataset": str(output)}
 
 def stored_graphs(arrays, keep):
     tables = {name: kept_rows(arrays, name, keep) for name in table_widths}
@@ -270,8 +377,8 @@ def stored_graphs(arrays, keep):
 
 def stored_examples(arrays, graphs):
     names = arrays["problem_names"].tolist()
-    every = np.ones(len(arrays["example_graphs"]), dtype = bool)
-    cores = kept_rows(arrays, "core_positions", every)
+    texts = stored_texts(arrays)
+    cores = kept_rows(arrays, "core_positions")
     for index, core in zip(arrays["example_graphs"].tolist(), cores, strict = True):
         graph = graphs.get(index)
         if graph is None:
@@ -286,16 +393,16 @@ def stored_examples(arrays, graphs):
             matrix = None,
             graph = graph,
             labels = labels,
+            axiom_clause_texts = texts[index],
         )
 
 @paused_gc()
 def load_joined(directory, max_bytes = None):
-    metadata = read_object(directory / "metadata.json")
-    if metadata.get("schema") != joined_schema:
-        raise ValueError(f"unsupported joined dataset {directory} (schema {metadata.get('schema')!r})")
+    provenance = {"outcomes", "core_sources", "core_sources.counts", "graph_digests"}
 
+    metadata = read_metadata(directory)
     with np.load(directory / "data.npz") as stored:
-        arrays = {key: stored[key] for key in stored.files}
+        arrays = {key: stored[key] for key in stored.files if key not in provenance}
 
     sizes = arrays["record_bytes"]
     keep = np.ones(len(sizes), dtype = bool) if max_bytes is None else sizes <= max_bytes
@@ -315,5 +422,5 @@ def load_joined(directory, max_bytes = None):
     return examples, failures, {
         "schema": axiom_dataset_schema,
         "collection": metadata["collection"],
-        "shards": [source["path"] for source in metadata["inputs"]],
+        "shards": [summary["path"] for summary in metadata["inputs"]],
     }

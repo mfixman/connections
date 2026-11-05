@@ -96,7 +96,8 @@ separate directories.
 
 ### Joining results for faster loading
 
-`join` combines collect results, old or new, into one binary dataset:
+`join` combines collect results, old or new, and earlier joined datasets into
+one binary dataset:
 
 ```bash
 python axiom_predictor.py join results/SatCoP/seed-*/part-* results/SatResetCoP/seed-*/part-* \
@@ -106,13 +107,23 @@ python axiom_predictor.py train --dataset datasets/Joined --data-dir runs/Joined
   --split 10 --parts 0 1 2 3 4 5 6 7
 ```
 
-Each input may be a CSV file or a directory holding one, and inputs may come
-from different provers. `DATASET/data.npz` stores each distinct graph of a
+Each input may be a CSV file, a directory holding one, or a joined dataset, and
+inputs may come from different provers. To add results later, join the earlier
+dataset with the new ones. `DATASET/data.npz` stores each distinct graph of a
 problem once, even if two provers produced it, and one example per distinct SAT
 core; a failure counts only if no input proved that problem. Compressed
 integer arrays make it small and quick to read, which suits slow disks. Complement edges
 are stored in one direction and mirrored on loading; `join` fails if they are
 not mirrored pairs. `--max-example-mb` compares the size of each graph's source CSV row.
+
+`data.npz` also keeps what training does not read, with `metadata.json`'s
+`sources` list of `[prover, backend, seed]` giving the meaning of each source index:
+
+* `core_sources`: the sources that found each example's core.
+* `outcomes`: JSON rows of `[problem, source, outcome, parseable, error]`, one
+  for each result of each source, proved or not.
+* `clause_texts`: the clause text of each graph. A graph that two provers share
+  keeps one prover's text.
 
 `DATASET/metadata.json` lists the provers, seeds and parts of the inputs, with
 each input's path, collection settings and result counts. Parts come from

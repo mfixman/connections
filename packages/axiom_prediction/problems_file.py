@@ -13,7 +13,7 @@ from .graph import AxiomGraph
 problem_schema = "learncop.axiom_prediction.problem.v3"
 problem_fields = (
     "schema problem_name collection outcome parseable error "
-    "graph axiom_clause_ids conjecture_clause_ids labels"
+    "graph axiom_clause_ids conjecture_clause_ids labels axiom_clause_texts"
 ).split()
 
 def problem_name(problem):
@@ -38,6 +38,7 @@ def example_row(problem, example):
         "axiom_clause_ids": graph.axiom_clause_ids,
         "conjecture_clause_ids": graph.conjecture_clause_ids,
         "labels": example.labels,
+        "axiom_clause_texts": example.axiom_clause_texts,
     }
 
 def example_from_row(row):
@@ -52,6 +53,7 @@ def example_from_row(row):
         matrix = None,
         graph = AxiomGraph(graph, axioms, row["conjecture_clause_ids"]),
         labels = labels,
+        axiom_clause_texts = row.get("axiom_clause_texts", []),
     )
 
 def append_row(path, row):

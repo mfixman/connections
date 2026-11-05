@@ -7,7 +7,7 @@ from axiom_prediction.cli import main
 from axiom_prediction.dataset import axiom_dataset_schema, axiom_dataset_shard_schema, dataset_fields, load_axiom_dataset
 from axiom_prediction.data import axiom_training_example_to_json
 from axiom_prediction.io import write_csv
-from axiom_prediction.joined import input_files, join_datasets, one_way_complements
+from axiom_prediction.joined import input_files, join_datasets, one_way_complements, read_joined
 from axiom_prediction.tptp import collect_proof_example
 
 @pytest.fixture
@@ -39,6 +39,7 @@ def contents(examples):
         (
             example.problem_path,
             example.labels,
+            example.axiom_clause_texts,
             table_rows(example.graph.graph.nodes),
             table_rows(example.graph.graph.edges),
         )
@@ -127,6 +128,48 @@ def test_join_refuses_stubs_and_existing_output(tmp_path, choices):
     join_datasets([collected(tmp_path, choices, 0)], joined, 1)
     with pytest.raises(FileExistsError):
         join_datasets([tmp_path / "seed-0"], joined, 1)
+
+def test_join_keeps_who_found_each_core_and_every_outcome(tmp_path, choices):
+    first = collected(tmp_path, choices, 0)
+    second = collected(tmp_path, choices, 1)
+    failed = tmp_path / "failed.csv"
+    header = {"schema": axiom_dataset_shard_schema, "record": "metadata", "collection": {"sat_policy": "satcop", "seed": 7}}
+    timeout = {"schema": axiom_dataset_schema, "problem": str(choices), "outcome": "Timeout"}
+    write_csv(failed, [header, timeout], dataset_fields)
+
+    joined = tmp_path / "joined"
+    join_datasets([first, second, failed], joined, 1)
+    result = read_joined(joined)
+    assert len(result.graphs) == 1
+
+    zero, one = ("satresetcop", "", 0), ("satresetcop", "", 1)
+    assert set().union(*result.graphs[0].cores.values()) == {zero, one}
+    assert result.outcomes == {
+        ("choices.p", zero, "proved", True, False),
+        ("choices.p", one, "proved", True, False),
+        ("choices.p", ("satcop", "", 7), "Timeout", True, False),
+    }
+
+    described = json.loads((joined / "metadata.json").read_text())
+    assert described["sources"] == [["satcop", "", 7], ["satresetcop", "", 0], ["satresetcop", "", 1]]
+    assert load_axiom_dataset(joined)[1] == []
+
+def test_joining_a_joined_dataset_matches_joining_its_inputs(tmp_path, choices):
+    inputs = [collected(tmp_path, choices, seed) for seed in (0, 1, 2)]
+    join_datasets(inputs[:2], tmp_path / "first", 1)
+    join_datasets([tmp_path / "first", inputs[2]], tmp_path / "second", 1)
+    join_datasets(inputs, tmp_path / "direct", 1)
+
+    with np.load(tmp_path / "second/data.npz") as second, np.load(tmp_path / "direct/data.npz") as direct:
+        assert sorted(second.files) == sorted(direct.files)
+        for key in direct.files:
+            assert np.array_equal(second[key], direct[key]), key
+            assert second[key].dtype == direct[key].dtype, key
+
+    assert (tmp_path / "second/metadata.json").read_text() == (tmp_path / "direct/metadata.json").read_text()
+
+    join_datasets([tmp_path / "second", tmp_path / "direct/data.npz"], tmp_path / "both", 1)
+    assert contents(load_axiom_dataset(tmp_path / "both")[0]) == contents(load_axiom_dataset(tmp_path / "direct")[0])
 
 def test_directory_inputs_skip_only_the_copies_of_their_caches(tmp_path):
     cache = tmp_path / ".cache/problems/cache.csv"

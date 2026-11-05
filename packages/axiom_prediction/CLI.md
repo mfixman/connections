@@ -45,7 +45,7 @@ changing overrides cannot bypass resume compatibility checks.
 | Command | Purpose |
 | --- | --- |
 | `collect [PROBLEM ...]` | Collect resumable SAT-core labels in --dataset PATH or DATA_DIR/dataset. |
-| `join INPUT ... --dataset PATH` | Join collect results into one deduplicated binary dataset. |
+| `join INPUT ... --dataset PATH` | Join collect results and joined datasets into one deduplicated binary dataset. |
 | `train [PROBLEM ...]` | Train on saved labels; explicit problem inputs collect fresh labels first. |
 | `evaluate [CHECKPOINT] [PROBLEM ...]` | Evaluate saved labels, or collect fresh labels for explicit problems. With --model or --data-dir, every positional input is a problem; otherwise the first is the checkpoint. |
 | `predict [CHECKPOINT] [PROBLEM ...]` | Print axiom rankings and probabilities as CSV. |

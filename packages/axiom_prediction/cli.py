@@ -204,7 +204,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     join = subparsers.add_parser(
         "join",
-        help = "join collect results into one deduplicated binary dataset",
+        help = "join collect results and joined datasets into one deduplicated binary dataset",
     )
 
     join.add_argument(
@@ -212,7 +212,7 @@ def build_parser() -> argparse.ArgumentParser:
         metavar = "INPUT",
         nargs = "+",
         type = Path,
-        help = "CSV collect results, or directories holding them",
+        help = "CSV collect results, directories holding them, or joined datasets",
     )
 
     join.add_argument(
