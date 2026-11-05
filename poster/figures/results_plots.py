@@ -24,7 +24,7 @@ charts = {
     'vampire': ('Vampire', 59, {'Ordinary': 38, torok: 38, kusrow: 36}),
 }
 
-notes = {'vampire': 'Still some way to go!'}
+notes = {'vampire': '*Still some way to go!'}
 
 def set_style():
     for path in fonts.glob('Lato-*.ttf'):
