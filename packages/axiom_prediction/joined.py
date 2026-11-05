@@ -226,11 +226,11 @@ def join_datasets(inputs, output_dir, num_workers = None):
         raise RuntimeError(f"no proved problems in the {len(files)} inputs")
 
     proved = {name for name, _ in graphs}
-    failures = {name: outcome for name, outcome in failures.items() if name not in proved}
     sources.sort(key = lambda source: source["path"])
 
     examples = sum(map(len, cores.values()))
-    counts = {"problems": len(proved), "graphs": len(graphs), "examples": examples, "failures": len(failures)}
+    unproved = sum(name not in proved for name in failures)
+    counts = {"problems": len(proved), "graphs": len(graphs), "examples": examples, "failures": unproved}
     log(f"joined {len(files)} inputs: {counts}; writing {data}")
 
     output.mkdir(parents = True, exist_ok = True)
@@ -303,9 +303,13 @@ def load_joined(directory, max_bytes = None):
         raise RuntimeError(f"axiom dataset contains no training examples: {directory}")
 
     examples = list(stored_examples(arrays, stored_graphs(arrays, keep)))
+
+    # A problem whose graphs are all too large counts as unproved, as in the CSV loader.
+    proved = set(arrays["problem_names"][keep].tolist())
     failures = [
         {"problem": problem, "outcome": outcome}
         for problem, outcome in json.loads(arrays["failures"].tobytes()).items()
+        if problem not in proved
     ]
 
     return examples, failures, {

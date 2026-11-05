@@ -109,7 +109,7 @@ python axiom_predictor.py train --dataset datasets/Joined --data-dir runs/Joined
 Each input may be a CSV file or a directory holding one, and inputs may come
 from different provers. `DATASET/data.npz` stores each distinct graph of a
 problem once, even if two provers produced it, and one example per distinct SAT
-core; a failure is kept only if no input proved that problem. Compressed
+core; a failure counts only if no input proved that problem. Compressed
 integer arrays make it small and quick to read, which suits slow disks. Complement edges
 are stored in one direction and mirrored on loading; `join` fails if they are
 not mirrored pairs. `--max-example-mb` compares the size of each graph's source CSV row.
