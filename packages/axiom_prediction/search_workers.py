@@ -7,7 +7,6 @@ import os
 import time
 
 from .logs import progress_interval_s, log
-from .memory_guard import start_memory_guard
 
 @dataclass
 class SearchWorker:
@@ -87,7 +86,6 @@ def supervised_results(function, arguments, *, workers, timeout):
     last_report = time.monotonic()
     cpus = sorted(os.sched_getaffinity(0)) if hasattr(os, "sched_getaffinity") else [None]
     log(f"starting proof search with up to {workers} workers; timeout {timeout:g}s per problem")
-    guard = start_memory_guard()
     try:
         for slot in range(workers):
             args = next(pending, None)
@@ -143,6 +141,5 @@ def supervised_results(function, arguments, *, workers, timeout):
 
                 yield result
     finally:
-        guard.set()
         for worker in active:
             stop_worker(worker)
