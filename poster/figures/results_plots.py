@@ -8,8 +8,8 @@ here = Path(__file__).parent
 fonts = Path('/usr/share/texmf-dist/fonts/truetype/typoland/lato')
 cam_blue = '#003E72'
 deep = seaborn.color_palette('deep')
-torok = 'Torok\n(1 seed)'
-kusrow = 'Kusrow\n(5 seeds)'
+torok = '1 seed'
+kusrow = '5 seeds'
 
 colours = {
     'No guidance': deep[0],

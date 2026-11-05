@@ -5,24 +5,23 @@
 	failed/.style={dashed},
 	other/.style={},
 	level distance=88pt,
-	sibling distance=18em,
-	level 2/.style={sibling distance=12em},
-	level 4/.style={sibling distance=12em},
+	sibling distance=20em,
+	level 3/.style={sibling distance=10em},
 	edge from parent/.style={draw,thick}
 ]
-	\node[clause,core] {$P(a) \lor Q(b)$}
-		child {node[clause,core] {$\neg P(a) \lor \neg R(a)$}
-			child {node[clause,core] {$\neg P(a) \lor Q(a) \lor R(a)$}
-				child {node[clause,core] {$\neg S(a) \lor \neg Q(a)$}
-					child {node[clause,core] {$\neg Q(a) \lor S(a)$}}
-					child[failed] {node[clause] {$\neg R(a) \lor S(a)$}}
+	\node[clause,core] {$\neg P(a) \lor \neg R(a)$}
+		child {node[clause,core] {$P(a) \lor Q(b)$}
+			child {node[clause,core] {$\neg S(b) \lor \neg Q(b)$}
+				child {node[clause,core] {$\neg Q(b) \lor S(b)$}}
+				child[failed] {node[clause] {$\neg R(b) \lor S(b)$}
+					child {node[clause] {$\neg P(b) \lor Q(b) \lor R(b)$}}
 				}
 			}
 		}
-		child {node[clause,core] {$\neg S(b) \lor \neg Q(b)$}
-			child {node[clause,core] {$\neg Q(b) \lor S(b)$}}
-			child[failed] {node[clause] {$\neg R(b) \lor S(b)$}
-				child {node[clause] {$\neg P(b) \lor Q(b) \lor R(b)$}}
+		child {node[clause,core] {$\neg P(a) \lor Q(a) \lor R(a)$}
+			child {node[clause,core] {$\neg S(a) \lor \neg Q(a)$}
+				child {node[clause,core] {$\neg Q(a) \lor S(a)$}}
+				child[failed] {node[clause] {$\neg R(a) \lor S(a)$}}
 			}
 		};
 
