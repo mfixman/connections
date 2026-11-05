@@ -1,8 +1,12 @@
 \begin{tikzpicture}[
-	x=1em,
-	y=13pt,
+	x=30pt,
+	y=15pt,
 	font=\large,
-	other/.style={}
+	other/.style={},
+	failed/.style={dashed},
+	level distance=64pt,
+	sibling distance=300pt,
+	edge from parent/.style={draw,thick}
 ]
 	\foreach \x/\y/\kind/\fact in {
 		0/0/other/{S(b)},
@@ -14,12 +18,22 @@
 		0/-12/other/{\forall x\, (R(x) \to T(x))},
 		12/-12/core/{\forall x\, (Q(x) \to R(x))}
 	} {
-		\node[clause,\kind,minimum width=11em] at (\x,\y) {$\fact$};
+		\node[clause,\kind,minimum width=330pt] at (\x,\y) {$\fact$};
 	}
 
 	\draw[panel] (-6,2) rectangle (18,-14);
 
 	\draw[flow] (6,-14) -- (6,-19);
-	\node[anchor=west,font=\normalsize] at (8,-17) {Filled: used in the proof};
-	\node[clause] at (6,-22) {\textbf{Claim:} $R(a)$};
+
+	\node[clause,core] at (6,-21) {$\vdash R(a)$}
+		child {node[clause,core] {$Q(a)$}
+			child {node[clause,core] {$P(a)$}}
+			child[failed] {node[clause] {$S(a)$}
+				child {node[clause] {$T(a)$}
+					child {node[clause] {$R(a)$}}
+				}
+			}
+		};
+
+	\node[anchor=west,font=\normalsize,align=left] at (-6,-38) {Filled: used in the proof \\ Dashed: dead end};
 \end{tikzpicture}

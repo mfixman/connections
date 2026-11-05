@@ -1,39 +1,26 @@
 \begin{minipage}[t][1266pt][t]{\textwidth}
-	\begin{block}{Computers Can Prove Theorems}
-		\large
-		Give a \emph{theorem prover} some known facts, called \emph{axioms}, and a claim.
-		It searches for a step-by-step proof.
-
-		In 1996, one settled a maths problem that had beaten mathematicians for 60 years \cite{mccune1997robbins}.
+	\begin{block}{Every Axiom Makes the Search Harder}
+		\Large
+		Mizar offers over 50,000 lemmas as axioms \cite{irving2016deepmath}: more than $2^{50000}$ possible subsets.
 	\end{block}
 
 	\vfill
 
 	\begin{block}{Only a Few Axioms Matter}
-		\large
+		\Large
 		{\diagram{1}{facts}\par}
 
 		\vspace{16pt}
 
-		Read $P(a)$ as ``$a$ is a $P$'', and $\forall x\, (P(x) \to Q(x))$ as ``every $P$ is a $Q$''.
-		A prover only learns which axioms mattered after finding the proof.
-		Until then, it wastes time on dead ends, like trying to show $S(a)$.
-	\end{block}
-
-	\vfill
-
-	\begin{block}{Every Axiom Makes the Search Harder}
-		\large
-		300 axioms can be combined in more ways than there are atoms in the universe.
-		One maths library holds over 50,000 \cite{irving2016deepmath}.
+		A prover only learns which after finding the proof.
 	\end{block}
 
 	\vfill
 
 	\begin{exampleblock}{Our Goal}
-		\large
+		\Large
 		\vspace{14pt}
 
-		Predict which axioms matter before the search begins, so the prover looks there first.
+		{\centering Predict which axioms matter \\ before the search begins.\par}
 	\end{exampleblock}
 \end{minipage}
