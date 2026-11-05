@@ -3,11 +3,10 @@
 		\Large
 		\vspace{14pt}
 
-		Picking axioms, or premise selection, usually relies on symbol heuristics like SInE~\cite{hoder2011sine}, or learns from formal libraries~\cite{wang2017premise}.
-		We learn from the prover's own proofs, like NeuroCore~\cite{guidinghighperformance} for SAT.
-		Unlike neural clause selection~\cite{chvalovsky2026vampire}, we only score the input axioms.
+		Premise selection usually relies on symbol heuristics like SInE~\cite{hoder2011sine}, or learns from formal libraries~\cite{wang2017premise}.
+		We learn from the prover's own proofs, like NeuroCore~\cite{guidinghighperformance}, and score input axioms rather than every clause~\cite{chvalovsky2026vampire}.
 
-		An axiom outside the SAT core was only unused in this proof, so we run the search on multiple seeds to find the widest variety of SAT cores.
+		An axiom outside the SAT core was only unused in this proof, so we collect cores from multiple seeds.
 
 		{\diagram{0.9}{cores}\par}
 	\end{exampleblock}
@@ -17,6 +16,6 @@
 	\begin{block}{References}
 		\renewcommand{\bibsection}{}
 		\vspace{-8pt}
-		\footnotesize{\bibliographystyle{abbrv}\bibliography{bibliography}}
+		{\fontsize{22pt}{26pt}\selectfont\bibliographystyle{abbrv}\bibliography{bibliography}}
 	\end{block}
 \end{minipage}

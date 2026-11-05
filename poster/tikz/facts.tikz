@@ -35,5 +35,4 @@
 			}
 		};
 
-	\node[anchor=west,font=\normalsize,align=left] at (-6,-38) {Filled: used in the proof \\ Dashed: dead end};
 \end{tikzpicture}

@@ -47,7 +47,7 @@
 
 \newcommand{\elbowarrow}[2]{{\centering\tikz{\path (-800pt,0pt) -- (800pt,0pt); \draw[flow,rounded corners=8pt] (#1pt,0pt) |- (#2pt,-20pt) -- (#2pt,-54pt);}\par}}
 
-\newcommand{\sidearrow}{\tikz\draw[flow] (0pt,0pt) -- (40pt,0pt);}
+\newcommand{\sidearrow}{\tikz\draw[flow] (0pt,0pt) -- (96pt,0pt);}
 
 \newcommand{\diagram}[2]{\centering\vspace{16pt}\resizebox{#1\textwidth}{!}{\input{tikz/#2.tikz}}}
 
@@ -107,10 +107,10 @@
 			\diagram{0.95}{tree}
 		\end{block}
 
-		\elbowarrow{524}{-425}
+		\elbowarrow{524}{-442}
 
 		\begin{columns}[T,totalwidth=\textwidth]
-			\begin{column}{0.5\textwidth}
+			\begin{column}{0.48\textwidth}
 				\begin{block}{Train an NN}
 					{\diagram{0.95}{network}\par}
 
@@ -119,12 +119,12 @@
 				\end{block}
 			\end{column}
 
-			\begin{column}{0.04\textwidth}
-				\vspace{188pt}
+			\begin{column}{0.07\textwidth}
+				\vspace{174pt}
 				\sidearrow
 			\end{column}
 
-			\begin{column}{0.46\textwidth}
+			\begin{column}{0.45\textwidth}
 				\begin{block}{Score Each Axiom}
 					\centering
 					\vspace{16pt}
@@ -133,7 +133,7 @@
 			\end{column}
 		\end{columns}
 
-		\elbowarrow{460}{0}
+		\elbowarrow{468}{0}
 
 	\end{column}
 
