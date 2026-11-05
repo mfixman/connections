@@ -15,6 +15,9 @@
 \usetheme{gemini}
 \usecolortheme{cam}
 
+\hyphenpenalty=10000
+\exhyphenpenalty=10000
+
 \pgfplotsset{compat=1.14}
 \usetikzlibrary{arrows.meta,positioning,fit,backgrounds}
 
@@ -42,6 +45,8 @@
 
 \newcommand{\flowarrow}{{\centering\tikz\draw[flow] (0pt,0pt) -- (0pt,-54pt);\par}}
 
+\newcommand{\elbowarrow}[2]{{\centering\tikz{\path (-800pt,0pt) -- (800pt,0pt); \draw[flow,rounded corners=8pt] (#1pt,0pt) |- (#2pt,-20pt) -- (#2pt,-54pt);}\par}}
+
 \newcommand{\sidearrow}{\tikz\draw[flow] (0pt,0pt) -- (40pt,0pt);}
 
 \newcommand{\diagram}[2]{\centering\vspace{16pt}\resizebox{#1\textwidth}{!}{\input{tikz/#2.tikz}}}
@@ -58,7 +63,7 @@
 
 \newcommand{\crest}[1]{\raisebox{-0.5em}{\includegraphics[height=1.8em]{logos/#1-shield.pdf}}}
 
-\newcommand{\college}[3]{\person{\inst{#1} #2\rlap{\hspace{8pt}\crest{#3}}}}
+\newcommand{\college}[3]{\person{\inst{#1} #2 \crest{#3}}}
 
 \institute[shortinst]{\college{1}{Hughes Hall}{hughes-hall}\college{2}{Lucy Cavendish}{lucy-cavendish}\college{3}{Trinity College}{trinity}}
 
@@ -102,15 +107,15 @@
 			\diagram{0.95}{tree}
 		\end{block}
 
-		\flowarrow
+		\elbowarrow{524}{-425}
 
 		\begin{columns}[T,totalwidth=\textwidth]
 			\begin{column}{0.5\textwidth}
-				\begin{block}{Train a NN}
+				\begin{block}{Train an NN}
 					{\diagram{0.95}{network}\par}
 
 					\vspace{1ex}
-					{\normalsize\textsuperscript{*} \emph{Imitation Learning for Connection-Tableau Construction, Fredrik Rømming et.\ al} \cite{romming2026imitation}\par}
+					{\normalsize\textsuperscript{*} \emph{Imitation Learning for Connection-Tableau Construction, Fredrik Rømming et.\ al}~\cite{learncop}\par}
 				\end{block}
 			\end{column}
 
@@ -128,7 +133,7 @@
 			\end{column}
 		\end{columns}
 
-		\flowarrow
+		\elbowarrow{460}{0}
 
 	\end{column}
 
@@ -141,7 +146,7 @@
 	\separatorcolumn
 \end{columns}
 
-\begin{block}{Results: Guiding First-Order Provers}
+\begin{block}{Guide First-Order Provers}
 	\centering
 	\input{results.tex}
 \end{block}
