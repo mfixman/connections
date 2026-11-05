@@ -3,8 +3,10 @@ from __future__ import annotations
 from .choices import ProverPolicy
 
 from collections.abc import Callable, Iterator, Mapping, Sequence
+from contextlib import contextmanager
 from dataclasses import dataclass
 
+import gc
 import hashlib
 import json
 import time
@@ -583,6 +585,19 @@ def core_examples(examples_by_input):
     for cores in examples_by_input.values():
         yield from cores.values()
 
+@contextmanager
+def paused_gc():
+    # Scanning the new objects takes over half of a load; freezing them spares training too.
+    enabled = gc.isenabled()
+    gc.disable()
+    try:
+        yield
+    finally:
+        gc.freeze()
+        if enabled:
+            gc.enable()
+
+@paused_gc()
 def load_axiom_dataset_shards(
     shards: Sequence[Path],
     *,
