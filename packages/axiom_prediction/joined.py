@@ -62,8 +62,11 @@ def input_files(path):
     if path.is_file():
         found = [path]
     else:
-        # Old layouts keep full results in the cache; their problems.csv may be a stub.
-        found = sorted(path.glob(".cache/*/cache.csv")) or sorted(path.glob("*.csv"))
+        # Old layouts publish each cache as SHARD.csv, a copy that may have been cut to a stub.
+        caches = sorted(path.glob(".cache/*/cache.csv"))
+        copies = {cache.parent.name for cache in caches}
+        shards = [file for file in sorted(path.glob("*.csv")) if file.stem not in copies]
+        found = caches + shards
 
     if not found:
         raise FileNotFoundError(f"no collect results in {path}")
@@ -182,8 +185,9 @@ def stored_arrays(graphs, cores, sizes, failures):
         "failures": np.frombuffer(json.dumps(failures, sort_keys = True).encode(), dtype = np.uint8),
     }
 
+    # Popping each table lets its per-graph arrays go once they are concatenated.
     for table in (*table_widths, "axiom_ids", "conjecture_ids"):
-        add_table(arrays, table, [graphs[key].tables[table] for key in keys])
+        add_table(arrays, table, [graphs[key].tables.pop(table) for key in keys])
 
     add_table(arrays, "core_positions", [np.asarray(core, dtype = np.int32) for _, core in examples])
     return arrays

@@ -7,7 +7,7 @@ from axiom_prediction.cli import main
 from axiom_prediction.dataset import axiom_dataset_schema, axiom_dataset_shard_schema, dataset_fields, load_axiom_dataset
 from axiom_prediction.data import axiom_training_example_to_json
 from axiom_prediction.io import write_csv
-from axiom_prediction.joined import join_datasets, one_way_complements
+from axiom_prediction.joined import input_files, join_datasets, one_way_complements
 from axiom_prediction.tptp import collect_proof_example
 
 @pytest.fixture
@@ -127,6 +127,14 @@ def test_join_refuses_stubs_and_existing_output(tmp_path, choices):
     join_datasets([collected(tmp_path, choices, 0)], joined, 1)
     with pytest.raises(FileExistsError):
         join_datasets([tmp_path / "seed-0"], joined, 1)
+
+def test_directory_inputs_skip_only_the_copies_of_their_caches(tmp_path):
+    cache = tmp_path / ".cache/problems/cache.csv"
+    cache.parent.mkdir(parents = True)
+    for path in (cache, tmp_path / "problems.csv", tmp_path / "converted.csv"):
+        path.touch()
+
+    assert input_files(tmp_path) == [cache.resolve(), (tmp_path / "converted.csv").resolve()]
 
 def test_unmirrored_complements_are_rejected():
     rows = np.asarray([[0, 1], [1, 0], [2, 3]], dtype = np.int32)

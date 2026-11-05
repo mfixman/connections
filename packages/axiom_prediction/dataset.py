@@ -646,7 +646,7 @@ def row_example(row):
     return axiom_training_example_from_json(row)
 
 def merged_collection(collections):
-    first = next(iter(collections.values()), {})
+    first = next(filter(None, collections.values()), {})
     settings = {
         json.dumps(collection_settings(collection), sort_keys = True)
         for collection in collections.values()

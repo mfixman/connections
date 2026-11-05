@@ -26,7 +26,8 @@ def update_with_arrays(digest, example):
     for tables in (graph.graph.nodes, graph.graph.edges):
         for name, rows in sorted(tables.items()):
             digest.update(name.encode())
-            digest.update(rows.tobytes())
+            # The stored type depends on the largest value in the whole joined dataset.
+            digest.update(rows.astype(np.int64).tobytes())
 
 def dataset_fingerprint(examples):
     digest = hashlib.sha256()

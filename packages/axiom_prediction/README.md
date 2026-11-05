@@ -91,8 +91,8 @@ path, so validation runs need `--tptp` or `$TPTP` to find the problems again.
 Collection refuses directories holding older results (`.cache`, `cache.csv`,
 `metadata.json`, `examples` or an old `problems.csv` header); use a new
 directory for it. Training, evaluation and `join` still read those results.
-Avoid simultaneous writers to the same file. Separate policies still require
-separate datasets.
+Avoid simultaneous writers to the same file. Collect separate policies into
+separate directories.
 
 ### Joining results for faster loading
 
@@ -106,8 +106,9 @@ python axiom_predictor.py train --dataset datasets/Joined --data-dir runs/Joined
   --split 10 --parts 0 1 2 3 4 5 6 7
 ```
 
-Each input may be a CSV file or a directory holding one. `DATASET/data.npz`
-stores each distinct graph of a problem once and one example per distinct SAT
+Each input may be a CSV file or a directory holding one, and inputs may come
+from different provers. `DATASET/data.npz` stores each distinct graph of a
+problem once, even if two provers produced it, and one example per distinct SAT
 core; a failure is kept only if no input proved that problem. Compressed
 integer arrays make it small and quick to read, which suits slow disks. Complement edges
 are stored in one direction and mirrored on loading; `join` fails if they are
