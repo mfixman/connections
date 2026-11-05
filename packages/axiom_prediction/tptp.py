@@ -232,6 +232,15 @@ def tptp_problems(*, tptp_root: str | Path | None = None) -> list[str]:
 
     return problems
 
+def declared_non_refutable(path):
+    outcomes = {
+        "satisfiable": "DeclaredSatisfiable",
+        "countersatisfiable": "DeclaredCounterSatisfiable",
+    }
+
+    status = declared_tptp_status(path)
+    return None if status is None else outcomes.get(status.casefold())
+
 @deep_recursion()
 @collection_budget
 def collect_proof_example(
@@ -244,7 +253,12 @@ def collect_proof_example(
     native_options: dict | None = None,
     seed: int = 0,
 ) -> tuple[AxiomTrainingExample | None, str]:
+    path, root = resolve_tptp_problem(problem, tptp_root = tptp_root)
+    declared_outcome = declared_non_refutable(path)
     if ProverPolicy(sat_policy) == ProverPolicy.SatCoP:
+        if declared_outcome is not None:
+            return None, declared_outcome
+
         from .satcop import collect_native_example
 
         return collect_native_example(
@@ -255,23 +269,10 @@ def collect_proof_example(
             **(native_options or {}),
         )
 
-    non_refutable_declared_outcomes = {
-        "satisfiable": "DeclaredSatisfiable",
-        "countersatisfiable": "DeclaredCounterSatisfiable",
-    }
-
     policies = {ProverPolicy.SatCoPCon: SATCoPCon, ProverPolicy.SatResetCoP: SATResetCoP}
     sat_policy = ProverPolicy(sat_policy)
     if sat_policy not in policies:
         raise ValueError(f"unsupported SAT policy: {sat_policy!r}")
-
-    path, root = resolve_tptp_problem(problem, tptp_root = tptp_root)
-    declared_status = declared_tptp_status(path)
-    declared_outcome = (
-        None
-        if declared_status is None
-        else non_refutable_declared_outcomes.get(declared_status.casefold())
-    )
 
     if declared_outcome is not None:
         # Report parse errors even for problems we skip.

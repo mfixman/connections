@@ -48,7 +48,18 @@ def test_collection_seed_changes_labels_and_protects_resume(tmp_path, policy, ca
     assert main([*common, "--dataset", str(output), "--seed", "1"]) == 2
     assert "collection settings differ" in capsys.readouterr().err
 
-def test_collection_still_passes_seed_to_native_policy(monkeypatch):
+def test_native_collection_skips_declared_non_refutable_problems(tmp_path, monkeypatch):
+    from axiom_prediction import satcop
+
+    def collect(problem, **kwargs):
+        pytest.fail("declared satisfiable problems must not be searched")
+
+    monkeypatch.setattr(satcop, "collect_native_example", collect)
+    problem = tmp_path / "declared.p"
+    problem.write_text("% Status   : Satisfiable\nfof(a,axiom,p(a)).\n")
+    assert collect_proof_example(problem, sat_policy = "satcop") == (None, "DeclaredSatisfiable")
+
+def test_collection_still_passes_seed_to_native_policy(monkeypatch, tiny_problem_path):
     from axiom_prediction import satcop
 
     calls = []
@@ -58,7 +69,7 @@ def test_collection_still_passes_seed_to_native_policy(monkeypatch):
         return None, "Timeout"
 
     monkeypatch.setattr(satcop, "collect_native_example", collect)
-    assert collect_proof_example("unused.p", sat_policy = "satcop", seed = 7) == (None, "Timeout")
+    assert collect_proof_example(tiny_problem_path, sat_policy = "satcop", seed = 7) == (None, "Timeout")
     assert calls[0]["seed"] == 7
 
 def test_training_visits_each_distinct_core_once(tmp_path, monkeypatch):
