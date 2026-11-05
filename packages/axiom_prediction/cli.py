@@ -202,6 +202,29 @@ def build_parser() -> argparse.ArgumentParser:
         help = "proof-search seed for all collection policies (default: 0)",
     )
 
+    join = subparsers.add_parser(
+        "join",
+        help = "join collect results into one deduplicated binary dataset",
+    )
+
+    join.add_argument(
+        "inputs",
+        metavar = "INPUT",
+        nargs = "+",
+        type = Path,
+        help = "CSV collect results, or directories holding them",
+    )
+
+    join.add_argument(
+        "--dataset",
+        type = Path,
+        metavar = "PATH",
+        required = True,
+        help = "directory receiving data.npz and metadata.json; train/evaluate read it with --dataset",
+    )
+
+    add_worker_argument(join)
+
     evaluate = subparsers.add_parser(
         "evaluate",
         help = "score SAT-core predictions against a collected dataset or fresh proofs",
@@ -414,48 +437,35 @@ def main(argv: list[str] | None = None) -> int:
 def execute_command(args: argparse.Namespace) -> int:
     log(f"axiom-predictor: starting {args.command}")
     from connections.parsing.tptp import TPTPParseError
-    from .dataset import NoParseableProblemsError, collect_axiom_dataset, collect_axiom_dataset_shard
-    from .tptp import NoProblemFilesError, expand_problem_inputs, load_tptp_problem, problem_input_directory
+    from .dataset import NoParseableProblemsError, collect_axiom_dataset
+    from .tptp import NoProblemFilesError, expand_problem_inputs, load_tptp_problem
 
     try:
+        if args.command == "join":
+            from .joined import join_datasets
+
+            write_record(join_datasets(args.inputs, args.dataset, args.num_workers))
+            return 0
+
         if args.command == "collect":
             dataset = selected_dataset(args)
             if dataset is None:
                 raise ValueError("collect needs --dataset or --data-dir")
 
-            problems = selected_problems(args)
-            input_directory = (
-                problem_input_directory(args.problems[0], tptp_root = args.tptp)
-                if len(args.problems) == 1
-                else None
+            summary = collect_axiom_dataset(
+                selected_problems(args),
+                output_dir = dataset,
+                tptp_root = args.tptp,
+                step_limit = args.step_limit,
+                timeout_s = args.timeout_s,
+                sat_policy = args.policy,
+                num_workers = args.num_workers,
+                satcop_location = args.satcop_location,
+                seed = args.seed,
             )
 
-            collection_args: dict[str, Any] = {
-                "output_dir": dataset,
-                "tptp_root": args.tptp,
-                "step_limit": args.step_limit,
-                "timeout_s": args.timeout_s,
-                "sat_policy": args.policy,
-                "num_workers": args.num_workers,
-                "satcop_location": args.satcop_location,
-                "seed": args.seed,
-            }
-
-            if input_directory is None and args.dataset is None:
-                summary = collect_axiom_dataset(problems, **collection_args)
-            else:
-                shard, summary = collect_axiom_dataset_shard(
-                    problems,
-                    shard_name = (
-                        "problems" if input_directory is None else input_directory.name
-                    ),
-                    **collection_args,
-                )
-
-                summary = {**summary, "dataset_shard": str(shard)}
-
             write_record(summary)
-            return 1 if summary["problems_unparseable"] == summary["problems_requested"] else 0
+            return 0
 
         if args.command == "run":
             return run_command(args)
@@ -825,7 +835,7 @@ def add_dataset_argument(parser: argparse.ArgumentParser):
         "--dataset",
         type = Path,
         metavar = "PATH",
-        help = "shared dataset directory; collect writes CSV shards here, train/evaluate read it instead of DATA_DIR/dataset",
+        help = "shared dataset directory; collect appends to its problems.csv, train/evaluate read it instead of DATA_DIR/dataset",
     )
 
 def selected_dataset(args: argparse.Namespace) -> Path | None:

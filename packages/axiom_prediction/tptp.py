@@ -184,19 +184,15 @@ def find_tptp_problem_by_name(filename: str, *, root: Path | None) -> Path:
 
     return matches[0]
 
-def problem_input_directory(
-    problem: str | Path,
-    *,
-    tptp_root: str | Path | None = None,
-) -> Path | None:
-    # Return the resolved directory denoted by one CLI problem input.
+def problem_file(problem: str | Path, tptp_root: str | Path | None = None) -> str:
+    # Datasets store bare file names; output needs the full path to read the declared status.
+    if Path(problem).name != str(problem):
+        return str(problem)
 
-    root = find_tptp_root(tptp_root)
-    direct = Path(problem).expanduser()
-    if direct.is_dir():
-        return direct.resolve()
-
-    return tptp_input_directory(str(problem), root = root)
+    try:
+        return str(find_tptp_problem_by_name(str(problem), root = find_tptp_root(tptp_root)))
+    except (OSError, ValueError):
+        return str(problem)
 
 def tptp_input_directory(raw: str, *, root: Path | None) -> Path | None:
     if root is None:

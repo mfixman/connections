@@ -81,14 +81,44 @@ python axiom_predictor.py evaluate \
   --dataset datasets/Reset --data-dir runs/Reference --split 10 --parts 8
 ```
 
-`--dataset` overrides `--data-dir/dataset`. Collection writes CSV shards
-directly into that directory; training and evaluation only read them.
-Single-category/directory collection uses its name for the shard; other inputs
-use `problems.csv`. Collection appends resumable results to a single `cache.csv`
-inside each shard's `.cache` directory. Old per-problem JSON caches are read
-automatically, including partial results from interrupted collections.
-Finish collection before launching readers, and avoid simultaneous writers
-to the same shard. Separate policies still require separate datasets.
+`--dataset` overrides `--data-dir/dataset`. Collection appends to one
+`problems.csv` in that directory: one header, then one row per problem, written
+as soon as the problem finishes. Resuming skips every problem already in the
+file, and a run is finished once its row count matches the number of problems
+its arguments select. Rows store the file name (`SYN012-3.p`) rather than a
+path, so validation runs need `--tptp` or `$TPTP` to find the problems again.
+
+Collection refuses directories holding older results (`.cache`, `cache.csv`,
+`metadata.json`, `examples` or an old `problems.csv` header); use a new
+directory for it. Training, evaluation and `join` still read those results.
+Avoid simultaneous writers to the same file. Separate policies still require
+separate datasets.
+
+### Joining results for faster loading
+
+`join` combines collect results, old or new, into one binary dataset:
+
+```bash
+python axiom_predictor.py join results/SatCoP/seed-*/part-* results/SatResetCoP/seed-*/part-* \
+  --dataset datasets/Joined
+
+python axiom_predictor.py train --dataset datasets/Joined --data-dir runs/Joined \
+  --split 10 --parts 0 1 2 3 4 5 6 7
+```
+
+Each input may be a CSV file or a directory holding one. `DATASET/data.npz`
+stores each distinct graph of a problem once and one example per distinct SAT
+core; a failure is kept only if no input proved that problem. Compressed
+integer arrays make it small and quick to read, which suits slow disks. Complement edges
+are stored in one direction and mirrored on loading; `join` fails if they are
+not mirrored pairs. `--max-example-mb` compares the size of each graph's source CSV row.
+
+`DATASET/metadata.json` lists the provers, seeds and parts of the inputs, with
+each input's path, collection settings and result counts. Parts come from
+`part-N` in the input paths, because no results file records them.
+
+Training on CSV files refuses to mix old and new results in one dataset, since
+their repeated cores would not deduplicate; `join` them instead.
 
 ### Collecting with native Rust SATCoP
 
@@ -135,13 +165,13 @@ starts one search thread and concurrent children never share a core. `--seed 123
 forwarded unchanged as `satcop ... --seed 123`; that thread receives seed 123.
 The original SATCoP has an internal seeding method but needs the small CLI
 addition to expose it. Native SATCoP uses the wall-clock budget; `--step-limit` applies only
-to Python policies. Collection resumes from the existing per-problem cache,
+to Python policies. Collection resumes from the existing `problems.csv`,
 including failure records, and refuses to combine results from different
-executables, seeds or budgets in one cache. Use a separate dataset for each
+executables, seeds or budgets in one file. Use a separate dataset for each
 collection configuration.
 
-Successful native JSON exports and command/output logs are retained under
-`DATASET/.cache/SHARD/native/`. SATCoP's `--collect` flag prints its existing
+Native JSON exports and command/output logs live in `DATASET/native/` during
+each proof; only runs that crash leave files there. SATCoP's `--collect` flag prints its existing
 debug representations; its proof output identifies
 each ground core clause's matrix origin. Python captures stdout, parses it,
 and writes the JSON files. Saved v1 and v2 JSON exports remain readable.
@@ -175,9 +205,9 @@ and training graph construction live in the axiom predictor.
 
 The converter accepts multiple exports for the same problem. Training retains
 one example per distinct positive axiom-clause set for each problem, so repeated
-cores have no extra weight. Shards may use different search seeds; collect each
-seed in a separate cache and give its CSV shard a unique name in the training
-dataset directory. Policy, backend and label semantics must match, and repeated
+cores have no extra weight. Results may use different search seeds; collect each
+seed into its own directory and `join` them.
+Policy, backend and label semantics must match, and repeated
 problems must have matching graphs and clause identities. Predictor and prover
 revision differences are retained as provenance rather than compatibility checks.
 `run --policy SatCoP` searches with Rust SATCoP; see [Native SATCoP search](#native-satcop-search).

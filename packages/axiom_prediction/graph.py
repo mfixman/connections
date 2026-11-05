@@ -58,9 +58,19 @@ class AxiomGraphBatch:
     labels: Any | None
     axiom_counts: list[int]
 
+def stacked_rows(tables):
+    import numpy as np
+    import torch
+
+    if not tables:
+        return torch.zeros((0,), dtype = torch.long)
+
+    return torch.from_numpy(np.concatenate(tables))
+
 def collate_axiom_graphs(
     examples: list[tuple[AxiomGraph, list[float] | None]]
 ) -> AxiomGraphBatch:
+    import numpy as np
     import torch
 
     if not examples:
@@ -74,6 +84,7 @@ def collate_axiom_graphs(
     }
 
     relation_types = {name: (src, dst) for name, src, dst, _ in relations}
+    offsets = dict.fromkeys(nodes, 0)
 
     axiom_indices: list[int] = []
     conjecture_indices: list[int] = []
@@ -88,17 +99,13 @@ def collate_axiom_graphs(
         if (example_labels is not None) != label_mode:
             raise ValueError("a batch cannot mix labelled and unlabelled examples")
 
-        offsets = {name: len(rows) for name, rows in nodes.items()}
-        for name in nodes:
-            nodes[name].extend(example.graph.nodes.get(name, []))
-
-        for name in edges:
+        for name, tables in edges.items():
             src_type, dst_type = relation_types[name]
-            for row in example.graph.edges.get(name, []):
-                shifted = list(row)
-                shifted[0] += offsets[src_type]
-                shifted[1] += offsets[dst_type]
-                edges[name].append(shifted)
+            rows = np.array(example.graph.edges.get(name, []), dtype = np.int64)
+            if rows.size:
+                rows[:, 0] += offsets[src_type]
+                rows[:, 1] += offsets[dst_type]
+                tables.append(rows)
 
         axiom_indices.extend(
             offsets["clause"] + index for index in example.axiom_clause_ids
@@ -107,6 +114,12 @@ def collate_axiom_graphs(
         conjecture_indices.extend(
             offsets["clause"] + index for index in example.conjecture_clause_ids
         )
+
+        for name, tables in nodes.items():
+            rows = np.array(example.graph.nodes.get(name, []), dtype = np.int64)
+            if rows.size:
+                tables.append(rows)
+                offsets[name] += len(rows)
 
         axiom_batch.extend([batch_index] * len(example.axiom_clause_ids))
         conjecture_batch.extend([batch_index] * len(example.conjecture_clause_ids))
@@ -119,8 +132,8 @@ def collate_axiom_graphs(
 
     return AxiomGraphBatch(
         graph = GraphInput(
-            nodes = nodes,
-            edges = edges,
+            nodes = {name: stacked_rows(tables) for name, tables in nodes.items()},
+            edges = {name: stacked_rows(tables) for name, tables in edges.items()},
             actions = [],
             preprocessor = "axiom_prediction",
             version = "1",

@@ -25,6 +25,7 @@ from torch import nn
 from .data import AxiomTrainingExample
 from .dataset import NoParseableProblemsError, collect_problems_parallel, load_axiom_dataset
 from .graph import collate_axiom_graphs
+from .tptp import problem_file
 from .evaluation_resume import resume_collection, resume_predictions
 from .logs import log
 from .logs import progress as track_progress
@@ -899,7 +900,7 @@ def evaluate_axiom_predictor(
 
         metrics: dict[str, Any] = dict(raw_metrics)
         network_size = 0 if sine else predictor.model.network_size()
-        report_problem_predictions(examples, probabilities, skipped, split, network_size)
+        report_problem_predictions(examples, probabilities, skipped, split, network_size, tptp_root)
         log_message(
             f"evaluated {len(examples)} problems in {time.monotonic() - started:.1f}s: {metric_text(metrics)}"
         )
@@ -937,7 +938,7 @@ def evaluate_axiom_predictor(
         if tracker is not None:
             tracker.finish()
 
-def report_problem_predictions(examples, probabilities, skipped, split, network_size):
+def report_problem_predictions(examples, probabilities, skipped, split, network_size, tptp_root = None):
     offset = 0
     for example in examples:
         size = len(example.labels)
@@ -950,7 +951,7 @@ def report_problem_predictions(examples, probabilities, skipped, split, network_
 
         emit(
             "problem",
-            problem = example.problem_path,
+            problem = problem_file(example.problem_path, tptp_root),
             part = split.part(example.problem_path),
             outcome = "evaluated",
             network_size = network_size,
@@ -962,7 +963,7 @@ def report_problem_predictions(examples, probabilities, skipped, split, network_
     for item in skipped:
         emit(
             "problem",
-            **item,
+            **{**item, "problem": problem_file(item["problem"], tptp_root)},
             part = split.part(item["problem"]),
             network_size = network_size,
         )

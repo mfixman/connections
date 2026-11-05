@@ -2,19 +2,31 @@ from __future__ import annotations
 
 from .choices import ProverPolicy
 
+from collections import Counter
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
 
 import gc
 import hashlib
+from itertools import chain
 import json
 import time
 from pathlib import Path
 from typing import Any
 
 from axiom_prediction.io import read_csv, write_csv
-from .collection_cache import append_cache, repair_cache
+from .problems_file import (
+    append_row,
+    check_header,
+    example_from_row,
+    example_row,
+    failure_row,
+    problem_fields,
+    problem_name,
+    problem_schema,
+    repair_tail,
+)
 from connections.parsing.tptp import TPTPParseError
 
 from .data import AxiomTrainingExample, axiom_training_example_from_json, axiom_training_example_to_json
@@ -53,6 +65,79 @@ class CollectedAxiomRecord:
     parseable: bool
     payload: dict[str, Any]
 
+def requested_collection(
+    output: Path,
+    *,
+    tptp_root: str | Path | None,
+    step_limit: int,
+    timeout_s: float,
+    sat_policy: str,
+    satcop_location: str | Path | None,
+    seed: int,
+) -> tuple[dict[str, Any], dict | None]:
+    resolved_root = find_tptp_root(tptp_root)
+    collection = {
+        "sat_policy": ProverPolicy(sat_policy).wire_value(),
+        "seed": seed,
+        "step_limit": step_limit,
+        "timeout_seconds": timeout_s,
+        "tptp_root": None if resolved_root is None else str(resolved_root),
+    }
+
+    if ProverPolicy(sat_policy) != ProverPolicy.SatCoP:
+        if satcop_location is not None:
+            raise ValueError("--satcop-location requires --policy SatCoP")
+
+        return collection, None
+
+    from .satcop import native_binary, binary_identity, label_semantics
+
+    binary = native_binary(satcop_location)
+    collection.update(
+        prover_backend = "rust-satcop",
+        binary_sha256 = binary_identity(binary),
+        label_semantics = label_semantics,
+    )
+
+    collection.pop("step_limit")
+    log("native SATCoP uses the wall-clock timeout; --step-limit applies to Python policies only")
+    return collection, {"binary": str(binary), "output_dir": str(output / "native")}
+
+def finished_problems(path, collection):
+    # Reading only these columns skips decoding the graphs of earlier results.
+    columns = {"problem_name", "collection", "outcome", "parseable"}
+    finished = {}
+    for row in track_progress(read_csv(path, columns = columns), "reading finished problems"):
+        if not finished and collection_settings(row["collection"]) != collection_settings(collection):
+            raise ValueError(
+                "dataset collection settings differ from the existing dataset: "
+                f"{row['collection']!r} != {collection!r}"
+            )
+
+        finished[row["problem_name"]] = (row["outcome"], row.get("parseable", True))
+
+    return finished
+
+def open_problems_file(output, collection):
+    for old in ("cache.csv", ".cache", "metadata.json", "examples"):
+        if (output / old).exists():
+            raise ValueError(f"{output} holds old collection results ({old}); collect into a new directory")
+
+    path = output / "problems.csv"
+    if not path.exists():
+        write_csv(path, [], problem_fields)
+        return path, {}
+
+    repair_tail(path)
+    check_header(path)
+    return path, finished_problems(path, collection)
+
+def require_unique_names(problems):
+    counts = Counter(map(problem_name, problems))
+    repeated = sorted(name for name, count in counts.items() if count > 1)
+    if repeated:
+        raise ValueError(f"problems in different directories share a file name: {repeated[:5]}")
+
 def collect_axiom_dataset(
     problems: Sequence[str],
     *,
@@ -68,76 +153,23 @@ def collect_axiom_dataset(
     satcop_location: str | Path | None = None,
     seed: int = 0,
 ) -> dict[str, Any]:
-    # Only the parent appends results; workers never write the shared cache.
+    # Only the parent appends results; workers never write the shared file.
     log(f"preparing collection of {len(problems)} problems into {output_dir}")
     output = Path(output_dir)
     output.mkdir(parents = True, exist_ok = True)
-    cache = output / "cache.csv"
+    require_unique_names(problems)
 
-    collection = {
-        "sat_policy": ProverPolicy(sat_policy).wire_value(),
-        "seed": seed,
-        "step_limit": step_limit,
-        "timeout_seconds": timeout_s,
-        "tptp_root": (
-            None if (resolved_root := find_tptp_root(tptp_root)) is None else str(
-                resolved_root
-            )
-        ),
-    }
+    collection, native_options = requested_collection(
+        output,
+        tptp_root = tptp_root,
+        step_limit = step_limit,
+        timeout_s = timeout_s,
+        sat_policy = sat_policy,
+        satcop_location = satcop_location,
+        seed = seed,
+    )
 
-    native_options = None
-    if ProverPolicy(sat_policy) == ProverPolicy.SatCoP:
-        from .satcop import native_binary, binary_identity, label_semantics
-
-        binary = native_binary(satcop_location)
-        native_options = {"binary": str(binary), "output_dir": str(output / "native")}
-        collection.update(
-            prover_backend = "rust-satcop",
-            binary_sha256 = binary_identity(binary),
-            label_semantics = label_semantics,
-        )
-        collection.pop("step_limit")
-        log("native SATCoP uses the wall-clock timeout; --step-limit applies to Python policies only")
-    elif satcop_location is not None:
-        raise ValueError("--satcop-location requires --policy SatCoP")
-
-    if cache.exists():
-        repair_cache(cache)
-        metadata = next(read_csv(cache))
-        if metadata.get("schema") != axiom_dataset_shard_schema:
-            raise ValueError(f"unsupported collection cache: {cache}")
-    elif (output / "metadata.json").exists():
-        metadata = read_object(output / "metadata.json")
-        if metadata.get("schema") != axiom_dataset_schema:
-            raise ValueError(
-                f"unsupported axiom dataset {output}; {outdated_dataset_hint}"
-            )
-    else:
-        metadata = {"collection": collection}
-
-    if collection_settings(metadata.get("collection", {})) != collection_settings(collection):
-        raise ValueError(
-            "dataset collection settings differ from the existing dataset: "
-            f"{metadata.get('collection')!r} != {collection!r}"
-        )
-
-    if not cache.exists():
-        write_csv(
-            cache,
-            shard_rows(output, metadata = metadata, summary = {}),
-            dataset_fields,
-        )
-
-    cached = {}
-    rows = iter(read_csv(cache))
-    next(rows)
-    for row in track_progress(rows, "reading collection cache"):
-        if row.get("schema") == axiom_dataset_schema:
-            cached.setdefault(row["problem"], (False, failure_is_parseable(row), row["outcome"]))
-        else:
-            example = axiom_training_example_from_json(row)
-            cached[example.problem_path] = (True, True, "proved")
+    path, finished = open_problems_file(output, collection)
 
     proved = 0
     failed = 0
@@ -154,7 +186,7 @@ def collect_axiom_dataset(
         if processed in (1, total) or now - last_report >= 60:
             log(
                 f"[{processed}/{total}] {problem}: {outcome} "
-                f"({proved} proved, {failed} failed, {reused} cached)"
+                f"({proved} proved, {failed} failed, {reused} reused)"
             )
 
             last_report = now
@@ -162,26 +194,25 @@ def collect_axiom_dataset(
         if progress is not None:
             progress(processed, total, proved, failed, problem, outcome)
 
-    for problem in track_progress(problems, "checking collection cache", len(problems)):
-        record = cached.get(problem)
+    for problem in track_progress(problems, "checking finished problems", len(problems)):
+        record = finished.get(problem_name(problem))
         if record is None:
             pending.append(problem)
             continue
 
-        success, parseable, outcome = record
-        proved += int(success)
-        failed += int(not success)
+        outcome, parseable = record
+        proved += int(outcome == "proved")
+        failed += int(outcome != "proved")
         unparseable += int(not parseable)
         reused += 1
-        outcome = f"{outcome} (cached)"
-        report(problem, outcome)
+        report(problem, f"{outcome} (reused)")
 
     workers = determine_worker_count(len(pending), num_workers)
     if pending:
         log(
             f"axiom-predictor: using {workers} worker "
             f"{'process' if workers == 1 else 'processes'} for "
-            f"{len(pending)} uncached problems"
+            f"{len(pending)} unfinished problems"
         )
 
     for result in collect_problem_records_parallel(
@@ -195,7 +226,7 @@ def collect_axiom_dataset(
         native_options = native_options,
         seed = seed,
     ):
-        append_cache(cache, result.payload, dataset_fields)
+        append_row(path, {**result.payload, "collection": collection})
         if result.proved:
             proved += 1
         else:
@@ -204,90 +235,29 @@ def collect_axiom_dataset(
         unparseable += int(not result.parseable)
         report(result.problem, result.outcome)
 
-    summary: dict[str, Any] = {
+    if total > 0 and unparseable == total:
+        raise NoParseableProblemsError(f"none of the {total} .p files could be parsed as FOF or CNF")
+
+    return {
         "schema": axiom_dataset_schema,
         "problems_requested": total,
         "problems_proved": proved,
         "problems_failed": failed,
         "problems_reused": reused,
         "problems_unparseable": unparseable,
+        "dataset_file": str(path),
     }
 
-    return summary
-
-def collect_axiom_dataset_shard(
-    problems: Sequence[str],
-    *,
-    output_dir: str | Path,
-    shard_name: str,
-    tptp_root: str | Path | None = None,
-
-    step_limit: int = default_collection_step_limit,
-    timeout_s: float = default_collection_timeout_s,
-    sat_policy: str = ProverPolicy.SatResetCoP,
-    num_workers: int | None = None,
-    satcop_location: str | Path | None = None,
-    seed: int = 0,
-) -> tuple[Path, dict[str, Any]]:
-    # Resume from the append-only cache and publish the finished shard atomically.
-
-    if not shard_name or Path(shard_name).name != shard_name:
-        raise ValueError(f"invalid axiom dataset shard name: {shard_name!r}")
-
-    output = Path(output_dir)
-    cache = output / ".cache" / shard_name
-    summary = collect_axiom_dataset(
-        problems,
-        output_dir = cache,
-        tptp_root = tptp_root,
-
-        step_limit = step_limit,
-        timeout_s = timeout_s,
-        sat_policy = sat_policy,
-        num_workers = num_workers,
-        satcop_location = satcop_location,
-        seed = seed,
-    )
-
-    if summary.get(
-        "problems_requested",
-        0,
-    ) > 0 and summary.get("problems_unparseable") == summary.get("problems_requested"):
-        raise NoParseableProblemsError(
-            f"none of the {summary['problems_requested']} .p files in "
-            f"{shard_name!r} could be parsed as FOF or CNF"
-        )
-
-    metadata = next(read_csv(cache / "cache.csv"))
-    shard = output / f"{shard_name}.csv"
-    log(f"writing dataset shard {shard}")
-    write_csv(shard, shard_rows(cache, metadata = metadata, summary = summary), dataset_fields)
-    log(f"saved dataset shard {shard}")
-    return shard, summary
-
-def shard_rows(
-    cache: Path,
-    *,
-    metadata: Mapping[str, Any],
-    summary: Mapping[str, object],
-    max_bytes: int | None = None,
-) -> Iterator[Mapping[str, Any]]:
+def legacy_rows(directory, metadata, max_bytes = None):
     yield {
         "schema": axiom_dataset_shard_schema,
         "record": "metadata",
         "collection": metadata.get("collection", {}),
-        "summary": dict(summary),
     }
-
-    if (cache / "cache.csv").exists():
-        rows = iter(read_csv(cache / "cache.csv", max_bytes))
-        next(rows)
-        yield from rows
-        return
 
     seen = set()
     for stage in ("examples", "failures", "partial/examples", "partial/failures"):
-        for record in sorted((cache / stage).glob("*.json")):
+        for record in sorted((directory / stage).glob("*.json")):
             if max_bytes is not None and record.stat().st_size > max_bytes:
                 continue
 
@@ -377,14 +347,7 @@ def collection_result(problem, function, arguments):
     return {"collected": function(problem, *arguments)}
 
 def interrupted_record(result):
-    payload = {
-        "schema": axiom_dataset_schema,
-        "problem": result["problem"],
-        "outcome": result["outcome"],
-        "parseable": True,
-        "error": bool(result.get("error", False)),
-    }
-
+    payload = failure_row(result["problem"], result["outcome"], error = bool(result.get("error", False)))
     return CollectedAxiomRecord(result["problem"], result["outcome"], False, True, payload)
 
 def collect_one_problem_record(
@@ -422,15 +385,9 @@ def collect_one_problem_record(
         outcome = f"{type(error).__name__}: {message}"
 
     if example is None:
-        payload = {
-            "schema": axiom_dataset_schema,
-            "problem": problem,
-            "outcome": outcome,
-            "parseable": parseable,
-            "error": collection_error,
-        }
+        payload = failure_row(problem, outcome, parseable = parseable, error = collection_error)
     else:
-        payload = axiom_training_example_to_json(example)
+        payload = example_row(problem, example)
 
     return CollectedAxiomRecord(problem, outcome, example is not None, parseable, payload)
 
@@ -476,6 +433,11 @@ def load_axiom_dataset(
     max_bytes = None if max_example_mb is None else int(max_example_mb * 1e6)
     if max_bytes is not None:
         log(f"skipping dataset records larger than {max_example_mb} MB")
+
+    if root.suffix == ".npz" or (root / "data.npz").exists():
+        from .joined import load_joined
+
+        return load_joined(root.parent if root.suffix == ".npz" else root, max_bytes)
 
     if root.is_file():
         return load_axiom_dataset_shards((root,), dataset_path = root, max_bytes = max_bytes)
@@ -529,17 +491,17 @@ def collection_caches(root):
     return sorted(
         path
         for path in root.iterdir()
-        if (path / "cache.csv").exists() or (path / "metadata.json").exists()
+        if any((path / name).exists() for name in ("cache.csv", "problems.csv", "metadata.json"))
     )
 
 def read_dataset_rows(path, max_bytes = None):
-    if path.is_dir() and (path / "cache.csv").exists():
-        yield from read_csv(path / "cache.csv", max_bytes)
-        return
+    for name in ("cache.csv", "problems.csv"):
+        if path.is_dir() and (path / name).exists():
+            yield from read_csv(path / name, max_bytes)
+            return
 
     if path.is_dir():
-        metadata = read_object(path / "metadata.json")
-        yield from shard_rows(path, metadata = metadata, summary = {}, max_bytes = max_bytes)
+        yield from legacy_rows(path, read_object(path / "metadata.json"), max_bytes)
         return
 
     if path.suffix == ".jsonl":
@@ -607,17 +569,24 @@ def load_axiom_dataset_shards(
     examples_by_input: dict[tuple[str, str], dict[frozenset[int], AxiomTrainingExample]] = {}
     failures_by_problem: dict[str, dict[str, str]] = {}
     proved: set[str] = set()
-    collection: dict[str, Any] | None = None
+    formats: set[bool] = set()
     shard_collections: dict[str, dict[str, Any]] = {}
 
     for shard in track_progress(shards, "loading dataset shards", len(shards)):
         rows = iter(read_dataset_rows(shard, max_bytes))
-        try:
-            header = next(rows)
-        except StopIteration:
-            raise ValueError(f"empty axiom dataset shard: {shard}") from None
+        header = next(rows, None)
+        if header is None:
+            log(f"no results yet in {shard}")
+            continue
 
-        if (
+        # Old rows hash their clause texts, so they would not deduplicate against new ones.
+        formats.add(header.get("schema") == problem_schema)
+        if len(formats) > 1:
+            raise ValueError(f"{dataset_path} mixes old and new collect results; combine them with join")
+
+        if header.get("schema") == problem_schema:
+            rows = chain([header], rows)
+        elif (
             header.get("schema") != axiom_dataset_shard_schema
             or header.get("record") != "metadata"
             or not isinstance(header.get("collection"), Mapping)
@@ -626,12 +595,10 @@ def load_axiom_dataset_shards(
                 f"unsupported axiom dataset shard {shard} (schema {header.get('schema')!r}); {outdated_dataset_hint}"
             )
 
-        shard_collection = dict(header["collection"])
-        shard_collections[shard.name] = shard_collection
-        collection = collection or shard_collection
+        shard_collections[shard.name] = dict(header["collection"])
         for row in track_progress(rows, f"reading {shard.name}"):
-            if row.get("schema") == axiom_dataset_schema:
-                problem = str(row.get("problem", ""))
+            problem = failed_problem(row)
+            if problem is not None:
                 if problem and problem not in proved:
                     failures_by_problem.setdefault(
                         problem,
@@ -643,7 +610,7 @@ def load_axiom_dataset_shards(
 
                 continue
 
-            example = axiom_training_example_from_json(row)
+            example = row_example(row)
             proved.add(example.problem_path)
             failures_by_problem.pop(example.problem_path, None)
             add_core_example(examples_by_input, example)
@@ -651,21 +618,9 @@ def load_axiom_dataset_shards(
     if not examples_by_input:
         raise RuntimeError(f"axiom dataset contains no training examples: {dataset_path}")
 
-    dataset_collection = collection or {}
-    if len(
-        {
-            json.dumps(collection_settings(settings), sort_keys = True)
-            for settings in shard_collections.values()
-        }
-    ) > 1:
-        dataset_collection = {
-            **dataset_compatibility_settings(dataset_collection),
-            "source_shards": shard_collections,
-        }
-
     metadata = {
         "schema": axiom_dataset_schema,
-        "collection": dataset_collection,
+        "collection": merged_collection(shard_collections),
         "shards": list(map(str, shards)),
     }
 
@@ -674,6 +629,33 @@ def load_axiom_dataset_shards(
         list(failures_by_problem.values()),
         metadata,
     )
+
+def failed_problem(row):
+    if row.get("schema") == axiom_dataset_schema:
+        return str(row.get("problem", ""))
+
+    if row.get("schema") == problem_schema and "graph" not in row:
+        return row["problem_name"]
+
+    return None
+
+def row_example(row):
+    if row.get("schema") == problem_schema:
+        return example_from_row(row)
+
+    return axiom_training_example_from_json(row)
+
+def merged_collection(collections):
+    first = next(iter(collections.values()), {})
+    settings = {
+        json.dumps(collection_settings(collection), sort_keys = True)
+        for collection in collections.values()
+    }
+
+    if len(settings) <= 1:
+        return first
+
+    return {**dataset_compatibility_settings(first), "source_shards": collections}
 
 def collection_settings(collection):
     settings = {key: value for key, value in collection.items() if key != "tptp_root"}
@@ -698,11 +680,3 @@ def read_object(path: Path) -> dict[str, Any]:
         raise TypeError(f"JSON record must be an object: {path}")
 
     return dict(value)
-
-def failure_is_parseable(payload: Mapping[str, Any]) -> bool:
-    value = payload.get("parseable")
-    if isinstance(value, bool):
-        return value
-    # Older failure records omit parseability.
-
-    return not str(payload.get("outcome", "")).startswith("TPTPParseError:")

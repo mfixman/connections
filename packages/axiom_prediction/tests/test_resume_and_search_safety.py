@@ -187,13 +187,13 @@ def test_resume_matches_uninterrupted_training_and_rejects_damage(
     assert (resumed / "model.ts").read_bytes() == before
     assert not (resumed / "epoch-0004.ts").exists()
 
-    from axiom_prediction.dataset import dataset_fields
     from axiom_prediction.io import read_csv, write_csv
+    from axiom_prediction.problems_file import problem_fields
 
-    record = dataset / "cache.csv"
+    record = dataset / "problems.csv"
     rows = list(read_csv(record))
-    rows[1]["labels"][0] = 1 - rows[1]["labels"][0]
-    write_csv(record, rows, dataset_fields)
+    rows[0]["labels"][0] = 1 - rows[0]["labels"][0]
+    write_csv(record, rows, problem_fields)
     with pytest.raises(ValueError, match = "same data and configuration"):
         train_axiom_predictor(
             output_dir = resumed,
@@ -289,7 +289,7 @@ def test_supervisor_terminates_unresponsive_workers(tmp_path, monkeypatch):
     assert summary["problems_failed"] == 1
     from axiom_prediction.io import read_csv
 
-    assert list(read_csv(output / "cache.csv"))[1]["outcome"] == "Timeout"
+    assert list(read_csv(output / "problems.csv"))[0]["outcome"] == "Timeout"
     assert {child.pid for child in mp.active_children()} == before
 
 def test_policy_inheritance_and_fresh_evaluation(

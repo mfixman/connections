@@ -30,8 +30,9 @@ def output_fields(command):
         "predict": "problem_path clause_index clause_text probability rank network_size".split(),
         "collect": (
             "schema problems_requested problems_proved problems_failed problems_reused "
-            "problems_unparseable dataset_shard"
+            "problems_unparseable dataset_file"
         ).split(),
+        "join": "inputs problems graphs examples failures data_bytes dataset".split(),
         "run": (
             "problem part tptp_status proved seconds mode policy seed steps proof_size "
             "axioms prediction_seconds error network_size"

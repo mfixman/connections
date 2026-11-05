@@ -45,6 +45,7 @@ changing overrides cannot bypass resume compatibility checks.
 | Command | Purpose |
 | --- | --- |
 | `collect [PROBLEM ...]` | Collect resumable SAT-core labels in --dataset PATH or DATA_DIR/dataset. |
+| `join INPUT ... --dataset PATH` | Join collect results into one deduplicated binary dataset. |
 | `train [PROBLEM ...]` | Train on saved labels; explicit problem inputs collect fresh labels first. |
 | `evaluate [CHECKPOINT] [PROBLEM ...]` | Evaluate saved labels, or collect fresh labels for explicit problems. With --model or --data-dir, every positional input is a problem; otherwise the first is the checkpoint. |
 | `predict [CHECKPOINT] [PROBLEM ...]` | Print axiom rankings and probabilities as CSV. |
@@ -66,7 +67,7 @@ with --model or --data-dir and supply only problem paths.
 | --- | --- | --- |
 | `-h`, `--help` | All | Show help. Root and training help list the available network classes. |
 | `--data-dir PATH` | All | Required for train; required for collect only without --dataset. Holds model/ or models/NAME/ and the default dataset/. For evaluate it selects the checkpoint and default dataset; for predict/run it selects a checkpoint. |
-| `--dataset PATH` | collect, train, evaluate | Override DATA_DIR/dataset. Collect writes resumable CSV shards directly here; train/evaluate read the shared dataset without copying or modifying it. Cannot accompany PROBLEM inputs in train/evaluate. |
+| `--dataset PATH` | collect, join, train, evaluate | Override DATA_DIR/dataset. Collect appends to PATH/problems.csv; join writes PATH/data.npz and PATH/metadata.json; train/evaluate read either, or older results, without copying or modifying them. Cannot accompany PROBLEM inputs in train/evaluate. |
 | `--network NAME` | train | **DefaultFull**. Select a Python file/class from models/. The optional .py suffix is accepted. |
 | `--model PATH` | run, evaluate | Explicit trained checkpoint or directory. Otherwise use --data-dir; without either, run the unguided baseline. |
 | `--model-name NAME` | train, evaluate, predict, run | Optional saved-run name: use DATA_DIR/models/NAME rather than DATA_DIR/model. Separate from the network implementation. Existing checkpoints require --resume. |
@@ -101,19 +102,17 @@ architecture, inputs, and activation are defined in the selected Python
 class. Adam defaults to learning rate 0.001 and weight decay 0; these are not
 CLI options.
 
-With --dataset, collect writes CATEGORY.csv for a single category/directory,
-or problems.csv for explicit files, multiple inputs, or the default corpus.
-Resumable intermediate records append to PATH/.cache/CATEGORY/cache.csv (or
-PATH/.cache/problems/cache.csv). One file holds settings, successes and failures.
-Old per-problem JSON caches, including partial results, are imported automatically
-when resuming; no extra option is needed, and the old files are preserved.
-Do not run simultaneous collectors writing the same shard; finish collection
-before training readers.
+Collect appends one row per problem to PATH/problems.csv, which holds settings,
+successes and failures, and resumes by skipping the problems already there.
+It refuses directories holding older results; collect into a new directory.
+Do not run simultaneous collectors writing the same file.
+Training reads unfinished files, ignoring a partly written last row.
 Legacy dataset directories and individual CSV shards are readable. Dataset CSV cells
 contain JSON-encoded values, preserving graphs, labels, strings, and nulls exactly.
 Empty cells represent absent fields.
 Do not mix legacy metadata.json/examples/ records and public CSV shards in
 one directory: the loader rejects this instead of silently ignoring records.
+It also rejects mixing old CSV results with new problems.csv files; use join.
 Training shards may differ in seed, predictor, prover revision, collection budget
 and machine-specific TPTP installation path; policy, backend and label semantics
 must still match. Different seeds and predictors remain recorded per shard in the metadata.

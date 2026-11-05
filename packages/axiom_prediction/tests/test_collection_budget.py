@@ -28,16 +28,16 @@ def test_collection_records_problem_errors_and_resumes_past_them(tmp_path, monke
 
     monkeypatch.setattr(dataset, "collect_proof_example", search)
     monkeypatch.setattr(dataset, "collect_problem_records_parallel", sequential_collection)
-    options = dict(output_dir = tmp_path, shard_name = "TEST", num_workers = 1, tptp_root = tmp_path)
-    shard, summary = dataset.collect_axiom_dataset_shard(["bad.p", "next.p"], **options)
-    rows = list(read_csv(shard))
-    failure = next(row for row in rows[1:] if row["problem"] == "bad.p")
+    options = dict(output_dir = tmp_path, num_workers = 1, tptp_root = tmp_path)
+    summary = dataset.collect_axiom_dataset(["bad.p", "next.p"], **options)
+    rows = list(read_csv(tmp_path / "problems.csv"))
+    failure = next(row for row in rows if row["problem_name"] == "bad.p")
     assert failure["error"] is True
     assert failure["outcome"] == f"{error_type.__name__}: problem exceeded a resource limit"
     assert calls == ["bad.p", "next.p"]
     assert summary["problems_failed"] == 2
 
-    _, resumed = dataset.collect_axiom_dataset_shard(["bad.p", "next.p"], **options)
+    resumed = dataset.collect_axiom_dataset(["bad.p", "next.p"], **options)
     assert resumed["problems_reused"] == 2
     assert calls == ["bad.p", "next.p"]
 
