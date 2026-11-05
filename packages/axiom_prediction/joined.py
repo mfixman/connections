@@ -21,7 +21,7 @@ from .logs import progress as track_progress
 from .parallel import determine_worker_count
 from .problems_file import problem_name, problem_schema
 
-joined_schema = "learncop.axiom_prediction.joined.v1"
+joined_schema = "learncop.axiom_prediction.joined.v2"
 
 table_widths = {
     "nodes.symbol": 2,
