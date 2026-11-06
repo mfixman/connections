@@ -96,6 +96,13 @@ class AxiomPredictor:
             else None,
         )
 
+    # Plain TorchScript models have no scorer split, so count every parameter.
+    def network_size(self):
+        if isinstance(self.model, torch.jit.ScriptModule):
+            return sum(parameter.numel() for parameter in self.model.parameters())
+
+        return self.model.network_size()
+
     def predict(
         self,
         matrix: Matrix,

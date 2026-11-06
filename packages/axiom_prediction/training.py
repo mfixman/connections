@@ -860,7 +860,7 @@ def evaluate_axiom_predictor(
             **model_metadata,
             "checkpoint": None if sine else str(checkpoint),
             "device": "cpu" if sine else str(predictor.device),
-            "network_size": 0 if sine else predictor.model.network_size(),
+            "network_size": 0 if sine else predictor.network_size(),
 
             "sat_policy": sat_policy.wire_value(),
             "dataset": None if dataset is None else str(dataset),
@@ -899,7 +899,7 @@ def evaluate_axiom_predictor(
         )
 
         metrics: dict[str, Any] = dict(raw_metrics)
-        network_size = 0 if sine else predictor.model.network_size()
+        network_size = 0 if sine else predictor.network_size()
         report_problem_predictions(examples, probabilities, skipped, split, network_size, tptp_root)
         log_message(
             f"evaluated {len(examples)} problems in {time.monotonic() - started:.1f}s: {metric_text(metrics)}"

@@ -608,7 +608,7 @@ def execute_command(args: argparse.Namespace) -> int:
                         "clause_text": prediction.clause_text,
                         "probability": prediction.probability,
                         "rank": prediction.rank,
-                        "network_size": predictor.model.network_size(),
+                        "network_size": predictor.network_size(),
                     },
                 )
 
@@ -696,7 +696,7 @@ def run_command(args: argparse.Namespace) -> int:
 
         print_device(args.device)
         predictor = AxiomPredictor.load(model, device = "cpu")
-        network_size = predictor.model.network_size()
+        network_size = predictor.network_size()
         policy = label_policy(
             policy,
             {"collection": predictor.training_config},
