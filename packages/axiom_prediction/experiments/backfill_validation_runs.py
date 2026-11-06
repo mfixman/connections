@@ -11,10 +11,11 @@ import re
 from axiom_prediction.choices import ProverPolicy
 from axiom_prediction.data import axiom_example_schema
 from axiom_prediction.dataset import collection_caches, read_dataset_rows
+from axiom_prediction.io import write_json_atomic
 from axiom_prediction.logs import log
 from axiom_prediction.split import ProblemSplit
-from axiom_prediction.tptp import resolve_tptp_problem
-from axiom_prediction.validation_run import run_baseline, run_validation, validation_run_configs
+from axiom_prediction.tptp import resolve_tptp_problem, tptp_problems
+from axiom_prediction.validation_run import refutable, run_baseline, run_validation, validation_run_configs
 from axiom_prediction.wandb_tracking import WandbConfig
 
 def parse_arguments():
@@ -28,6 +29,14 @@ def parse_arguments():
     parser.add_argument("--dry-run", action = "store_true")
     parser.add_argument("--skip-upload", action = "store_true")
     parser.add_argument("--replace-from-step", type = int, metavar = "STEP")
+    parser.add_argument("--split", type = int, help = "split for runs trained without --evaluate")
+    parser.add_argument("--evaluate", type = int, nargs = "+", metavar = "PART", help = "held-out parts with --split")
+    parser.add_argument("--all-held-out", action = "store_true", help = "every refutable held-out problem, proved or not")
+    parser.add_argument("--timeout-seconds", type = float, help = "proof search limit instead of the run's")
+    parser.add_argument("--tptp", help = "TPTP root instead of the run's")
+    parser.add_argument("--tag", help = "write results-TAG.csv, so several jobs can share one output")
+    parser.add_argument("--epochs", type = int, nargs = "+", help = "evaluate only these epochs; 0 is the baseline")
+    parser.add_argument("--upload-only", action = "store_true", help = "upload recorded epochs without evaluating more")
     return parser.parse_args()
 
 def wandb_key():
@@ -76,21 +85,34 @@ def held_out_paths(dataset, split, max_bytes):
     log(f"{len(paths)} held-out problems with proofs in {len(shards)} shards of {dataset}")
     return paths
 
+def evaluation_split(settings, args):
+    if args.evaluate is None:
+        return ProblemSplit(**settings["evaluation_split"])
+
+    scheme = (settings.get("split") or {}).get("scheme", 5)
+    return ProblemSplit(split = args.split, parts = args.evaluate, scheme = scheme)
+
 # Saved on the first attempt, since the dataset can grow while collections still run.
-def validation_selection(settings, ratio, output):
+def validation_selection(settings, args, output):
     path = output / "selection.json"
     if path.exists():
         return json.loads(path.read_text())
 
-    split = ProblemSplit(**settings["evaluation_split"])
-    max_bytes = int(settings["cli_arguments"]["max_example_mb"] * 1e6)
-    paths = held_out_paths(Path(settings["dataset"]), split, max_bytes)
-    problems = split.subsample(sorted(paths), ratio)
-    for problem in problems:
-        resolve_tptp_problem(problem, tptp_root = settings["cli_arguments"].get("tptp"))
+    split = evaluation_split(settings, args)
+    tptp_root = args.tptp or settings["cli_arguments"].get("tptp")
+    if args.all_held_out:
+        paths = list(filter(refutable, split.select(tptp_problems(tptp_root = tptp_root))))
+    else:
+        max_bytes = int(settings["cli_arguments"]["max_example_mb"] * 1e6)
+        paths = held_out_paths(Path(settings["dataset"]), split, max_bytes)
 
-    selection = {"held_out": len(paths), "problems": problems}
-    path.write_text(json.dumps(selection, indent = 2) + "\n")
+    problems = split.subsample(sorted(paths), args.ratio)
+    for problem in problems:
+        resolve_tptp_problem(problem, tptp_root = tptp_root)
+
+    # Parallel jobs sharing an output may race to write it.
+    selection = {"held_out": len(paths), "problems": problems, "split": split.describe()}
+    write_json_atomic(path, selection)
     return selection
 
 def read_results(path):
@@ -99,6 +121,13 @@ def read_results(path):
 
     with path.open(newline = "") as stream:
         return {(int(row["epoch"]), row["metric"]): float(row["value"]) for row in csv.DictReader(stream)}
+
+def read_all_results(output):
+    results = {}
+    for path in sorted(output.glob("results*.csv")):
+        results |= read_results(path)
+
+    return results
 
 def append_results(path, epoch, metrics):
     new = not path.exists()
@@ -114,7 +143,10 @@ def epoch_checkpoints(model_dir):
 
 # Epoch 0 holds the unguided baseline.
 def evaluate_epochs(problems, configs, checkpoints, path, args, tptp_root):
-    done = {epoch for epoch, _ in read_results(path)}
+    done = {epoch for epoch, _ in read_all_results(path.parent)}
+    if args.epochs is not None:
+        done |= {epoch for epoch in [0, *checkpoints] if epoch not in args.epochs}
+
     options = dict(tptp_root = tptp_root, num_workers = args.num_workers)
     with ThreadPoolExecutor(args.epoch_jobs) as pool:
         futures = {}
@@ -180,9 +212,10 @@ def main():
     args = parse_arguments()
     args.output.mkdir(parents = True, exist_ok = True)
     settings = training_run(args.run_id).config
-    selection = validation_selection(settings, args.ratio, args.output)
+    selection = validation_selection(settings, args, args.output)
     problems = selection["problems"]
-    log(f"validation backfill: {len(problems)} problems (1/{args.ratio} of {settings['evaluation_split']})")
+    split = evaluation_split(settings, args)
+    log(f"validation backfill: {len(problems)} problems (1/{args.ratio} of {split.describe()})")
     if args.dry_run:
         return
 
@@ -191,18 +224,22 @@ def main():
     limits = argparse.Namespace(
         seed = settings["seed"],
         step_limit = settings["step_limit"],
-        timeout_s = settings["timeout_seconds"],
+        timeout_s = args.timeout_seconds or settings["timeout_seconds"],
     )
 
     configs = validation_run_configs(args.provers, limits, model_dir / "model.ts")
 
-    path = args.output / "results.csv"
-    evaluate_epochs(problems, configs, checkpoints, path, args, settings["cli_arguments"].get("tptp"))
+    path = args.output / (f"results-{args.tag}.csv" if args.tag else "results.csv")
+    if not args.upload_only:
+        evaluate_epochs(problems, configs, checkpoints, path, args, args.tptp or settings["cli_arguments"].get("tptp"))
+
     details = {
         "ratio": args.ratio,
         "problems": len(problems),
         "held_out": selection["held_out"],
-        "split": settings["evaluation_split"],
+        "split": split.describe(),
+        "all_held_out": args.all_held_out,
+        "timeout_seconds": limits.timeout_s,
         "provers": [config.policy.wire_value() for config in configs],
         "epochs": max(checkpoints),
         "job_id": os.environ.get("SLURM_JOB_ID"),
@@ -211,18 +248,27 @@ def main():
     if args.skip_upload:
         return
 
-    if (args.output / "uploaded.json").exists():
+    # Uploads add only epochs recorded since the last one; older files list no epochs and cover the whole run.
+    marker = args.output / "uploaded.json"
+    previous = json.loads(marker.read_text()) if marker.exists() else {"epochs": []}
+    if "epochs" not in previous:
         log(f"validation backfill: already uploaded to W&B run {args.run_id}")
         return
 
-    results = read_results(path)
+    results = read_all_results(args.output)
+    recorded = {epoch for epoch, _ in results}
     rows = {
         epoch: epoch_metrics(results, epoch, details["provers"], selection)
         for epoch in checkpoints
+        if epoch in recorded and epoch not in previous["epochs"] and 0 in recorded
     }
 
+    if not rows:
+        log(f"validation backfill: no new epochs to upload to W&B run {args.run_id}")
+        return
+
     upload(args.run_id, rows, details, args.output, args.replace_from_step)
-    (args.output / "uploaded.json").write_text(json.dumps(details, indent = 2) + "\n")
+    write_json_atomic(marker, {**details, "epochs": sorted({*previous["epochs"], *rows})})
     log(f"validation backfill: uploaded {len(rows)} epochs to W&B run {args.run_id}")
 
 if __name__ == "__main__":
