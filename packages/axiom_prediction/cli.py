@@ -334,6 +334,12 @@ def build_parser() -> argparse.ArgumentParser:
     )
 
     run.add_argument("--timeout-seconds", dest = "timeout_s", type = float, default = default_timeout_s)
+    run.add_argument(
+        "--temperature",
+        type = float,
+        default = 1.0,
+        help = "guided clause weights become probability ** (1 / T); higher T flattens the guidance",
+    )
 
     add_split_arguments(run)
     run.add_argument(
@@ -715,6 +721,7 @@ def run_command(args: argparse.Namespace) -> int:
         seed = args.seed,
         step_limit = args.step_limit,
         timeout_s = args.timeout_s,
+        temperature = args.temperature,
     )
 
     problems = selected_problems(args)
