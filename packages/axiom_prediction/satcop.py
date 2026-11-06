@@ -1,6 +1,7 @@
 # Convert native SATCoP matrices and PicoSAT cores into training CSV shards.
 
 import argparse
+import ctypes
 from functools import cache
 import hashlib
 import json
@@ -149,9 +150,24 @@ def run_logged(binary, problem, options, root, log_path, timeout_s):
 
     return returncode, status, text
 
+# A worker killed before it can reap SATCoP would otherwise leave it running, stealing CPU from later searches.
+# The library is loaded before forking, since loading it in the child can deadlock.
+libc = ctypes.CDLL(None)
+
+def die_with_parent():
+    pr_set_pdeathsig = 1
+    libc.prctl(pr_set_pdeathsig, signal.SIGKILL)
+
 def run_process(command, environment, log_file, log_path, timeout_s):
     deadline = time.monotonic() + timeout_s
-    process = subprocess.Popen(command, stdout = log_file, stderr = subprocess.STDOUT, env = environment)
+    process = subprocess.Popen(
+        command,
+        stdout = log_file,
+        stderr = subprocess.STDOUT,
+        env = environment,
+        preexec_fn = die_with_parent,
+    )
+
     try:
         with log_path.open() as monitor:
             while process.poll() is None:
