@@ -52,6 +52,12 @@ class AxiomPredictor:
             raise FileNotFoundError(f"axiom predictor checkpoint not found: {checkpoint_path}")
 
         resolved_device = resolve_device(device)
+        # Exported TorchScript without training metadata, such as a control model, is scored through its forward.
+        if checkpoint_path.suffix == ".ts" and not has_checkpoint_metadata(checkpoint_path):
+            module = torch.jit.load(str(checkpoint_path), map_location = "cpu")
+            log(f"loaded plain TorchScript model {checkpoint_path}")
+            return cls(module, device = "cpu")
+
         try:
             payload = load_checkpoint(checkpoint_path)
         except Exception as error:
@@ -103,9 +109,12 @@ class AxiomPredictor:
             conjecture_clause_ids = conjecture_clause_ids,
         )
 
-        batch = collate_axiom_graphs([(example, None)])
         with torch.no_grad():
-            logits = self.model(batch)
+            if isinstance(self.model, torch.jit.ScriptModule):
+                logits = scripted_logits(self.model, example)
+            else:
+                logits = self.model(collate_axiom_graphs([(example, None)]))
+
             if not torch.isfinite(logits).all():
                 raise FloatingPointError("model produced non-finite logits")
 
@@ -180,6 +189,30 @@ def resolve_checkpoint(path):
         return path / "model.pt"
 
     return path
+
+def scripted_logits(module, example):
+    from .representation.schema import node_types, relations
+
+    graph = example.graph
+    widths = (2, 4, 1, 1, 1)
+    # The exported model reads the first five node types and the first seven (matrix) relations.
+    nodes = [
+        torch.tensor(graph.nodes.get(name, []), dtype = torch.long).reshape(-1, width)
+        for name, width in zip(node_types, widths)
+    ]
+
+    edges = [
+        torch.tensor(graph.edges.get(name, []), dtype = torch.long).reshape(-1, 3 if positioned else 2)
+        for name, _, _, positioned in relations[:7]
+    ]
+
+    axioms = torch.tensor(example.axiom_clause_ids, dtype = torch.long)
+    conjectures = torch.tensor(example.conjecture_clause_ids, dtype = torch.long)
+    return module(nodes, edges, axioms, conjectures)
+
+def has_checkpoint_metadata(path):
+    with zipfile.ZipFile(path) as archive:
+        return any(name.endswith("/extra/checkpoint.bin") for name in archive.namelist())
 
 def load_checkpoint(path):
     path = resolve_checkpoint(path)
