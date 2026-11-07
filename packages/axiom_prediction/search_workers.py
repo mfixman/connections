@@ -4,6 +4,8 @@ import multiprocessing as mp
 from multiprocessing.connection import Connection, wait
 from multiprocessing.process import BaseProcess
 import os
+import shutil
+import tempfile
 import time
 
 from .logs import progress_interval_s, log
@@ -15,13 +17,19 @@ class SearchWorker:
     problem: str
     started: float
     cpu: int | None
+    scratch: str
     completed: int = 0
 
 # Spawned workers import this module afresh, so supervisors started before CPU pinning omit cpu.
-def worker_loop(pipe, function, cpu = None):
+def worker_loop(pipe, function, cpu = None, scratch = None):
     # One CPU per worker slot, inherited by native SATCoP children.
     if cpu is not None:
         os.sched_setaffinity(0, {cpu})
+
+    # A killed worker cannot clean its temporary files, so the supervisor deletes this directory instead.
+    if scratch is not None:
+        os.environ["TMPDIR"] = scratch
+        tempfile.tempdir = None
 
     try:
         while True:
@@ -55,12 +63,14 @@ def stop_worker(worker):
         worker.process.join()
 
     worker.process.close()
+    shutil.rmtree(worker.scratch, ignore_errors = True)
 
 def start_worker(function, arguments, cpu):
     context = mp.get_context("spawn")
     parent, child = context.Pipe()
-    process = context.Process(target = worker_loop, args = (child, function, cpu))
-    worker = SearchWorker(process, parent, arguments[0], time.monotonic(), cpu)
+    scratch = tempfile.mkdtemp(prefix = "search-worker-")
+    process = context.Process(target = worker_loop, args = (child, function, cpu, scratch))
+    worker = SearchWorker(process, parent, arguments[0], time.monotonic(), cpu, scratch)
     try:
         process.start()
         child.close()
