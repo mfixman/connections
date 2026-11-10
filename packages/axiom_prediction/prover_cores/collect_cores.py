@@ -47,7 +47,8 @@ def collect(task):
     prover_input = Path(scratch) / f"{Path(path).stem}-{cpu}.in"
     try:
         problem = load_tptp_problem(path, tptp_root = tptp)
-        module.write_input(problem.matrix, set(problem.conjecture_clause_ids), prover_input, seconds)
+        fof = "+" in Path(path).name
+        module.write_input(problem.matrix, set(problem.conjecture_clause_ids), fof, prover_input, seconds)
         output = run_prover(module.command(prover_input, seconds), seconds + 5)
         row["proved"] = module.proved(output)
         row["used"] = module.used_indices(output) if row["proved"] else []

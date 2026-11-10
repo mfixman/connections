@@ -24,20 +24,28 @@ def term_text(term, variables):
     if isinstance(term, Variable):
         return variables.setdefault(term, f"V{len(variables)}")
 
-    args = [term_text(arg, variables) for arg in term.args]
-    name = symbol_text(term.symbol)
+    name, arguments = symbol_text(term.symbol), term.args
+    # Connections writes every Skolem term as f_skolem(number, ...); Prover9 needs one arity per symbol.
+    if name == "f_skolem":
+        name, arguments = f"f_skolem_{arguments[0].symbol}", arguments[1:]
+
+    args = [term_text(arg, variables) for arg in arguments]
     return f"{name}({','.join(args)})" if args else name
 
-def literal_text(literal, variables, syntax):
-    atom = literal.atom
+def literal_text(atom, positive, variables, syntax):
     if atom.symbol in ("=", "equal___"):
-        pattern = syntax.equal if literal.polarity else syntax.unequal
+        pattern = syntax.equal if positive else syntax.unequal
         return pattern.format(*(term_text(arg, variables) for arg in atom.args))
 
     text = syntax.constants.get(atom.symbol) or term_text(atom, variables)
-    return text if literal.polarity else syntax.negation + text
+    return text if positive else syntax.negation + text
 
-def clause_text(clause, syntax):
+# Connections keeps FOF problems as a DNF of the theorem; flipping every literal gives the refutation clauses.
+def clause_text(clause, syntax, flip):
     variables = {}
-    literals = [literal_text(literal, variables, syntax) for literal in clause.literals]
+    literals = [
+        literal_text(literal.atom, literal.polarity != flip, variables, syntax)
+        for literal in clause.literals
+    ]
+
     return " | ".join(literals) or syntax.constants["$false"]

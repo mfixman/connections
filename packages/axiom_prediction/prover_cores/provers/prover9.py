@@ -6,11 +6,11 @@ from axiom_prediction.prover_cores.locations import external
 
 label_semantics = "input clauses used in a Prover9 proof (default settings)"
 
-def write_input(matrix, conjectures, path, seconds):
+def write_input(matrix, conjectures, flip, path, seconds):
     limits = [f"assign(max_seconds,{int(seconds)}).", "assign(max_megs,512)."]
     quiet = ["clear(print_given).", "clear(print_initial_clauses).", "clear(print_kept)."]
     clauses = [
-        f"{clause_text(clause, prover9)} # label(weighted_input_{index})."
+        f"{clause_text(clause, prover9, flip)} # label(weighted_input_{index})."
         for index, clause in enumerate(matrix.clauses)
     ]
 
