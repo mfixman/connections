@@ -25,9 +25,9 @@ def term_text(term, variables):
         return variables.setdefault(term, f"V{len(variables)}")
 
     name, arguments = symbol_text(term.symbol), term.args
-    # Connections writes every Skolem term as f_skolem(number, ...); Prover9 needs one arity per symbol.
-    if name == "f_skolem":
-        name, arguments = f"f_skolem_{arguments[0].symbol}", arguments[1:]
+    # Connections numbers Skolem and definition symbols in their first argument; Prover9 needs one arity per symbol.
+    if name in ("f_skolem", "p_defini"):
+        name, arguments = f"{name}_{arguments[0].symbol}", arguments[1:]
 
     args = [term_text(arg, variables) for arg in arguments]
     return f"{name}({','.join(args)})" if args else name
