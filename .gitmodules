@@ -10,3 +10,11 @@
 	path = external/vampire
 	url = git@github.com:mfixman/vampire
 	branch = axiom_selection
+[submodule "external/eprover"]
+	path = external/eprover
+	url = https://github.com/eprover/eprover.git
+	branch = master
+[submodule "external/iprover"]
+	path = external/iprover
+	url = https://gitlab.com/korovin/iprover.git
+	branch = master

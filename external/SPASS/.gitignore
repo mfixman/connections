@@ -1,0 +1,4 @@
+*.o
+SPASS
+build.log
+spass39.tgz
