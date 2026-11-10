@@ -36,15 +36,18 @@ def example_json(problem, used):
 
     return axiom_training_example_to_json(example)
 
+# Each worker takes one CPU for its whole life, so no two provers share a core.
+def pin_worker(cpus):
+    os.sched_setaffinity(0, {cpus.get()})
+
 def collect(task):
-    path, prover, seconds, cpu, scratch, tptp = task
+    path, prover, seconds, scratch, tptp = task
     from axiom_prediction.tptp import load_tptp_problem
 
-    os.sched_setaffinity(0, {cpu})
     module = modules[prover]
     started = time.monotonic()
     row = {"problem": Path(path).name, "problem_path": path, "proved": False, "used": []}
-    prover_input = Path(scratch) / f"{Path(path).stem}-{cpu}.in"
+    prover_input = Path(scratch) / f"{Path(path).stem}-{os.getpid()}.in"
     try:
         problem = load_tptp_problem(path, tptp_root = tptp)
         fof = "+" in Path(path).name
@@ -89,16 +92,17 @@ def main():
     done = {json.loads(line)["problem"] for line in args.output.open()} if args.output.exists() else set()
     paths = [path for path in args.problems or refutable_problems(args) if Path(path).name not in done]
 
-    cpus = sorted(os.sched_getaffinity(0))
-    tasks = [
-        (path, args.prover, args.seconds, cpus[index % len(cpus)], args.scratch, args.tptp)
-        for index, path in enumerate(paths)
-    ]
-
+    cpus = sorted(os.sched_getaffinity(0))[:args.workers]
+    tasks = [(path, args.prover, args.seconds, args.scratch, args.tptp) for path in paths]
     print(f"{args.prover}: {len(paths)} problems to do, {len(done)} done, {len(cpus)} cpus", flush = True)
     context = multiprocessing.get_context("spawn")
+    free = context.Queue()
+    for cpu in cpus:
+        free.put(cpu)
+
     counts = {"finished": 0, "proved": 0, "errors": 0}
-    with args.output.open("a") as stream, ProcessPoolExecutor(min(args.workers, len(cpus)), mp_context = context) as pool:
+    pool = ProcessPoolExecutor(len(cpus), mp_context = context, initializer = pin_worker, initargs = (free,))
+    with args.output.open("a") as stream, pool:
         for future in as_completed([pool.submit(collect, task) for task in tasks]):
             row = future.result()
             stream.write(json.dumps(row) + "\n")
