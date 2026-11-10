@@ -4,11 +4,14 @@ import sys
 
 home = Path('/home/msf43')
 goal = home / 'axiom-goal'
-connections = home / 'connections'
+connections = Path(__file__).resolve().parents[4]
+external = connections / 'external'
 tptp = Path('/rds/user/msf43/hpc-work/TPTP')
 big_train = connections / 'results/big-train'
-prover9_selection = home / 'TP/Prover9/axiom_selection'
-eprover = home / 'TP/eprover/bin/eprover'
+prover9_selection = external / 'Prover9/axiom_selection'
+eprover = external / 'eprover/bin/eprover'
+spass = external / 'SPASS/SPASS'
+iprover = external / 'iprover/iproveropt'
 
 def add_connections(checkout = connections):
     # The scripts run outside the package, so the checkout's packages and src go first on sys.path.
