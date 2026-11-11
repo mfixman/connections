@@ -21,15 +21,17 @@ class Features(nn.Module):
         return torch.relu(result)
 
 class Relation(nn.Module):
-    __constants__ = ["src", "dst", "positioned", "index"]
+    __constants__ = ["src", "dst", "positioned", "index", "chunk"]
 
-    def __init__(self, encoder, name, src, dst, positioned, index):
+    def __init__(self, encoder, name, src, dst, positioned, index, chunk = 65536):
         super().__init__()
         self.src, self.dst = src, dst
         self.positioned, self.index = positioned, index
         self.fwd = encoder.relation_fwd[name]
         self.rev = encoder.relation_rev[name]
+        self.chunk = chunk
 
+    # Edges go in chunks so memory grows with nodes, not edges; Vampire caps its process memory.
     def forward(
         self,
         h: list[torch.Tensor],
@@ -37,20 +39,25 @@ class Relation(nn.Module):
         edge: torch.Tensor,
         positions: torch.Tensor,
     ):
-        source, target = edge[:, 0], edge[:, 1]
-        left, right = h[self.src][source], h[self.dst][target]
-        if self.positioned:
-            pos = positions[edge[:, 2]]
-            left, right = left + pos, right + pos
+        forward_sums, reverse_sums = torch.zeros_like(h[self.dst]), torch.zeros_like(h[self.src])
+        for start in range(0, edge.shape[0], self.chunk):
+            part = edge[start:start + self.chunk]
+            source, target = part[:, 0], part[:, 1]
+            left, right = h[self.src][source], h[self.dst][target]
+            if self.positioned:
+                pos = positions[part[:, 2]]
+                left, right = left + pos, right + pos
 
-        incoming[self.dst] = incoming[self.dst] + self.mean(self.fwd(left), target, h[self.dst])
-        incoming[self.src] = incoming[self.src] + self.mean(self.rev(right), source, h[self.src])
+            forward_sums.index_add_(0, target, self.fwd(left))
+            reverse_sums.index_add_(0, source, self.rev(right))
 
-    def mean(self, values: torch.Tensor, index: torch.Tensor, reference: torch.Tensor) -> torch.Tensor:
-        sums = torch.zeros_like(reference).index_add_(0, index, values)
+        incoming[self.dst] = incoming[self.dst] + forward_sums / self.counts(edge[:, 1], h[self.dst])
+        incoming[self.src] = incoming[self.src] + reverse_sums / self.counts(edge[:, 0], h[self.src])
+
+    def counts(self, index: torch.Tensor, reference: torch.Tensor) -> torch.Tensor:
         counts = torch.zeros(reference.shape[0], device = reference.device)
         counts.index_add_(0, index, torch.ones(index.shape[0], device = reference.device))
-        return sums / counts.clamp(min = 1).unsqueeze(1)
+        return counts.clamp(min = 1).unsqueeze(1)
 
 class TensorModel(nn.Module):
     __constants__ = ["rounds", "no_terms"]
