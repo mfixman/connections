@@ -1,22 +1,30 @@
 # Runs an unmodified external prover on Connections' clauses and records which input clauses each proof used.
 import argparse
-from concurrent.futures import ProcessPoolExecutor, as_completed
 import json
-import multiprocessing
 import os
 from pathlib import Path
 import signal
 import subprocess
 import sys
-import time
+import tempfile
 
 checkout = Path(__file__).resolve().parents[3]
 sys.path[:0] = [str(checkout / "packages"), str(checkout / "src")]
 
 from axiom_prediction.prover_cores.provers import Prover, modules
+from axiom_prediction.satcop import die_with_parent
+from axiom_prediction.search_workers import supervised_results
 
 def run_prover(command, timeout_s):
-    process = subprocess.Popen(command, stdout = subprocess.PIPE, stderr = subprocess.STDOUT, text = True, start_new_session = True)
+    process = subprocess.Popen(
+        command,
+        stdout = subprocess.PIPE,
+        stderr = subprocess.STDOUT,
+        text = True,
+        start_new_session = True,
+        preexec_fn = die_with_parent,
+    )
+
     try:
         return process.communicate(timeout = timeout_s)[0]
     except subprocess.TimeoutExpired:
@@ -36,32 +44,40 @@ def example_json(problem, used):
 
     return axiom_training_example_to_json(example)
 
-# Each worker takes one CPU for its whole life, so no two provers share a core.
-def pin_worker(cpus):
-    os.sched_setaffinity(0, {cpus.get()})
-
-def collect(task):
-    path, prover, seconds, scratch, tptp = task
+# Runs in a supervised worker, which turns an exception into an error row.
+def collect(path, prover, seconds, tptp, max_example_mb):
     from axiom_prediction.tptp import load_tptp_problem
 
     module = modules[prover]
-    started = time.monotonic()
-    row = {"problem": Path(path).name, "problem_path": path, "proved": False, "used": []}
-    prover_input = Path(scratch) / f"{Path(path).stem}-{os.getpid()}.in"
-    try:
-        problem = load_tptp_problem(path, tptp_root = tptp)
-        fof = "+" in Path(path).name
-        module.write_input(problem.matrix, set(problem.conjecture_clause_ids), fof, prover_input, seconds)
-        output = run_prover(module.command(prover_input, seconds), seconds + 5)
-        row["proved"] = module.proved(output)
-        row["used"] = module.used_indices(output) if row["proved"] else []
-        if row["used"]:
-            row["example"] = example_json(problem, row["used"])
-    except Exception as error:
-        row["error"] = repr(error)[:200]
+    problem = load_tptp_problem(path, tptp_root = tptp)
+    fof = "+" in Path(path).name
+    with tempfile.NamedTemporaryFile(suffix = ".in") as prover_input:
+        module.write_input(problem.matrix, set(problem.conjecture_clause_ids), fof, prover_input.name, seconds)
+        output = run_prover(module.command(prover_input.name, seconds), seconds + 5)
 
-    prover_input.unlink(missing_ok = True)
-    row["seconds"] = round(time.monotonic() - started, 2)
+    row = {"problem": path, "proved": module.proved(output), "used": []}
+    if not row["proved"]:
+        return row
+
+    row["used"] = module.used_indices(output)
+    if not row["used"]:
+        return row
+
+    # Training drops examples above this size, and the largest ones take gigabytes to build and store.
+    example = example_json(problem, row["used"])
+    if len(json.dumps(example)) > max_example_mb * 1e6:
+        return {**row, "outcome": "ExampleTooLarge"}
+
+    return {**row, "example": example}
+
+# Rows made by the supervisor (exception, timeout, dead worker) carry only an outcome.
+def output_row(result):
+    path = result.pop("problem")
+    row = {"problem": Path(path).name, "problem_path": path, "used": [], **result}
+    row["seconds"] = round(row["seconds"], 2)
+    if "outcome" in row:
+        row["error"] = row.pop("outcome")
+
     return row
 
 def refutable_problems(args):
@@ -82,29 +98,27 @@ def parse_arguments():
     parser.add_argument("--problems", nargs = "+", help = "instead of the split's problems")
     parser.add_argument("--seconds", type = float, default = 60)
     parser.add_argument("--workers", type = int, default = 76)
-    parser.add_argument("--scratch", default = "/dev/shm/prover-cores")
+    parser.add_argument("--scratch", default = "/dev/shm", help = "parent of the workers' temporary directories")
+    parser.add_argument("--max-example-mb", type = float, default = 10)
     return parser.parse_args()
 
 def main():
+    # Parsing and clausifying a problem gets this long on top of the prover's time.
+    load_limit_s = 120
+
     args = parse_arguments()
-    Path(args.scratch).mkdir(parents = True, exist_ok = True)
+    tempfile.tempdir = args.scratch
     args.output.parent.mkdir(parents = True, exist_ok = True)
     done = {json.loads(line)["problem"] for line in args.output.open()} if args.output.exists() else set()
     paths = [path for path in args.problems or refutable_problems(args) if Path(path).name not in done]
-
-    cpus = sorted(os.sched_getaffinity(0))[:args.workers]
-    tasks = [(path, args.prover, args.seconds, args.scratch, args.tptp) for path in paths]
-    print(f"{args.prover}: {len(paths)} problems to do, {len(done)} done, {len(cpus)} cpus", flush = True)
-    context = multiprocessing.get_context("spawn")
-    free = context.Queue()
-    for cpu in cpus:
-        free.put(cpu)
+    tasks = [(path, args.prover, args.seconds, args.tptp, args.max_example_mb) for path in paths]
+    workers = min(args.workers, len(os.sched_getaffinity(0)))
+    print(f"{args.prover}: {len(paths)} problems to do, {len(done)} done, {workers} workers", flush = True)
 
     counts = {"finished": 0, "proved": 0, "errors": 0}
-    pool = ProcessPoolExecutor(len(cpus), mp_context = context, initializer = pin_worker, initargs = (free,))
-    with args.output.open("a") as stream, pool:
-        for future in as_completed([pool.submit(collect, task) for task in tasks]):
-            row = future.result()
+    results = supervised_results(collect, tasks, workers = workers, timeout = args.seconds + load_limit_s)
+    with args.output.open("a") as stream:
+        for row in map(output_row, results):
             stream.write(json.dumps(row) + "\n")
             stream.flush()
 
