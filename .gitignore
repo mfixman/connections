@@ -282,3 +282,5 @@ packages/axiom_prediction/external_provers/
 poster/gemini-cam/
 poster/tex/
 */tex/*
+
+runs/
