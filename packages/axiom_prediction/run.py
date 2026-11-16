@@ -21,7 +21,7 @@ from .search_workers import supervised_results
 from .limits import CollectionTimeout, wall_clock
 from .parallel import determine_worker_count
 from .limits import default_step_limit, default_timeout_s
-from .tptp import load_tptp_problem, resolve_tptp_problem
+from .tptp import load_tptp_problem, resolve_tptp_problem, selector_equality_axioms
 from .tptp import declared_tptp_status
 
 @dataclass(init = False)
@@ -239,7 +239,7 @@ def search_problem(problem, *, tptp_root, config):
             ),
             schedule = StrategySchedule.single(
                 Strategy(
-                    matrix = MatrixOptions(mark_conjecture = True),
+                    matrix = MatrixOptions(mark_conjecture = True, equality_axioms = selector_equality_axioms()),
                     policy = PolicyOptions(policy_class = policy_class, args = args),
                 ),
                 steps = config.step_limit,

@@ -59,6 +59,7 @@ def clausify(
     reorder: int = 0,
     mark_conjecture: bool = False,
     logic: str = "classical",
+    equality_axioms: bool = True,
 ) -> Matrix:
     if isinstance(ast, ParsedTPTPDocument):
         return make_matrix_from_document(
@@ -67,12 +68,14 @@ def clausify(
             reorder=reorder,
             mark_conjecture=mark_conjecture,
             logic=logic,
+            equality_axioms=equality_axioms,
         )
     return make_matrix_from_formula(
         ast,
         translation=translation,
         reorder=reorder,
         logic=logic,
+        equality_axioms=equality_axioms,
     )
 
 
@@ -83,6 +86,7 @@ def make_matrix_from_document(
     reorder: int = 0,
     mark_conjecture: bool = False,
     logic: str = "classical",
+    equality_axioms: bool = True,
 ) -> Matrix:
     from connections.parsing.tptp.transformer import StmtCNF
 
@@ -147,6 +151,7 @@ def make_matrix_from_document(
         reorder=reorder,
         mark_conjecture_clauses=mark_conjecture_clauses,
         logic=logic,
+        equality_axioms=equality_axioms,
     )
     matrix.source_has_conjecture = document.conjecture_formula is not None
     return matrix
@@ -195,6 +200,7 @@ def make_matrix_from_formula(
     reorder: int = 0,
     mark_conjecture_clauses: bool = False,
     logic: str = "classical",
+    equality_axioms: bool = True,
 ) -> Matrix:
     normalized_logic = normalize_logic(logic)
     if normalized_logic not in CLASSICAL_LOGICS:
@@ -204,6 +210,7 @@ def make_matrix_from_formula(
             reorder=reorder,
             mark_conjecture_clauses=mark_conjecture_clauses,
             logic=logic,
+            equality_axioms=equality_axioms,
         )
     if contains_modal_formula(formula):
         raise NotImplementedError(
@@ -214,7 +221,7 @@ def make_matrix_from_formula(
         translation=translation,
         reorder=reorder,
     )
-    with_equality = add_equality_axioms(formula)
+    with_equality = add_equality_axioms(formula) if equality_axioms else formula
     _trace(
         "clausification.equality_axioms",
         added=with_equality is not formula,
@@ -270,6 +277,7 @@ def make_nonclassical_matrix_from_formula(
     reorder: int = 0,
     mark_conjecture_clauses: bool = False,
     logic: str,
+    equality_axioms: bool = True,
 ) -> Matrix:
     normalized_logic = normalize_logic(logic)
     if (
@@ -290,7 +298,7 @@ def make_nonclassical_matrix_from_formula(
         reorder=reorder,
         logic=logic,
     )
-    with_equality = add_equality_axioms(formula)
+    with_equality = add_equality_axioms(formula) if equality_axioms else formula
     _trace(
         "clausification.equality_axioms",
         added=with_equality is not formula,

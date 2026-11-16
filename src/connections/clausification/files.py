@@ -23,6 +23,7 @@ def matrix_from_file(
     logic: Logic = "classical",
     domain: Domain = "constant",
     source_file_dirs: Iterable[str | Path] = (),
+    equality_axioms: bool = True,
 ) -> Matrix:
     """Load a matrix from a source file using the native parser and translator.
 
@@ -45,6 +46,7 @@ def matrix_from_file(
         reorder=reorder,
         mark_conjecture=mark_conjecture,
         logic=logic,
+        equality_axioms=equality_axioms,
     )
     matrix.logic = logic
     matrix.domain = domain

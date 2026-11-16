@@ -6,6 +6,7 @@ from typing import Any
 
 import argparse
 import json
+import os
 from pathlib import Path
 import re
 
@@ -386,6 +387,11 @@ def build_parser() -> argparse.ArgumentParser:
 
     for command in subparsers.choices.values():
         command.formatter_class = argparse.ArgumentDefaultsHelpFormatter
+        command.add_argument(
+            "--equality-axioms",
+            action = "store_true",
+            help = "add explicit equality axioms to first-order problems with equality, as the Connections prover does",
+        )
         for action in command._actions:
             if action.help is None and action.dest in common_help:
                 action.help = common_help[action.dest]
@@ -417,6 +423,7 @@ def add_device_argument(parser):
 @monitor_progress()
 def main(argv: list[str] | None = None) -> int:
     args = parse_arguments(build_parser(), argv)
+    os.environ["axiom_selector_equality_axioms"] = "1" if args.equality_axioms else "0"
     identity = vars(args).copy()
     if "timeout_s" in identity:
         identity["timeout_seconds"] = identity.pop("timeout_s")

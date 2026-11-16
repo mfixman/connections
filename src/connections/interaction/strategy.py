@@ -17,6 +17,8 @@ class MatrixOptions:
     translation: ClausificationTranslationMode = "default"
     reorder: int = 0
     mark_conjecture: bool = False
+    # Explicit equality axioms for first-order input; provers with built-in equality do not need them.
+    equality_axioms: bool = True
 
 
 @dataclass(frozen=True, slots=True)

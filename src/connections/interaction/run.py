@@ -284,6 +284,7 @@ def _matrix_from_file(
         logic=problem.logic,
         domain=problem.domain,
         source_file_dirs=problem.source_file_dirs,
+        equality_axioms=matrix_options.equality_axioms,
     )
 
     if matrix_key is not None and matrix_cache is not None:
@@ -304,6 +305,7 @@ def _matrix_cache_key(
         matrix_options.translation,
         matrix_options.reorder,
         matrix_options.mark_conjecture,
+        matrix_options.equality_axioms,
     )
 
 

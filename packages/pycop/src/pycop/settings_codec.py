@@ -23,6 +23,8 @@ class LeancopSettingsCodec:
             tokens.append(matrix.translation)
         if matrix.mark_conjecture:
             tokens.append("conj")
+        if not matrix.equality_axioms:
+            tokens.append("noeq")
         if matrix.reorder > 0:
             tokens.append(f"reo({matrix.reorder})")
 
@@ -72,6 +74,7 @@ class LeancopSettingsCodec:
         translation = "default"
         reorder = 0
         conjecture = False
+        equality_axioms = True
         cut = False
         scut = False
         comp: int | None = None
@@ -95,6 +98,9 @@ class LeancopSettingsCodec:
             if token == "conj":
                 conjecture = True
                 continue
+            if token == "noeq":
+                equality_axioms = False
+                continue
 
             match = re.fullmatch(r"reo[(=](\d+)\)?", token)
             if match:
@@ -117,6 +123,7 @@ class LeancopSettingsCodec:
                 translation=translation,
                 reorder=reorder,
                 mark_conjecture=conjecture,
+                equality_axioms=equality_axioms,
             ),
             policy=PolicyOptions(
                 policy_class=leancop_agent,

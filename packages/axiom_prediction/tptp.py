@@ -79,11 +79,20 @@ def default_tptp_roots() -> list[Path]:
     candidates.append(Path.home() / "TPTP")
     return list(dict.fromkeys(candidates))
 
+# External provers handle equality themselves, so the selector leaves the explicit equality axioms out unless
+# --equality-axioms is given; the choice travels in the environment so that worker processes see it too.
+def selector_equality_axioms():
+    return os.environ.get("axiom_selector_equality_axioms") == "1"
+
 def load_tptp_problem(
     problem: str | Path,
     *,
     tptp_root: str | Path | None = None,
+    equality_axioms: bool | None = None,
 ) -> TPTPProblem:
+    if equality_axioms is None:
+        equality_axioms = selector_equality_axioms()
+
     requested = str(problem)
     path, root = resolve_tptp_problem(problem, tptp_root = tptp_root)
 
@@ -92,6 +101,7 @@ def load_tptp_problem(
         path,
         mark_conjecture = True,
         source_file_dirs = source_dirs,
+        equality_axioms = equality_axioms,
     )
 
     conjectures = list(matrix.conjecture_clauses)
@@ -285,7 +295,7 @@ def collect_proof_example(
         return None, declared_outcome
 
     strategy = Strategy(
-        matrix = MatrixOptions(mark_conjecture = True),
+        matrix = MatrixOptions(mark_conjecture = True, equality_axioms = selector_equality_axioms()),
         policy = PolicyOptions(
             policy_class = policies[sat_policy],
             args = {"debug_sat_core": True, "seed": seed},
