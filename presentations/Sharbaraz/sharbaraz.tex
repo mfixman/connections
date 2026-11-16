@@ -1,7 +1,7 @@
 \documentclass[10pt,a4paper,twocolumn]{article}
 
 \usepackage{microtype}
-\usepackage[margin=5em]{geometry}
+\usepackage[left=5em,right=5em,top=5em,bottom=7em]{geometry}
 \usepackage[url=false, doi=false,sorting=none]{biblatex}
 \usepackage{amsmath}
 \usepackage{parskip}
@@ -48,7 +48,7 @@
 
 \subsection{Previously on the Axiom Selector}
 
-We are collecting UNSAT cores from \cop{SATCoP} and \cop{SATResetCoP}, checking which axioms these propositional statements came from, and training the GNN from the connections prover\cite{connections_2023} alongside a feedforward neural network to try to predict the relevance of each particular axiom.
+We are collecting UNSAT cores from \cop{SATCoP}\cite{eliminatingmodels} and \cop{SATResetCoP}, checking which axioms these propositional statements came from, and training the GNN from the connections prover\cite{connections_2023} alongside a feedforward neural network to try to predict the relevance of each particular axiom.
 
 The data was trained with an 8/1/1 train/validation/test split, where the split depends on the problem family \fbox{\texttt{SYN004}} rather than on the problem name itself \fbox{\texttt{SYN004+2.p}}, so problems from the same family are on the same group.
 
@@ -56,18 +56,10 @@ The data was trained with an 8/1/1 train/validation/test split, where the split 
 
 \subsection{Poster}
 
-\begin{figure*}[t]
-	\centering
-	\includegraphics[height=200pt]{poster.png}
-	\caption{Updated version of the poster presented to the CST poster session.}
-	\label{poster}
-\end{figure*}
-
 I presented a poster in the CST session last Tuesday.
-It had a good reception due to the good ration of graphics compared to text, and it was simple understand to let people not familiar with ATPs to understand this topic.
+It had a good reception due to the good ratio of graphics compared to text, and it was simple understand to let people not familiar with ATPs to understand this topic.
 
 The main criticism of the poster was that it was hard to understand, without an explanation, what problem I was trying to solve in the first place.
-The poster in \cref{poster} is the corrected version with this added.
 
 
 \section{Improvements to Pre-training}
@@ -79,16 +71,14 @@ I also built the following improvements to the axiom selector.
 
 Both \cop{SATCoP} and \cop{SATResetCoP} have a high level of randomness in them, and can produce many different unsatisfiability proofs with different UNSAT cores from the same problem.
 
-One of the ideas that came up last week was running \texttt{axiom\_predictor.py} collected on several seeds.
+One of the ideas that came up last week was running \texttt{axiom\_predictor.py} using axioms collected from runs with many different seeds.
 This helps in two ways.
 \begin{enumerate}
 	\item There are more UNSAT cores to train from.
-	\item Many important axioms don't get negative samples due to not being part of the solution given by either model.
+	\item Many axioms that could be part of an unsatisfiability proof don't get negative samples due to not being part of the solution given by either model.
 \end{enumerate}
 
 Following the medieval theme in these models I am calling this set of models \cop{Sharbaraz\{e\}}, for the model trained with seeds $0$ to $e - 1$.
-
-\newpage
 
 \subsection{Joining step}
 
@@ -154,7 +144,7 @@ Following the medieval theme in these models I am calling this set of models \co
 
 \begin{wrapfigure}{r}{80pt}
 	\centering
-	\vspace{-10pt}\includegraphics[width=50pt]{Sharbaraz.jpg}
+	\includegraphics[width=50pt]{Sharbaraz.jpg}
 	\caption*{Sharbaraz, the boar of the (Sassanian Persian) Empire, who conquered the Middle East in the 7th century.\vspace{-40pt}}
 \end{wrapfigure}
 
@@ -177,11 +167,11 @@ Five different models were trained with seeds from 1, 5, 10, 15, and 20 differen
 \end{figure}
 
 \Cref{roc_auc} shows that the ROC AUC maximises (at a very high level) around epoch 10 for all models but \cop{Sharbaraz1}.
-However, since these models will have a non-trivial that's not closely related to the training data the epoch with the highest ROC AUC might not be the best epoch for the final result.
+However, since these models will have a non-trivial evaluation that's not closely related to the training data the epoch with the highest ROC AUC might not be the best epoch for the final result.
 
 To settle this, I ran the models on guided versions of \cop{SATCoP} and \cop{SATResetCoP} for all 1777 TPTP problems in the validation set to find which one has the best result.
 
-\begin{figure}[h]
+\begin{figure}[t]
 	\begin{subfigure}{\columnwidth}
 		\includegraphics[width=\columnwidth]{satcop_epochs.png}
 		\caption{Results on \cop{SATCoP}. The results are spiky due to training issues (this is normal), but there is little improvement in continuing training after around epoch 20.}
@@ -190,7 +180,7 @@ To settle this, I ran the models on guided versions of \cop{SATCoP} and \cop{SAT
 		\includegraphics[width=\columnwidth]{satresetcop_epochs.png}
 		\caption{Results on \cop{SATResetCoP}. The results for all trainers actually start overfitting and become \textit{worse} on successive epochs, and overall they are less spiky than in \cop{SATCoP}.}
 	\end{subfigure}
-	\caption{Results of running each epoch of each seed on both \cop{SAT\*} provers. The axiom predictor uses weighted sampling to guide these two models.}
+	\caption{Results of running each epoch of each seed on both \cop{SAT*} provers. The axiom predictor uses weighted sampling to guide these two models.}
 	\label{validation_results}
 \end{figure}
 
@@ -199,7 +189,7 @@ To settle this, I ran the models on guided versions of \cop{SATCoP} and \cop{SAT
 I spent some time investigating whether this was due to a bug, and at this point I am convinced that it's due to the properties of both provers.
 Since \cop{SATResetCoP} resets more often, a bad initial seed (which is more common on overfit trainers) will have a worse overall performance.
 
-For the following experiments I decided to use \cop{Sharbaraz5} and \cop{Sharbaraz15}, both on Epoch 20.
+For the following experiments I decided to use \cop{Sharbaraz5} and \cop{Sharbaraz15}, both on epoch 20.
 This will be changed afterwards, since this model could use a good hyperparameter sweep before re-running the next experiments.
 
 \section{Results}
@@ -229,17 +219,17 @@ This is doable without modifying the source code of any of the other models.
 \subsection{Portfolios}
 \label{portfolios}
 
-I borrow an idea from the DeepMath paper from Irving~et~al\. (including Josef~Urban)\cite{deepmath}, and use two different portfolios to control 
+I borrow an idea from the DeepMath paper from Irving~et~al.\ (including Josef~Urban)\cite{deepmath}, and use two different portfolios where the axiom selector picks the top axioms.
 
 \begin{description}
 	\item[1. Simple Portfolio] \phantom{a}
-		\begin{enumerate} 
+		\begin{enumerate}[itemsep=-3pt]
 			\item Score all the axioms.
 			\item Top 16 axioms 8 seconds.
 			\item Base model until time out.
 		\end{enumerate}
 	\item[2. Complex Portfolio] \phantom{b}
-		\begin{enumerate}
+		\begin{enumerate}[itemsep=-3pt]
 			\item Score the axioms.
 			\item Top 16 axioms 8 seconds.
 			\item Top 64 axioms 8 seconds.
@@ -275,9 +265,9 @@ Each of the 2 portfolios from \cref{portfolios} is run on each of the provers fr
 
 \footnotetext{I am currently running Vampire \textit{without} SInE\cite{hoder2011sine}, since the results are not good anyway. If I ever beat this baseline I will start using SInE as a new baseline.}
 
-The results in \cref{pareto_table} show significant improvements in \cop{SATCoP} and \cop{Prover9} with the second portfolio (2.9\% and 6.3\% respectively), along with a \textit{tiny} improvement in \cop{E}, \cop{SPASS}, and \cop{iProver} and no improvement at all on Vampire.
+The results in \cref{pareto_table} show significant improvements in \cop{SATCoP} and \cop{Prover9} with the second portfolio (2.9\% and 6.3\% respectively), along with a \textit{tiny} improvement in \cop{SPASS} and \cop{iProver} and no improvement at all on \cop{E} and \cop{Vampire}.
 
-There does not seem to be any significant difference between the 5-seed and the 15-seed version, which is consistent with the results in \cref{validation_results}: as long as the right epoch is chosen, the results with more than 1 seed tend to be the same despite training with over 30 thousand extra examples.
+There does not seem to be any significant difference between the 5-seed and the 15-seed version, which is consistent with the results in \cref{validation_results}: as long as the right epoch is chosen, the results with more than 1 seed tend to be the same despite training with over 20 thousand extra examples.
 
 \section{Next Steps and Experiments}
 
@@ -291,23 +281,23 @@ I believe there is a bit of extra juice I can take from this.
 \begin{wrapfigure}{r}{80pt}
 	\centering
 	\fbox{\includegraphics[width=50pt]{Subutai.jpg}}
-	\caption*{Subutai, the scourge of the world, who conquered all of Central Asia.}
+	\caption*{Subutai, the scourge of the world, who conquered all of Central Asia.\vspace{-10pt}}
 \end{wrapfigure}
 
-The models seem to be particularly good on \cop{SATCoP} and \cop{SATResetCoP}, and a bit better but still worse on \cop{Prover9} and other provers.
+The models seem to be particularly good on \cop{SATCoP} and \cop{SATResetCoP}, and a bit better than the baseline on \cop{Prover9} and other provers.
 I am currently in the process of training a new set of models, named after the 13th century Mongol general \cop{Subutai}, which train on the output data of different provers. 
 
-I have some home that these will have better results on their particular provers.
+I have some hope that these will have better results on their particular provers.
 If so, it's worth it moving this experiment to training the axiom scorer on the prover that's going to be used in; this might be a good experiment.
 
 \subsection{So... where do I publish this?}
 
-Is this publishable? Assuming the \cop{Subutai} experiments don't improve out results much, the improvements are modest compared to any of the ``good'' provers.
+Is this publishable? Assuming the \cop{Subutai} experiments don't improve our results much, the improvements are modest compared to any of the ``good'' provers.
 
 There are a few novel ideas, and I was aiming for one of these conferences.
 \begin{description}
 	\item[IJCAI] Deadline 11 January, conference early August in Kyoto.
-	\item[CADE] Deadline 22 February, conference late August 2027 in Nijmegen (I'm publishing something here regardless)
+	\item[CADE] Deadline 22 February, conference late August 2027 in Nijmegen (I'm want to publish something here regardless).
 	\item[AITP] Deadline May, you know when and where it is.
 \end{description} 
 
