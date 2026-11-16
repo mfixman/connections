@@ -26,10 +26,19 @@ def configure(values):
     os.environ['TPTP_ROOT'] = settings['tptp']
     paths.add_prover9(settings['prover9'])
 
-def tptp_clause(clause):
+# E rejects a parenthesised equation inside a clause, so equality literals are printed bare.
+def tptp_literal(literal, variables):
     from problem import term_text
+    atom = literal.atom
+    if atom.symbol in ('=', 'equal___'):
+        left, right = (term_text(arg, variables) for arg in atom.args)
+        return f'{left} = {right}' if literal.polarity else f'{left} != {right}'
+
+    return ('' if literal.polarity else '~ ') + term_text(atom, variables)
+
+def tptp_clause(clause):
     variables = {}
-    parts = [('' if literal.polarity else '~ ') + term_text(literal.atom, variables) for literal in clause.literals]
+    parts = [tptp_literal(literal, variables) for literal in clause.literals]
     return (' | '.join(parts) or '$false').replace('$T', '$true').replace('$F', '$false')
 
 def proved(output):
