@@ -30,14 +30,27 @@ methods = [
 def family(name):
     return re.match(r'[A-Z]{3}\d{3}', name).group(0)
 
+loaded = {}
+
+# Each job directory is parsed once; its rows are kept per prover.
+def job(directory):
+    if directory not in loaded:
+        by_prover = defaultdict(list)
+        for row in map(json.loads, (directory / 'results.jsonl').open()):
+            by_prover[row['prover']].append(row)
+
+        loaded[directory] = json.loads((directory / 'prepared.json').read_text()), by_prover
+
+    return loaded[directory]
+
 def read(directory, prover, rows, scoring, only = None, arms = None):
     if not (directory / 'results.jsonl').exists():
         return
 
-    prepared = json.loads((directory / 'prepared.json').read_text())
-    for row in map(json.loads, (directory / 'results.jsonl').open()):
+    prepared, by_prover = job(directory)
+    for row in by_prover[prover]:
         name = row['problem']
-        if row['prover'] == prover and (only is None or name in only) and (arms is None or row['arm'] in arms):
+        if (only is None or name in only) and (arms is None or row['arm'] in arms):
             rows[name][(row['arm'], row['k'])] = row
 
     # Problems with at most 8 axiom clauses have no top-k stage but were still scored.
