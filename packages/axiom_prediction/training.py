@@ -123,6 +123,23 @@ def split_examples(examples, failures, split):
     kept = [example for example in examples if split.contains(example.problem_path)]
     return kept, [item for item in failures if split.contains(item.get("problem", ""))]
 
+# Returns the examples and the unproved problems of the training parts, then those of the held-out parts.
+def load_examples(dataset, max_example_mb, split, evaluation_split):
+    log(f"loading dataset from {dataset}")
+    everything, failures, metadata = load_axiom_dataset(dataset, max_example_mb)
+    held_out, held_out_skipped = [], []
+    if evaluation_split is not None:
+        held_out, held_out_skipped = split_examples(everything, failures, evaluation_split)
+        if not held_out:
+            raise ValueError(f"no evaluation examples in {evaluation_split.describe()}")
+
+    examples, skipped = split_examples(everything, failures, split)
+    log(f"kept {len(examples)} of {len(everything)} examples in {split.describe()}; collection settings {metadata.get('collection')}")
+    if not examples:
+        raise RuntimeError(f"no training examples in {split.describe()} of {dataset}")
+
+    return examples, skipped, held_out, held_out_skipped, metadata
+
 def saved_config(config, policy, split, loss_weighting, min_axioms, metadata):
     payload = plain_values(asdict(config))
     payload["timeout_seconds"] = payload.pop("timeout_s")
@@ -186,22 +203,11 @@ def train_axiom_predictor(
     if evaluation_split is not None and validation_run_ratio:
         run_configs = validation_run_configs(validation_run_provers, config, output / "model.ts")
 
-    log(f"loading dataset from {dataset}")
-    everything, failures, metadata = load_axiom_dataset(dataset, max_example_mb)
-    held_out, held_out_skipped = [], []
-    if evaluation_split is not None:
-        held_out, held_out_skipped = split_examples(everything, failures, evaluation_split)
-        if not held_out:
-            raise ValueError(f"no evaluation examples in {evaluation_split.describe()}")
-
-    examples, skipped = split_examples(everything, failures, split)
-    log(f"kept {len(examples)} of {len(everything)} examples in {split.describe()}; collection settings {metadata.get('collection')}")
-    if not examples:
-        raise RuntimeError(f"no training examples in {split.describe()} of {dataset}")
-
+    examples, skipped, held_out, held_out_skipped, metadata = load_examples(dataset, max_example_mb, split, evaluation_split)
     policy = label_policy(config.sat_policy, metadata)
     random.seed(config.seed)
     torch.manual_seed(config.seed)
+
     device = resolve_device(config.device)
     output.mkdir(parents = True, exist_ok = True)
     payload = saved_config(config, policy, split, loss_weighting, min_axioms, metadata)
