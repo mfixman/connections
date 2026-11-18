@@ -10,6 +10,7 @@ from connections.agent.sat import SATCoPCon, SATResetCoP
 from connections.clausification import matrix_from_file
 from connections.interaction.run import Problem, run_schedule
 from connections.interaction.strategy import MatrixOptions, PolicyOptions, Strategy, StrategySchedule
+
 from connections.interaction.szs import SUCCESS as success
 from connections.parsing.tptp import TPTPParseError
 from connections.recursion import deep_recursion
@@ -20,6 +21,7 @@ from .dataset import axiom_dataset_schema, collection_settings
 from .io import read_csv, write_csv
 from .limits import CollectionTimeout, default_collection_step_limit, default_collection_timeout_s, wall_clock
 from .logs import log
+
 from .logs import progress as track_progress
 from .parallel import determine_worker_count
 from .problems_file import append_row, example_row, failure_row, header_fields, problem_fields, problem_name, repair_tail
@@ -109,6 +111,7 @@ def collect_axiom_dataset(
     output_dir,
     tptp_root = None,
     step_limit = default_collection_step_limit,
+
     timeout_s = default_collection_timeout_s,
     sat_policy = ProverPolicy.SatResetCoP,
     num_workers = None,
@@ -125,6 +128,7 @@ def collect_axiom_dataset(
         tptp_root = tptp_root,
         step_limit = step_limit,
         timeout_s = timeout_s,
+
         sat_policy = sat_policy,
         satcop_location = satcop_location,
         seed = seed,
@@ -147,6 +151,7 @@ def collect_axiom_dataset(
         tptp_root = tptp_root,
         step_limit = step_limit,
         timeout_s = timeout_s,
+
         sat_policy = sat_policy,
         num_workers = num_workers,
         native_options = native_options,
@@ -172,6 +177,7 @@ def collect_axiom_dataset(
         "problems_requested": len(problems),
         "problems_proved": counts["proved"],
         "problems_failed": counts["failed"],
+
         "problems_reused": len(reused),
         "problems_unparseable": counts["unparseable"],
         "dataset_file": str(path),
@@ -206,6 +212,7 @@ def collect_one_problem(problem, tptp_root, step_limit, timeout_s, sat_policy, n
             tptp_root = tptp_root,
             step_limit = step_limit,
             timeout_s = timeout_s,
+
             sat_policy = sat_policy,
             native_options = native_options,
             seed = seed,
@@ -231,6 +238,7 @@ def collect_proof_example(
     *,
     tptp_root = None,
     step_limit = default_collection_step_limit,
+
     timeout_s = default_collection_timeout_s,
     sat_policy = ProverPolicy.SatResetCoP,
     native_options = None,

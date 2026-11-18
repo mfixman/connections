@@ -1,12 +1,15 @@
+# The network every model file inherits: a graph encoder, then an MLP scoring each axiom clause against the conjecture.
+
 from dataclasses import replace
 
 import torch
 from torch import nn
 
+from ..choices import GraphInputKind
 from ..configuration import AxiomModelConfig
 from ..encoder import GraphModelConfig, GraphNetwork
 from ..graph import AxiomGraphBatch
-from ..inputs import select_graph_input
+from ..representation.schema import GraphInput
 
 class AxiomPredictionNetwork(nn.Module):
     default_config = AxiomModelConfig()
@@ -69,3 +72,26 @@ def pool_mean(values: torch.Tensor, batch: torch.Tensor, size: int) -> torch.Ten
     counts = torch.zeros(size, device = values.device)
     counts.index_add_(0, batch, torch.ones(len(batch), device = values.device))
     return output / counts.clamp(min = 1).unsqueeze(1)
+
+# The ablated networks see the same graph without its complement edges, or without terms and variables.
+def select_graph_input(graph: GraphInput, kind: str) -> GraphInput:
+    kind = GraphInputKind(kind)
+    if kind == GraphInputKind.Full:
+        return graph
+
+    if kind == GraphInputKind.NoComplements:
+        return replace(graph, edges = {**graph.edges, "complement": []})
+
+    if kind == GraphInputKind.NoTerms:
+        edges = {
+            **graph.edges,
+            **{name: [] for name in ("atom", "arg_term", "arg_var", "sym")},
+        }
+
+        return replace(
+            graph,
+            nodes = {**graph.nodes, "term": [], "var": []},
+            edges = edges,
+        )
+
+    raise ValueError(f"unknown graph input: {kind!r}")

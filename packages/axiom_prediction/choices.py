@@ -1,3 +1,5 @@
+# The named options of the command line; values are TitleCase, and their lowercase wire form goes into saved files.
+
 from enum import StrEnum
 
 class Choice(StrEnum):

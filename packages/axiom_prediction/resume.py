@@ -1,3 +1,5 @@
+# What an interrupted training needs to continue exactly: optimizer and RNG state, and proof that the data is the same.
+
 import hashlib
 import json
 from pathlib import Path
@@ -5,7 +7,6 @@ from pathlib import Path
 import numpy as np
 import torch
 
-from .data import axiom_training_example_to_json
 from .io import write_json_atomic
 from .model import load_checkpoint, resolve_checkpoint
 
@@ -19,24 +20,18 @@ def next_training_run(output, resume):
     write_json_atomic(path, {"count": count})
     return count
 
-def update_with_arrays(digest, example):
-    graph = example.graph
-    fields = [example.problem_path, example.labels, graph.axiom_clause_ids, graph.conjecture_clause_ids]
-    digest.update(json.dumps(fields).encode())
-    for tables in (graph.graph.nodes, graph.graph.edges):
-        for name, rows in sorted(tables.items()):
-            digest.update(name.encode())
-            # The stored type depends on the largest value in the whole joined dataset.
-            digest.update(rows.astype(np.int64).tobytes())
-
+# Identifies the training examples, in order; a resumed run must train on the same ones.
 def dataset_fingerprint(examples):
     digest = hashlib.sha256()
     for example in examples:
-        if isinstance(example.graph.graph.edges.get("contains"), np.ndarray):
-            update_with_arrays(digest, example)
-        else:
-            record = axiom_training_example_to_json(example)
-            digest.update(json.dumps(record, sort_keys = True).encode())
+        graph = example.graph
+        fields = [example.problem_path, example.labels, graph.axiom_clause_ids, graph.conjecture_clause_ids]
+        digest.update(json.dumps(fields).encode())
+        for tables in (graph.graph.nodes, graph.graph.edges):
+            for name, rows in sorted(tables.items()):
+                digest.update(name.encode())
+                # The stored type depends on the largest value in the whole joined dataset.
+                digest.update(np.asarray(rows).astype(np.int64).tobytes())
 
         digest.update(b"\n")
 

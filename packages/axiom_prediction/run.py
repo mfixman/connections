@@ -25,6 +25,7 @@ class RunConfig:
     policy: ProverPolicy
     checkpoint: str | None
     device: str
+
     temperature: float
     seed: int
     step_limit: int
@@ -36,6 +37,7 @@ class RunConfig:
         policy = ProverPolicy.SatResetCoP,
         checkpoint = None,
         device = "cuda",
+
         temperature = 1.0,
         seed = 0,
         step_limit = default_step_limit,
@@ -45,6 +47,7 @@ class RunConfig:
         self.policy = ProverPolicy(policy)
         self.checkpoint = checkpoint
         self.device = device
+
         self.temperature = 1.0 if self.mode == GuidanceMode.Sine else temperature
         self.seed = seed
         self.step_limit = step_limit

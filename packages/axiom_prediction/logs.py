@@ -1,4 +1,4 @@
-from __future__ import annotations
+# Timestamped log lines on stderr, with a reminder when nothing was logged for a minute.
 
 from contextlib import contextmanager
 import logging

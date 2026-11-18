@@ -1,4 +1,4 @@
-from __future__ import annotations
+# Weights & Biases logging for train and run; every failure to start it only disables tracking.
 
 from dataclasses import dataclass
 import importlib

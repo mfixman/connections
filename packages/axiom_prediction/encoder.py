@@ -8,8 +8,6 @@ from typing import cast
 import torch
 from torch import nn
 
-from .aggregation import sparse_relation_mean, sparse_relations
-
 from .representation.schema import GraphInput, arg_position_buckets, node_types, relations
 
 @dataclass(slots = True, init = False)
@@ -227,3 +225,27 @@ def scatter_mean(output: torch.Tensor, index: torch.Tensor, values: torch.Tensor
     summed = torch.zeros_like(output)
     summed.index_add_(0, index, values)
     output += summed / counts.clamp(min = 1.0).unsqueeze(1)
+
+# Large relations without positions go through sparse matrices, which need far less memory than gathered rows.
+def sparse_relations(edges, sources, targets):
+    indices = torch.stack((edges[:, 1], edges[:, 0]))
+    weights = torch.ones(len(edges), device = sources.device, dtype = sources.dtype)
+    adjacency = torch.sparse_coo_tensor(
+        indices,
+        weights,
+        (len(targets), len(sources)),
+        check_invariants = True,
+    ).coalesce()
+
+    forward_counts = torch.bincount(edges[:, 1], minlength = len(targets))
+    reverse_counts = torch.bincount(edges[:, 0], minlength = len(sources))
+    return (
+        (adjacency, forward_counts),
+        (adjacency.transpose(0, 1).coalesce(), reverse_counts),
+    )
+
+def sparse_relation_mean(values, transform, relation):
+    adjacency, counts = relation
+    mean = torch.sparse.mm(adjacency, values) / counts.clamp(min = 1).unsqueeze(1)
+    # An affine transform commutes with the mean, except for empty neighbourhoods.
+    return transform(mean) * (counts > 0).unsqueeze(1)

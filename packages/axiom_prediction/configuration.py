@@ -1,3 +1,5 @@
+# The size and input variant of a network, as saved in its checkpoints.
+
 from .choices import GraphInputKind, plain_values
 
 from dataclasses import asdict, dataclass

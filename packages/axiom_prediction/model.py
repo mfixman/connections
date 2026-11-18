@@ -1,4 +1,4 @@
-from __future__ import annotations
+# Checkpoints (TorchScript files with the training state embedded) and the predictor that scores a matrix with one.
 
 from dataclasses import dataclass
 import io

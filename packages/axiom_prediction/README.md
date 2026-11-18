@@ -1,360 +1,134 @@
 # Axiom predictor
 
-Collect SAT-core labels, train graph networks to rank axiom clauses, and use
-their predictions to guide SATCoP or SATResetCoP.
+Learns which axiom clauses of a first-order problem a proof needs, and uses the prediction to guide provers.
 
-From the repository root, with Python 3.12 or newer:
+1. `collect` proves TPTP problems with SATCoP or SATResetCoP and labels each axiom clause of the clausified problem
+   (the matrix) with whether it is in the SAT core of the proof.
+2. `join` merges collect results into one deduplicated dataset.
+3. `train` fits a graph network that scores every axiom clause of a matrix against its conjecture.
+4. `run` searches for proofs again, ordering the prover's choices by the scores of a checkpoint.
 
-```bash
-python -m pip install -r requirements.txt
-python axiom_predictor.py --help
-python axiom_predictor.py train --help
-```
-
-Training defaults: seed 0, 200 epochs, batch size 43, CUDA required, automatic
-W&B tracking with warning-only fallback, and maximum available CPUs within
-the job allocation. Use `--device auto` to allow CPU fallback, or
-`--device cpu` to require CPU execution. Building Pydical requires Git and
-a C++ compiler. Install optional tracking with `python -m pip install wandb`.
-
-## Models
-
-Each file in [models/](models/)
-defines a class with the same TitleCase name. All inherit
-`AxiomPredictionNetwork`, the shared `torch.nn.Module` base in
-[base.py](models/base.py).
-Select a file/class with `train --network SmallFull` or `--network SmallFull.py`.
-The available names appear in both top-level and training `--help`.
-
-| Size | Full inputs | No complement edges | No explicit term structure | Width / rounds / hidden layers |
-| --- | --- | --- | --- | --- |
-| Small | SmallFull | SmallNoComplements | SmallNoTerms | 32 / 2 / 1 |
-| Default | DefaultFull | DefaultNoComplements | DefaultNoTerms | 64 / 3 / 2 |
-| Large | LargeFull | LargeNoComplements | LargeNoTerms | 128 / 4 / 3 |
-| Extra large | ExtraLargeFull | ExtraLargeNoComplements | ExtraLargeNoTerms | 256 / 5 / 4 |
-
-All use ReLU. `DefaultFull` is the original network and the default choice.
-The input variants retain axioms, conjectures, and pooled scoring contexts.
-NoTerms removes term/variable nodes and their incident relations, but still
-receives clause groundness, predicate arity, and complement edges computed
-from the original terms. NoComplements removes only complement edges;
-shared-symbol and shared-term connections remain.
-
-To add a variant, add a TitleCase Python file/class to this directory. Set
-its `default_config`, and override construction or `forward` if needed.
-The constructor must accept the saved `AxiomModelConfig`. No CLI registry
-edit is needed. For example:
-
-```python
-from ..configuration import AxiomModelConfig
-from .base import AxiomPredictionNetwork
-
-class MyNetwork(AxiomPredictionNetwork):
-    default_config = AxiomModelConfig(hidden_dim=48, message_rounds=2)
-```
-
-Checkpoints record the selected class and its resolved configuration.
-Evaluation, prediction, and guided search restore both automatically.
-Version-2 checkpoints remain loadable as the original base network; new
-checkpoints use version 3 so older readers cannot silently discard the
-selected class.
-
-## Experiments
-
-### Sharing one dataset across runs
-
-Collect once, then give each training job its own output directory:
+The checkpoints are TorchScript files that Prover9 (`external/Prover9/axiom_selection`) and Vampire
+(`external/vampire/Shell/Torok`) load directly.
 
 ```bash
-python axiom_predictor.py collect SYN \
-  --dataset datasets/Reset --policy SatResetCoP
-
-python axiom_predictor.py train \
-  --dataset datasets/Reset --data-dir runs/Reference --network DefaultFull \
-  --split 10 --parts 0 1 2 3 4 5 6 7
-
-python axiom_predictor.py train \
-  --dataset datasets/Reset --data-dir runs/Smaller --network SmallFull \
-  --split 10 --parts 0 1 2 3 4 5 6 7
-
-python axiom_predictor.py evaluate \
-  --dataset datasets/Reset --data-dir runs/Reference --split 10 --parts 8
+python -m pip install -r requirements.txt    # from the repository root, Python 3.12 or newer
+python axiom_predictor.py COMMAND --help
 ```
 
-`--dataset` overrides `--data-dir/dataset`. Collection appends to one
-`problems.csv` in that directory: one header, then one row per problem, written
-as soon as the problem finishes. Resuming skips every problem already in the
-file, and a run is finished once its row count matches the number of problems
-its arguments select. Rows store the file name (`SYN012-3.p`) rather than a
-path, so validation runs need `--tptp` or `$TPTP` to find the problems again.
-`seconds` records the wall-clock time each problem took, including timed-out
-ones. `--problems-from FILE` collects the problems listed in a file, one per
-line, for example only those that earlier seeds proved. Every policy skips
-problems whose TPTP status is `Satisfiable` or `CounterSatisfiable`.
+## Files
 
-Collection refuses directories holding older results (`.cache`, `cache.csv`,
-`metadata.json`, `examples` or an old `problems.csv` header); use a new
-directory for it. Training, evaluation and `join` still read those results.
-Avoid simultaneous writers to the same file. Collect separate policies into
-separate directories.
+| File | What it holds |
+| --- | --- |
+| `cli.py` | The four commands and their arguments. |
+| `tptp.py`, `split.py` | Finding and loading problems; assigning them to the parts of a split. |
+| `collection.py`, `problems_file.py` | `collect`: the worker that proves one problem, and the `problems.csv` it appends to. |
+| `satcop.py`, `satcop_dump.py`, `satcop_search.py` | Native (Rust) SATCoP: running it, decoding its matrix and core, guided search. |
+| `search_workers.py`, `parallel.py`, `limits.py` | Worker processes with a timeout each; worker counts; default budgets. |
+| `joined.py`, `dataset.py`, `data.py` | `join` and the joined dataset; settings shared by datasets; one training example. |
+| `representation/`, `graph.py` | The matrix graph (clauses, literals, terms, variables, symbols) and its batching. |
+| `encoder.py`, `models/`, `configuration.py` | The message-passing encoder, the network variants and their sizes. |
+| `training.py`, `training_log.py`, `resume.py` | `train`: the loop, its log lines, and exact resumption. |
+| `validation_run.py`, `background_validation.py` | Proof search on held-out problems after each epoch, beside training. |
+| `model.py`, `torchscript.py` | Checkpoints, the predictor that scores a matrix, and the TorchScript export. |
+| `run.py`, `guided.py`, `sine.py` | `run`: one search per worker; the weighted SAT policies; the SInE control. |
+| `output.py`, `output_resume.py` | Result rows as CSV, and the resumable `--output` journal. |
+| `wandb_tracking.py`, `metrics.py`, `logs.py`, `io.py` | W&B logging, ranking metrics, log lines, CSV and JSON helpers. |
+| `prover_cores/` | Labels from the proofs of unmodified E, iProver, Prover9 and Vampire. |
+| `experiments/`, `pivot/` | Scripts of past experiments and monitors; not part of the package. |
 
-### Joining results for faster loading
+## The four commands
 
-`join` combines collect results, old or new, and earlier joined datasets into
-one binary dataset:
+A typical sequence, with the split used throughout: 10 parts, 0-7 for training, 8 for validation, 9 for testing.
 
 ```bash
+python axiom_predictor.py collect --dataset results/SatCoP/seed-3/part-0 --split 10 --part 0 \
+  --policy SatCoP --seed 3 --satcop-location ~/satcop --tptp ~/TPTP
+
 python axiom_predictor.py join results/SatCoP/seed-*/part-* results/SatResetCoP/seed-*/part-* \
   --dataset datasets/Joined
 
-python axiom_predictor.py train --dataset datasets/Joined --data-dir runs/Joined \
-  --split 10 --parts 0 1 2 3 4 5 6 7
+python axiom_predictor.py train --dataset datasets/Joined --data-dir runs/First --network ExtraLargeFull \
+  --split 10 --parts 0 1 2 3 4 5 6 7 --evaluate 8 --validation-run-ratio 0 --max-example-mb 10
+
+python axiom_predictor.py run --split 10 --parts 8 --policy SatResetCoP --model runs/First/model/epoch-0020.ts \
+  --cpu --output results/part8-guided.csv
 ```
 
-Each input may be a CSV file, a directory holding one, or a joined dataset, and
-inputs may come from different provers. To add results later, join the earlier
-dataset with the new ones. `DATASET/data.npz` stores each distinct graph of a
-problem once, even if two provers produced it, and one example per distinct SAT
-core; a failure counts only if no input proved that problem. Compressed
-integer arrays make it small and quick to read, which suits slow disks. Complement edges
-are stored in one direction and mirrored on loading; `join` fails if they are
-not mirrored pairs. `--max-example-mb` compares the size of each graph's source CSV row.
+Problems are `.p` files, directories of them, TPTP file names or category codes such as `SYN`; without any, `collect`
+and `run` take every FOF and CNF problem of the TPTP root (`--tptp`, then `$TPTP`, then a `TPTP` directory near the
+checkout). `--split N --parts P ...` keeps the problems of those parts. Scheme 5 (the default) takes the MD5 of the
+problem key modulo N, where the key is the TPTP prefix (`SYN012` for `SYN012-3.p`) or the Mizar article before `__`;
+variants of one problem therefore share a part, and parts P of N are the union of parts P and P + N of 2N. Schemes 3
+and 4 reproduce the assignments of older runs.
 
-`data.npz` also keeps what training does not read, with `metadata.json`'s
-`sources` list of `[prover, backend, seed]` giving the meaning of each source index:
+### collect
 
-* `core_sources`: the sources that found each example's core.
-* `outcomes`: JSON rows of `[problem, source, outcome, parseable, error, seconds]`, one
-  for each result of each source, proved or not.
-* `clause_texts`: the clause text of each graph. A graph that two provers share
-  keeps one prover's text.
+Appends one row per problem to `DATASET/problems.csv` as soon as the problem finishes: the matrix graph and labels
+of a proof, or the reason for failing. Running the same command again skips every problem already there, and refuses
+to continue with a different policy, seed, timeout or SATCoP executable. Use one directory per policy, seed and part,
+and never two writers on one file. Problems that TPTP declares `Satisfiable` or `CounterSatisfiable` are skipped.
+`--problems-from FILE` adds the problems listed in a file, for example those that earlier seeds proved.
 
-`DATASET/metadata.json` lists the provers, seeds and parts of the inputs, with
-each input's path, collection settings and result counts. Parts come from
-`part-N` in the input paths, because no results file records them.
+`--policy SatCoP` runs native SATCoP (below); `SatResetCoP` and `SATCoPCon` are the Python policies of the Connections
+prover, whose labels come from CaDiCaL's failed assumptions. The SAT core is the one the prover found, not a minimal
+one, and an axiom outside it may still be useful in another proof. Seeds give different proofs, hence different
+cores; each distinct core of a problem becomes one training example.
 
-Training on CSV files refuses to mix old and new results in one dataset, since
-their repeated cores would not deduplicate; `join` them instead.
+### join
 
-### Collecting with native Rust SATCoP
+Inputs are collect directories, CSV files in the older shard format (which `prover_cores/shard.py` still writes), or
+joined datasets; to add results later, join the earlier dataset with the new ones. `DATASET/data.npz` stores each
+distinct graph of a problem once and one example per distinct core; `metadata.json` lists the inputs, provers and
+seeds. The file also records which source found each core and every outcome, proved or not, which training ignores.
+`--max-example-mb` of `train` compares the size of each graph's original CSV row.
 
-`SatCoP` selects Rust SATCoP for collection. `SATCoPCon` selects the previous
-Python implementation; `SatResetCoP` keeps its existing meaning. Historical
-datasets and checkpoints labelled `satcop` without Rust backend provenance
-are interpreted as `SATCoPCon` when training or inheriting a checkpoint policy.
+### train
 
-Build the [`axiom_selection` branch](https://github.com/mfixman/satcop/tree/axiom_selection)
-of `~/TP/satcop` following its README. It needs
-PicoSAT compiled with `--trace`: the clause-core API requires that feature.
-The unmodified SATCoP executable has no matrix debug dump and is rejected
-with a build instruction. There is no automatic build or source modification.
+Writes `DATA_DIR/model/epoch-NNNN.ts` after every epoch and copies the newest to `model.ts`. There is no early
+stopping; choose the epoch afterwards from the held-out metrics. `--resume --epochs N` continues to N epochs in total
+and reproduces an uninterrupted run exactly; it refuses a different dataset, split, seed or network. `--evaluate 8`
+scores part 8 after every epoch (`--evaluate-every`) without training on it. `--validation-run-ratio R` additionally
+runs guided proof search on 1/R of those problems in the background; the larger runs do this afterwards with
+`experiments/backfill_validation_runs.py` instead and pass 0.
 
-If the system PicoSAT library lacks trace support, build a private copy:
+| Network | Width / message rounds / hidden layers |
+| --- | --- |
+| `SmallFull` | 32 / 2 / 1 |
+| `DefaultFull` | 64 / 3 / 2 |
+| `LargeFull` | 128 / 4 / 3 |
+| `ExtraLargeFull` | 256 / 5 / 4 |
+
+Each size also has a `NoTerms` variant (no term and variable nodes) and a `NoComplements` variant (no edges between
+complementary literals). A network is a file in `models/` defining a class of the same name with its
+`default_config`; adding a file adds a `--network` choice.
+
+### run
+
+Prints one CSV row per problem; with `--output FILE` the rows go to the file, and repeating the command resumes it.
+Without `--model` or `--sine` the search is the unguided baseline. With a checkpoint, alternative clauses are tried in
+a weighted random order, each clause weighing its predicted probability (floored at `1e-6`, raised to `1 / T` with
+`--temperature T`), conjecture clauses weighing 1; the seed fixes the order. `--sine` weighs the clauses that basic
+SInE selects by 1 and the others by the floor, as a control without a model. A plain TorchScript scorer without
+training metadata, such as a random or symbol-overlap control, also works as `--model`. `--policy` defaults to the
+policy that labelled the checkpoint's training data.
+
+## Native SATCoP
+
+`--policy SatCoP` needs the [`axiom_selection` branch](https://github.com/mfixman/satcop/tree/axiom_selection) of
+SATCoP (`external/satcop`), built with a PicoSAT that has `--trace`, which the clause-core API requires:
 
 ```bash
-cd ~/TP/satcop
-curl -fL https://fmv.jku.at/picosat/picosat-965.tar.gz -o /tmp/picosat-965.tar.gz
-tar -xzf /tmp/picosat-965.tar.gz -C /tmp
+curl -fL https://fmv.jku.at/picosat/picosat-965.tar.gz | tar -xz -C /tmp
 (cd /tmp/picosat-965 && ./configure.sh -O --trace && make -j4 libpicosat.a)
-cp /tmp/picosat-965/libpicosat.a .
-RUSTFLAGS="-L native=$PWD" cargo build --release
+cp /tmp/picosat-965/libpicosat.a external/satcop/
+(cd external/satcop && RUSTFLAGS="-L native=$PWD" cargo build --release)
 ```
 
-Use the same `RUSTFLAGS` for later builds. The library is ignored by Git.
-
-From this repository, either launcher accepts:
-
-```bash
-python axiom_selector.py collect SYN --policy SatCoP \
-  --satcop-location ~/TP/satcop --dataset datasets/NativeSATCoP \
-  --timeout-seconds 900 --num-workers 8 --seed 123
-
-python axiom_selector.py train --dataset datasets/NativeSATCoP \
-  --data-dir runs/NativeSATCoP --network SmallFull \
-  --split 10 --parts 0 1 2 3 4 5 6 7 --evaluate 8
-```
-
-`--satcop-location` accepts a checkout containing `target/release/satcop` or
-an executable; its default is `~/TP/satcop`. On Linux, each worker slot is pinned
-to one allowed CPU, and `taskset` gives its SATCoP child that CPU, so SATCoP
-starts one search thread and concurrent children never share a core. `--seed 123` is
-forwarded unchanged as `satcop ... --seed 123`; that thread receives seed 123.
-The original SATCoP has an internal seeding method but needs the small CLI
-addition to expose it. Native SATCoP uses the wall-clock budget; `--step-limit` applies only
-to Python policies. Collection resumes from the existing `problems.csv`,
-including failure records, and refuses to combine results from different
-executables, seeds or budgets in one file. Use a separate dataset for each
-collection configuration.
-
-Native JSON exports and command/output logs live in `DATASET/native/` during
-each proof; only runs that crash leave files there. SATCoP's `--collect` flag prints its existing
-debug representations; its proof output identifies
-each ground core clause's matrix origin. Python captures stdout, parses it,
-and writes the JSON files. Saved v1 and v2 JSON exports remain readable.
-The converter uses SATCoP's own clauses and
-clause IDs, including equality axioms and definitions, without reclausifying
-the original input. An axiom is positive if at least one of its ground
-instances occurs in PicoSAT's observed UNSAT core; this core is not necessarily
-minimal. Conjecture clauses are context rather than prediction targets.
-Native symbol IDs distinguish generated symbols from equally named input
-symbols. Symbol display names are generated from their IDs. Python records the
-seed, observed checkout revision, binary hash and matrix hash as graph metadata.
-The minimal dump omits source formula names, search constraints and the start set.
-`checkout_revision` describes the checkout at collection time;
-the binary hash identifies the executable actually run.
-
-Raw stdout or existing JSON exports can also be converted separately:
-
-```bash
-taskset -c 0 ~/TP/satcop/target/release/satcop problem.p --collect --seed 123 --time 900 > proof.out
-python packages/axiom_prediction/satcop.py proof.out \
-  --problem problem.p --seed 123 --timeout-seconds 900 \
-  --output datasets/ImportedSATCoP/proofs.csv
-```
-
-Replace CPU 0 with a CPU allowed by your allocation. Raw dumps need `--problem`
-because Rust no longer exports the input path; JSON exports already contain it.
-
-The debug parser matches this SATCoP revision and fails on changed layouts or
-incomplete proofs. Matrix decoding, JSON serialization, process monitoring,
-and training graph construction live in the axiom predictor.
-
-The converter accepts multiple exports for the same problem. Training retains
-one example per distinct positive axiom-clause set for each problem, so repeated
-cores have no extra weight. Results may use different search seeds; collect each
-seed into its own directory and `join` them.
-Policy, backend and label semantics must match, and repeated
-problems must have matching graphs and clause identities. Predictor and prover
-revision differences are retained as provenance rather than compatibility checks.
-`run --policy SatCoP` searches with Rust SATCoP; see [Native SATCoP search](#native-satcop-search).
-Python guided search uses `--policy SATCoPCon`; using a native-trained
-model there is transfer across different clausifications.
-
-The Python-written `satcop.collection.v3` matrix stores symbols as `[name, arity,
-predicate]` and literals as `[positive, atom_term_id]`. Clause rows contain
-`[variable_count, literal_start, literal_stop, is_goal]`;
-ranges exclude their stop index. A term starts with a positive symbol ID or
-a nonpositive variable code (`-variable_id`). A symbol's arity determines how
-many following cells contain argument term IDs. The converter expands this representation
-before using the existing graph builder.
-
-For the initial four-run comparison, use DefaultFull, SmallFull,
-DefaultNoTerms and DefaultNoComplements. Keep the dataset and policy fixed,
-train on parts 0–7, validate on part 8, and reserve part 9 for final proof
-search against an unguided baseline with the same policy and budgets.
-LargeFull is an optional fifth run. See [CLI.md](CLI.md) for the commands.
-
-### Keeping the dataset inside a run directory
-
-Collect separately for each label policy; networks can reuse each dataset:
-
-```bash
-python axiom_predictor.py collect SYN \
-  --data-dir artifacts/SATCoP --policy SatCoP
-
-python axiom_predictor.py train \
-  --data-dir artifacts/SATCoP --network SmallFull --model-name SmallFull \
-  --split 10 --parts 0 1 2 3 4 5 6 7
-
-python axiom_predictor.py evaluate \
-  --data-dir artifacts/SATCoP --model-name SmallFull --split 10 --parts 8
-```
-
-Repeat with any network name from the table. `--network` selects the Python
-network implementation for training; `--model` selects a trained checkpoint
-for proof search, and `--model-name` names the saved run.
-Without a run name, training writes `DATA_DIR/model/model.ts`; with a name,
-it writes `DATA_DIR/models/NAME/model.ts`.
-
-New files are TorchScript archives that Vampire can load directly, with the original
-model configuration, weights, optimizer and RNG state embedded for Python loading
-and exact training resumes. Connections accepts both `.ts` and legacy `.pt` files;
-a directory selects `model.ts` first, then `model.pt`. Only `.ts` files are written.
-Old Vampire-only exports without Connections metadata cannot be loaded by Connections.
-Existing checkpoints are protected:
-use a new run name/directory or pass `--resume` to continue training.
-
-A saved dataset's collection policy is authoritative. Explicitly requesting
-a different `--policy` fails; collect a separate dataset to change labels.
-Run and evaluate inherit the checkpoint's label policy; conflicting explicit
-policies are rejected.
-
-Choose `--split-scheme 3`, `4`, or `5` on any command (default: **5**).
-
-| Scheme | Problem key | Hash |
-| --- | --- | --- |
-| 3 | TPTP prefix (e.g. `ABC123`); otherwise filename stem | BLAKE2b of `N\0key`, 8-byte digest, personalization `lcsplit` |
-| 4 | As 3, but Mizar names use the article before `__` | Same as 3 |
-| 5 | Same as 4 | MD5 of the key only |
-
-All schemes interpret the full digest as a big-endian integer modulo `--split N`.
-Schemes 3 and 4 reproduce their historical assignments; changing N rehashes the
-inputs, so subdividing a part does not preserve membership. Use the same scheme
-and partition count for training and held-out evaluation.
-
-Split scheme 5 hashes only the **problem key** with MD5, interprets the full
-digest as a big-endian integer, and takes its remainder modulo `--split N`.
-The key is the TPTP prefix (e.g. `ABC123`), the Mizar article name before
-`__`, or otherwise the filename without its directory or extension.
-Thus `--split 20 --parts 9 19` selects exactly the same problems as
-`--split 10 --parts 9`; variants of a problem stay together.
-This changes assignments from older split schemes. Evaluation warns about
-checkpoints with different or unknown schemes, and existing output files cannot resume across schemes.
-The trainer saves a checkpoint after every epoch, independently of logging,
-including optimizer/RNG state. It has no validation-based early stopping.
-For example, repeat the same training command with `--resume --epochs 200`
-to continue to epoch 200, not to train 200 additional epochs. The selected
-data, network, seed, split, and optimizer configuration must match. Older
-checkpoints remain usable for prediction but cannot resume without this state.
-
-TPTP discovery uses `--tptp`, then `$TPTP`, then conventional local corpus
-directories. Here it discovers the sibling `../TPTP`. No corpus is downloaded
-automatically. See the [argument reference](CLI.md) for the full search order.
-
-## Proof search
-
-```bash
-# Unguided baseline:
-python axiom_predictor.py run SYN --policy SATCoPCon
-
-# Guided by the named checkpoint:
-python axiom_predictor.py run SYN --policy SATCoPCon \
-  --data-dir artifacts/SATCoP --model-name SmallFull
-```
-
-A selected checkpoint uses weighted guidance at temperature 1 with all
-axioms retained. Without a checkpoint, search is unguided. The CLI no longer
-exposes mode, temperature, or axiom filtering.
-
-See the [complete command-line reference](CLI.md) for every remaining option.
-
-### Native SATCoP search
-
-```bash
-python axiom_predictor.py run SYN --policy SatCoP --model torok
-```
-
-`--policy SatCoP` (also spelled `SATCoP`) runs `~/TP/satcop/target/release/satcop`
-on one CPU, as in collection; build it with the traced PicoSAT above. A bare
-`--model NAME` refers to `models/NAME.pt` in this checkout. Without a model it
-runs ordinary SATCoP. With a model or `--sine`, Python first runs
-`satcop --collect --clausify` to obtain SATCoP's own clausification, scores its
-axiom clauses, and passes one weight per clause through `--weights`. SATCoP then
-orders each extension's alternative clauses by a weighted random permutation,
-proportional to the weight, instead of its uniform shuffle; the seed fixes the
-permutation. Conjectures weigh 1, weights are floored at `1e-6`, and the
-distribution matches Python Weighted guidance at temperature 1. Start clauses
-and literal order are unchanged. Strict mode is unsupported. The clausification,
-prediction and search share the `--timeout-seconds` deadline; `--step-limit` is
-ignored. Errors keep their native logs in a `satcop-run-*` temporary directory.
-
-Checkpoints trained on Python matrices, such as `torok`, score a different
-clausification here: SATCoP's definitions, Skolem symbols and equality axioms.
-
-SInE provides a checkpoint-free comparison through `run --sine` and
-`evaluate --sine`. It selects axiom clauses using basic SInE (tolerance 1,
-unlimited depth, generality threshold 0). Search retains all clauses with the
-existing `1e-6` positive weight floor; evaluation scores exact binary decisions
-against SAT-core labels, including saved graph datasets. BCE interprets these
-scores as probabilities, and top-k ties use clause order. See [CLI.md](CLI.md#sine-comparison)
-for usage and resume behavior.
+`collect` finds the executable through `--satcop-location` (a checkout or the file itself, default `~/TP/satcop`), `run`
+through `$SATCOP_LOCATION`. Each worker is pinned to one CPU, so SATCoP starts a single search thread with exactly
+the given seed. `satcop --collect` prints its matrix and the matrix clauses of the PicoSAT core; the labels are over
+SATCoP's own clausification, with its definitions, Skolem symbols and equality axioms. For guided search, `run` first
+asks for the matrix alone (`--collect --clausify`), scores it, and passes one weight per clause with `--weights`.
+Only the wall-clock timeout applies. A run that crashes leaves its log in `DATASET/native/` or a `satcop-run-*`
+temporary directory.

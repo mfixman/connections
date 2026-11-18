@@ -1,4 +1,4 @@
-from __future__ import annotations
+# One training example: a problem's matrix graph with a 0/1 label per axiom clause, and its JSON form.
 
 from collections.abc import Mapping
 from dataclasses import dataclass, field

@@ -1,3 +1,5 @@
+# Default proof-search budgets and a wall-clock alarm that also interrupts parsing.
+
 from contextlib import contextmanager
 import signal
 import threading

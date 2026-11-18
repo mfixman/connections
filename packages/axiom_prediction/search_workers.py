@@ -1,3 +1,5 @@
+# Runs a function over many problems in worker processes, each pinned to a CPU and killed at the timeout.
+
 from dataclasses import dataclass
 import math
 import multiprocessing as mp

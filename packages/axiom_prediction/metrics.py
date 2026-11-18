@@ -1,4 +1,4 @@
-from __future__ import annotations
+# Ranking metrics of predicted probabilities against 0/1 labels, pooled and averaged per problem.
 
 import math
 from itertools import groupby

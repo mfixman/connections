@@ -1,3 +1,5 @@
+# CSV files whose cells are JSON, and atomic file replacement.
+
 from collections.abc import Iterable, Iterator, Mapping, Sequence
 import csv
 import json

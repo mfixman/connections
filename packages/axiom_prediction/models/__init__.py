@@ -1,4 +1,4 @@
-from __future__ import annotations
+# Finds the network classes: each file NAME.py in this directory defines the class NAME.
 
 from importlib import import_module
 from pathlib import Path

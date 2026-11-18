@@ -1,4 +1,4 @@
-from __future__ import annotations
+# Marks the axiom and conjecture clauses of a matrix graph and stacks several graphs into one batch.
 
 from dataclasses import dataclass
 from typing import Any

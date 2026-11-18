@@ -1,4 +1,4 @@
-from __future__ import annotations
+# Deterministic assignment of problems to parts, keeping the variants of a TPTP problem together.
 
 from dataclasses import dataclass
 import hashlib

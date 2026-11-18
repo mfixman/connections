@@ -5,6 +5,7 @@ from collections.abc import Mapping
 from dataclasses import asdict, dataclass, replace
 import json
 import math
+
 from pathlib import Path
 import random
 import time
@@ -19,12 +20,14 @@ from .data import AxiomTrainingExample
 from .dataset import label_policy, load_axiom_dataset
 from .graph import collate_axiom_graphs
 from .limits import default_step_limit, default_timeout_s
+
 from .logs import log
 from .metrics import prediction_metrics
 from .model import AxiomModelConfig, AxiomPredictionNetwork, resolve_checkpoint, resolve_device, save_checkpoint, write_durably
 from .models import load_model_class
 from .parallel import determine_worker_count
 from .resume import check_training_target, dataset_fingerprint, next_training_run, restore_training, snapshot_training
+
 from .split import ProblemSplit
 from .training_log import log_dataset, log_epoch, metric_text
 from .validation_run import subset_sizes, validation_run_configs, validation_run_problems
@@ -61,12 +64,14 @@ class AxiomTrainingConfig:
         learning_rate = 1e-3,
         weight_decay = 0.0,
         hidden_dim = 64,
+
         message_rounds = 3,
         num_hidden_layers = 2,
         activation = "relu",
         graph_input = GraphInputKind.Full,
         model = None,
         seed = 0,
+
         device = "cuda",
         step_limit = default_step_limit,
         timeout_s = default_timeout_s,
@@ -123,6 +128,7 @@ def saved_config(config, policy, split, loss_weighting, min_axioms, metadata):
     payload["timeout_seconds"] = payload.pop("timeout_s")
     payload.update(config.network_config().to_dict())
     payload["sat_policy"] = policy.wire_value()
+
     payload["split"] = split.to_dict()
     # Resume compares every key, so defaults stay out for earlier checkpoints.
     if loss_weighting != LossWeighting.Clause:
@@ -149,12 +155,14 @@ def train_axiom_predictor(
     tptp_root = None,
     config = None,
     wandb_config = WandbConfig(),
+
     run_properties = None,
     split = None,
     evaluation_split = None,
     evaluate_every = 1,
     validation_run_ratio = 0,
     validation_run_provers = (),
+
     resume = False,
     max_example_mb = None,
     loss_weighting = LossWeighting.Clause,
@@ -210,6 +218,7 @@ def train_axiom_predictor(
             "problems": [example.problem_path for example in examples],
             "problems_requested": len(examples),
             "dataset": str(dataset),
+
             "evaluation_split": None if evaluation_split is None else evaluation_split.to_dict(),
             "evaluate_every": evaluate_every,
             "validation_run_ratio": validation_run_ratio,
@@ -234,6 +243,7 @@ def train_axiom_predictor(
                 evaluation_split,
                 validation_run_ratio,
                 validation_all_held_out,
+
                 run_configs,
                 tracker,
                 training_workers,

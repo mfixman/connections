@@ -26,11 +26,7 @@ def nonnegative_int(value):
     return parsed
 
 def add_split_arguments(parser):
-    parser.add_argument(
-        "--split-scheme", type = int, choices = (3, 4, 5), default = split_scheme,
-        help = "historical split algorithm",
-    )
-
+    parser.add_argument("--split-scheme", type = int, choices = (3, 4, 5), default = split_scheme, help = "split algorithm")
     parser.add_argument("--split", type = positive_int, default = 1, metavar = "N", help = "partition problems into N parts")
     parser.add_argument(
         "--parts", "--part", type = nonnegative_int, nargs = "+", metavar = "P",
@@ -44,85 +40,83 @@ def add_device_argument(parser):
 
 def add_wandb_arguments(parser):
     parser.add_argument("--run-name", help = "W&B run name")
-    parser.add_argument("--wandb", action = "store_true", default = True, help = "log to W&B when its key is available (default)")
+    parser.add_argument("--wandb", action = "store_true", default = True, help = "log to W&B if its key is available")
     parser.add_argument("--no-wandb", dest = "wandb", action = "store_false")
 
 def add_common_arguments(parser):
-    parser.add_argument("--tptp", type = Path, help = "TPTP root; defaults to $TPTP, then TPTP directories near the checkout")
-    parser.add_argument("--num-workers", type = positive_int, metavar = "N", help = "worker processes (default: the CPUs of the job)")
-    parser.add_argument(
-        "--equality-axioms", action = "store_true",
-        help = "add explicit equality axioms to first-order problems with equality, as the Connections prover does",
-    )
-
+    parser.add_argument("--tptp", type = Path, help = "TPTP root (default: $TPTP, then TPTP directories near the checkout)")
+    parser.add_argument("--num-workers", type = positive_int, metavar = "N", help = "processes (default: the job's CPUs)")
+    parser.add_argument("--equality-axioms", action = "store_true", help = "add explicit equality axioms to the matrix")
     add_split_arguments(parser)
 
 def add_collect_parser(subparsers):
-    collect = subparsers.add_parser("collect", help = "prove problems and append their SAT-core labels to DATASET/problems.csv")
-    collect.add_argument("problems", metavar = "PROBLEM", nargs = "*", help = "files, directories or TPTP categories (default: all of TPTP)")
-    collect.add_argument("--problems-from", type = Path, metavar = "FILE", help = "also collect the problems listed in FILE, one per line")
-    collect.add_argument("--dataset", type = Path, required = True, help = "directory of problems.csv; an existing one is resumed")
-    collect.add_argument("--timeout-seconds", dest = "timeout_s", type = float, default = default_collection_timeout_s)
+    problems_help = "files, directories or TPTP categories (default: all of TPTP)"
+    policies = list(ProverPolicy)
+
+    collect = subparsers.add_parser("collect", help = "prove problems and append their SAT-core labels to problems.csv")
+    collect.add_argument("problems", metavar = "PROBLEM", nargs = "*", help = problems_help)
+    collect.add_argument("--problems-from", type = Path, metavar = "FILE", help = "also the problems listed in FILE")
+    collect.add_argument("--dataset", type = Path, required = True, help = "directory of problems.csv; resumed if it exists")
+
+    collect.add_argument("--policy", type = ProverPolicy, choices = policies, default = ProverPolicy.SatResetCoP)
     collect.add_argument("--seed", type = nonnegative_int, default = 0, help = "proof-search seed")
+    collect.add_argument("--timeout-seconds", dest = "timeout_s", type = float, default = default_collection_timeout_s)
     collect.add_argument("--satcop-location", type = Path, help = "native SATCoP checkout or executable (default: ~/TP/satcop)")
-    collect.add_argument("--policy", type = ProverPolicy, choices = list(ProverPolicy), default = ProverPolicy.SatResetCoP)
     add_common_arguments(collect)
 
 def add_join_parser(subparsers):
     join = subparsers.add_parser("join", help = "join collect results and joined datasets into one deduplicated dataset")
-    join.add_argument("inputs", metavar = "INPUT", nargs = "+", type = Path, help = "collect results (CSV or directory) or joined datasets")
+    join.add_argument("inputs", metavar = "INPUT", nargs = "+", type = Path, help = "collect results or joined datasets")
     join.add_argument("--dataset", type = Path, required = True, help = "directory receiving data.npz and metadata.json")
     join.add_argument("--num-workers", type = positive_int, metavar = "N")
 
 def add_train_parser(subparsers):
+    weighting = dict(type = LossWeighting, choices = list(LossWeighting), default = LossWeighting.Clause)
+    provers = dict(type = ProverPolicy, choices = list(ProverPolicy), nargs = "+", default = [ProverPolicy.SatResetCoP])
+    weighting_help = "average the loss over all clauses of a batch, or over problems whose cores share one weight"
+    ratio_help = "run guided proof search on 1/R of the --evaluate problems after each epoch (0 disables)"
+
     train = subparsers.add_parser("train", help = "train a network on a joined dataset")
     train.add_argument("--data-dir", type = Path, required = True, help = "run directory; checkpoints go to DATA_DIR/model")
     train.add_argument("--dataset", type = Path, required = True, help = "joined dataset")
     train.add_argument("--resume", action = "store_true", help = "continue from DATA_DIR/model up to --epochs in total")
+
     train.add_argument("--network", default = "DefaultFull", choices = available_models())
     train.add_argument("--epochs", type = positive_int, default = 200)
     train.add_argument("--batch-size", type = positive_int, default = 43, help = "problems per optimizer update")
     train.add_argument("--seed", type = int, default = 0)
-    train.add_argument("--max-example-mb", type = float, help = "skip examples whose collected row was larger than this")
-    train.add_argument(
-        "--loss-weighting", type = LossWeighting, choices = list(LossWeighting), default = LossWeighting.Clause,
-        help = "average the loss over every clause of a batch, or per problem with its cores sharing one weight",
-    )
 
-    train.add_argument("--min-axioms", type = nonnegative_int, default = 0, metavar = "N", help = "train only on examples with more than N axiom clauses")
-    train.add_argument("--evaluate", type = nonnegative_int, nargs = "+", metavar = "PART", help = "held-out parts to score during training")
+    train.add_argument("--max-example-mb", type = float, help = "skip examples whose collected row was larger")
+    train.add_argument("--min-axioms", type = nonnegative_int, default = 0, help = "skip examples with at most N axioms")
+    train.add_argument("--loss-weighting", help = weighting_help, **weighting)
+
+    train.add_argument("--evaluate", type = nonnegative_int, nargs = "+", metavar = "PART", help = "held-out parts to score")
     train.add_argument("--evaluate-every", type = positive_int, default = 1, metavar = "EPOCHS")
-    train.add_argument(
-        "--validation-run-ratio", type = nonnegative_int, default = 10, metavar = "R",
-        help = "after each epoch, run guided proof search on 1/R of the --evaluate problems in the background (0 disables)",
-    )
+    train.add_argument("--validation-run-ratio", type = nonnegative_int, default = 10, metavar = "R", help = ratio_help)
+    train.add_argument("--validation-run-provers", metavar = "POLICY", **provers)
+    train.add_argument("--validation-all-held-out", action = "store_true", help = "validate on unlabelled held-out problems too")
+    train.add_argument("--timeout-seconds", dest = "timeout_s", type = float, default = default_timeout_s, help = "per validation search")
 
-    train.add_argument(
-        "--validation-run-provers", type = ProverPolicy, choices = list(ProverPolicy), nargs = "+",
-        default = [ProverPolicy.SatResetCoP], metavar = "POLICY",
-    )
-
-    train.add_argument("--validation-all-held-out", action = "store_true", help = "validate on every refutable held-out problem, not only the labelled ones")
-    train.add_argument("--timeout-seconds", dest = "timeout_s", type = float, default = default_timeout_s, help = "per problem of a validation run")
     add_device_argument(train)
     add_wandb_arguments(train)
     add_common_arguments(train)
 
 def add_run_parser(subparsers):
-    run = subparsers.add_parser("run", help = "proof search, unguided or guided by a checkpoint or SInE")
-    run.add_argument("problems", metavar = "PROBLEM", nargs = "*", help = "files, directories or TPTP categories (default: all of TPTP)")
-    source = run.add_mutually_exclusive_group()
-    source.add_argument("--model", type = Path, help = "checkpoint (.ts, legacy .pt or its directory); without one the search is unguided")
-    source.add_argument("--sine", action = "store_true", help = "weigh clauses by clause-level SInE instead of a model")
-    run.add_argument(
-        "--policy", type = ProverPolicy, choices = list(ProverPolicy),
-        help = "default: the policy that labelled the checkpoint's data, or SatResetCoP",
-    )
+    problems_help = "files, directories or TPTP categories (default: all of TPTP)"
+    policy_help = "default: the policy that labelled the checkpoint's data, or SatResetCoP"
 
+    run = subparsers.add_parser("run", help = "proof search, unguided or guided by a checkpoint or SInE")
+    run.add_argument("problems", metavar = "PROBLEM", nargs = "*", help = problems_help)
+    source = run.add_mutually_exclusive_group()
+    source.add_argument("--model", type = Path, help = "checkpoint: a .ts file, a legacy .pt file or their directory")
+    source.add_argument("--sine", action = "store_true", help = "weigh clauses by clause-level SInE instead of a model")
+
+    run.add_argument("--policy", type = ProverPolicy, choices = list(ProverPolicy), help = policy_help)
     run.add_argument("--seed", type = int, default = 0)
     run.add_argument("--timeout-seconds", dest = "timeout_s", type = float, default = default_timeout_s)
     run.add_argument("--temperature", type = float, default = 1.0, help = "clause weights become probability ** (1 / T)")
     run.add_argument("--output", type = Path, help = "write the CSV rows to this file and resume from it")
+
     add_device_argument(run)
     add_wandb_arguments(run)
     add_common_arguments(run)
@@ -130,10 +124,9 @@ def add_run_parser(subparsers):
 def build_parser():
     parser = argparse.ArgumentParser(prog = "axiom-predictor")
     subparsers = parser.add_subparsers(dest = "command", required = True)
-    add_collect_parser(subparsers)
-    add_join_parser(subparsers)
-    add_train_parser(subparsers)
-    add_run_parser(subparsers)
+    for add_parser in (add_collect_parser, add_join_parser, add_train_parser, add_run_parser):
+        add_parser(subparsers)
+
     for command in subparsers.choices.values():
         command.formatter_class = argparse.ArgumentDefaultsHelpFormatter
 
@@ -186,6 +179,7 @@ def collect_command(args):
         output_dir = args.dataset,
         tptp_root = args.tptp,
         timeout_s = args.timeout_s,
+
         sat_policy = args.policy,
         num_workers = args.num_workers,
         satcop_location = args.satcop_location,
@@ -215,6 +209,7 @@ def train_command(args):
         epochs = args.epochs,
         device = args.device,
         seed = args.seed,
+
         batch_size = args.batch_size,
         timeout_s = args.timeout_s,
         num_workers = args.num_workers,
@@ -228,12 +223,14 @@ def train_command(args):
         config = config,
         wandb_config = wandb_config(args),
         run_properties = cli_properties(args),
+
         split = selected_split(args),
         evaluation_split = evaluation_split,
         evaluate_every = args.evaluate_every,
         validation_run_ratio = args.validation_run_ratio,
         validation_run_provers = args.validation_run_provers,
         resume = args.resume,
+
         max_example_mb = args.max_example_mb,
         loss_weighting = args.loss_weighting,
         min_axioms = args.min_axioms,
@@ -261,15 +258,17 @@ def run_command(args):
         policy = label_policy(args.policy, labelled),
         checkpoint = None if args.model is None else str(args.model),
         device = args.device,
+
         seed = args.seed,
         timeout_s = args.timeout_s,
         temperature = args.temperature,
     )
 
-    split = selected_split(args)
+    split, properties = selected_split(args), cli_properties(args)
     problems = selected_problems(args)
     log(f"running {len(problems)} problems with {config.to_dict()}")
     session = journal.get()
+
     results = [] if session is None else [row for row in session.records if row.get("problem")]
     completed = {row["problem"] for row in results}
     if completed - set(problems):
@@ -278,7 +277,7 @@ def run_command(args):
     tracker = WandbTracker.start(
         wandb_config(args),
         job_type = "run",
-        run_config = {**config.to_dict(), "split": split.to_dict(), "problems": problems, "cli_arguments": cli_properties(args)},
+        run_config = {**config.to_dict(), "split": split.to_dict(), "problems": problems, "cli_arguments": properties},
         output_dir = None if session is None else session.directory,
         resume = session is not None,
     )
@@ -290,8 +289,10 @@ def run_command(args):
             result["network_size"] = network_size
             results.append(result)
             write_record(result)
+
             proved = sum(bool(row.get("proved")) for row in results)
-            log(f"[{len(results)}/{len(problems)}] {result['problem']}: {result['outcome']} in {result['seconds']:.2f}s ({proved} proved)")
+            progress = f"[{len(results)}/{len(problems)}] {result['problem']}: {result['outcome']}"
+            log(f"{progress} in {result['seconds']:.2f}s ({proved} proved)")
             if tracker is not None:
                 tracker.log_run_result(len(results), len(problems), proved, result)
 
@@ -301,6 +302,7 @@ def run_command(args):
             "policy": config.policy,
             "problems": len(results),
             "proved": len(times),
+
             "ratio_problems_proved": len(times) / len(results) if results else None,
             "proved_seconds_total": sum(times),
             "proved_seconds_mean": sum(times) / len(times) if times else None,

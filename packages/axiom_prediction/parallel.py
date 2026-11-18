@@ -1,4 +1,4 @@
-from __future__ import annotations
+# How many worker processes a command may start.
 
 import os
 

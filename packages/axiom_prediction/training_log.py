@@ -24,6 +24,7 @@ def log_dataset(examples, skipped, batch_size):
     cores = [int(sum(example.labels)) for example in examples]
     nodes = [sum(map(len, example.graph.graph.nodes.values())) for example in examples]
     edges = [sum(map(len, example.graph.graph.edges.values())) for example in examples]
+
     duplicates = len(examples) - len({example.problem_path for example in examples})
     rate = f"{100 * sum(cores) / sum(sizes):.2f}%" if sum(sizes) else "n/a"
     log(
