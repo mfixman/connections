@@ -6,9 +6,10 @@ import pytest
 from axiom_prediction.cli import main
 from axiom_prediction.dataset import axiom_dataset_schema, axiom_dataset_shard_schema, dataset_fields, load_axiom_dataset
 from axiom_prediction.data import axiom_training_example_to_json
-from axiom_prediction.io import write_csv
+from axiom_prediction.io import read_csv, write_csv
+from axiom_prediction.problems_file import example_from_row
 from axiom_prediction.joined import input_files, join_datasets, one_way_complements, read_joined
-from axiom_prediction.tptp import collect_proof_example
+from axiom_prediction.collection import collect_proof_example
 
 @pytest.fixture
 def choices(tmp_path):
@@ -58,7 +59,7 @@ def old_shard(path, problem, seed):
     path.parent.mkdir(parents = True)
     write_csv(path, [header, axiom_training_example_to_json(example), failure], dataset_fields)
 
-def test_joined_dataset_matches_the_csv_loader(tmp_path, choices):
+def test_joined_dataset_holds_each_collected_core_once(tmp_path, choices):
     inputs = [collected(tmp_path, choices, seed) for seed in (0, 0, 1, 2)]
     old_shard(tmp_path / "old" / ".cache/problems/cache.csv", choices, 1)
     (tmp_path / "old/problems.csv").write_text("schema\n")
@@ -79,7 +80,7 @@ def test_joined_dataset_matches_the_csv_loader(tmp_path, choices):
 
     rows = {}
     for directory in inputs:
-        csv_examples, _, _ = load_axiom_dataset(directory)
+        csv_examples = map(example_from_row, read_csv(directory / "problems.csv"))
         rows.update({tuple(example.labels): example for example in csv_examples})
 
     assert contents(examples) == contents(rows.values())
@@ -107,15 +108,6 @@ def test_joined_dataset_trains_and_filters_large_records(tmp_path, choices):
     assert metrics["problems_proved"] == 2
     with pytest.raises(RuntimeError, match = "no training examples"):
         load_axiom_dataset(joined, max_example_mb = 0.0001)
-
-def test_loader_rejects_mixed_old_and_new_results(tmp_path, choices):
-    mixed = tmp_path / "mixed"
-    mixed.mkdir()
-    (mixed / "new").symlink_to(collected(tmp_path, choices, 0))
-    old_shard(tmp_path / "old" / "cache.csv", choices, 1)
-    (mixed / "old").symlink_to(tmp_path / "old")
-    with pytest.raises(ValueError, match = "mixes old and new"):
-        load_axiom_dataset(mixed)
 
 def test_join_refuses_stubs_and_existing_output(tmp_path, choices):
     stub = tmp_path / "stub.csv"

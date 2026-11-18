@@ -72,7 +72,7 @@ def test_script_matches_python_and_legacy_checkpoint(tmp_path, kind, source):
     with pytest.raises(ValueError, match = ".ts extension"):
         save_checkpoint(legacy, model, training_config = {})
 
+    # A plain TorchScript scorer, such as a control model, loads without the training metadata.
     exported_only = tmp_path / "missing-metadata.ts"
     torch.jit.save(scripted, exported_only)
-    with pytest.raises(ValueError, match = "no Connections checkpoint metadata"):
-        AxiomPredictor.load(exported_only)
+    assert AxiomPredictor.load(exported_only).training_config == {}

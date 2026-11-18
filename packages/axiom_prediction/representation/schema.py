@@ -65,22 +65,5 @@ class GraphInput:
             metadata = dict(payload.get("metadata", {})),
         )
 
-@dataclass(frozen = True, slots = True)
-class GraphTensors:
-    # Graph tables converted to tensors for training.
-
-    nodes: dict[str, Any]  # node type -> LongTensor [n, n_features]
-    edges: dict[str, Any]  # relation -> LongTensor [n, 2 or 3]
-    actions: Any  # LongTensor [n, 4]
-    metadata: dict[str, Any] = field(default_factory = dict)
-
-    def to(self, device: Any) -> "GraphTensors":
-        return GraphTensors(
-            nodes = {k: v.to(device) for k, v in self.nodes.items()},
-            edges = {k: v.to(device) for k, v in self.edges.items()},
-            actions = self.actions.to(device),
-            metadata = self.metadata,
-        )
-
 def arg_position_bucket(position: int) -> int:
     return min(position, arg_position_buckets - 1)

@@ -1,125 +1,64 @@
-from __future__ import annotations
-
-from .choices import GuidanceMode, ProverPolicy, plain_values
+# `run`: proof search on each problem in a worker process, unguided or with clause weights from a model or SInE.
 
 from typing import Any
 
 from collections.abc import Iterator
-from dataclasses import asdict, dataclass, field, fields, replace
+from dataclasses import asdict, dataclass
 from functools import lru_cache
-
 from pathlib import Path
 import time
 
-from connections.parsing.tptp import TPTPParseError
 from connections.agent.sat import SATCoPCon, SATResetCoP
 from connections.interaction.szs import SUCCESS as success
 from connections.interaction.run import Problem, run_schedule
 from connections.interaction.strategy import MatrixOptions, PolicyOptions, Strategy, StrategySchedule
 
-from .search_workers import supervised_results
-from .limits import CollectionTimeout, wall_clock
+from .choices import GuidanceMode, ProverPolicy, plain_values
+from .limits import CollectionTimeout, default_step_limit, default_timeout_s, wall_clock
 from .parallel import determine_worker_count
-from .limits import default_step_limit, default_timeout_s
-from .tptp import load_tptp_problem, resolve_tptp_problem, selector_equality_axioms
-from .tptp import declared_tptp_status
+from .search_workers import supervised_results
+from .tptp import declared_non_refutable, load_tptp_problem, resolve_tptp_problem, selector_equality_axioms
 
-@dataclass(init = False)
+@dataclass(slots = True, init = False)
 class RunConfig:
-    mode: GuidanceMode | str
-    policy: ProverPolicy | str | None
+    mode: GuidanceMode
+    policy: ProverPolicy
     checkpoint: str | None
     device: str
-
-    multiprocess: bool
-    inference_address: tuple[str, int] | None = field(repr = False)
-    inference_key: str | None = field(repr = False)
-
     temperature: float
-
     seed: int
     step_limit: int
     timeout_s: float
 
     def __init__(
         self,
-        mode: GuidanceMode | str = GuidanceMode.Weighted,
-        policy: ProverPolicy | str | None = None,
-        checkpoint: str | None = None,
-        device: str = "cuda",
-        multiprocess: bool = False,
-        inference_address: tuple[str, int] | None = None,
-        inference_key: str | None = None,
-        temperature: float = 1.0,
-        seed: int = 0,
-        step_limit: int = default_step_limit,
-        timeout_s: float = default_timeout_s,
+        mode = GuidanceMode.Weighted,
+        policy = ProverPolicy.SatResetCoP,
+        checkpoint = None,
+        device = "cuda",
+        temperature = 1.0,
+        seed = 0,
+        step_limit = default_step_limit,
+        timeout_s = default_timeout_s,
     ):
-        self.mode = mode
-        self.policy = policy
+        self.mode = GuidanceMode(mode)
+        self.policy = ProverPolicy(policy)
         self.checkpoint = checkpoint
         self.device = device
-        self.multiprocess = multiprocess
-
-        self.inference_address = inference_address
-        self.inference_key = inference_key
-        self.temperature = temperature
+        self.temperature = 1.0 if self.mode == GuidanceMode.Sine else temperature
         self.seed = seed
-
         self.step_limit = step_limit
         self.timeout_s = timeout_s
 
-        self.validate()
+        if (self.mode == GuidanceMode.Weighted) != (checkpoint is not None):
+            raise ValueError(f"{self.mode} mode and checkpoint {checkpoint} do not go together")
 
-    def validate(self):
-        self.mode = GuidanceMode(self.mode)
-        if self.policy is not None:
-            self.policy = ProverPolicy(self.policy)
-
-        if self.policy == ProverPolicy.SatCoP and self.mode == GuidanceMode.Strict:
-            raise ValueError("native SatCoP supports Weighted guidance only")
-
-        if self.mode == GuidanceMode.Sine and self.checkpoint is not None:
-            raise ValueError("SInE does not use a checkpoint")
-
-        if self.mode == GuidanceMode.Sine:
-            self.temperature = 1.0
-
-        if self.mode not in (GuidanceMode.Base, GuidanceMode.Sine) and self.checkpoint is None:
-            raise ValueError(f"--mode {self.mode} needs --model")
-
-    @classmethod
-    def from_state(cls, state):
-        if isinstance(state, dict):
-            values = dict(state)
-            values.pop("sine", None)
-            values.pop("sine_settings", None)
-            if values.pop("top_k", None) is not None:
-                raise ValueError("top-k filtering is no longer supported")
-
-            if "timeout_seconds" in values:
-                values["timeout_s"] = values.pop("timeout_seconds")
-
-            return cls(**values)
-
-        names = [item.name for item in fields(cls)]
-        if len(state) == 9:
-            names = (
-                "mode policy checkpoint device temperature top_k seed step_limit timeout_s"
-            ).split()
-        elif len(state) == 12:
-            names.insert(8, "top_k")
-
-        if len(state) != len(names):
-            raise ValueError("unsupported serialized RunConfig layout")
-
-        return cls.from_state(dict(zip(names, state, strict = True)))
+    def uses_model(self):
+        return self.mode == GuidanceMode.Weighted
 
     def to_dict(self) -> dict[str, Any]:
         values = asdict(self)
         values["timeout_seconds"] = values.pop("timeout_s")
-        values.pop("inference_address")
-        values.pop("inference_key")
         if self.mode == GuidanceMode.Sine:
             from .sine import settings
 
@@ -144,38 +83,18 @@ def run_problem(
     return with_run_metadata(result, config)
 
 def search_problem(problem, *, tptp_root, config):
-    non_refutable = {
-        "satisfiable": "DeclaredSatisfiable",
-        "countersatisfiable": "DeclaredCounterSatisfiable",
-    }
-
-    if config.inference_address is not None:
-        from .multiprocess import shared_predictor
-
-        predictor = shared_predictor(config.inference_address, config.inference_key)
-    else:
-        predictor = None if config.mode in (GuidanceMode.Base, GuidanceMode.Sine) else cached_predictor(
-            config.checkpoint,
-            config.device,
-        )
-
-    from .training import label_policy
-
-    metadata = {} if predictor is None else predictor.training_config
-    policy = label_policy(config.policy, {"collection": metadata}, allow_mismatch = True)
-    config = replace(config, policy = policy)
+    predictor = cached_predictor(config.checkpoint, config.device) if config.uses_model() else None
     out: dict[str, Any] = {
         "problem": problem,
-        "mode": GuidanceMode(config.mode).wire_value(),
-        "policy": ProverPolicy(config.policy).wire_value(),
+        "mode": config.mode.wire_value(),
+        "policy": config.policy.wire_value(),
         "seed": config.seed,
     }
 
     started = time.monotonic()
     try:
         path, root = resolve_tptp_problem(problem, tptp_root = tptp_root)
-        declared = declared_tptp_status(path)
-        skip = None if declared is None else non_refutable.get(declared.casefold())
+        skip = declared_non_refutable(path)
         if skip is not None:
             out.update(outcome = skip, proved = False, seconds = 0.0)
             return out
@@ -192,7 +111,8 @@ def search_problem(problem, *, tptp_root, config):
         }[config.policy]
 
         args: dict[str, Any] = {"seed": config.seed}
-        if predictor is not None or config.mode == GuidanceMode.Sine:
+        guided = config.mode != GuidanceMode.Base
+        if guided:
             loaded = load_tptp_problem(problem, tptp_root = tptp_root)
             from .guided import AxiomGuidedSATCoP, AxiomGuidedSATResetCoP, clause_weights, matrix_digest
 
@@ -209,7 +129,6 @@ def search_problem(problem, *, tptp_root, config):
 
             args.update(
                 clause_weights = weights,
-                mode = GuidanceMode.Weighted if config.mode == GuidanceMode.Sine else config.mode,
                 temperature = config.temperature,
                 matrix_digest = matrix_digest(loaded.matrix),
             )
@@ -256,17 +175,8 @@ def search_problem(problem, *, tptp_root, config):
             seconds = time.monotonic() - started,
         )
 
-        if predictor is not None or config.mode == GuidanceMode.Sine:
+        if guided:
             out["prediction_seconds"] = prediction_s
-    except TPTPParseError as error:
-        out.update(
-            outcome = f"{type(error).__name__}: {' '.join(str(error).split())}",
-            proved = False,
-            error = True,
-            seconds = time.monotonic() - started,
-        )
-
-        print(f"{problem}: {out['outcome']}", flush = True)
     except Exception as error:
         out.update(
             outcome = f"{type(error).__name__}: {' '.join(str(error).split())}",
@@ -277,29 +187,15 @@ def search_problem(problem, *, tptp_root, config):
 
     return out
 
-def run_problems(
-    problems: list[str] | tuple[str, ...],
-    *,
-    tptp_root: str | Path | None,
-    config: RunConfig,
-    num_workers: int | None = None,
-) -> Iterator[dict[str, Any]]:
+def run_problems(problems, *, tptp_root, config, num_workers = None) -> Iterator[dict[str, Any]]:
     if config.policy == ProverPolicy.SatCoP:
         from .satcop_search import search_binary
 
         search_binary()
 
     workers = determine_worker_count(len(problems), num_workers)
-    if config.multiprocess and config.mode not in (GuidanceMode.Base, GuidanceMode.Sine) and workers:
-        from .multiprocess import inference_service
-
-        with inference_service(config.checkpoint, config.device, workers) as (address, key):
-            shared = replace(config, inference_address = address, inference_key = key)
-            yield from configured_results(problems, tptp_root, shared, workers)
-
-        return
-
-    if config.mode not in (GuidanceMode.Base, GuidanceMode.Sine) and num_workers is None:
+    # One model per worker does not fit on a GPU, so guided CUDA search runs alone unless told otherwise.
+    if config.uses_model() and num_workers is None:
         from .model import resolve_device
 
         if resolve_device(config.device).type == "cuda":
@@ -308,50 +204,27 @@ def run_problems(
     if workers == 0:
         return
 
-    yield from configured_results(problems, tptp_root, config, workers)
-
-def configured_results(problems, tptp_root, config, workers):
-    for result in supervised_results(
-        run_one,
-        ((p, tptp_root, config) for p in problems),
-        workers = workers,
-        timeout = config.timeout_s,
-    ):
+    requests = ((problem, tptp_root, config) for problem in problems)
+    for result in supervised_results(run_one, requests, workers = workers, timeout = config.timeout_s):
         yield with_run_metadata(result, config)
 
 def with_run_metadata(result, config):
     result.setdefault("error", False)
     result.setdefault("seed", config.seed)
     result.setdefault("mode", config.mode.wire_value())
-    if config.policy is not None:
-        result.setdefault("policy", config.policy.wire_value())
-
+    result.setdefault("policy", config.policy.wire_value())
     return result
 
-def run_one(
-    problem: str,
-    tptp_root: str | Path | None,
-    config: RunConfig,
-) -> dict[str, Any]:
-    init_worker(config.mode not in (GuidanceMode.Base, GuidanceMode.Sine))
+def run_one(problem, tptp_root, config):
+    if config.uses_model():
+        import torch
+
+        torch.set_num_threads(1)
+
     return run_problem(problem, tptp_root = tptp_root, config = config)
 
-def init_worker(uses_model: bool):
-    if not uses_model:
-        return
-
-    try:
-        import torch
-    except ImportError:
-        return
-
-    torch.set_num_threads(1)
-
 @lru_cache(maxsize = 2)
-def cached_predictor(checkpoint: str | None, device: str):
+def cached_predictor(checkpoint, device):
     from .model import AxiomPredictor
-
-    if checkpoint is None:
-        raise ValueError("guided search requires a checkpoint")
 
     return AxiomPredictor.load(checkpoint, device = device)

@@ -32,7 +32,6 @@ class LossWeighting(Choice):
 
 class GuidanceMode(Choice):
     Weighted = "Weighted"
-    Strict = "Strict"
     Base = "Base"
     Sine = "Sine"
 

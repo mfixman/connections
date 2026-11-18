@@ -1,16 +1,16 @@
-# Typed message passing and action scoring with plain PyTorch.
+# Typed message passing over the matrix graph with plain PyTorch.
 
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
-from typing import Any, cast
+from typing import cast
 
 import torch
 from torch import nn
 
 from .aggregation import sparse_relation_mean, sparse_relations
 
-from .representation.schema import GraphTensors, GraphInput, arg_position_buckets, node_types, relations
+from .representation.schema import GraphInput, arg_position_buckets, node_types, relations
 
 @dataclass(slots = True, init = False)
 class GraphModelConfig:
@@ -92,12 +92,12 @@ class GraphNetwork(nn.Module):
         self.self_transform = nn.ModuleDict(
             {node_type: nn.Linear(dim, dim) for node_type in node_types}
         )
-        # Residuals and LayerNorm stabilize training on deep graphs.
-
         self.update_norm = nn.ModuleDict(
             {node_type: nn.LayerNorm(dim) for node_type in node_types}
         )
 
+        # The goal nodes, tableau relations and action scorer below are never used: they come from the tableau
+        # policy network this encoder was taken from, and stay so that saved checkpoints and optimizer states load.
         self.kind_embedding = nn.Embedding(len(action_kinds), dim)
         self.missing_target = nn.Parameter(torch.zeros(dim))
         layers: list[nn.Module] = []
@@ -137,7 +137,7 @@ class GraphNetwork(nn.Module):
 
     def edge_tensors(
         self,
-        graph: GraphInput | GraphTensors,
+        graph: GraphInput,
         names: list[str],
     ) -> list[tuple[str, str, str, torch.Tensor, torch.Tensor | None]]:
         by_name = {name: (src, dst, pos) for name, src, dst, pos in relations}
@@ -166,8 +166,6 @@ class GraphNetwork(nn.Module):
         self,
         h: dict[str, torch.Tensor],
         edge_tensors: list[tuple[str, str, str, torch.Tensor, torch.Tensor | None]],
-        *,
-        frozen: frozenset[str] = frozenset(),
         sparse_edge_threshold: int = 65_536,
     ) -> dict[str, torch.Tensor]:
         sparse = {
@@ -177,69 +175,34 @@ class GraphNetwork(nn.Module):
         }
 
         for _ in range(self.config.message_rounds):
-            incoming = {
-                node_type: torch.zeros_like(values)
-                for node_type, values in h.items()
-                if node_type not in frozen
-            }
-
+            incoming = {node_type: torch.zeros_like(values) for node_type, values in h.items()}
             for name, src_type, dst_type, tensor, position in edge_tensors:
                 if name in sparse:
-                    if dst_type not in frozen:
-                        incoming[dst_type] += sparse_relation_mean(
-                            h[src_type],
-                            self.relation_fwd[name],
-                            sparse[name][0],
-                        )
-
-                    if src_type not in frozen:
-                        incoming[src_type] += sparse_relation_mean(
-                            h[dst_type],
-                            self.relation_rev[name],
-                            sparse[name][1],
-                        )
-
+                    forward, reverse = sparse[name]
+                    incoming[dst_type] += sparse_relation_mean(h[src_type], self.relation_fwd[name], forward)
+                    incoming[src_type] += sparse_relation_mean(h[dst_type], self.relation_rev[name], reverse)
                     continue
 
-                if dst_type not in frozen:
-                    src_h = h[src_type][tensor[:, 0]]
-                    if position is not None:
-                        src_h = src_h + self.position_embedding(position)
+                src_h = h[src_type][tensor[:, 0]]
+                dst_h = h[dst_type][tensor[:, 1]]
+                if position is not None:
+                    src_h = src_h + self.position_embedding(position)
+                    dst_h = dst_h + self.position_embedding(position)
 
-                    scatter_mean(
-                        incoming[dst_type],
-                        tensor[:, 1],
-                        self.relation_fwd[name](src_h),
-                    )
+                scatter_mean(incoming[dst_type], tensor[:, 1], self.relation_fwd[name](src_h))
+                scatter_mean(incoming[src_type], tensor[:, 0], self.relation_rev[name](dst_h))
 
-                if src_type not in frozen:
-                    dst_h = h[dst_type][tensor[:, 1]]
-                    if position is not None:
-                        dst_h = dst_h + self.position_embedding(position)
-
-                    scatter_mean(
-                        incoming[src_type],
-                        tensor[:, 0],
-                        self.relation_rev[name](dst_h),
-                    )
-
+            # Residuals and LayerNorm stabilize training on deep graphs.
             h = {
-                node_type: values
-                    if node_type in frozen
-                    else self.update_norm[node_type](
-                        values
-                        + self.activation(
-                            self.self_transform[node_type](values) + incoming[node_type]
-                        )
-                    )
+                node_type: self.update_norm[node_type](
+                    values + self.activation(self.self_transform[node_type](values) + incoming[node_type])
+                )
                 for node_type, values in h.items()
             }
 
         return h
 
-    def encode_matrix(self, graph: GraphInput | GraphTensors) -> dict[str, torch.Tensor]:
-        # Encode the static tier: reusable across every decision of a problem.
-
+    def encode_matrix(self, graph: GraphInput) -> dict[str, torch.Tensor]:
         matrix_relations: list[str] = [
             "contains",
             "atom",
@@ -257,54 +220,6 @@ class GraphNetwork(nn.Module):
         }
 
         return self.message_rounds(h, self.edge_tensors(graph, matrix_relations))
-
-    def encode(
-        self,
-        graph: GraphInput | GraphTensors,
-        matrix_h: dict[str, torch.Tensor] | None = None,
-    ) -> dict[str, torch.Tensor]:
-        tableau_relations: list[str] = ["instance_of", "parent", "path"]
-
-        if matrix_h is None:
-            matrix_h = self.encode_matrix(graph)
-
-        h = dict(matrix_h)
-        h["goal"] = self.embed_features("goal", graph.nodes.get("goal", []))
-        return self.message_rounds(
-            h,
-            self.edge_tensors(graph, tableau_relations),
-            frozen = frozenset(self.matrix_node_types),
-        )
-
-    def forward(
-        self,
-        graph: GraphInput | GraphTensors,
-        matrix_h: dict[str, torch.Tensor] | None = None,
-    ) -> torch.Tensor:
-        action_target_types: list[str] = ["none", "clause", "literal", "goal"]
-
-        h = self.encode(graph, matrix_h)
-        actions = (
-            graph.actions.to(self.missing_target.device)
-            if isinstance(graph.actions, torch.Tensor)
-            else torch.tensor(graph.actions, dtype = torch.long, device = self.missing_target.device)
-        )
-
-        kind = self.kind_embedding(actions[:, 0])
-        source = h["goal"][actions[:, 1]]
-        target = self.missing_target.expand(actions.shape[0], -1).clone()
-        for type_index, type_name in enumerate(action_target_types):
-            if type_name == "none":
-                continue
-
-            mask = actions[:, 2] == type_index
-            if mask.any():
-                target[mask] = h[type_name][actions[mask, 3]]
-
-        return self.scorer(torch.cat([kind, source, target], dim = 1)).squeeze(1)
-
-    def score_batch(self, batch: Any) -> torch.Tensor:
-        return self(batch.graph)
 
 def scatter_mean(output: torch.Tensor, index: torch.Tensor, values: torch.Tensor):
     counts = torch.zeros(output.shape[0], device = output.device)

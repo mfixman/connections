@@ -1,741 +1,274 @@
-from __future__ import annotations
-
-from .choices import GuidanceMode, LossWeighting, ProverPolicy
-
-from typing import Any
+# Command-line interface: collect SAT-core labels, join them into a dataset, train a network, run guided proof search.
 
 import argparse
-import json
 import os
 from pathlib import Path
-import re
 
-from .argument_overrides import parse_arguments
-from .models import available_models
-from .limits import default_collection_step_limit, default_collection_timeout_s, default_step_limit, default_timeout_s
+from .choices import LossWeighting, ProverPolicy
+from .limits import default_collection_timeout_s, default_timeout_s
 from .logs import log, monitor_progress
+from .models import available_models
+from .output import output_format, write_record
 from .split import ProblemSplit, split_scheme
-from .output import output_format, write_record, report_metrics, journal
 
-def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
-        prog = "axiom-predictor",
-        epilog = f"Training networks (--network): {', '.join(available_models())}",
+def positive_int(value):
+    parsed = int(value)
+    if parsed < 1:
+        raise argparse.ArgumentTypeError("must be at least 1")
+
+    return parsed
+
+def nonnegative_int(value):
+    parsed = int(value)
+    if parsed < 0:
+        raise argparse.ArgumentTypeError("must be at least 0")
+
+    return parsed
+
+def add_split_arguments(parser):
+    parser.add_argument(
+        "--split-scheme", type = int, choices = (3, 4, 5), default = split_scheme,
+        help = "historical split algorithm",
     )
 
-    subparsers = parser.add_subparsers(dest = "command", required = True)
-
-    train = subparsers.add_parser("train", help = "train from proofs of TPTP problems")
-    train.add_argument("problems", metavar = "PROBLEM", nargs = "*")
-    train.add_argument(
-        "--data-dir",
-        type = Path,
-        required = True,
-        help = "run directory containing dataset/ and receiving model/ (or models/NAME with --model-name)",
+    parser.add_argument("--split", type = positive_int, default = 1, metavar = "N", help = "partition problems into N parts")
+    parser.add_argument(
+        "--parts", "--part", type = nonnegative_int, nargs = "+", metavar = "P",
+        help = "use only these parts, each in 0..N-1 (default: every part)",
     )
-
-    add_model_name_argument(train)
-    add_dataset_argument(train)
-    train.add_argument(
-        "--resume",
-        action = "store_true",
-        help = "continue model/optimizer/RNG state; --epochs is the total target epoch",
-    )
-
-    train.add_argument(
-        "--network",
-        default = "DefaultFull",
-        help = f"network module from models/: {', '.join(available_models())}",
-    )
-
-    train.add_argument(
-        "--epochs",
-        type = positive_int,
-        default = 200,
-        help = "passes through the training examples",
-    )
-
-    train.add_argument("--tptp", type = Path)
-    train.add_argument(
-        "--max-example-mb",
-        type = float,
-        help = "skip dataset examples whose stored record is larger than this",
-    )
-
-    add_split_arguments(train)
-    train.add_argument(
-        "--evaluate",
-        type = nonnegative_int,
-        nargs = "+",
-        metavar = "PART",
-        help = "held-out parts to score during training (must not overlap --parts)",
-    )
-
-    train.add_argument(
-        "--evaluate-every",
-        type = nonnegative_int,
-        default = 1,
-        metavar = "EPOCHS",
-        help = "held-out evaluation interval; 0 adapts to about 10%% training overhead",
-    )
-
-    train.add_argument(
-        "--validation-run-ratio",
-        type = nonnegative_int,
-        default = 10,
-        metavar = "R",
-        help = "run guided proof search on 1/R of the --evaluate problems for each epoch, in the background on all but one CPU (0 disables)",
-    )
-
-    train.add_argument(
-        "--validation-run-provers",
-        type = ProverPolicy,
-        choices = list(ProverPolicy),
-        nargs = "+",
-        default = [ProverPolicy.SatResetCoP],
-        metavar = "POLICY",
-        help = "policies for the per-epoch validation runs, logged as evaluation/test_POLICY_solved_*, plus an unguided evaluation/test_base_POLICY_solved_*",
-    )
-
-    train.add_argument(
-        "--validation-all-held-out",
-        action = "store_true",
-        help = "run validation on every refutable --evaluate problem, not only those with labels",
-    )
-
-    train.add_argument(
-        "--loss-weighting",
-        type = LossWeighting,
-        choices = list(LossWeighting),
-        default = LossWeighting.Clause,
-        help = "average the loss over every clause in a batch, or per problem with its cores sharing one weight",
-    )
-
-    train.add_argument(
-        "--min-axioms",
-        type = nonnegative_int,
-        default = 0,
-        metavar = "N",
-        help = "train only on examples with more than N axiom clauses; held-out evaluation is unchanged",
-    )
-
-    train.add_argument("--seed", type = int, default = 0)
-    train.add_argument(
-        "--batch-size",
-        type = positive_int,
-        default = 43,
-        help = "problems per optimizer update, not axiom clauses",
-    )
-
-    train.add_argument(
-        "--log-every",
-        type = nonnegative_int,
-        default = 10,
-        metavar = "EPOCHS",
-        help = "print train-set metrics every EPOCHS epochs (0 disables; loss is printed every epoch)",
-    )
-
-    add_device_argument(train)
-    train.add_argument(
-        "--step-limit",
-        type = nonnegative_int,
-        default = default_step_limit,
-    )
-
-    train.add_argument(
-        "--timeout-seconds", dest = "timeout_s",
-        type = float,
-        default = default_timeout_s,
-    )
-
-    train.add_argument(
-        "--policy",
-        type = ProverPolicy,
-        choices = list(ProverPolicy),
-        help = "label collection policy; defaults to dataset provenance or satresetcop",
-    )
-
-    add_worker_argument(train)
-    add_wandb_arguments(train)
-
-    collect = subparsers.add_parser(
-        "collect",
-        help = "collect a resumable SAT-core training dataset",
-    )
-
-    collect.add_argument("problems", metavar = "PROBLEM", nargs = "*")
-    collect.add_argument(
-        "--problems-from",
-        type = Path,
-        metavar = "FILE",
-        help = "also collect the problems listed in FILE, one per line; --split and --parts still apply",
-    )
-
-    collect.add_argument(
-        "--data-dir",
-        type = Path,
-        help = "write under DATA_DIR/dataset unless --dataset is supplied",
-    )
-
-    add_dataset_argument(collect)
-    collect.add_argument("--tptp", type = Path)
-    add_split_arguments(collect)
-    collect.add_argument(
-        "--step-limit",
-        type = nonnegative_int,
-        default = default_collection_step_limit,
-    )
-
-    collect.add_argument(
-        "--timeout-seconds", dest = "timeout_s",
-        type = float,
-        default = default_collection_timeout_s,
-    )
-
-    collect.add_argument(
-        "--policy",
-        type = ProverPolicy,
-        choices = list(ProverPolicy),
-        default = ProverPolicy.SatResetCoP,
-    )
-
-    add_worker_argument(collect)
-    collect.add_argument(
-        "--satcop-location",
-        type = Path,
-        help = "native SATCoP checkout (target/release/satcop) or executable; default: ~/TP/satcop",
-    )
-    collect.add_argument(
-        "--seed", type = nonnegative_int, default = 0,
-        help = "proof-search seed for all collection policies (default: 0)",
-    )
-
-    join = subparsers.add_parser(
-        "join",
-        help = "join collect results and joined datasets into one deduplicated binary dataset",
-    )
-
-    join.add_argument(
-        "inputs",
-        metavar = "INPUT",
-        nargs = "+",
-        type = Path,
-        help = "CSV collect results, directories holding them, or joined datasets",
-    )
-
-    join.add_argument(
-        "--dataset",
-        type = Path,
-        metavar = "PATH",
-        required = True,
-        help = "directory receiving data.npz and metadata.json; train/evaluate read it with --dataset",
-    )
-
-    add_worker_argument(join)
-
-    evaluate = subparsers.add_parser(
-        "evaluate",
-        help = "score SAT-core predictions against a collected dataset or fresh proofs",
-    )
-
-    evaluate.add_argument(
-        "checkpoint",
-        metavar = "CHECKPOINT",
-        type = Path,
-        nargs = "?",
-        help = "model.ts, legacy .pt or its directory; with --sine, --model or --data-dir, all positional inputs are problems instead",
-    )
-
-    evaluation_source = evaluate.add_mutually_exclusive_group()
-    add_sine_argument(evaluation_source)
-    evaluation_source.add_argument("--model", type = Path, help = "explicit evaluation checkpoint")
-    evaluate.add_argument("problems", metavar = "PROBLEM", nargs = "*")
-    evaluate.add_argument(
-        "--data-dir",
-        type = Path,
-        help = "select checkpoint and default dataset; explicit PROBLEM inputs collect fresh labels instead",
-    )
-
-    add_model_name_argument(evaluate)
-    add_dataset_argument(evaluate)
-    evaluate.add_argument("--tptp", type = Path)
-    add_split_arguments(evaluate)
-    add_device_argument(evaluate)
-    evaluate.add_argument(
-        "--batch-size",
-        type = positive_int,
-        default = 43,
-        help = "problems per prediction batch",
-    )
-
-    evaluate.add_argument(
-        "--step-limit",
-        type = nonnegative_int,
-        default = default_step_limit,
-    )
-
-    evaluate.add_argument(
-        "--timeout-seconds", dest = "timeout_s",
-        type = float,
-        default = default_timeout_s,
-    )
-
-    evaluate.add_argument(
-        "--policy",
-        type = ProverPolicy,
-        choices = list(ProverPolicy),
-        help = "inherit checkpoint policy; dataset and explicit policy must agree",
-    )
-
-    evaluate.add_argument(
-        "--multiprocess",
-        action = "store_true",
-        help = "parallel CPU proof search with adaptive GPU batching",
-    )
-
-    add_worker_argument(evaluate)
-    add_wandb_arguments(evaluate)
-
-    run = subparsers.add_parser(
-        "run",
-        help = "run a SAT policy on problems, optionally ordering start and extension clauses by the axiom predictor",
-    )
-
-    run.add_argument("problems", metavar = "PROBLEM", nargs = "*")
-    run_source = run.add_mutually_exclusive_group()
-    add_sine_argument(run_source)
-    run_source.add_argument(
-        "--model",
-        type = Path,
-        help = "trained checkpoint (model.ts, legacy .pt or its directory); without a model, run the unguided baseline",
-    )
-
-    run.add_argument(
-        "--data-dir",
-        type = Path,
-        help = "take the model from DATA_DIR/model, or DATA_DIR/models/NAME with --model-name",
-    )
-
-    add_model_name_argument(run)
-    run.add_argument(
-        "--policy",
-        type = ProverPolicy,
-        choices = list(ProverPolicy),
-        help = "checkpoint's training policy, or SatResetCoP for unguided search",
-    )
-
-    run.add_argument("--seed", type = int, default = 0)
-    run.add_argument("--tptp", type = Path)
-
-    add_device_argument(run)
-    run.add_argument(
-        "--step-limit",
-        type = nonnegative_int,
-        default = default_step_limit,
-    )
-
-    run.add_argument("--timeout-seconds", dest = "timeout_s", type = float, default = default_timeout_s)
-    run.add_argument(
-        "--temperature",
-        type = float,
-        default = 1.0,
-        help = "guided clause weights become probability ** (1 / T); higher T flattens the guidance",
-    )
-
-    add_split_arguments(run)
-    run.add_argument(
-        "--multiprocess",
-        action = "store_true",
-        help = "parallel CPU proof search with shared adaptive GPU batching",
-    )
-
-    add_worker_argument(run)
-    add_wandb_arguments(run)
-
-    predict = subparsers.add_parser(
-        "predict",
-        help = "rank every clausified axiom clause",
-    )
-
-    predict.add_argument(
-        "checkpoint",
-        metavar = "CHECKPOINT",
-        type = Path,
-        nargs = "?",
-        help = "model.ts, legacy .pt or its directory; omit it when using --data-dir",
-    )
-
-    predict.add_argument("problems", metavar = "PROBLEM", nargs = "*")
-    predict.add_argument(
-        "--data-dir",
-        type = Path,
-        help = "take the model from this run directory instead of CHECKPOINT",
-    )
-
-    add_model_name_argument(predict)
-    predict.add_argument("--tptp", type = Path)
-    add_split_arguments(predict)
-    add_device_argument(predict)
-    common_help = {
-        "problems": "problem files, flat directories or TPTP categories; train with no inputs uses DATA_DIR/dataset",
-        "tptp": "TPTP root; defaults to $TPTP, then conventional TPTP/corpora directories near the checkout or in your home",
-        "seed": "random seed for model initialization and training shuffle, or proof-search choices",
-        "step_limit": "maximum prover steps per problem (fresh proof search only)",
-        "timeout_s": "wall-clock budget in seconds per problem (fresh proof search only)",
-        "policy": "SAT policy used for proof search and label collection",
-    }
-
-    for command in subparsers.choices.values():
-        command.formatter_class = argparse.ArgumentDefaultsHelpFormatter
-        command.add_argument(
-            "--equality-axioms",
-            action = "store_true",
-            help = "add explicit equality axioms to first-order problems with equality, as the Connections prover does",
-        )
-        for action in command._actions:
-            if action.help is None and action.dest in common_help:
-                action.help = common_help[action.dest]
-
-    for name in ("run", "evaluate"):
-        subparsers.choices[name].add_argument(
-            "--output",
-            type = Path,
-            help = "write CSV results to this file and resume existing results",
-        )
-
-    return parser
 
 def add_device_argument(parser):
     group = parser.add_mutually_exclusive_group()
-    group.add_argument(
-        "--device",
-        default = "cuda",
-        help = "cuda/cuda:N requires a GPU; auto selects CUDA if available and CPU otherwise; cpu forces CPU",
+    group.add_argument("--device", default = "cuda", help = "cuda or cuda:N needs a GPU; auto falls back to the CPU")
+    group.add_argument("--cpu", dest = "device", action = "store_const", const = "cpu", help = "same as --device cpu")
+
+def add_wandb_arguments(parser):
+    parser.add_argument("--run-name", help = "W&B run name")
+    parser.add_argument("--wandb", action = "store_true", default = True, help = "log to W&B when its key is available (default)")
+    parser.add_argument("--no-wandb", dest = "wandb", action = "store_false")
+
+def add_common_arguments(parser):
+    parser.add_argument("--tptp", type = Path, help = "TPTP root; defaults to $TPTP, then TPTP directories near the checkout")
+    parser.add_argument("--num-workers", type = positive_int, metavar = "N", help = "worker processes (default: the CPUs of the job)")
+    parser.add_argument(
+        "--equality-axioms", action = "store_true",
+        help = "add explicit equality axioms to first-order problems with equality, as the Connections prover does",
     )
-    group.add_argument(
-        "--cpu",
-        dest = "device",
-        action = "store_const",
-        const = "cpu",
-        help = "run model inference on CPU",
+
+    add_split_arguments(parser)
+
+def add_collect_parser(subparsers):
+    collect = subparsers.add_parser("collect", help = "prove problems and append their SAT-core labels to DATASET/problems.csv")
+    collect.add_argument("problems", metavar = "PROBLEM", nargs = "*", help = "files, directories or TPTP categories (default: all of TPTP)")
+    collect.add_argument("--problems-from", type = Path, metavar = "FILE", help = "also collect the problems listed in FILE, one per line")
+    collect.add_argument("--dataset", type = Path, required = True, help = "directory of problems.csv; an existing one is resumed")
+    collect.add_argument("--timeout-seconds", dest = "timeout_s", type = float, default = default_collection_timeout_s)
+    collect.add_argument("--seed", type = nonnegative_int, default = 0, help = "proof-search seed")
+    collect.add_argument("--satcop-location", type = Path, help = "native SATCoP checkout or executable (default: ~/TP/satcop)")
+    collect.add_argument("--policy", type = ProverPolicy, choices = list(ProverPolicy), default = ProverPolicy.SatResetCoP)
+    add_common_arguments(collect)
+
+def add_join_parser(subparsers):
+    join = subparsers.add_parser("join", help = "join collect results and joined datasets into one deduplicated dataset")
+    join.add_argument("inputs", metavar = "INPUT", nargs = "+", type = Path, help = "collect results (CSV or directory) or joined datasets")
+    join.add_argument("--dataset", type = Path, required = True, help = "directory receiving data.npz and metadata.json")
+    join.add_argument("--num-workers", type = positive_int, metavar = "N")
+
+def add_train_parser(subparsers):
+    train = subparsers.add_parser("train", help = "train a network on a joined dataset")
+    train.add_argument("--data-dir", type = Path, required = True, help = "run directory; checkpoints go to DATA_DIR/model")
+    train.add_argument("--dataset", type = Path, required = True, help = "joined dataset")
+    train.add_argument("--resume", action = "store_true", help = "continue from DATA_DIR/model up to --epochs in total")
+    train.add_argument("--network", default = "DefaultFull", choices = available_models())
+    train.add_argument("--epochs", type = positive_int, default = 200)
+    train.add_argument("--batch-size", type = positive_int, default = 43, help = "problems per optimizer update")
+    train.add_argument("--seed", type = int, default = 0)
+    train.add_argument("--max-example-mb", type = float, help = "skip examples whose collected row was larger than this")
+    train.add_argument(
+        "--loss-weighting", type = LossWeighting, choices = list(LossWeighting), default = LossWeighting.Clause,
+        help = "average the loss over every clause of a batch, or per problem with its cores sharing one weight",
     )
 
-@monitor_progress()
-def main(argv: list[str] | None = None) -> int:
-    args = parse_arguments(build_parser(), argv)
-    os.environ["axiom_selector_equality_axioms"] = "1" if args.equality_axioms else "0"
-    identity = vars(args).copy()
-    if "timeout_s" in identity:
-        identity["timeout_seconds"] = identity.pop("timeout_s")
+    train.add_argument("--min-axioms", type = nonnegative_int, default = 0, metavar = "N", help = "train only on examples with more than N axiom clauses")
+    train.add_argument("--evaluate", type = nonnegative_int, nargs = "+", metavar = "PART", help = "held-out parts to score during training")
+    train.add_argument("--evaluate-every", type = positive_int, default = 1, metavar = "EPOCHS")
+    train.add_argument(
+        "--validation-run-ratio", type = nonnegative_int, default = 10, metavar = "R",
+        help = "after each epoch, run guided proof search on 1/R of the --evaluate problems in the background (0 disables)",
+    )
 
-    try:
-        if getattr(args, "sine", False):
-            from .sine import settings
+    train.add_argument(
+        "--validation-run-provers", type = ProverPolicy, choices = list(ProverPolicy), nargs = "+",
+        default = [ProverPolicy.SatResetCoP], metavar = "POLICY",
+    )
 
-            if args.model_name is not None:
-                raise ValueError("--sine is incompatible with --model-name")
+    train.add_argument("--validation-all-held-out", action = "store_true", help = "validate on every refutable held-out problem, not only the labelled ones")
+    train.add_argument("--timeout-seconds", dest = "timeout_s", type = float, default = default_timeout_s, help = "per problem of a validation run")
+    add_device_argument(train)
+    add_wandb_arguments(train)
+    add_common_arguments(train)
 
-            if args.command == "run" and args.data_dir is not None:
-                raise ValueError("run --sine is incompatible with --data-dir")
+def add_run_parser(subparsers):
+    run = subparsers.add_parser("run", help = "proof search, unguided or guided by a checkpoint or SInE")
+    run.add_argument("problems", metavar = "PROBLEM", nargs = "*", help = "files, directories or TPTP categories (default: all of TPTP)")
+    source = run.add_mutually_exclusive_group()
+    source.add_argument("--model", type = Path, help = "checkpoint (.ts, legacy .pt or its directory); without one the search is unguided")
+    source.add_argument("--sine", action = "store_true", help = "weigh clauses by clause-level SInE instead of a model")
+    run.add_argument(
+        "--policy", type = ProverPolicy, choices = list(ProverPolicy),
+        help = "default: the policy that labelled the checkpoint's data, or SatResetCoP",
+    )
 
-            identity.update(settings())
+    run.add_argument("--seed", type = int, default = 0)
+    run.add_argument("--timeout-seconds", dest = "timeout_s", type = float, default = default_timeout_s)
+    run.add_argument("--temperature", type = float, default = 1.0, help = "clause weights become probability ** (1 / T)")
+    run.add_argument("--output", type = Path, help = "write the CSV rows to this file and resume from it")
+    add_device_argument(run)
+    add_wandb_arguments(run)
+    add_common_arguments(run)
 
-        with output_format(args.command, getattr(args, "output", None), identity) as session:
-            if session is not None and session.complete():
-                log("output is already complete; nothing to resume")
-                return session.exit_code()
+def build_parser():
+    parser = argparse.ArgumentParser(prog = "axiom-predictor")
+    subparsers = parser.add_subparsers(dest = "command", required = True)
+    add_collect_parser(subparsers)
+    add_join_parser(subparsers)
+    add_train_parser(subparsers)
+    add_run_parser(subparsers)
+    for command in subparsers.choices.values():
+        command.formatter_class = argparse.ArgumentDefaultsHelpFormatter
 
-            exit_code = execute_command(args)
-            if session is not None and session.metrics is not None:
-                session.finish(exit_code)
+    return parser
 
-            return exit_code
-    except (OSError, ValueError) as error:
-        log(f"axiom-predictor: error: {error}")
-        return 2
+def selected_split(args):
+    parts = list(range(args.split)) if args.parts is None else list(args.parts)
+    return ProblemSplit(args.split, parts, scheme = args.split_scheme)
 
-def execute_command(args: argparse.Namespace) -> int:
-    log(f"axiom-predictor: starting {args.command}")
-    from connections.parsing.tptp import TPTPParseError
-    from .dataset import NoParseableProblemsError, collect_axiom_dataset
-    from .tptp import NoProblemFilesError, expand_problem_inputs, load_tptp_problem
+def selected_problems(args):
+    from .tptp import expand_problem_inputs, tptp_problems
 
-    try:
-        if args.command == "join":
-            from .joined import join_datasets
+    split = selected_split(args)
+    if args.problems:
+        problems = expand_problem_inputs(args.problems, tptp_root = args.tptp)
+    else:
+        problems = tptp_problems(tptp_root = args.tptp)
 
-            write_record(join_datasets(args.inputs, args.dataset, args.num_workers))
-            return 0
+    selected = split.select(problems)
+    log(f"selected {len(selected)} of {len(problems)} problems ({split.describe()})")
+    if not selected:
+        raise ValueError(f"no problems left after selecting {split.describe()}")
 
-        if args.command == "collect":
-            dataset = selected_dataset(args)
-            if dataset is None:
-                raise ValueError("collect needs --dataset or --data-dir")
+    return selected
 
-            if args.problems_from is not None:
-                args.problems = [*args.problems, *listed_problems(args.problems_from)]
+def wandb_config(args):
+    from .wandb_tracking import WandbConfig
 
-            summary = collect_axiom_dataset(
-                selected_problems(args),
-                output_dir = dataset,
-                tptp_root = args.tptp,
-                step_limit = args.step_limit,
-                timeout_s = args.timeout_s,
-                sat_policy = args.policy,
-                num_workers = args.num_workers,
-                satcop_location = args.satcop_location,
-                seed = args.seed,
-            )
+    return WandbConfig(enabled = args.wandb, name = args.run_name)
 
-            write_record(summary)
-            return 0
+# Saved in the W&B run, where the backfill scripts read it.
+def cli_properties(args):
+    return {
+        key: str(value) if isinstance(value, Path) else value
+        for key, value in vars(args).items()
+    }
 
-        if args.command == "run":
-            return run_command(args)
+def collect_command(args):
+    from .collection import collect_axiom_dataset
 
-        if not getattr(args, "sine", False):
-            print_device(args.device)
+    if args.problems_from is not None:
+        listed = list(filter(None, map(str.strip, args.problems_from.read_text().splitlines())))
+        if not listed:
+            raise ValueError(f"no problems listed in {args.problems_from}")
 
-        if args.command == "train":
-            from .training import AxiomTrainingConfig, train_axiom_predictor
+        args.problems = [*args.problems, *listed]
 
-            problems, dataset = training_request(args)
-            evaluation_split = None if args.evaluate is None else ProblemSplit(
-                args.split,
-                list(args.evaluate),
-                scheme = args.split_scheme,
-            )
+    summary = collect_axiom_dataset(
+        selected_problems(args),
+        output_dir = args.dataset,
+        tptp_root = args.tptp,
+        timeout_s = args.timeout_s,
+        sat_policy = args.policy,
+        num_workers = args.num_workers,
+        satcop_location = args.satcop_location,
+        seed = args.seed,
+    )
 
-            evaluation_problems = None
-            if evaluation_split is not None and dataset is None:
-                evaluation_problems = evaluation_split.select(
-                    expand_problem_inputs(args.problems, tptp_root = args.tptp)
-                )
+    write_record(summary)
+    return 0
 
-            args.data_dir.mkdir(parents = True, exist_ok = True)
-            metrics = train_axiom_predictor(
-                problems,
-                dataset = dataset,
-                output_dir = model_directory(args.data_dir, args.model_name),
-                tptp_root = args.tptp,
-                config = AxiomTrainingConfig(
-                    model = args.network,
-                    epochs = args.epochs,
-                    device = args.device,
+def join_command(args):
+    from .joined import join_datasets
 
-                    seed = args.seed,
-                    batch_size = args.batch_size,
-                    log_every = args.log_every,
+    write_record(join_datasets(args.inputs, args.dataset, args.num_workers))
+    return 0
 
-                    step_limit = args.step_limit,
-                    timeout_s = args.timeout_s,
-                    sat_policy = args.policy,
-                    num_workers = args.num_workers,
-                ),
-                wandb_config = wandb_config(args),
-                run_properties = cli_properties(args),
-                split = selected_split(args),
-                evaluation_split = evaluation_split,
-                evaluation_problems = evaluation_problems,
-                evaluate_every = args.evaluate_every,
-                validation_run_ratio = args.validation_run_ratio,
-                validation_run_provers = args.validation_run_provers,
-                resume = args.resume,
-                max_example_mb = args.max_example_mb,
-                loss_weighting = args.loss_weighting,
-                min_axioms = args.min_axioms,
-                validation_all_held_out = args.validation_all_held_out,
-            )
-
-            report_metrics(metrics)
-            return 0
-
-        if args.command == "evaluate":
-            from .training import AxiomTrainingConfig, evaluate_axiom_predictor
-
-            if (args.sine or args.data_dir is not None or args.model is not None) and args.checkpoint is not None:
-                args.problems = [str(args.checkpoint), *args.problems]
-                args.checkpoint = None
-
-            dataset = args.dataset if args.problems else selected_dataset(args)
-            if dataset is not None and args.problems:
-                raise ValueError("evaluate takes PROBLEM inputs or a dataset, not both")
-
-            checkpoint = None if args.sine else selected_checkpoint(args)
-            problems = () if dataset is not None else selected_problems(args)
-            metrics = evaluate_axiom_predictor(
-                checkpoint,
-                list(problems),
-                sine = args.sine,
-                multiprocess = args.multiprocess,
-                resume = journal.get(),
-                dataset = dataset,
-                split = selected_split(args),
-
-                tptp_root = args.tptp,
-                device = args.device,
-                config = AxiomTrainingConfig(
-                    device = args.device,
-                    batch_size = args.batch_size,
-                    step_limit = args.step_limit,
-                    timeout_s = args.timeout_s,
-                    sat_policy = args.policy,
-                    num_workers = args.num_workers,
-                ),
-                wandb_config = wandb_config(args),
-                run_properties = cli_properties(args),
-            )
-
-            report_metrics(metrics)
-            return 0
-
-        from .model import AxiomPredictor
-
-        if args.data_dir is not None and args.checkpoint is not None:
-            args.problems = [str(args.checkpoint), *args.problems]
-            args.checkpoint = None
-
-        predictor = AxiomPredictor.load(selected_checkpoint(args), device = args.device)
-        problems = selected_problems(args)
-        parseable = 0
-        for problem in problems:
-            log(f"predicting axiom scores for {problem}")
-            try:
-                loaded = load_tptp_problem(problem, tptp_root = args.tptp)
-            except TPTPParseError as error:
-                log(f"skipping {problem}: {error}")
-                continue
-
-            parseable += 1
-            predictions = predictor.predict(
-                loaded.matrix,
-                axiom_clause_ids = loaded.axiom_clause_ids,
-                conjecture_clause_ids = loaded.conjecture_clause_ids,
-            )
-
-            for prediction in predictions:
-                write_record(
-                    {
-                        "problem_path": loaded.requested_path,
-                        "clause_index": prediction.clause_index,
-                        "clause_text": prediction.clause_text,
-                        "probability": prediction.probability,
-                        "rank": prediction.rank,
-                        "network_size": predictor.network_size(),
-                    },
-                )
-
-            log(f"ranked {len(predictions)} axiom clauses for {loaded.requested_path}")
-
-        if not parseable:
-            raise NoParseableProblemsError(
-                f"none of the {len(problems)} .p files could be parsed as FOF or CNF"
-            )
-
-        return 0
-    except (NoProblemFilesError, NoParseableProblemsError) as error:
-        log(f"axiom-predictor: error: {error}")
-        return 1
-    except (FileNotFoundError, ValueError, RuntimeError) as error:
-        log(f"axiom-predictor: error: {error}")
-        return 2
-
-def print_device(requested: str):
+def train_command(args):
     from .model import device_description
+    from .training import AxiomTrainingConfig, train_axiom_predictor
 
-    description = device_description(requested)
-    suffix = " (automatically selected)" if requested in ("gpu", "auto") else ""
-    log(f"axiom-predictor: COMPUTE DEVICE: {description}{suffix}")
-    if requested in ("gpu", "auto") and description == "CPU":
-        log("warning: CUDA is unavailable; using CPU")
+    log(f"compute device: {device_description(args.device)}")
+    evaluation_split = None
+    if args.evaluate is not None:
+        evaluation_split = ProblemSplit(args.split, list(args.evaluate), scheme = args.split_scheme)
 
-def model_directory(data_dir: Path, model_name: str | None) -> Path:
-    if model_name is None:
-        return data_dir / "model"
-
-    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*", model_name):
-        raise ValueError(
-            f"--model-name must be letters, digits, '.', '_' or '-', starting with a letter or digit: {model_name!r}"
-        )
-
-    return data_dir / "models" / model_name
-
-def selected_checkpoint(args: argparse.Namespace) -> Path:
-    if args.command == "evaluate" and args.model is not None:
-        if args.checkpoint is not None or args.model_name is not None:
-            raise ValueError("give either --model, CHECKPOINT or --model-name")
-
-        return named_checkpoint(args.model)
-
-    if args.checkpoint is not None:
-        if args.model_name is not None:
-            raise ValueError("give either CHECKPOINT or --model-name, not both")
-
-        return args.checkpoint
-
-    if args.data_dir is None:
-        raise ValueError(f"{args.command} needs a CHECKPOINT or --data-dir")
-
-    return model_directory(args.data_dir, args.model_name)
-
-# A bare name such as `torok` refers to this checkout's models/NAME.pt.
-def named_checkpoint(path: Path) -> Path:
-    named = Path(__file__).resolve().parents[2] / "models" / f"{path}.pt"
-    return named if not path.exists() and named.is_file() else path
-
-def add_sine_argument(parser):
-    parser.add_argument(
-        "--sine", action = "store_true",
-        help = "clause-level SInE (tolerance 1, unlimited depth); search retains all clauses with a 1e-6 floor; evaluation uses binary scores",
+    config = AxiomTrainingConfig(
+        model = args.network,
+        epochs = args.epochs,
+        device = args.device,
+        seed = args.seed,
+        batch_size = args.batch_size,
+        timeout_s = args.timeout_s,
+        num_workers = args.num_workers,
     )
 
-def add_model_name_argument(parser: argparse.ArgumentParser):
-    parser.add_argument(
-        "--model-name",
-        metavar = "NAME",
-        help = "use DATA_DIR/models/NAME instead of DATA_DIR/model, so one data directory can hold several models (e.g. different splits)",
+    args.data_dir.mkdir(parents = True, exist_ok = True)
+    train_axiom_predictor(
+        dataset = args.dataset,
+        output_dir = args.data_dir / "model",
+        tptp_root = args.tptp,
+        config = config,
+        wandb_config = wandb_config(args),
+        run_properties = cli_properties(args),
+        split = selected_split(args),
+        evaluation_split = evaluation_split,
+        evaluate_every = args.evaluate_every,
+        validation_run_ratio = args.validation_run_ratio,
+        validation_run_provers = args.validation_run_provers,
+        resume = args.resume,
+        max_example_mb = args.max_example_mb,
+        loss_weighting = args.loss_weighting,
+        min_axioms = args.min_axioms,
+        validation_all_held_out = args.validation_all_held_out,
     )
 
-def run_command(args: argparse.Namespace) -> int:
+    return 0
+
+def run_command(args):
+    from .choices import GuidanceMode
+    from .dataset import label_policy
+    from .output import journal, report_metrics
     from .run import RunConfig, run_problems
     from .wandb_tracking import WandbTracker
 
-    model = run_model(args)
-    network_size = 0
-    policy = args.policy
-    if model is not None:
+    network_size, labelled = 0, {}
+    if args.model is not None:
         from .model import AxiomPredictor
-        from .training import label_policy
 
-        print_device(args.device)
-        predictor = AxiomPredictor.load(model, device = "cpu")
-        network_size = predictor.network_size()
-        policy = label_policy(
-            policy,
-            {"collection": predictor.training_config},
-            allow_mismatch = True,
-        )
+        predictor = AxiomPredictor.load(args.model, device = "cpu")
+        network_size, labelled = predictor.network_size(), {"collection": predictor.training_config}
 
     config = RunConfig(
-        multiprocess = args.multiprocess,
-        mode = GuidanceMode.Sine if args.sine else (
-            GuidanceMode.Base if model is None else GuidanceMode.Weighted
-        ),
-        policy = policy or ProverPolicy.SatResetCoP,
-        checkpoint = None if model is None else str(model),
+        mode = GuidanceMode.Sine if args.sine else GuidanceMode.Base if args.model is None else GuidanceMode.Weighted,
+        policy = label_policy(args.policy, labelled),
+        checkpoint = None if args.model is None else str(args.model),
         device = args.device,
-
         seed = args.seed,
-        step_limit = args.step_limit,
         timeout_s = args.timeout_s,
         temperature = args.temperature,
     )
 
+    split = selected_split(args)
     problems = selected_problems(args)
-    log(
-        f"axiom-predictor: running {config.policy} in {config.mode} mode on {len(problems)} problems ({json.dumps(config.to_dict(), sort_keys = True)})"
-    )
-
+    log(f"running {len(problems)} problems with {config.to_dict()}")
     session = journal.get()
     results = [] if session is None else [row for row in session.records if row.get("problem")]
     completed = {row["problem"] for row in results}
@@ -745,51 +278,33 @@ def run_command(args: argparse.Namespace) -> int:
     tracker = WandbTracker.start(
         wandb_config(args),
         job_type = "run",
-        run_config = {
-            **config.to_dict(),
-            "split": selected_split(args).to_dict(),
-            "problems": list(problems),
-            "cli_arguments": cli_properties(args),
-        },
+        run_config = {**config.to_dict(), "split": split.to_dict(), "problems": problems, "cli_arguments": cli_properties(args)},
         output_dir = None if session is None else session.directory,
         resume = session is not None,
     )
 
-    proved = sum(bool(row.get("proved")) for row in results)
     try:
-        for result in run_problems(
-            [problem for problem in problems if problem not in completed],
-            tptp_root = args.tptp,
-            config = config,
-            num_workers = args.num_workers,
-        ):
-            result["part"] = selected_split(args).part(result["problem"])
+        pending = [problem for problem in problems if problem not in completed]
+        for result in run_problems(pending, tptp_root = args.tptp, config = config, num_workers = args.num_workers):
+            result["part"] = split.part(result["problem"])
             result["network_size"] = network_size
             results.append(result)
-            proved += int(bool(result.get("proved")))
             write_record(result)
-            log(
-                f"[{len(results)}/{len(problems)}] {result['problem']}: {result['outcome']} in {float(result.get('seconds') or 0):.2f}s ({proved} proved)"
-            )
-
+            proved = sum(bool(row.get("proved")) for row in results)
+            log(f"[{len(results)}/{len(problems)}] {result['problem']}: {result['outcome']} in {result['seconds']:.2f}s ({proved} proved)")
             if tracker is not None:
                 tracker.log_run_result(len(results), len(problems), proved, result)
 
-        times = [float(r["seconds"]) for r in results if r.get("proved")]
+        times = [float(row["seconds"]) for row in results if row.get("proved")]
         summary = {
             "mode": config.mode,
             "policy": config.policy,
             "problems": len(results),
-            "proved": proved,
-            "ratio_problems_proved": proved / len(results) if results else None,
+            "proved": len(times),
+            "ratio_problems_proved": len(times) / len(results) if results else None,
             "proved_seconds_total": sum(times),
             "proved_seconds_mean": sum(times) / len(times) if times else None,
         }
-
-        if args.sine:
-            from .sine import settings
-
-            summary.update(settings())
 
         report_metrics(summary)
         if tracker is not None:
@@ -805,200 +320,36 @@ def run_command(args: argparse.Namespace) -> int:
 
     return 0 if any(not result.get("error") for result in results) else 2
 
-def run_model(args: argparse.Namespace) -> Path | None:
-    if args.model is not None:
-        if args.model_name is not None:
-            raise ValueError("give either --model or --model-name, not both")
+@monitor_progress()
+def main(argv = None):
+    from .collection import NoParseableProblemsError
+    from .tptp import NoProblemFilesError
 
-        return named_checkpoint(args.model)
+    commands = {"collect": collect_command, "join": join_command, "train": train_command, "run": run_command}
+    args = build_parser().parse_args(argv)
+    # The choice travels in the environment so that worker processes see it too.
+    os.environ["axiom_selector_equality_axioms"] = "1" if getattr(args, "equality_axioms", False) else "0"
+    log(f"axiom-predictor: starting {args.command}")
+    try:
+        if args.command == "train":
+            return train_command(args)
 
-    if args.data_dir is None:
-        if args.model_name is not None:
-            raise ValueError("--model-name needs --data-dir")
+        with output_format(args.command, getattr(args, "output", None), cli_properties(args)) as session:
+            if session is not None and session.complete():
+                log("output is already complete; nothing to resume")
+                return session.exit_code()
 
-        return None
+            exit_code = commands[args.command](args)
+            if session is not None:
+                session.finish(exit_code)
 
-    return model_directory(args.data_dir, args.model_name)
-
-def selected_split(args: argparse.Namespace) -> ProblemSplit:
-    parts = list(range(args.split)) if args.parts is None else list(args.parts)
-    return ProblemSplit(args.split, parts, scheme = args.split_scheme)
-
-def listed_problems(path: Path) -> list[str]:
-    problems = list(filter(None, map(str.strip, path.read_text().splitlines())))
-    if not problems:
-        raise ValueError(f"no problems listed in {path}")
-
-    return problems
-
-def selected_problems(args: argparse.Namespace) -> list[str]:
-    from .tptp import expand_problem_inputs, tptp_problems
-
-    split = selected_split(args)
-    log("discovering problem files and selecting split")
-    problems = (
-        expand_problem_inputs(args.problems, tptp_root = args.tptp)
-        if args.problems
-        else tptp_problems(tptp_root = args.tptp)
-    )
-
-    selected = split.select(problems)
-    log(
-        f"axiom-predictor: selected {len(selected)} of {len(problems)} problems ({split.describe()})"
-    )
-
-    if not selected:
-        raise ValueError(f"no problems left after selecting {split.describe()}")
-
-    return selected
-
-def training_request(args: argparse.Namespace) -> tuple[list[str], Path | None]:
-    if args.dataset is not None and args.problems:
-        raise ValueError("train takes either --dataset or PROBLEM inputs, not both")
-
-    if not args.problems:
-        return [], selected_dataset(args)
-
-    return selected_problems(args), None
-
-def add_dataset_argument(parser: argparse.ArgumentParser):
-    parser.add_argument(
-        "--dataset",
-        type = Path,
-        metavar = "PATH",
-        help = "shared dataset directory; collect appends to its problems.csv, train/evaluate read it instead of DATA_DIR/dataset",
-    )
-
-def selected_dataset(args: argparse.Namespace) -> Path | None:
-    if args.dataset is not None:
-        return args.dataset
-
-    return None if args.data_dir is None else args.data_dir / "dataset"
-
-def cli_properties(args: argparse.Namespace) -> dict[str, Any]:
-    return {key: jsonable_cli_value(value) for key, value in vars(args).items()}
-
-def jsonable_cli_value(value: object) -> object:
-    if isinstance(value, Path):
-        return str(value)
-
-    if isinstance(value, list):
-        return [jsonable_cli_value(item) for item in value]
-
-    return value
-
-def add_wandb_arguments(parser: argparse.ArgumentParser):
-    parser.add_argument(
-        "--run-name",
-        help = "W&B run name (defaults to automatic model-based naming)",
-    )
-
-    toggle = parser.add_mutually_exclusive_group()
-    toggle.add_argument(
-        "--wandb",
-        dest = "wandb",
-        action = "store_true",
-        help = "attempt W&B logging; warn and continue without it when unavailable",
-    )
-
-    toggle.add_argument(
-        "--no-wandb",
-        dest = "wandb",
-        action = "store_false",
-        help = "disable W&B logging (tracking otherwise enabled: %(default)s)",
-    )
-
-    parser.set_defaults(wandb = True)
-
-def add_split_arguments(parser: argparse.ArgumentParser):
-    parser.add_argument(
-        "--split-scheme", type = int, choices = (3, 4, 5), default = split_scheme,
-        help = "historical split algorithm (default: 5)",
-    )
-
-    parser.add_argument(
-        "--split",
-        "--splits",
-        type = positive_int,
-        default = 1,
-        metavar = "N",
-        help = "partition problems into N parts using --split-scheme",
-    )
-
-    parser.add_argument(
-        "--parts",
-        "--part",
-        dest = "parts",
-
-        type = nonnegative_int,
-        nargs = "+",
-        metavar = "P",
-        help = "use only these parts, each in 0..N-1 (default: every part)",
-    )
-
-def nonnegative_int(value: str) -> int:
-    parsed = int(value)
-    if parsed < 0:
-        raise argparse.ArgumentTypeError("must be at least 0")
-
-    return parsed
-
-def add_worker_argument(parser: argparse.ArgumentParser):
-    parser.add_argument(
-        "--num-workers",
-        type = positive_int,
-        metavar = "N",
-        help = (
-            "worker processes for collection/search and CPU threads for training/evaluation "
-            "(guided CUDA search defaults to one worker) "
-            "(default: maximum available within SLURM_CPUS_PER_TASK and process affinity; capped by problem count for collection/search)"
-        ),
-    )
-
-def positive_int(value: str) -> int:
-    parsed = int(value)
-    if parsed < 1:
-        raise argparse.ArgumentTypeError("must be at least 1")
-
-    return parsed
-
-def wandb_config(args: argparse.Namespace):
-    from .wandb_tracking import WandbConfig
-
-    return WandbConfig(
-        enabled = args.wandb,
-        name = args.run_name,
-        name_prefix = wandb_name_prefix(
-            getattr(args, "data_dir", None),
-            getattr(args, "model_name", None),
-        ),
-        group = wandb_group(
-            getattr(args, "data_dir", None),
-            getattr(args, "model_name", None),
-        ),
-        tags = [] if getattr(args, "model_name", None) is None else [args.model_name],
-    )
-
-def wandb_name_prefix(
-    data_dir: Path | None,
-    model_name: str | None = None,
-) -> str | None:
-    parts = []
-    if data_dir is not None and (
-        str(data_dir).startswith("smol") or data_dir.name.startswith("smol")
-    ):
-        parts.append("smol")
-
-    if model_name is not None:
-        parts.append(model_name)
-
-    return "-".join(parts) or None
-
-def wandb_group(data_dir: Path | None, model_name: str | None) -> str | None:
-    if model_name is None:
-        return None
-
-    return model_name if data_dir is None else f"{data_dir.name}/{model_name}"
+            return exit_code
+    except (NoProblemFilesError, NoParseableProblemsError) as error:
+        log(f"axiom-predictor: error: {error}")
+        return 1
+    except (OSError, ValueError, RuntimeError) as error:
+        log(f"axiom-predictor: error: {error}")
+        return 2
 
 if __name__ == "__main__":
     raise SystemExit(main())

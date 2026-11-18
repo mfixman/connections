@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 import importlib
 import json
 import os
@@ -44,10 +44,6 @@ class WandbConfig:
 
     name: str | None = None
     key_file: Path = Path("secrets/wandb_key")
-
-    name_prefix: str | None = None
-    group: str | None = None
-    tags: list[str] = field(default_factory = list)
 
 class WandbTracker:
     def __init__(self, module: Any, run: Any):
@@ -113,9 +109,6 @@ class WandbTracker:
                 entity = config.entity,
                 project = config.project,
                 name = None if resuming else config.name,
-                group = config.group,
-                tags = list(config.tags) or None,
-
                 job_type = job_type,
                 config = run_config,
                 dir = None if output_dir is None else str(output_dir),
@@ -131,15 +124,6 @@ class WandbTracker:
             )
 
             return None
-
-        name = getattr(run, "name", None)
-        if not resuming and not config.name and config.name_prefix and name and not name.startswith(config.name_prefix):
-            try:
-                run.name = f"{config.name_prefix}-{name}"
-            except Exception as error:
-                log(
-                    f"warning: could not rename W&B run {name!r} with prefix {config.name_prefix!r} ({error})"
-                )
 
         if hasattr(run, "define_metric"):
             run.define_metric("epoch")
@@ -241,30 +225,6 @@ class WandbTracker:
                 "progress/batch_loss": loss,
                 "progress/batches_done": batches_done,
                 "progress/batches_total": batches_total,
-            }
-        )
-
-    def log_collection(
-        self,
-        processed: int,
-        total: int,
-        proved: int,
-
-        skipped: int,
-        problem: str,
-        outcome: str,
-    ):
-        self.run.log(
-            {
-                "collection/problems_processed": processed,
-                "collection/problems_total": total,
-                "collection/fraction_complete": processed / total,
-
-                "collection/problems_proved": proved,
-                "collection/problems_skipped": skipped,
-
-                "collection/current_problem": problem,
-                "collection/current_outcome": outcome,
             }
         )
 

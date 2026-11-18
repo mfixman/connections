@@ -1,5 +1,4 @@
 from contextlib import contextmanager
-from functools import wraps
 import signal
 import threading
 
@@ -34,19 +33,3 @@ def wall_clock(duration_s):
     finally:
         signal.setitimer(signal.ITIMER_REAL, 0)
         signal.signal(signal.SIGALRM, previous)
-
-def collection_budget(function):
-    @wraps(function)
-    def collect(*args, **kwargs):
-        duration_s = kwargs.get(
-            "timeout_s",
-            function.__kwdefaults__["timeout_s"],
-        )
-
-        try:
-            with wall_clock(duration_s):
-                return function(*args, **kwargs)
-        except CollectionTimeout:
-            return None, "Timeout"
-
-    return collect

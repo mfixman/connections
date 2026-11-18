@@ -6,11 +6,9 @@ import csv
 import json
 import os
 from pathlib import Path
-import re
 
 from axiom_prediction.choices import ProverPolicy
-from axiom_prediction.data import axiom_example_schema
-from axiom_prediction.dataset import collection_caches, load_axiom_dataset, read_dataset_rows
+from axiom_prediction.dataset import load_axiom_dataset
 from axiom_prediction.io import write_json_atomic
 from axiom_prediction.logs import log
 from axiom_prediction.split import ProblemSplit
@@ -49,40 +47,10 @@ def training_run(run_id):
     wandb_config = WandbConfig()
     return wandb.Api(api_key = wandb_key()).run(f"{wandb_config.entity}/{wandb_config.project}/{run_id}")
 
-# Reads only the leading columns of cache lines, skipping the graphs that training would decode.
-def shard_paths(shard, max_bytes):
-    if not (shard / "cache.csv").exists():
-        rows = read_dataset_rows(shard, max_bytes)
-        return {row["problem_path"] for row in rows if row.get("schema") == axiom_example_schema}
-
-    example = re.compile(r'^"""([^"]+)""",,,,"""([^"]+)"""')
-    paths = set()
-    with (shard / "cache.csv").open(encoding = "utf-8", newline = "") as stream:
-        for line in stream:
-            match = example.match(line)
-            kept = line.endswith("\n") and len(line) <= max_bytes
-            if kept and match and match[1] == axiom_example_schema:
-                paths.add(match[2])
-
-    return paths
-
-def held_out_paths(dataset, split, max_bytes):
-    # Collection shards used the same split, so only the held-out parts' shards hold their problems.
-    shards = [
-        shard
-        for shard in collection_caches(dataset)
-        if any(shard.name.endswith(f"-p{part}") for part in split.parts)
-    ]
-
-    paths = set()
-    for shard in shards:
-        paths |= shard_paths(shard, max_bytes)
-
-    outside = {path for path in paths if not split.contains(path)}
-    if outside:
-        raise ValueError(f"{len(outside)} problems in held-out shards are outside {split.describe()}")
-
-    log(f"{len(paths)} held-out problems with proofs in {len(shards)} shards of {dataset}")
+def held_out_paths(dataset, split, max_example_mb):
+    examples = load_axiom_dataset(dataset, max_example_mb)[0]
+    paths = {example.problem_path for example in examples if split.contains(example.problem_path)}
+    log(f"{len(paths)} held-out problems with proofs in {dataset}")
     return paths
 
 def evaluation_split(settings, args):
@@ -103,8 +71,7 @@ def validation_selection(settings, args, output):
     if args.all_held_out:
         paths = list(filter(refutable, split.select(tptp_problems(tptp_root = tptp_root))))
     else:
-        max_bytes = int(settings["cli_arguments"]["max_example_mb"] * 1e6)
-        paths = held_out_paths(Path(settings["dataset"]), split, max_bytes)
+        paths = held_out_paths(settings["dataset"], split, settings["cli_arguments"]["max_example_mb"])
 
     problems = split.subsample(sorted(paths), args.ratio)
     for problem in problems:

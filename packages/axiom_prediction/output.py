@@ -1,3 +1,5 @@
+# Result rows: CSV on stdout, or the resumable journal that --output selects.
+
 import csv
 from contextlib import contextmanager
 from contextvars import ContextVar
@@ -9,42 +11,13 @@ journal = ContextVar("output_journal", default = None)
 writer = ContextVar("output_writer", default = None)
 
 def output_fields(command):
-    metric_fields = (
-        "bce roc_auc average_precision macro_average_precision macro_recall_at_1 "
-        "macro_recall_at_3 macro_recall_at_5 macro_recall_at_10"
-    ).split()
-
-    dataset_fields = (
-        "problems duplicate_problems problems_skipped skipped_outcomes batches_per_epoch "
-        "axiom_clauses core_clauses positive_rate axioms_per_problem core_per_problem "
-        "core_fraction_per_problem problems_without_axioms problems_with_empty_core "
-        "problems_with_full_core graph_nodes_per_problem graph_edges_per_problem largest_problems"
-    ).split()
-
-    result_fields = (
-        "evaluation_kind model_config network_size label_semantics sat_policy dataset split "
-        "training_split problems_proved problems_skipped skipped"
-    ).split()
-
-    command_fields = {
-        "predict": "problem_path clause_index clause_text probability rank network_size".split(),
-        "collect": (
-            "schema problems_requested problems_proved problems_failed problems_reused "
-            "problems_unparseable dataset_file"
-        ).split(),
-        "join": "inputs problems graphs examples failures data_bytes dataset".split(),
-        "run": (
-            "problem part tptp_status proved seconds mode policy seed steps proof_size "
-            "axioms prediction_seconds error network_size"
-        ).split(),
-        "train": ["event", *dataset_fields, *metric_fields, *result_fields, *(
-            "examples shards collection failures parameters device config epoch epochs batch batches "
-            "loss seconds labels eval_seconds grad_norm_mean grad_norm_max metrics"
-        ).split()],
-        "evaluate": ["event", "problem", "part", "tptp_status", *dataset_fields, *metric_fields, *result_fields],
+    fields = {
+        "collect": "schema problems_requested problems_proved problems_failed problems_reused problems_unparseable dataset_file",
+        "join": "inputs problems graphs examples failures data_bytes dataset",
+        "run": "problem part tptp_status proved seconds mode policy seed steps proof_size axioms prediction_seconds error network_size",
     }
 
-    return list(dict.fromkeys(command_fields[command]))
+    return fields[command].split()
 
 def write_record(record):
     if journal.get() is not None:
@@ -96,7 +69,7 @@ def output_format(command, path = None, identity = None):
     if path is not None:
         from .output_resume import OutputJournal
         fields = output_fields(command)
-        session = OutputJournal(path, command, fields, identity)
+        session = OutputJournal(path, fields, identity)
         token = journal.set(session)
         try:
             yield session

@@ -1,61 +1,36 @@
-from __future__ import annotations
-
-from .choices import GraphInputKind, LossWeighting, ProverPolicy, plain_values
-
-from typing import Any
+# `train`: fits a network to the SAT-core labels of a joined dataset, saving a resumable checkpoint every epoch.
 
 from collections import Counter
+from collections.abc import Mapping
 from dataclasses import asdict, dataclass, replace
-from functools import partial
 import json
 import math
 from pathlib import Path
-
 import random
-import re
-import statistics
 import time
-
-from collections import Counter
-from collections.abc import Callable, Mapping
+from typing import Any
 
 import torch
 from torch import nn
 
-from .data import AxiomTrainingExample
-from .dataset import NoParseableProblemsError, collect_problems_parallel, load_axiom_dataset
-from .graph import collate_axiom_graphs
-from .tptp import problem_file
-from .evaluation_resume import resume_collection, resume_predictions
-from .logs import log
-from .logs import progress as track_progress
-from .output import write_record
-from .metrics import prediction_metrics
-from .model import (
-    AxiomModelConfig,
-    AxiomPredictionNetwork,
-    AxiomPredictor,
-    resolve_device,
-    save_checkpoint,
-    resolve_checkpoint,
-    write_durably,
-)
-
-from .parallel import determine_worker_count
-from .models import load_model_class
-from .split import ProblemSplit
 from .background_validation import BackgroundValidation
-from .validation_run import subset_sizes, validation_run_configs, validation_run_problems
+from .choices import GraphInputKind, LossWeighting, ProverPolicy, plain_values
+from .data import AxiomTrainingExample
+from .dataset import label_policy, load_axiom_dataset
+from .graph import collate_axiom_graphs
 from .limits import default_step_limit, default_timeout_s
-from .wandb_tracking import WandbConfig, WandbTracker
+from .logs import log
+from .metrics import prediction_metrics
+from .model import AxiomModelConfig, AxiomPredictionNetwork, resolve_checkpoint, resolve_device, save_checkpoint, write_durably
+from .models import load_model_class
+from .parallel import determine_worker_count
 from .resume import check_training_target, dataset_fingerprint, next_training_run, restore_training, snapshot_training
+from .split import ProblemSplit
+from .training_log import log_dataset, log_epoch, metric_text
+from .validation_run import subset_sizes, validation_run_configs, validation_run_problems
+from .wandb_tracking import WandbConfig, WandbTracker
 
-# Each problem counts once, however many clauses it has; weights share a problem between its cores.
-def problem_loss(logits, labels, counts, weights):
-    losses = nn.functional.binary_cross_entropy_with_logits(logits, labels, reduction = "none")
-    means = torch.stack([part.mean() for part in losses.split(counts)])
-    return (means * weights).sum() / weights.sum()
-
+# Saved in every checkpoint; a resumed run must repeat it, so new fields would break old checkpoints.
 @dataclass(slots = True, init = False)
 class AxiomTrainingConfig:
     epochs: int
@@ -73,39 +48,37 @@ class AxiomTrainingConfig:
     seed: int
     device: str
 
+    # Limits of the validation proof searches.
     step_limit: int
     timeout_s: float
-    sat_policy: ProverPolicy | str | None
-
+    sat_policy: ProverPolicy | None
     num_workers: int | None
-    log_every: int
 
     def __init__(
         self,
-        epochs: int = 200,
-        batch_size: int = 43,
-        learning_rate: float = 1e-3,
-        weight_decay: float = 0.0,
-        hidden_dim: int = 64,
-        message_rounds: int = 3,
-        num_hidden_layers: int = 2,
-        activation: str = "relu",
-        graph_input: str = GraphInputKind.Full,
-        model: str | None = None,
-        seed: int = 0,
-        device: str = "cuda",
-        step_limit: int = default_step_limit,
-        timeout_s: float = default_timeout_s,
-        sat_policy: ProverPolicy | str | None = None,
-        num_workers: int | None = None,
-        log_every: int = 10,
+        epochs = 200,
+        batch_size = 43,
+        learning_rate = 1e-3,
+        weight_decay = 0.0,
+        hidden_dim = 64,
+        message_rounds = 3,
+        num_hidden_layers = 2,
+        activation = "relu",
+        graph_input = GraphInputKind.Full,
+        model = None,
+        seed = 0,
+        device = "cuda",
+        step_limit = default_step_limit,
+        timeout_s = default_timeout_s,
+        sat_policy = None,
+        num_workers = None,
     ):
         self.epochs = epochs
         self.batch_size = batch_size
         self.learning_rate = learning_rate
         self.weight_decay = weight_decay
-        self.hidden_dim = hidden_dim
 
+        self.hidden_dim = hidden_dim
         self.message_rounds = message_rounds
         self.num_hidden_layers = num_hidden_layers
         self.activation = activation
@@ -116,21 +89,16 @@ class AxiomTrainingConfig:
         self.device = device
         self.step_limit = step_limit
         self.timeout_s = timeout_s
-        self.sat_policy = sat_policy
-
+        self.sat_policy = None if sat_policy is None else ProverPolicy(sat_policy)
         self.num_workers = num_workers
-        self.log_every = log_every
 
-        self.validate()
+    def model_class(self):
+        return AxiomPredictionNetwork if self.model is None else load_model_class(self.model)
 
-    def validate(self):
-        self.network_config()
-        if self.sat_policy is not None:
-            self.sat_policy = ProverPolicy(self.sat_policy)
-
+    # A named network brings its own sizes; the fields above describe the unnamed base network.
     def network_config(self) -> AxiomModelConfig:
         if self.model is not None:
-            return replace(load_model_class(self.model).default_config)
+            return replace(self.model_class().default_config)
 
         return AxiomModelConfig(
             hidden_dim = self.hidden_dim,
@@ -140,121 +108,65 @@ class AxiomTrainingConfig:
             graph_input = self.graph_input,
         )
 
-def label_policy(requested, metadata = None, *, allow_mismatch = False):
-    collection = (metadata or {}).get("collection", {})
-    recorded = collection.get("sat_policy") if isinstance(collection, Mapping) else None
-    if requested is not None:
-        requested = ProverPolicy(requested)
+# Each problem counts once, however many clauses it has; weights share a problem between its cores.
+def problem_loss(logits, labels, counts, weights):
+    losses = nn.functional.binary_cross_entropy_with_logits(logits, labels, reduction = "none")
+    means = torch.stack([part.mean() for part in losses.split(counts)])
+    return (means * weights).sum() / weights.sum()
 
-    if recorded is not None:
-        recorded = ProverPolicy(recorded)
-        backend = collection.get("prover_backend") or collection.get("collection", {}).get("prover_backend")
-        if recorded == ProverPolicy.SatCoP and backend != "rust-satcop":
-            recorded = ProverPolicy.SatCoPCon
+def split_examples(examples, failures, split):
+    kept = [example for example in examples if split.contains(example.problem_path)]
+    return kept, [item for item in failures if split.contains(item.get("problem", ""))]
 
-    if requested is not None and recorded is not None and requested != recorded:
-        message = f"dataset labels were collected with {recorded}, but --policy requests {requested}"
-        if not allow_mismatch:
-            raise ValueError(message + "; collect a separate dataset to change the label policy")
+def saved_config(config, policy, split, loss_weighting, min_axioms, metadata):
+    payload = plain_values(asdict(config))
+    payload["timeout_seconds"] = payload.pop("timeout_s")
+    payload.update(config.network_config().to_dict())
+    payload["sat_policy"] = policy.wire_value()
+    payload["split"] = split.to_dict()
+    # Resume compares every key, so defaults stay out for earlier checkpoints.
+    if loss_weighting != LossWeighting.Clause:
+        payload["loss_weighting"] = loss_weighting.wire_value()
 
-        log(f"warning: {message}; running with {requested}")
+    if min_axioms:
+        payload["min_axioms"] = min_axioms
 
-    return ProverPolicy(requested or recorded or ProverPolicy.SatResetCoP)
+    if policy == ProverPolicy.SatCoP:
+        from .satcop import label_semantics
 
-def collect_examples(
-    problems: list[str],
-    *,
-    tptp_root: str | Path | None,
-    config: AxiomTrainingConfig,
-    progress: Callable[[int, int, int, int, str, str], None] | None = None,
-    resume = None,
-) -> tuple[list[AxiomTrainingExample], list[dict[str, str]]]:
-    exs: list[AxiomTrainingExample] = []
-    skipped: list[dict[str, str]] = []
-    unparseable = 0
-    workers = determine_worker_count(len(problems), config.num_workers)
-    log(
-        f"axiom-predictor: using {workers} worker "
-        f"{'process' if workers == 1 else 'processes'} for proof collection"
-    )
+        payload["collection"] = metadata.get("collection") or {
+            "sat_policy": "satcop",
+            "prover_backend": "rust-satcop",
+            "label_semantics": label_semantics,
+        }
 
-    results = resume_collection(
-        problems,
-        collect_problems_parallel,
-        resume,
-        tptp_root = tptp_root,
-        step_limit = config.step_limit,
-        timeout_s = config.timeout_s,
-        sat_policy = label_policy(config.sat_policy),
-        num_workers = workers,
-    )
-
-    for result in results:
-        problem = result.problem
-        example = result.example
-        outcome = result.outcome
-        unparseable += int(not result.parseable)
-
-        if example is None:
-            skipped.append({"problem": problem, "outcome": outcome})
-            log(f"skipping {problem}: {outcome}")
-        else:
-            exs.append(example)
-            log(
-                f"proved {problem}: {int(sum(example.labels))}/{len(example.labels)} axiom clauses in SAT core"
-            )
-
-        if progress is not None:
-            progress(
-                len(exs) + len(skipped),
-                len(problems),
-                len(exs),
-                len(skipped),
-                problem,
-                outcome,
-            )
-
-    if not exs:
-        if problems and unparseable == len(problems):
-            raise NoParseableProblemsError(
-                f"none of the {len(problems)} .p files could be parsed as FOF or CNF"
-            )
-
-        raise RuntimeError(
-            "none of the supplied problems produced a usable SAT core; no training examples"
-        )
-
-    exs.sort(key = lambda example: example.problem_path)
-    skipped.sort(key = lambda item: item["problem"])
-    return exs, skipped
+    return payload
 
 def train_axiom_predictor(
-    problems: list[str] | tuple[str, ...] | None = None,
     *,
-    dataset: str | Path | None = None,
-    output_dir: str | Path,
-    tptp_root: str | Path | None = None,
-
-    config: AxiomTrainingConfig | None = None,
-    wandb_config: WandbConfig = WandbConfig(),
-    run_properties: Mapping[str, object] | None = None,
-    split: ProblemSplit | None = None,
-    evaluation_split: ProblemSplit | None = None,
-    evaluation_problems: list[str] | tuple[str, ...] | None = None,
-    evaluate_every: int = 1,
-    validation_run_ratio: int = 0,
-    validation_run_provers: list[ProverPolicy] | None = None,
-    resume: bool = False,
-    max_example_mb: float | None = None,
-    loss_weighting: LossWeighting = LossWeighting.Clause,
-    min_axioms: int = 0,
-    validation_all_held_out: bool = False,
+    dataset,
+    output_dir,
+    tptp_root = None,
+    config = None,
+    wandb_config = WandbConfig(),
+    run_properties = None,
+    split = None,
+    evaluation_split = None,
+    evaluate_every = 1,
+    validation_run_ratio = 0,
+    validation_run_provers = (),
+    resume = False,
+    max_example_mb = None,
+    loss_weighting = LossWeighting.Clause,
+    min_axioms = 0,
+    validation_all_held_out = False,
 ) -> dict[str, Any]:
-    progress_interval_s = 60.0
+    train_metrics_every = 10
 
     config = AxiomTrainingConfig() if config is None else config
     split = ProblemSplit() if split is None else split
-    check_training_target(output_dir, resume)
+    output = Path(output_dir)
+    check_training_target(output, resume)
     if evaluation_split is not None and (
         split.split != evaluation_split.split
         or split.scheme != evaluation_split.scheme
@@ -262,138 +174,42 @@ def train_axiom_predictor(
     ):
         raise ValueError("evaluation parts must use the training split and not overlap --parts")
 
-    if evaluation_problems is not None and (evaluation_split is None or dataset is not None):
-        raise ValueError("evaluation_problems requires evaluation_split and no dataset")
-
     run_configs = []
     if evaluation_split is not None and validation_run_ratio:
-        run_configs = validation_run_configs(
-            validation_run_provers or [],
-            config,
-            Path(output_dir) / "model.ts",
-        )
+        run_configs = validation_run_configs(validation_run_provers, config, output / "model.ts")
 
-    problem_list = list(problems or [])
-    if dataset is not None and problem_list:
-        raise ValueError("dataset cannot be combined with problem paths")
+    log(f"loading dataset from {dataset}")
+    everything, failures, metadata = load_axiom_dataset(dataset, max_example_mb)
+    held_out, held_out_skipped = [], []
+    if evaluation_split is not None:
+        held_out, held_out_skipped = split_examples(everything, failures, evaluation_split)
+        if not held_out:
+            raise ValueError(f"no evaluation examples in {evaluation_split.describe()}")
 
-    if dataset is None and not problem_list:
-        raise ValueError("training requires problem paths or a dataset")
+    examples, skipped = split_examples(everything, failures, split)
+    log(f"kept {len(examples)} of {len(everything)} examples in {split.describe()}; collection settings {metadata.get('collection')}")
+    if not examples:
+        raise RuntimeError(f"no training examples in {split.describe()} of {dataset}")
 
-    if dataset is None:
-        problem_list = split.select(problem_list)
-        if not problem_list:
-            raise ValueError("no training problems in the selected parts")
-
-    if evaluation_split is not None and dataset is None:
-        evaluation_problems = evaluation_split.select(list(evaluation_problems or []))
-        if not evaluation_problems:
-            raise ValueError("no evaluation problems supplied for the held-out parts")
-
-    dataset_metadata: Mapping[str, object] | None = None
-    dataset_examples: list[AxiomTrainingExample] | None = None
-    dataset_skipped: list[dict[str, str]] = []
-    held_out: list[AxiomTrainingExample] = []
-    held_out_skipped: list[dict[str, str]] = []
-    if dataset is not None:
-        log_message(f"loading dataset from {dataset}")
-        started = time.monotonic()
-        dataset_examples, dataset_skipped, dataset_metadata = load_axiom_dataset(dataset, max_example_mb)
-        if evaluation_split is not None:
-            held_out = [
-                example
-                for example in dataset_examples
-                if evaluation_split.contains(example.problem_path)
-            ]
-
-            held_out_skipped = [
-                item
-                for item in dataset_skipped
-                if evaluation_split.contains(item.get("problem", ""))
-            ]
-
-            if not held_out:
-                raise ValueError(f"no evaluation examples in {evaluation_split.describe()}")
-
-        if not split.is_everything():
-            total = len(dataset_examples)
-            dataset_examples = [
-                example
-                for example in dataset_examples
-                if split.contains( example.problem_path )
-            ]
-
-            dataset_skipped = [
-                item
-                for item in dataset_skipped
-                if split.contains( item.get("problem", "") )
-            ]
-
-            log_message(f"kept {len(dataset_examples)} of {total} examples in {split.describe()}")
-            if not dataset_examples:
-                raise RuntimeError(f"no training examples in {split.describe()} of {dataset}")
-
-        problem_list = [example.problem_path for example in dataset_examples]
-        shards = dataset_metadata.get("shards", [])
-        log_message(
-            f"loaded {len(dataset_examples)} examples and {len(dataset_skipped)} failure records from {len(shards) or 1} {'file' if len(shards) <= 1 else 'shards'} in {time.monotonic() - started:.1f}s; collection settings {json.dumps(dataset_metadata.get('collection', {}), sort_keys = True)}"
-        )
-
-        emit(
-            "dataset_loaded",
-            dataset = str(dataset),
-            shards = shards,
-            collection = dataset_metadata.get("collection", {}),
-            examples = len(dataset_examples),
-            failures = len(dataset_skipped),
-        )
-
-    effective_sat_policy = label_policy(config.sat_policy, dataset_metadata)
-
+    policy = label_policy(config.sat_policy, metadata)
     random.seed(config.seed)
     torch.manual_seed(config.seed)
     device = resolve_device(config.device)
-
-    output = Path(output_dir)
     output.mkdir(parents = True, exist_ok = True)
-
-    config_payload = plain_values(asdict(config))
-    config_payload["timeout_seconds"] = config_payload.pop("timeout_s")
-    network_config = config.network_config()
-    config_payload.update(network_config.to_dict())
-    config_payload["sat_policy"] = effective_sat_policy.wire_value()
-    config_payload["split"] = split.to_dict()
-    # Resume compares every key, so defaults stay out for earlier checkpoints.
-    if loss_weighting != LossWeighting.Clause:
-        config_payload["loss_weighting"] = loss_weighting.wire_value()
-
-    if min_axioms:
-        config_payload["min_axioms"] = min_axioms
-
-    if effective_sat_policy == ProverPolicy.SatCoP:
-        from .satcop import label_semantics
-
-        config_payload["collection"] = (dataset_metadata or {}).get("collection") or {
-            "sat_policy": "satcop",
-            "prover_backend": "rust-satcop",
-            "label_semantics": label_semantics,
-        }
+    payload = saved_config(config, policy, split, loss_weighting, min_axioms, metadata)
 
     run_count = next_training_run(output, resume)
     run_name = config.model or AxiomPredictionNetwork.__name__
-    if run_count > 1:
-        run_name = f"{run_name}-{run_count}"
-
     tracker = WandbTracker.start(
-        replace(wandb_config, name = wandb_config.name or run_name, name_prefix = None),
+        replace(wandb_config, name = wandb_config.name or (run_name if run_count == 1 else f"{run_name}-{run_count}")),
         job_type = "train",
         run_config = {
-            **config_payload,
+            **payload,
             "run_count": run_count,
             "resolved_device": str(device),
-            "problems": problem_list,
-            "problems_requested": len(problem_list),
-            "dataset": None if dataset is None else str(dataset),
+            "problems": [example.problem_path for example in examples],
+            "problems_requested": len(examples),
+            "dataset": str(dataset),
             "evaluation_split": None if evaluation_split is None else evaluation_split.to_dict(),
             "evaluate_every": evaluate_every,
             "validation_run_ratio": validation_run_ratio,
@@ -406,318 +222,116 @@ def train_axiom_predictor(
 
     background = None
     try:
-        if dataset_examples is None:
-            examples, skipped = collect_examples(
-                problem_list,
-                tptp_root = tptp_root,
-                config = config,
-                progress = None if tracker is None else tracker.log_collection,
-            )
-        else:
-            examples, skipped = dataset_examples, dataset_skipped
-
         if loss_weighting == LossWeighting.Problem or min_axioms:
             total = len(examples)
             examples = [example for example in examples if len(example.labels) > min_axioms]
-            log_message(f"kept {len(examples)} of {total} examples with more than {min_axioms} axioms")
-
-        core_counts = Counter(example.problem_path for example in examples)
-        if evaluation_split is not None and dataset is None:
-            held_out, held_out_skipped = collect_examples(
-                list(evaluation_problems),
-                tptp_root = tptp_root,
-                config = config,
-            )
+            log(f"kept {len(examples)} of {total} examples with more than {min_axioms} axioms")
 
         training_workers = determine_worker_count(None, config.num_workers)
         if run_configs:
-            validation_problems = validation_run_problems(
+            background = start_validation(
                 held_out,
                 evaluation_split,
                 validation_run_ratio,
-                tptp_root,
-                all_held_out = validation_all_held_out,
-            )
-
-            log_message(f"validation runs: {len(validation_problems)} held-out problems per prover for each epoch")
-            if tracker is not None:
-                constants = subset_sizes(validation_problems, held_out, run_configs)
-                tracker.run.summary.update({f"evaluation/{k}": v for k, v in constants.items()})
-
-            background = BackgroundValidation(
-                validation_problems,
+                validation_all_held_out,
                 run_configs,
                 tracker,
-                count = training_workers,
-                tptp_root = tptp_root,
+                training_workers,
+                tptp_root,
             )
 
             training_workers = 1
 
         if tracker is not None:
-            tracker.run.summary.update(
-                {
-                    "collection/problems_proved": len(examples),
-                    "collection/problems_skipped": len(skipped),
-                }
-            )
+            counts = {"collection/problems_proved": len(examples), "collection/problems_skipped": len(skipped)}
+            tracker.run.summary.update(counts)
 
-        report_dataset(
-            dataset_summary(examples, skipped, batch_size = config.batch_size)
-        )
-
+        log_dataset(examples, skipped, config.batch_size)
         torch.set_num_threads(training_workers)
-        log(
-            f"axiom-predictor: using {training_workers} Torch CPU "
-            f"{'thread' if training_workers == 1 else 'threads'}"
-        )
-
-        model_class = (
-            AxiomPredictionNetwork
-            if config.model is None
-            else load_model_class(config.model)
-        )
-
-        model = model_class(network_config).to(device)
+        model = config.model_class()(config.network_config()).to(device)
         parameters = sum(parameter.numel() for parameter in model.parameters())
-        log_message(
-            f"model: {parameters} parameters, hidden_dim {network_config.hidden_dim}, {network_config.message_rounds} message rounds, {network_config.num_hidden_layers} hidden layers, {network_config.activation}; device {device}; {config.epochs} epochs, batch size {config.batch_size}, learning rate {config.learning_rate:g}"
-        )
+        log(f"model: {payload}; {parameters} parameters on {device} with {training_workers} Torch CPU threads")
 
-        emit(
-            "model",
-            parameters = parameters,
-            network_size = model.network_size(),
-            device = str(device),
-            config = config_payload,
-        )
-
-        optimizer = torch.optim.Adam(
-            model.parameters(),
-            lr = config.learning_rate,
-            weight_decay = config.weight_decay,
-        )
-
-        loss_fn = nn.BCEWithLogitsLoss()
+        optimizer = torch.optim.Adam(model.parameters(), lr = config.learning_rate, weight_decay = config.weight_decay)
         rnd = random.Random(config.seed)
-        log_message(f"fingerprinting {len(examples)} training examples")
         fingerprint = dataset_fingerprint(examples)
         first_epoch = 1
         if resume:
-            log_message(f"restoring optimizer and RNG state from {resolve_checkpoint(output)}")
-            first_epoch = restore_training(
-                resolve_checkpoint(output),
-                model,
-                optimizer,
-                rnd,
+            log(f"restoring optimizer and RNG state from {resolve_checkpoint(output)}")
+            first_epoch = restore_training(resolve_checkpoint(output), model, optimizer, rnd, payload, fingerprint)
 
-                config_payload,
-                fingerprint,
-            )
+        write_json(output / "training_config.json", payload)
+        core_counts = Counter(example.problem_path for example in examples)
 
-        batches = math.ceil(len(examples) / config.batch_size)
-        write_json(output / "training_config.json", config_payload)
+        def loss_of(logits, labels, chunk, counts):
+            if loss_weighting == LossWeighting.Clause:
+                return nn.functional.binary_cross_entropy_with_logits(logits, labels)
 
-        probabilities: list[float] = []
-        epoch_metrics: dict[str, float | int | None] | None = None
-        evaluation_metrics = None
-        evaluation_probabilities = []
-        evaluation_s = 0.0
-        training_since_evaluation = 0.0
-        last_evaluation = None
+            weights = torch.tensor([1 / core_counts[example.problem_path] for example in chunk], device = device)
+            return problem_loss(logits, labels, counts, weights)
 
+        probabilities, train_metrics = [], None
+        evaluation_probabilities, evaluation_metrics, last_evaluation = [], None, None
         for epoch in range(first_epoch, config.epochs + 1):
             started = time.monotonic()
-            last_progress = started
-            model.train()
-
+            log(f"epoch {epoch}/{config.epochs}: starting")
             order = list(examples)
             rnd.shuffle(order)
-
-            total_loss = 0.0
-            total_labels = 0
-            norms: list[float] = []
-
-            log_message(f"epoch {epoch}/{config.epochs}: starting {batches} batches")
-
-            for index, chunk in enumerate(chunks(order, config.batch_size), start = 1):
-                batch = collate_axiom_graphs(
-                    [(example.graph, example.labels) for example in chunk]
-                )
-
-                labels = batch.labels
-                if labels is None:
-                    raise RuntimeError("training batch unexpectedly has no labels")
-
-                if len(labels) == 0:
-                    continue
-
-                labels = labels.to(device)
-                optimizer.zero_grad()
-
-                logits = model(batch)
-                if loss_weighting == LossWeighting.Problem:
-                    weights = torch.tensor([1 / core_counts[example.problem_path] for example in chunk], device = device)
-                    loss = problem_loss(logits, labels, batch.axiom_counts, weights)
-                else:
-                    loss = loss_fn(logits, labels)
-
-                if not torch.isfinite(loss):
-                    raise FloatingPointError("non-finite training loss; checkpoint unchanged")
-
-                loss.backward()
-
-                grad_norm = torch.nn.utils.clip_grad_norm_(
-                    model.parameters(),
-                    1.0,
-                    error_if_nonfinite = True,
-                )
-
-                norms.append(float(grad_norm))
-                optimizer.step()
-
-                batch_loss = float(loss.detach().cpu().item())
-                total_loss += batch_loss * len(labels)
-                total_labels += len(labels)
-
-                now = time.monotonic()
-                if index < batches and (
-                    (epoch == 1 and index == 1) or now - last_progress >= progress_interval_s
-                ):
-                    last_progress = now
-                    report_progress(
-                        epoch,
-                        config.epochs,
-                        index,
-                        batches,
-
-                        loss = batch_loss,
-                        duration_s = now - started,
-                        labels = len(labels),
-                    )
-
-                    if tracker is not None:
-                        tracker.log_progress(
-                            epoch - 1 + index / batches,
-                            loss = batch_loss,
-                            batches_done = index,
-                            batches_total = batches,
-                        )
-
-            loss_value = total_loss / total_labels if total_labels else None
+            loss, norms = train_epoch(model, optimizer, order, config.batch_size, loss_of, device, epoch, tracker)
             train_s = time.monotonic() - started
-            training_since_evaluation += train_s
-            evaluation_due = held_out and (
-                last_evaluation is None
-                or epoch == config.epochs
-                or (
-                    epoch - last_evaluation >= evaluate_every
-                    if evaluate_every
-                    else training_since_evaluation >= 10 * evaluation_s
-                )
-            )
 
-            current_evaluation = None
-            if evaluation_due:
-                log_message(f"epoch {epoch}: evaluating {len(held_out)} held-out problems")
-                evaluated = time.monotonic()
-                _, evaluation_probabilities, evaluation_metrics = example_outputs(
-                    model,
-                    held_out,
-                    batch_size = config.batch_size,
-                )
+            evaluation = None
+            last_epoch = epoch == config.epochs
+            if held_out and (last_evaluation is None or last_epoch or epoch - last_evaluation >= evaluate_every):
+                _, evaluation_probabilities, evaluation_metrics = example_outputs(model, held_out, batch_size = config.batch_size)
+                evaluation, last_evaluation = dict(evaluation_metrics), epoch
+                log(f"epoch {epoch}: held-out {metric_text(evaluation_metrics)} ({len(held_out)} problems)")
 
-                evaluation_s = time.monotonic() - evaluated
-                current_evaluation = dict(evaluation_metrics)
+            # Scoring the whole training set costs about an epoch, so it happens only now and then.
+            train_metrics = None
+            if epoch == 1 or last_epoch or epoch % train_metrics_every == 0:
+                _, probabilities, train_metrics = example_outputs(model, examples, batch_size = config.batch_size)
 
-                last_evaluation = epoch
-                training_since_evaluation = 0.0
-                log_message(
-                    f"epoch {epoch}: held-out {metric_text(evaluation_metrics)} "
-                    f"({len(held_out)} problems in {evaluation_s:.2f}s)"
-                )
-
-                emit("evaluation", epoch = epoch, **current_evaluation)
-
-            report = (
-                epoch == 1
-                or epoch == config.epochs
-                or (config.log_every > 0 and epoch % config.log_every == 0)
-            )
-
-            epoch_metrics = None
-            eval_s = None
-            if report:
-                log_message(f"epoch {epoch}: computing training-set metrics")
-                evaluated = time.monotonic()
-                _, probabilities, epoch_metrics = example_outputs(
-                    model,
-                    examples,
-                    batch_size = config.batch_size,
-                )
-
-                eval_s = time.monotonic() - evaluated
-
-            report_epoch(
-                epoch,
-                config.epochs,
-
-                loss = loss_value,
-                duration_s = train_s,
-                eval_s = eval_s,
-
-                norms = norms,
-                metrics = epoch_metrics,
-            )
-
+            log_epoch(epoch, config.epochs, loss, train_s, norms, train_metrics)
             epoch_path = output / f"epoch-{epoch:04d}.ts"
-            log_message(f"saving epoch {epoch} checkpoint to {epoch_path}")
             save_checkpoint(
                 epoch_path,
                 model,
-                training_config = config_payload,
+                training_config = payload,
                 epoch = epoch,
                 training_state = snapshot_training(optimizer, rnd, fingerprint),
             )
 
             write_durably(output / "model.ts", epoch_path.read_bytes())
-            log_message(f"saved epoch {epoch} checkpoint to {epoch_path}")
-
+            log(f"saved epoch {epoch} checkpoint to {epoch_path}")
             if background is not None:
                 background.submit(epoch, epoch_path)
 
             if tracker is not None:
                 tracker.log_epoch(
                     epoch,
-                    loss = loss_value,
+                    loss = loss,
                     duration_s = train_s,
                     grad_norm = sum(norms) / len(norms) if norms else None,
-                    metrics = epoch_metrics,
-                    evaluation = current_evaluation,
+                    metrics = train_metrics,
+                    evaluation = evaluation,
                 )
 
-        if epoch_metrics is None:
-            _, probabilities, epoch_metrics = example_outputs(
-                model,
-                examples,
-                batch_size = config.batch_size,
-            )
+        if train_metrics is None:
+            _, probabilities, train_metrics = example_outputs(model, examples, batch_size = config.batch_size)
 
-        metrics: dict[str, Any] = dict(epoch_metrics)
-        metrics.update(
-            {
-                "evaluation_kind": "training-set overfit (not held-out generalization)",
-                "label_semantics": config_payload.get("collection", {}).get(
-                    "label_semantics", "native CaDiCaL failed-assumption SAT-core membership"
-                ),
-                "sat_policy": effective_sat_policy.wire_value(),
-                "dataset": None if dataset is None else str(dataset),
-
-                "problems_proved": len(examples),
-                "problems_skipped": len(skipped),
-                "skipped": skipped,
-            }
-        )
+        metrics = {
+            **train_metrics,
+            "evaluation_kind": "training-set overfit (not held-out generalization)",
+            "label_semantics": payload.get("collection", {}).get(
+                "label_semantics", "native CaDiCaL failed-assumption SAT-core membership"
+            ),
+            "sat_policy": policy.wire_value(),
+            "dataset": str(dataset),
+            "problems_proved": len(examples),
+            "problems_skipped": len(skipped),
+            "skipped": skipped,
+        }
 
         write_json(output / "metrics.json", metrics)
         if evaluation_metrics is not None:
@@ -732,21 +346,16 @@ def train_axiom_predictor(
 
             write_json(output / "evaluation_metrics.json", evaluation_metrics)
 
-        log_message(f"saved checkpoint, config and metrics to {output}")
+        log(f"saved checkpoint, config and metrics to {output}")
         if background is not None:
-            log_message("waiting for the final validation run")
+            log("waiting for the final validation run")
             background.finish()
             background = None
 
         if tracker is not None:
             tracker.log_results(examples, probabilities, metrics, split = split)
             if evaluation_metrics is not None:
-                tracker.log_evaluation_results(
-                    held_out,
-                    evaluation_probabilities,
-                    evaluation_metrics,
-                    split = evaluation_split,
-                )
+                tracker.log_evaluation_results(held_out, evaluation_probabilities, evaluation_metrics, split = evaluation_split)
 
             tracker.log_model(output / "model.ts")
 
@@ -764,507 +373,78 @@ def train_axiom_predictor(
         if tracker is not None:
             tracker.finish()
 
-def evaluate_axiom_predictor(
-    checkpoint: str | Path | None,
-    problems: list[str] | tuple[str, ...] | None = None,
-    *,
-    sine: bool = False,
-    multiprocess: bool = False,
-    resume = None,
-    dataset: str | Path | None = None,
-    tptp_root: str | Path | None = None,
-    device: str = "cuda",
+# Proof search on held-out problems runs beside training, on every CPU but one.
+def start_validation(held_out, split, ratio, all_held_out, run_configs, tracker, cpus, tptp_root):
+    problems = validation_run_problems(held_out, split, ratio, tptp_root, all_held_out = all_held_out)
+    log(f"validation runs: {len(problems)} held-out problems per prover for each epoch")
+    if tracker is not None:
+        constants = subset_sizes(problems, held_out, run_configs)
+        tracker.run.summary.update({f"evaluation/{k}": v for k, v in constants.items()})
 
-    config: AxiomTrainingConfig | None = None,
-    wandb_config: WandbConfig = WandbConfig(),
-    run_properties: Mapping[str, object] | None = None,
-    split: ProblemSplit | None = None,
-) -> dict[str, Any]:
-    split = ProblemSplit() if split is None else split
-    problem_list = list(problems or [])
-    if dataset is not None and problem_list:
-        raise ValueError("evaluate takes either PROBLEM inputs or --data-dir, not both")
+    return BackgroundValidation(problems, run_configs, tracker, count = cpus, tptp_root = tptp_root)
 
-    if dataset is None and not problem_list:
-        raise ValueError("evaluation requires problem paths or a dataset")
+# One pass over the shuffled examples; returns the mean loss per axiom clause and each batch's gradient norm.
+def train_epoch(model, optimizer, order, batch_size, loss_of, device, epoch, tracker):
+    progress_interval_s = 60.0
 
-    if dataset is None:
-        problem_list = split.select(problem_list)
-        if not problem_list:
-            raise ValueError("no evaluation problems in the selected parts")
+    model.train()
+    batches = math.ceil(len(order) / batch_size)
+    total_loss, total_labels, norms = 0.0, 0, []
+    last_progress = time.monotonic()
+    for index, chunk in enumerate(chunks(order, batch_size), start = 1):
+        batch = collate_axiom_graphs([(example.graph, example.labels) for example in chunk])
+        if len(batch.labels) == 0:
+            continue
 
-    if sine and checkpoint is not None:
-        raise ValueError("SInE does not use a checkpoint")
+        labels = batch.labels.to(device)
+        optimizer.zero_grad()
+        loss = loss_of(model(batch), labels, chunk, batch.axiom_counts)
+        if not torch.isfinite(loss):
+            raise FloatingPointError("non-finite training loss; checkpoint unchanged")
 
-    predictor = None if sine else AxiomPredictor.load(checkpoint, device = device)
-    model_metadata = {}
-    if predictor is not None:
-        warn_on_training_overlap(predictor.training_config, split)
-        model_metadata = {
-            "model_config": predictor.model.config.to_dict(),
-            "training_split": predictor.training_config.get("split"),
-        }
-    else:
-        from .sine import settings
+        loss.backward()
+        norms.append(float(torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0, error_if_nonfinite = True)))
+        optimizer.step()
 
-        model_metadata = settings()
+        batch_loss = float(loss.detach().cpu().item())
+        total_loss += batch_loss * len(labels)
+        total_labels += len(labels)
+        if index < batches and time.monotonic() - last_progress >= progress_interval_s:
+            last_progress = time.monotonic()
+            log(f"epoch {epoch}: batch {index}/{batches}, batch loss {batch_loss:.6f} over {len(labels)} axiom clauses")
+            if tracker is not None:
+                tracker.log_progress(epoch - 1 + index / batches, loss = batch_loss, batches_done = index, batches_total = batches)
 
-    collection_config = config or AxiomTrainingConfig(device = device)
-    if predictor is not None:
-        checkpoint_policy = label_policy(
-            collection_config.sat_policy,
-            {"collection": predictor.training_config},
-        )
-        collection_config = replace(collection_config, sat_policy = checkpoint_policy)
+    return (total_loss / total_labels if total_labels else None), norms
 
-    torch.set_num_threads(determine_worker_count(None, collection_config.num_workers))
-    sat_policy = label_policy(collection_config.sat_policy)
+# The probabilities of each graph's axiom clauses, in one batched forward pass.
+def predict_graphs(model, graphs):
+    with torch.inference_mode():
+        logits = model(collate_axiom_graphs([(graph, None) for graph in graphs]))
+        if not torch.isfinite(logits).all():
+            raise FloatingPointError("model produced non-finite logits")
 
-    dataset_examples: list[AxiomTrainingExample] | None = None
-    dataset_skipped: list[dict[str, str]] = []
-    metadata = {}
-    if dataset is not None:
-        log_message(f"loading dataset from {dataset}")
-        dataset_examples, dataset_skipped, metadata = load_axiom_dataset(dataset)
-        total = len(dataset_examples)
-        dataset_examples = [
-            example
-            for example in dataset_examples
-            if split.contains( example.problem_path )
-        ]
+        values = torch.sigmoid(logits).cpu()
 
-        dataset_skipped = [
-            item
-            for item in dataset_skipped
-            if split.contains(item.get("problem", ""))
-        ]
+    return [part.tolist() for part in values.split([len(graph.axiom_clause_ids) for graph in graphs])]
 
-        log_message(
-            f"evaluating {len(dataset_examples)} of {total} dataset examples ({split.describe()}) without proof search"
-        )
+# Returns the labels, the probabilities and their metrics over all axiom clauses of the examples.
+def example_outputs(model, examples, *, batch_size):
+    model.eval()
+    probabilities = [
+        value
+        for chunk in chunks(examples, batch_size)
+        for values in predict_graphs(model, [example.graph for example in chunk])
+        for value in values
+    ]
 
-        if not dataset_examples:
-            raise RuntimeError(f"no examples in {split.describe()} of {dataset}")
-
-        sat_policy = label_policy(collection_config.sat_policy, metadata)
-        problem_list = [example.problem_path for example in dataset_examples]
-
-    tracker = WandbTracker.start(
-        replace(
-            wandb_config,
-            name = wandb_config.name or ("SInE-evaluate" if sine else f"{type(predictor.model).__name__}-evaluate"),
-            name_prefix = None,
-        ),
-        job_type = "evaluate",
-        run_config = {
-            **model_metadata,
-            "checkpoint": None if sine else str(checkpoint),
-            "device": "cpu" if sine else str(predictor.device),
-            "network_size": 0 if sine else predictor.network_size(),
-
-            "sat_policy": sat_policy.wire_value(),
-            "dataset": None if dataset is None else str(dataset),
-            "split": split.to_dict(),
-            "problems": problem_list,
-            "cli_arguments": dict(run_properties or {}),
-        },
-        output_dir = None if resume is None else resume.directory,
-        resume = resume is not None,
-    )
-
-    try:
-        if dataset_examples is None:
-            examples, skipped = collect_examples(
-                problem_list,
-                tptp_root = tptp_root,
-                config = collection_config,
-                progress = None if tracker is None else tracker.log_collection,
-                resume = resume,
-            )
-        else:
-            examples, skipped = dataset_examples, dataset_skipped
-
-        report_dataset(
-            dataset_summary(examples, skipped, batch_size = collection_config.batch_size)
-        )
-
-        started = time.monotonic()
-        _, probabilities, raw_metrics = example_outputs(
-            None if sine else predictor.model,
-            examples,
-            sine = sine,
-            batch_size = collection_config.batch_size,
-            adaptive = multiprocess,
-            resume = resume,
-        )
-
-        metrics: dict[str, Any] = dict(raw_metrics)
-        network_size = 0 if sine else predictor.network_size()
-        report_problem_predictions(examples, probabilities, skipped, split, network_size, tptp_root)
-        log_message(
-            f"evaluated {len(examples)} problems in {time.monotonic() - started:.1f}s: {metric_text(metrics)}"
-        )
-
-        metrics.update(
-            {
-                "evaluation_kind": "labelled SAT-core-membership evaluation",
-                "network_size": network_size,
-                **model_metadata,
-                "label_semantics": metadata.get("collection", {}).get(
-                    "label_semantics", "native CaDiCaL failed-assumption SAT-core membership"
-                ),
-                "sat_policy": sat_policy.wire_value(),
-
-                "dataset": None if dataset is None else str(dataset),
-                "split": split.to_dict(),
-
-                "problems_proved": len(examples),
-                "problems_skipped": len(skipped),
-                "skipped": skipped,
-            }
-        )
-
-        if tracker is not None:
-            tracker.log_results(examples, probabilities, metrics, split = split)
-
-        return metrics
-    except BaseException:
-        if tracker is not None:
-            tracker.finish(exit_code = 1)
-            tracker = None
-
-        raise
-    finally:
-        if tracker is not None:
-            tracker.finish()
-
-def report_problem_predictions(examples, probabilities, skipped, split, network_size, tptp_root = None):
-    offset = 0
-    for example in examples:
-        size = len(example.labels)
-        scores = probabilities[offset : offset + size]
-        metrics = prediction_metrics(
-            list(map(int, example.labels)),
-            scores,
-            problem_sizes = [size],
-        )
-
-        emit(
-            "problem",
-            problem = problem_file(example.problem_path, tptp_root),
-            part = split.part(example.problem_path),
-            outcome = "evaluated",
-            network_size = network_size,
-            **metrics,
-        )
-
-        offset += size
-
-    for item in skipped:
-        emit(
-            "problem",
-            **{**item, "problem": problem_file(item["problem"], tptp_root)},
-            part = split.part(item["problem"]),
-            network_size = network_size,
-        )
-
-def warn_on_training_overlap(training_config: Mapping[str, Any], split: ProblemSplit):
-    trained = training_config.get("split")
-    if not isinstance(trained, Mapping):
-        log_message(
-            "warning: the checkpoint does not record its training split, so held-out evaluation cannot be checked"
-        )
-
-        return
-
-    trained_split = ProblemSplit(
-        int(trained.get("split", 1)),
-        list(map(int, trained.get("parts", (0,)))),
-        scheme = trained.get("scheme") if trained.get("scheme") in (3, 4, 5) else split.scheme,
-    )
-
-    if not trained_split.is_everything() and trained.get("scheme") != split.scheme:
-        log_message(
-            f"warning: checkpoint split scheme {trained.get('scheme')!r} differs from evaluation scheme {split.scheme}; problems may overlap"
-        )
-    elif trained_split.is_everything():
-        log_message(
-            "warning: the checkpoint was trained on every problem of its dataset; metrics on problems from that dataset are not held-out"
-        )
-    elif split.scheme != 5 and trained_split.split != split.split:
-        log_message(
-            "warning: legacy split hashes depend on the number of parts; problems may overlap"
-        )
-    elif any(
-        (train_part - eval_part) % math.gcd(trained_split.split, split.split) == 0
-        for train_part in trained_split.parts
-        for eval_part in split.parts
-    ):
-        log_message(
-            f"warning: evaluating {split.describe()} overlaps the training {trained_split.describe()}; metrics are not held-out"
-        )
-
-def evaluate_examples(
-    model: AxiomPredictionNetwork,
-    examples: list[AxiomTrainingExample],
-    *,
-    device: torch.device,
-) -> dict[str, float | int | None]:
-    _ = device
-    return example_outputs(model, examples, batch_size = 43)[2]
-
-def predict_examples(model, examples, *, batch_size, adaptive):
-    from .multiprocess import AdaptiveBatches, adaptive_predictions, predict_graphs
-
-    if adaptive:
-        graphs = [example.graph for example in examples]
-        yield from adaptive_predictions(model, graphs, AdaptiveBatches(len(examples)))
-        return
-
-    batches = math.ceil(len(examples) / batch_size)
-    for chunk in track_progress(chunks(examples, batch_size), "evaluating batches", batches):
-        yield from predict_graphs(model, [example.graph for example in chunk])
-
-def example_outputs(
-    model: AxiomPredictionNetwork,
-    examples: list[AxiomTrainingExample],
-    *,
-    batch_size: int,
-    adaptive: bool = False,
-    sine: bool = False,
-    resume = None,
-) -> tuple[list[int], list[float], dict[str, float | int | None]]:
-    if sine:
-        from .sine import predict_examples as predict
-    else:
-        model.eval()
-        predict = partial(predict_examples, model, batch_size = batch_size, adaptive = adaptive)
-
-    outputs = predict(examples) if resume is None else resume_predictions(examples, predict, resume)
-    probabilities = [value for values in outputs for value in values]
     labels = [int(label) for example in examples for label in example.labels]
-
-    log_message(f"computing prediction metrics for {len(labels)} axiom scores")
-    metrics = prediction_metrics(
-        labels,
-        probabilities,
-        problem_sizes = [len(example.labels) for example in examples],
-    )
-
-    return labels, probabilities, metrics
-
-def log_message(message: str):
-    log(f"axiom-predictor: {message}")
-
-def emit(event: str, **fields: object):
-    write_record({"event": event, **fields})
-
-def dataset_summary(
-    examples: list[AxiomTrainingExample],
-    skipped: list[dict[str, str]],
-    *,
-    batch_size: int,
-) -> dict[str, Any]:
     sizes = [len(example.labels) for example in examples]
-    cores = [int(sum(example.labels)) for example in examples]
-
-    nodes = [
-        sum(len(rows) for rows in example.graph.graph.nodes.values())
-        for example in examples
-    ]
-
-    edges = [
-        sum(len(rows) for rows in example.graph.graph.edges.values())
-        for example in examples
-    ]
-
-    labels = sum(sizes)
-    largest = sorted(zip(examples, sizes, nodes), key = lambda item: -item[1])[:5]
-
-    return {
-        "problems": len(examples),
-        "duplicate_problems": len(examples) - len(
-            {example.problem_path for example in examples}
-        ),
-        "problems_skipped": len(skipped),
-        "skipped_outcomes": dict(
-            Counter(
-                outcome_kind(item.get("outcome", "")) for item in skipped
-            ).most_common()
-        ),
-        "batches_per_epoch": math.ceil(len(examples) / batch_size),
-
-        "axiom_clauses": labels,
-        "core_clauses": sum(cores),
-        "positive_rate": sum(cores) / labels if labels else None,
-
-        "axioms_per_problem": spread(sizes),
-        "core_per_problem": spread(cores),
-        "core_fraction_per_problem": spread([c / n for c, n in zip(cores, sizes) if n]),
-
-        "problems_without_axioms": sum(n == 0 for n in sizes),
-        "problems_with_empty_core": sum(c == 0 for c in cores),
-        "problems_with_full_core": sum(c == n and n > 0 for c, n in zip(cores, sizes)),
-
-        "graph_nodes_per_problem": spread(nodes),
-        "graph_edges_per_problem": spread(edges),
-        "largest_problems": [
-            {"problem": example.problem_path, "axiom_clauses": n, "graph_nodes": g}
-            for example, n, g in largest
-        ],
-    }
-
-def report_dataset(summary: dict[str, Any]):
-    rate = summary["positive_rate"]
-    log_message(
-        f"dataset: {summary['problems']} problems ({summary['problems_skipped']} skipped, {summary['duplicate_problems']} duplicates), {summary['axiom_clauses']} axiom clauses, {summary['core_clauses']} in SAT cores ({'n/a' if rate is None else f'{100 * rate:.2f}%'}), {summary['batches_per_epoch']} batches per epoch"
-    )
-
-    if summary["skipped_outcomes"]:
-        log_message(
-            "skipped outcomes: "
-            + ", ".join(
-                f"{kind} x{count}" for kind, count in summary["skipped_outcomes"].items()
-            )
-        )
-
-    log_message(f"axiom clauses per problem: {spread_text(summary['axioms_per_problem'])}")
-    log_message(
-        f"SAT-core clauses per problem: {spread_text(summary['core_per_problem'])}; core fraction {spread_text(summary['core_fraction_per_problem'])}"
-    )
-
-    log_message(
-        f"{summary['problems_with_empty_core']} problems with an empty axiom core, {summary['problems_with_full_core']} with every axiom in the core, {summary['problems_without_axioms']} without axioms"
-    )
-
-    log_message(
-        f"graph nodes per problem: {spread_text(summary['graph_nodes_per_problem'])}; edges per problem: {spread_text(summary['graph_edges_per_problem'])}"
-    )
-
-    log_message(
-        "largest problems: "
-        + ", ".join(
-            f"{item['problem']} ({item['axiom_clauses']} axioms, {item['graph_nodes']} nodes)"
-            for item in summary["largest_problems"]
-        )
-    )
-
-    emit("dataset", **summary)
-
-def report_progress(
-    epoch: int,
-    epochs: int,
-    index: int,
-    batches: int,
-
-    *,
-    loss: float,
-    duration_s: float,
-    labels: int,
-):
-    log_message(
-        f"epoch {epoch}/{epochs}: batch {index}/{batches} done after {duration_s:.1f}s, batch loss {loss:.6f} over {labels} axiom clauses"
-    )
-
-    emit(
-        "progress",
-        epoch = epoch,
-        epochs = epochs,
-        batch = index,
-        batches = batches,
-
-        loss = loss,
-        seconds = duration_s,
-        labels = labels,
-    )
-
-def report_epoch(
-    epoch: int,
-    epochs: int,
-    *,
-
-    loss: float | None,
-    duration_s: float,
-    eval_s: float | None,
-
-    norms: list[float],
-    metrics: dict[str, float | int | None] | None,
-):
-    norm = sum(norms) / len(norms) if norms else None
-    warning = " WARNING: non-finite loss" if loss is not None and not math.isfinite(loss) else ""
-    loss_text = "n/a" if loss is None else f"{loss:.6f}"
-    suffix = (
-        ""
-        if metrics is None
-        else f"; train-set {metric_text(metrics)} (evaluated in {eval_s:.2f}s)"
-    )
-
-    log_message(
-        f"epoch {epoch}/{epochs}: loss {loss_text}, mean grad norm {'n/a' if norm is None else f'{norm:.4f}'}, {len(norms)} batches in {duration_s:.2f}s{suffix}{warning}"
-    )
-
-    emit(
-        "epoch",
-        epoch = epoch,
-        epochs = epochs,
-
-        loss = loss,
-        seconds = duration_s,
-        eval_seconds = eval_s,
-
-        batches = len(norms),
-        grad_norm_mean = norm,
-        grad_norm_max = max(norms, default = None),
-
-        metrics = metrics,
-    )
-
-def metric_text(metrics: Mapping[str, object]) -> str:
-    names = (
-        "bce",
-        "roc_auc",
-        "average_precision",
-        "macro_average_precision",
-
-        "macro_recall_at_1",
-        "macro_recall_at_5",
-        "macro_recall_at_10",
-    )
-
-    return ", ".join(
-        f"{name} {'n/a' if metrics.get(name) is None else f'{metrics[name]:.4f}'}"
-        for name in names
-        if name in metrics
-    )
-
-def spread(values: list[float] | list[int]) -> dict[str, float] | None:
-    if not values:
-        return None
-
-    return {
-        "min": min(values),
-        "median": statistics.median(values),
-        "mean": statistics.fmean(values),
-        "max": max(values),
-    }
-
-def spread_text(spread: object) -> str:
-    if not isinstance(spread, Mapping):
-        return "n/a"
-
-    return ", ".join(f"{name} {value:.3g}" for name, value in spread.items())
-
-def outcome_kind(outcome: str) -> str:
-    head, _, rest = outcome.partition(": ")
-    code = re.match(r"\s*(\[[A-Z0-9_]+\])", rest)
-    return head if code is None else f"{head} {code.group(1)}"
+    return labels, probabilities, prediction_metrics(labels, probabilities, problem_sizes = sizes)
 
 def chunks(examples: list[AxiomTrainingExample], size: int):
     for start in range(0, len(examples), size):
         yield examples[start : start + size]
 
-def write_json(path: Path, value: object):
-    write_durably(
-        path,
-        (json.dumps(value, indent = 2, sort_keys = True) + "\n").encode("utf-8"),
-    )
+def write_json(path: Path, value: Mapping[str, Any]):
+    write_durably(path, (json.dumps(value, indent = 2, sort_keys = True) + "\n").encode("utf-8"))

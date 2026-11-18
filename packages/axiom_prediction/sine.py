@@ -1,4 +1,4 @@
-# Clause-level basic SInE, shared by live search and saved-data evaluation.
+# Clause-level basic SInE (tolerance 1, unlimited depth): the checkpoint-free control for guided search.
 
 from collections import Counter, defaultdict
 
@@ -54,28 +54,6 @@ def matrix_symbols(matrix):
 
     return clauses
 
-def graph_symbols(graph):
-    symbols = dict(graph.edges["sym"])
-    children = defaultdict(list)
-    for parent, child, *_ in graph.edges["arg_term"]:
-        children[parent].append(child)
-
-    atoms = dict(graph.edges["atom"])
-    clauses = [set() for _ in graph.nodes["clause"]]
-    visited = [set() for _ in clauses]
-    for clause, literal in graph.edges["contains"]:
-        pending = [atoms[literal]]
-        while pending:
-            term = pending.pop()
-            if term in visited[clause]:
-                continue
-
-            visited[clause].add(term)
-            clauses[clause].add(symbols[term])
-            pending.extend(children[term])
-
-    return clauses
-
 def clause_scores(symbols, axiom_clause_ids, conjecture_clause_ids):
     conjecture = set()
     for index in conjecture_clause_ids:
@@ -85,10 +63,3 @@ def clause_scores(symbols, axiom_clause_ids, conjecture_clause_ids):
 
 def score_matrix(matrix, axiom_clause_ids, conjecture_clause_ids):
     return clause_scores(matrix_symbols(matrix), axiom_clause_ids, conjecture_clause_ids)
-
-def predict_examples(examples):
-    for example in examples:
-        graph = example.graph
-        yield clause_scores(
-            graph_symbols(graph.graph), graph.axiom_clause_ids, graph.conjecture_clause_ids,
-        )

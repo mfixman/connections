@@ -6,13 +6,11 @@ import shutil
 import tempfile
 import time
 
-from connections.recursion import deep_recursion
-
 from .choices import GuidanceMode
 from .guided import clause_weights
 from .limits import CollectionTimeout
-from .satcop import axiom_clause_ids, decode_matrix, expand_matrix, native_binary, run_logged
-from .satcop_dump import parse_matrix
+from .satcop import native_binary, run_logged
+from .satcop_dump import axiom_clause_ids, parse_matrix, proved_statuses
 
 def search_native(path, root, config, predictor, started):
     directory = Path(tempfile.mkdtemp(prefix = "satcop-run-"))
@@ -43,20 +41,19 @@ def search_in(directory, path, root, config, predictor, started):
     status = run_satcop(binary, path, options, root, directory / "search.log", deadline)[0]
     out.update(
         outcome = status,
-        proved = status in ("Theorem", "Unsatisfiable"),
+        proved = status in proved_statuses,
         seconds = time.monotonic() - started,
     )
 
     return out
 
 # Scores SATCoP's own clausification, which the guided search reproduces clause for clause.
-@deep_recursion()
 def native_weights(binary, path, root, config, predictor, directory, deadline):
     min_weight = 1e-6
 
     options = ["--collect", "--clausify"]
     text = run_satcop(binary, path, options, root, directory / "matrix.log", deadline)[1]
-    matrix = decode_matrix(expand_matrix(parse_matrix(text)))
+    matrix = parse_matrix(text)
     axioms = axiom_clause_ids(matrix)
     scores = clause_weights(matrix, axioms, list(matrix.conjecture_clauses), predictor)
 

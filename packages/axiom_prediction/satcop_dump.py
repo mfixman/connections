@@ -1,167 +1,100 @@
-# Decode SATCoP's existing Rust debug output; reject incomplete or changed formats.
+# Decodes the matrix and the core that `satcop --collect` prints; changed or incomplete output is rejected.
 
 import json
 import re
 
-debug_string = r'"(?:\\.|[^"\\])*"'
+from connections.recursion import deep_recursion
+from connections.syntax.formula import Atom, Function, Variable
+from connections.syntax.matrix import Clause, Literal, Matrix
 
-def rust_string(value):
-    if re.fullmatch(debug_string, value) is None:
-        raise ValueError(f"invalid Rust debug string: {value!r}")
+proved_statuses = ("Theorem", "Unsatisfiable")
 
-    escapes = {"0": "\0", "n": "\n", "r": "\r", "t": "\t", "\\": "\\", '"': '"', "'": "'"}
-
-    def unescape(match):
-        code = match[1]
-        return chr(int(code[2:-1], 16)) if code.startswith("u{") else escapes[code]
-
-    return re.sub(r"\\(u\{[0-9a-fA-F]+\}|.)", unescape, value[1:-1])
-
-def symbol_name(value):
-    special = {"Grounding": "sG", "Equality": "sPE"}
-    if value in special:
-        return special[value]
-
-    match = re.fullmatch(r"(Skolem|Definition)\(#(\d+)\)", value)
-    if match is not None:
-        return ("sK" if match[1] == "Skolem" else "sP") + match[2]
-
-    match = re.fullmatch(r"(Atom|Quoted|Number|Distinct)\((.*)\)", value)
-    if match is None:
-        raise ValueError(f"unsupported SATCoP symbol: {value}")
-
-    name = rust_string(match[2])
-    quote = {"Atom": "", "Number": "", "Quoted": "'", "Distinct": '"'}[match[1]]
-    return quote + name + quote
-
-def source_names(value):
-    if value == "Equality":
-        return None
-
-    match = re.fullmatch(rf"Axiom \{{ path: ({debug_string}), name: ({debug_string}) \}}", value)
-    if match is None:
-        raise ValueError(f"unsupported SATCoP source: {value}")
-
-    return list(map(rust_string, match.groups()))
-
-def parse_block(value, kind):
-    if not value.startswith("Block(["):
-        raise ValueError(f"invalid SATCoP {kind} block")
-
-    if kind == "terms":
-        return json.loads(value[len("Block("):-1])
-
+def parse_literals(value):
     if value == "Block([])":
         return []
 
-    if kind == "literals":
-        items = value[len("Block(["): -len("])")].split(", ")
-        matches = [re.fullmatch(r"(¬?)#(\d+)", item) for item in items]
-        if any(match is None for match in matches):
-            raise ValueError("unsupported SATCoP literal format")
+    items = value[len("Block(["): -len("])")].split(", ")
+    matches = [re.fullmatch(r"(¬?)#(\d+)", item) for item in items]
+    if not value.startswith("Block([") or any(match is None for match in matches):
+        raise ValueError("unsupported SATCoP literal format")
 
-        return [[int(not match[1]), int(match[2])] for match in matches]
+    return [(not match[1], int(match[2])) for match in matches]
 
-    pattern = r"Disequation \{ left: #(\d+), right: #(\d+) \}"
-    matches = list(re.finditer(pattern, value))
-    reconstructed = "Block([" + ", ".join(match[0] for match in matches) + "])"
-    if reconstructed != value:
-        raise ValueError("unsupported SATCoP disequation format")
-
-    return [list(map(int, match.groups())) for match in matches]
-
-def parse_dump(text, *, problem = None, seed = None, timeout_s = None):
-    payload = {"schema": "satcop.collection.v2", "prover_version": None, "prover_revision": None, "threads": 1}
-    status = re.search(r"^% SZS status (Theorem|Unsatisfiable)\b", text, re.MULTILINE)
-    end = re.search(r"^% SZS output end ListOfCNF(?: |$)", text, re.MULTILINE)
-    if status is None or end is None:
-        raise ValueError("SATCoP dump is missing a complete successful proof")
-
-    payload["status"] = status[1]
-    header, tables, core = parse_records(text)
-    payload.update(header)
-    if "problem_path" not in payload:
-        if problem is None:
-            raise ValueError("a raw SATCoP dump requires --problem with the original input path")
-
-        payload.update(schema = "satcop.collection.v3", problem_path = str(problem), seed = seed, timeout_seconds = timeout_s)
-        minimal_tables(tables, status[1] == "Theorem")
-
-    return {**payload, "matrix": tables, "core_clause_ids": sorted(core)}
-
-# The matrix that `satcop --collect --clausify` prints without searching.
-def parse_matrix(text):
-    header, tables, _ = parse_records(text)
-    if not header:
-        minimal_tables(tables, None)
-
-    return tables
-
-def minimal_tables(tables, have_conjecture):
-    tables.pop("sources")
-    tables["have_conjecture"] = have_conjecture
-    for _, atom in tables["literals"]:
-        tables["symbols"][tables["terms"][atom]][2] = True
-
+# Symbol rows hold the arity; clause rows hold (variables, first literal, literal stop, is goal).
 def parse_records(text):
-    tables = {"symbols": [], "clauses": [], "sources": []}
-    header = {}
+    tables = {"symbols": [], "clauses": []}
     core = set()
     for line in text.splitlines():
         if not line.startswith("% SATCoP "):
             continue
 
         kind, value = line[len("% SATCoP "):].split(" ", 1)
-        if kind == "matrix":
-            pattern = rf"\((true|false), #(\d+), ({debug_string}), (\d+), (None|Some\((\d+)\))\)"
-            match = re.fullmatch(pattern, value)
-            if match is None:
-                raise ValueError("unsupported SATCoP matrix header")
-
-            tables["have_conjecture"] = match[1] == "true"
-            tables["grounding_constant"] = int(match[2])
-            header["problem_path"] = rust_string(match[3])
-            header["seed"] = int(match[4])
-            header["timeout_seconds"] = None if match[6] is None else int(match[6])
-        elif kind in ("terms", "literals", "disequations"):
-            tables[kind] = parse_block(value, kind)
-        elif kind == "start":
-            tables["start_clause_ids"] = json.loads(value.replace("#", ""))
-        elif kind == "symbol":
-            minimal = re.fullmatch(r"#(\d+) (\d+)", value)
-            if minimal is not None and int(minimal[1]) == len(tables["symbols"]):
-                tables["symbols"].append([f"s{minimal[1]}", int(minimal[2]), False])
-                continue
-
-            match = re.fullmatch(r"#(\d+) (\d+) (true|false) (.*)", value)
-            if match is None or int(match[1]) != len(tables["symbols"]):
-                raise ValueError("unsupported SATCoP symbol row")
-
-            tables["symbols"].append([symbol_name(match[4]), int(match[2]), match[3] == "true"])
-        elif kind == "clause":
-            minimal = re.fullmatch(r"#(\d+) #(\d+) #(\d+)-#(\d+) (true|false)", value)
-            if minimal is not None and int(minimal[1]) == len(tables["clauses"]):
-                tables["clauses"].append([*map(int, minimal.groups()[1:4]), int(minimal[5] == "true")])
-                continue
-
-            pattern = r"#(\d+) Clause \{ vars: #(\d+), literals: #(\d+)-#(\d+), disequations: #(\d+)-#(\d+) \} Info \{ is_goal: (true|false), source: (.*) \}"
-            match = re.fullmatch(pattern, value)
-            if match is None or int(match[1]) != len(tables["clauses"]):
-                raise ValueError("unsupported SATCoP clause row")
-
-            tables["clauses"].append([*map(int, match.groups()[1:6]), int(match[7] == "true")])
-            tables["sources"].append(source_names(match[8]))
+        symbol = re.fullmatch(r"#(\d+) (\d+)", value)
+        clause = re.fullmatch(r"#(\d+) #(\d+) #(\d+)-#(\d+) (true|false)", value)
+        if kind == "terms" and value.startswith("Block(["):
+            tables["terms"] = json.loads(value[len("Block("):-1])
+        elif kind == "literals":
+            tables["literals"] = parse_literals(value)
+        elif kind == "symbol" and symbol is not None and int(symbol[1]) == len(tables["symbols"]):
+            tables["symbols"].append(int(symbol[2]))
+        elif kind == "clause" and clause is not None and int(clause[1]) == len(tables["clauses"]):
+            tables["clauses"].append((int(clause[2]), int(clause[3]), int(clause[4]), clause[5] == "true"))
         elif kind == "core":
             core.add(int(value))
         else:
-            raise ValueError(f"unsupported SATCoP dump record: {kind}")
+            raise ValueError(f"unsupported SATCoP dump record: {line}")
 
-    required = {"terms", "literals"}
-    if not required <= tables.keys() or not tables["symbols"] or not tables["clauses"]:
+    if not {"terms", "literals"} <= tables.keys() or not tables["symbols"] or not tables["clauses"]:
         raise ValueError("incomplete SATCoP matrix dump")
 
-    return header, tables, core
+    return tables, sorted(core)
 
-def read_export(path, **metadata):
-    text = path.read_text()
-    return json.loads(text) if text.lstrip().startswith("{") else parse_dump(text, **metadata)
+# A term starts with a positive symbol ID, followed by its arguments' term IDs, or with minus a variable ID.
+def decode_term(tables, index, variables):
+    value = tables["terms"][index]
+    if value <= 0:
+        return variables[-value]
+
+    args = [
+        decode_term(tables, tables["terms"][index + position + 1], variables)
+        for position in range(tables["symbols"][value])
+    ]
+
+    # Native IDs keep generated and input symbols apart, whatever their names.
+    return Function(f"{value}:s{value}", tuple(args))
+
+def decode_clause(tables, index):
+    variable_count, start, stop, is_goal = tables["clauses"][index]
+    variables = [Variable(f"X{i}", vid = index + 1) for i in range(variable_count)]
+    literals = []
+    for positive, atom in tables["literals"][start:stop]:
+        term = decode_term(tables, atom, variables)
+        literals.append(Literal(Atom(term.symbol, term.args), polarity = positive))
+
+    role = "conjecture" if is_goal else "axiom"
+    return Clause(tuple(literals), role = role, free_variables = tuple(variables))
+
+@deep_recursion()
+def decode_matrix(tables, have_conjecture):
+    clauses = [decode_clause(tables, index) for index in range(len(tables["clauses"]))]
+    return Matrix(tuple(clauses), source_has_conjecture = have_conjecture)
+
+# The matrix that `satcop --collect --clausify` prints without searching.
+def parse_matrix(text):
+    return decode_matrix(parse_records(text)[0], None)
+
+# The matrix and core clause IDs of a finished `satcop --collect` proof.
+def parse_proof(text):
+    status = re.search(rf"^% SZS status ({'|'.join(proved_statuses)})\b", text, re.MULTILINE)
+    end = re.search(r"^% SZS output end ListOfCNF(?: |$)", text, re.MULTILINE)
+    if status is None or end is None:
+        raise ValueError("SATCoP dump is missing a complete successful proof")
+
+    tables, core = parse_records(text)
+    if not core or core[-1] >= len(tables["clauses"]):
+        raise ValueError("empty or out-of-matrix SATCoP core")
+
+    return decode_matrix(tables, status[1] == "Theorem"), core
+
+def axiom_clause_ids(matrix):
+    return [index for index, clause in enumerate(matrix.clauses) if clause.role == "axiom"]

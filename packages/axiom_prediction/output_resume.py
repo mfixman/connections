@@ -1,4 +1,4 @@
-# Locked output journals and atomic evaluation checkpoints.
+# The --output journal of `run`: a locked CSV that a later invocation resumes, with its settings beside it.
 
 import csv
 import fcntl
@@ -9,26 +9,10 @@ from pathlib import Path
 
 from .io import write_json_atomic
 
+# Settings that may change between the invocations that share one output.
 def resume_identity(identity):
-    resume_options = {
-        "output",
-        "csv",
-        "num_workers",
-        "device",
-        "multiprocess",
-
-        "run_name",
-        "wandb",
-        "no_wandb",
-    }
-
-    if not isinstance(identity, dict):
-        return identity
-
-    return {
-        key: value for key, value in identity.items()
-        if key not in resume_options and not (key == "sine" and value is False)
-    }
+    resume_options = {"output", "num_workers", "device", "run_name", "wandb"}
+    return {key: value for key, value in identity.items() if key not in resume_options}
 
 def csv_record(header, values):
     text_fields = {"event", "problem", "outcome", "tptp_status", "mode", "policy"}
@@ -80,9 +64,8 @@ def csv_records(content, fields):
     return records, len("".join(lines[:boundary]).encode("utf-8"))
 
 class OutputJournal:
-    def __init__(self, path, command, fields, identity):
+    def __init__(self, path, fields, identity):
         self.path = Path(path)
-        self.command = command
         self.fields = fields
         self.records = []
         self.keys = set()
@@ -158,13 +141,7 @@ class OutputJournal:
         return completion["output_bytes"] == self.path.stat().st_size
 
     def exit_code(self):
-        if self.command == "run":
-            return 0 if any(not row.get("error") for row in self.records) else 2
-
-        if self.complete():
-            return json.loads((self.directory / "completion.json").read_text())["exit_code"]
-
-        return 0
+        return 0 if any(not row.get("error") for row in self.records) else 2
 
     def finish(self, exit_code):
         self.stream.flush()

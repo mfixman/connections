@@ -38,11 +38,12 @@ def training_example_from_sat_core(
         conjecture_clause_ids = conjecture_clause_ids,
     )
 
+    core = frozenset(core_clause_ids)
     return AxiomTrainingExample(
         problem_path = problem_path,
         matrix = matrix,
         graph = graph,
-        labels = [float(index in core_clause_ids) for index in axiom_clause_ids],
+        labels = [float(index in core) for index in axiom_clause_ids],
         axiom_clause_texts = [str(matrix.clauses[index]) for index in axiom_clause_ids],
     )
 

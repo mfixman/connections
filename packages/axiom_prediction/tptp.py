@@ -1,6 +1,6 @@
-from __future__ import annotations
+# Finds TPTP problems on disk and loads them as matrices with their axiom and conjecture clauses.
 
-from .choices import ProverPolicy
+from __future__ import annotations
 
 from dataclasses import dataclass
 import os
@@ -8,16 +8,7 @@ from pathlib import Path
 import re
 
 from connections.clausification import matrix_from_file
-from connections.agent.sat import SATCoPCon, SATResetCoP
-from connections.interaction.run import Problem, run_schedule
-from connections.interaction.szs import SUCCESS as success
-from connections.interaction.strategy import MatrixOptions, PolicyOptions, Strategy, StrategySchedule
 from connections.syntax.matrix import Matrix
-from connections.recursion import deep_recursion
-
-from .data import AxiomTrainingExample, sat_core_clause_ids, training_example_from_sat_core
-
-from .limits import default_collection_step_limit, default_collection_timeout_s, collection_budget
 
 tptp_category = re.compile(r"[A-Z]{3}")
 
@@ -250,105 +241,3 @@ def declared_non_refutable(path):
 
     status = declared_tptp_status(path)
     return None if status is None else outcomes.get(status.casefold())
-
-@deep_recursion()
-@collection_budget
-def collect_proof_example(
-    problem: str | Path,
-    *,
-    tptp_root: str | Path | None = None,
-    step_limit: int = default_collection_step_limit,
-    timeout_s: float = default_collection_timeout_s,
-    sat_policy: str = ProverPolicy.SatResetCoP,
-    native_options: dict | None = None,
-    seed: int = 0,
-) -> tuple[AxiomTrainingExample | None, str]:
-    path, root = resolve_tptp_problem(problem, tptp_root = tptp_root)
-    declared_outcome = declared_non_refutable(path)
-    if ProverPolicy(sat_policy) == ProverPolicy.SatCoP:
-        if declared_outcome is not None:
-            return None, declared_outcome
-
-        from .satcop import collect_native_example
-
-        return collect_native_example(
-            problem,
-            tptp_root = tptp_root,
-            timeout_s = timeout_s,
-            seed = seed,
-            **(native_options or {}),
-        )
-
-    policies = {ProverPolicy.SatCoPCon: SATCoPCon, ProverPolicy.SatResetCoP: SATResetCoP}
-    sat_policy = ProverPolicy(sat_policy)
-    if sat_policy not in policies:
-        raise ValueError(f"unsupported SAT policy: {sat_policy!r}")
-
-    if declared_outcome is not None:
-        # Report parse errors even for problems we skip.
-        matrix_from_file(
-            path,
-            mark_conjecture = True,
-            source_file_dirs = () if root is None else (root,),
-        )
-
-        return None, declared_outcome
-
-    strategy = Strategy(
-        matrix = MatrixOptions(mark_conjecture = True, equality_axioms = selector_equality_axioms()),
-        policy = PolicyOptions(
-            policy_class = policies[sat_policy],
-            args = {"debug_sat_core": True, "seed": seed},
-        ),
-    )
-
-    agent = policies[sat_policy](debug_sat_core = True, seed = seed)
-    result = run_schedule(
-        Problem(
-            path,
-            logic = "classical",
-            domain = "constant",
-            source_file_dirs = () if root is None else (root,),
-        ),
-        agent = agent,
-        schedule = StrategySchedule.single(
-            strategy,
-            steps = step_limit,
-            timeout_seconds = timeout_s,
-        ),
-    )
-
-    if result.szs_status not in success:
-        outcome = "unknown" if result.szs_status is None else result.szs_status.value
-        return None, outcome
-    # Reload after search to avoid holding a second matrix in memory.
-
-    loaded = load_tptp_problem(problem, tptp_root = tptp_root)
-    try:
-        core = sat_core_clause_ids(agent.diagnostics())
-    except ValueError as error:
-        return None, f"invalid SAT core: {error}"
-
-    check_sat_core_clauses(
-        loaded.matrix,
-        core,
-        agent.diagnostics().get("sat_core_clause_texts"),
-    )
-
-    return training_example_from_sat_core(
-        loaded.matrix,
-        problem_path = loaded.requested_path,
-        axiom_clause_ids = loaded.axiom_clause_ids,
-        conjecture_clause_ids = loaded.conjecture_clause_ids,
-        core_clause_ids = core,
-    ), "proved"
-
-def check_sat_core_clauses(matrix: Matrix, core: list[int], texts: object):
-    if not isinstance(texts, list) or len(texts) != len(core):
-        raise RuntimeError("SAT result is missing the clause texts of its core")
-
-    for index, text in zip(core, texts, strict = True):
-        if str(matrix.clauses[index]) != text:
-            raise RuntimeError(
-                f"SAT-core clause {index} is {text!r} in the proof matrix but {str(matrix.clauses[index])!r} in the labelled matrix"
-            )
