@@ -10,7 +10,7 @@ import re
 
 from axiom_prediction.choices import ProverPolicy
 from axiom_prediction.data import axiom_example_schema
-from axiom_prediction.dataset import collection_caches, read_dataset_rows
+from axiom_prediction.dataset import collection_caches, load_axiom_dataset, read_dataset_rows
 from axiom_prediction.io import write_json_atomic
 from axiom_prediction.logs import log
 from axiom_prediction.split import ProblemSplit
@@ -141,11 +141,45 @@ def append_results(path, epoch, metrics):
 def epoch_checkpoints(model_dir):
     return {int(path.stem.split("-")[1]): path for path in sorted(model_dir.glob("epoch-*.ts"))}
 
-# Epoch 0 holds the unguided baseline.
-def evaluate_epochs(problems, configs, checkpoints, path, args, tptp_root):
+def logged_roc_auc(run_id):
+    history = training_run(run_id).scan_history(keys = ["epoch", "evaluation/roc_auc"], page_size = 2000)
+    return {
+        int(row["epoch"]): row["evaluation/roc_auc"]
+        for row in history
+        if row.get("epoch") is not None and row.get("evaluation/roc_auc") is not None
+    }
+
+# The trainer's evaluation/roc_auc: same examples and metric. Runs first, so proof search does not hold the dataset.
+def held_out_roc_auc(settings, split, checkpoints):
+    if not checkpoints:
+        return {}
+
+    import torch
+
+    from axiom_prediction.model import AxiomPredictor
+    from axiom_prediction.training import example_outputs
+
+    if "SLURM_CPUS_PER_TASK" in os.environ:
+        torch.set_num_threads(int(os.environ["SLURM_CPUS_PER_TASK"]))
+
+    examples = load_axiom_dataset(settings["dataset"], settings["cli_arguments"]["max_example_mb"])[0]
+    held_out = [example for example in examples if split.contains(example.problem_path)]
+    scores = {}
+    for epoch, checkpoint in checkpoints.items():
+        model = AxiomPredictor.load(checkpoint).model
+        scores[epoch] = example_outputs(model, held_out, batch_size = settings["batch_size"])[2]["roc_auc"]
+
+    return scores
+
+# Epoch 0 holds the unguided baseline. Epochs W&B already has a roc_auc for are not scored again.
+def evaluate_epochs(problems, configs, checkpoints, path, args, tptp_root, settings, split):
     done = {epoch for epoch, _ in read_all_results(path.parent)}
     if args.epochs is not None:
         done |= {epoch for epoch in [0, *checkpoints] if epoch not in args.epochs}
+
+    logged = logged_roc_auc(args.run_id)
+    unscored = {epoch: checkpoint for epoch, checkpoint in checkpoints.items() if epoch not in done | set(logged)}
+    roc_auc = held_out_roc_auc(settings, split, unscored)
 
     options = dict(tptp_root = tptp_root, num_workers = args.num_workers)
     with ThreadPoolExecutor(args.epoch_jobs) as pool:
@@ -160,6 +194,9 @@ def evaluate_epochs(problems, configs, checkpoints, path, args, tptp_root):
         for future in as_completed(futures):
             epoch = futures[future]
             metrics = future.result()
+            if epoch in roc_auc:
+                metrics["roc_auc"] = roc_auc[epoch]
+
             append_results(path, epoch, metrics)
             log(f"validation backfill: epoch {epoch} recorded {metrics}")
 
@@ -187,6 +224,8 @@ def upload(run_id, rows, details, output, replace_step = None):
     if training_run(run_id).state == "running":
         raise RuntimeError(f"W&B run {run_id} is running elsewhere; results kept in {output}")
 
+    # A rewind archives later history, so what W&B holds now is not what the run will keep.
+    logged = {} if replace_step is not None else logged_roc_auc(run_id)
     wandb_config = WandbConfig()
     wandb.login(key = wandb_key())
     target = dict(id = run_id, resume = "must")
@@ -203,7 +242,15 @@ def upload(run_id, rows, details, output, replace_step = None):
     run.define_metric("epoch")
     run.define_metric("evaluation/*", step_metric = "epoch")
     for epoch, metrics in sorted(rows.items()):
+        if epoch in logged:
+            metrics.pop("roc_auc", None)
+
         run.log({"epoch": epoch, **{f"evaluation/{name}": value for name, value in metrics.items()}})
+
+    # Logging older epochs last would otherwise leave the summary at the last uploaded epoch, not the final one.
+    scores = logged | {epoch: metrics["roc_auc"] for epoch, metrics in rows.items() if "roc_auc" in metrics}
+    if scores:
+        run.summary["evaluation/roc_auc"] = scores[max(scores)]
 
     run.config.update({"validation_backfill": details}, allow_val_change = True)
     run.finish()
@@ -231,7 +278,8 @@ def main():
 
     path = args.output / (f"results-{args.tag}.csv" if args.tag else "results.csv")
     if not args.upload_only:
-        evaluate_epochs(problems, configs, checkpoints, path, args, args.tptp or settings["cli_arguments"].get("tptp"))
+        tptp_root = args.tptp or settings["cli_arguments"].get("tptp")
+        evaluate_epochs(problems, configs, checkpoints, path, args, tptp_root, settings, split)
 
     details = {
         "ratio": args.ratio,
