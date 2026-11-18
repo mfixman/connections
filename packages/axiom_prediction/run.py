@@ -8,7 +8,7 @@ from functools import lru_cache
 from pathlib import Path
 import time
 
-from connections.agent.sat import SATCoPCon, SATResetCoP
+from connections.agent.sat import SATResetCoP
 from connections.interaction.szs import SUCCESS as success
 from connections.interaction.run import Problem, run_schedule
 from connections.interaction.strategy import MatrixOptions, PolicyOptions, Strategy, StrategySchedule
@@ -108,16 +108,12 @@ def search_problem(problem, *, tptp_root, config):
             out.update(search_native(path, root, config, predictor, started))
             return out
 
-        policy_class = {
-            ProverPolicy.SatResetCoP: SATResetCoP,
-            ProverPolicy.SatCoPCon: SATCoPCon,
-        }[config.policy]
-
+        policy_class = SATResetCoP
         args: dict[str, Any] = {"seed": config.seed}
         guided = config.mode != GuidanceMode.Base
         if guided:
             loaded = load_tptp_problem(problem, tptp_root = tptp_root)
-            from .guided import AxiomGuidedSATCoP, AxiomGuidedSATResetCoP, clause_weights, matrix_digest
+            from .guided import AxiomGuidedSATResetCoP, clause_weights, matrix_digest
 
             weights = clause_weights(
                 loaded.matrix,
@@ -125,11 +121,7 @@ def search_problem(problem, *, tptp_root, config):
                 loaded.conjecture_clause_ids,
                 predictor,
             )
-            policy_class = {
-                ProverPolicy.SatResetCoP: AxiomGuidedSATResetCoP,
-                ProverPolicy.SatCoPCon: AxiomGuidedSATCoP,
-            }[config.policy]
-
+            policy_class = AxiomGuidedSATResetCoP
             args.update(
                 clause_weights = weights,
                 temperature = config.temperature,

@@ -57,10 +57,10 @@ python axiom_predictor.py run --split 10 --parts 8 --policy SatResetCoP --model 
 
 Problems are `.p` files, directories of them, TPTP file names or category codes such as `SYN`; without any, `collect`
 and `run` take every FOF and CNF problem of the TPTP root (`--tptp`, then `$TPTP`, then a `TPTP` directory near the
-checkout). `--split N --parts P ...` keeps the problems of those parts. Scheme 5 (the default) takes the MD5 of the
-problem key modulo N, where the key is the TPTP prefix (`SYN012` for `SYN012-3.p`) or the Mizar article before `__`;
-variants of one problem therefore share a part, and parts P of N are the union of parts P and P + N of 2N. Schemes 3
-and 4 reproduce the assignments of older runs.
+checkout). `--split N --parts P ...` keeps the problems of those parts: the MD5 of the problem key modulo N, where the key is the
+TPTP prefix (`SYN012` for `SYN012-3.p`) or the Mizar article before `__`. Variants of one problem therefore share a
+part, and part P of N is the union of parts P and P + N of 2N. This is split scheme 5; the models of October 2026
+(Torok, Kepce, Osszet) used schemes 3 and 4 and the `.pt` checkpoint format, which this code no longer reads.
 
 ### collect
 
@@ -70,10 +70,10 @@ to continue with a different policy, seed, timeout or SATCoP executable. Use one
 and never two writers on one file. Problems that TPTP declares `Satisfiable` or `CounterSatisfiable` are skipped.
 `--problems-from FILE` adds the problems listed in a file, for example those that earlier seeds proved.
 
-`--policy SatCoP` runs native SATCoP (below); `SatResetCoP` and `SATCoPCon` are the Python policies of the Connections
-prover, whose labels come from CaDiCaL's failed assumptions. The SAT core is the one the prover found, not a minimal
-one, and an axiom outside it may still be useful in another proof. Seeds give different proofs, hence different
-cores; each distinct core of a problem becomes one training example.
+`--policy SatCoP` runs native SATCoP (below); `SatResetCoP` is the Python policy of the Connections prover, whose
+labels come from CaDiCaL's failed assumptions. The SAT core is the one the prover found, not a minimal one, and an
+axiom outside it may still be useful in another proof. Seeds give different proofs, hence different cores; each
+distinct core of a problem becomes one training example.
 
 ### join
 

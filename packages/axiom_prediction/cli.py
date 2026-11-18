@@ -26,7 +26,7 @@ def nonnegative_int(value):
     return parsed
 
 def add_split_arguments(parser):
-    parser.add_argument("--split-scheme", type = int, choices = (3, 4, 5), default = split_scheme, help = "split algorithm")
+    parser.add_argument("--split-scheme", type = int, choices = (split_scheme,), default = split_scheme, help = "the only one left")
     parser.add_argument("--split", type = positive_int, default = 1, metavar = "N", help = "partition problems into N parts")
     parser.add_argument(
         "--parts", "--part", type = nonnegative_int, nargs = "+", metavar = "P",
@@ -108,7 +108,7 @@ def add_run_parser(subparsers):
     run = subparsers.add_parser("run", help = "proof search, unguided or guided by a checkpoint or SInE")
     run.add_argument("problems", metavar = "PROBLEM", nargs = "*", help = problems_help)
     source = run.add_mutually_exclusive_group()
-    source.add_argument("--model", type = Path, help = "checkpoint: a .ts file, a legacy .pt file or their directory")
+    source.add_argument("--model", type = Path, help = "checkpoint: a .ts file or the directory of model.ts")
     source.add_argument("--sine", action = "store_true", help = "weigh clauses by clause-level SInE instead of a model")
 
     run.add_argument("--policy", type = ProverPolicy, choices = list(ProverPolicy), help = policy_help)

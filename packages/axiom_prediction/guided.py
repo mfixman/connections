@@ -1,11 +1,11 @@
-# SAT policies that prefer the clauses an axiom predictor (or SInE) scores highly.
+# The SATResetCoP policy that prefers the clauses an axiom predictor (or SInE) scores highly.
 
 from __future__ import annotations
 
 import hashlib
 import math
 
-from connections.agent.sat import SATCoPCon, SATResetCoP
+from connections.agent.sat import SATResetCoP
 from connections.environment.actions import Action, ApplyAction
 from connections.environment.rules import Extension, Start
 from connections.environment.state import State
@@ -85,7 +85,4 @@ def clause_index(action: Action) -> int | None:
     return None
 
 class AxiomGuidedSATResetCoP(AxiomGuided, SATResetCoP):
-    pass
-
-class AxiomGuidedSATCoP(AxiomGuided, SATCoPCon):
     pass

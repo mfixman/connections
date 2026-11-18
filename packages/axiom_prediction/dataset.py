@@ -40,9 +40,6 @@ def paused_gc():
 # The settings that two results must share to count as one collection.
 def collection_settings(collection):
     settings = {key: value for key, value in collection.items() if key != "tptp_root"}
-    if settings.get("sat_policy") == "satcop" and settings.get("prover_backend") != "rust-satcop":
-        settings["sat_policy"] = "satcopcon"
-
     if settings.get("seed") == 0:
         settings.pop("seed")
 
@@ -62,17 +59,11 @@ def merged_collection(collections):
     kept = {key: value for key, value in collection_settings(first).items() if key in shared}
     return {**kept, "source_shards": collections}
 
-# The policy that labelled a dataset or checkpoint; before native SATCoP, `satcop` meant the Python SATCoPCon.
+# The policy that labelled a dataset or checkpoint, unless another one is requested.
 def label_policy(requested, metadata = None):
     collection = (metadata or {}).get("collection", {})
     recorded = collection.get("sat_policy") if isinstance(collection, Mapping) else None
-    if recorded is not None:
-        recorded = ProverPolicy(recorded)
-        backend = collection.get("prover_backend") or collection.get("collection", {}).get("prover_backend")
-        if recorded == ProverPolicy.SatCoP and backend != "rust-satcop":
-            recorded = ProverPolicy.SatCoPCon
-
-    if requested is not None and recorded is not None and ProverPolicy(requested) != recorded:
+    if requested is not None and recorded is not None and ProverPolicy(requested) != ProverPolicy(recorded):
         log(f"warning: labels were collected with {recorded}, but --policy requests {requested}; running with it")
 
     return ProverPolicy(requested or recorded or ProverPolicy.SatResetCoP)

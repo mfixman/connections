@@ -48,7 +48,7 @@ def test_held_out_parts_are_scored_but_never_trained_on(tmp_path, joined_dataset
         train_axiom_predictor(dataset = joined_dataset, output_dir = tmp_path / "overlap", split = train_parts, evaluation_split = ProblemSplit(10, [7]))
 
     with pytest.raises(ValueError, match = "training split"):
-        train_axiom_predictor(dataset = joined_dataset, output_dir = tmp_path / "scheme", split = train_parts, evaluation_split = ProblemSplit(10, [8], 4))
+        train_axiom_predictor(dataset = joined_dataset, output_dir = tmp_path / "count", split = train_parts, evaluation_split = ProblemSplit(20, [8]))
 
     metrics = train_axiom_predictor(
         dataset = joined_dataset,

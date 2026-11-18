@@ -5,6 +5,7 @@ import hashlib
 from pathlib import Path
 import re
 
+# Saved with every split, so that results of the earlier schemes 3 and 4 are never mistaken for this one.
 split_scheme = 5
 
 @dataclass(slots = True, init = False)
@@ -21,8 +22,8 @@ class ProblemSplit:
         self.validate()
 
     def validate(self):
-        if self.scheme not in (3, 4, 5):
-            raise ValueError("--split-scheme must be one of 3, 4, 5")
+        if self.scheme != split_scheme:
+            raise ValueError(f"only split scheme {split_scheme} remains; schemes 3 and 4 were those of the October 2026 models")
 
         if self.split < 1:
             raise ValueError("--split must be at least 1")
@@ -31,9 +32,7 @@ class ProblemSplit:
             raise ValueError("--parts needs at least one part")
 
         if any(p < 0 or p >= self.split for p in self.parts):
-            raise ValueError(
-                f"--parts must be between 0 and {self.split - 1} for --split {self.split}"
-            )
+            raise ValueError(f"--parts must be between 0 and {self.split - 1} for --split {self.split}")
 
         if len(set(self.parts)) != len(self.parts):
             raise ValueError("--parts must not repeat a part")
@@ -51,20 +50,12 @@ class ProblemSplit:
 
         return self.digest(problem) % self.split
 
+    # Depends on the problem key alone, so the parts of a split N nest inside those of its divisors.
     def digest(self, problem: str | Path) -> int:
-        key = split_key(problem, self.scheme)
-        if self.scheme == 5:
-            digest = hashlib.md5(key.encode("utf-8"), usedforsecurity = False).digest()
-        else:
-            digest = hashlib.blake2b(
-                f"{self.split}\0{key}".encode("utf-8"),
-                digest_size = 8,
-                person = b"lcsplit",
-            ).digest()
-
+        digest = hashlib.md5(split_key(problem).encode("utf-8"), usedforsecurity = False).digest()
         return int.from_bytes(digest, "big")
 
-    # Under scheme 5 this is exactly parts P of split N * ratio, which nest inside parts P of N.
+    # Exactly parts P of split N * ratio, which nest inside parts P of N.
     def subsample(self, problems: list[str], ratio: int) -> list[str]:
         if ratio == 0:
             return []
@@ -90,12 +81,8 @@ class ProblemSplit:
             "scheme": self.scheme,
         }
 
-def split_key(problem: str | Path, scheme = split_scheme) -> str:
-    tptp_name = re.compile(r"[A-Z]{3}\d{3}")
-
+# Variants of a TPTP problem (SYN012-3.p, SYN012+1.p) and theorems of a Mizar article (article__t1.p) share a key.
+def split_key(problem: str | Path) -> str:
     name = Path(problem).stem
-    match = tptp_name.match(name)
-    if match:
-        return match.group()
-
-    return name.split("__", 1)[0] if scheme >= 4 else name
+    match = re.match(r"[A-Z]{3}\d{3}", name)
+    return match.group() if match else name.split("__", 1)[0]

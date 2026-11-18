@@ -20,7 +20,7 @@ from axiom_prediction.tptp import load_tptp_problem
     "cnf(g,negated_conjecture,~p(X)).",
     "cnf(a,axiom,$false).",
 ])
-def test_script_matches_python_and_legacy_checkpoint(tmp_path, kind, source):
+def test_script_matches_python_and_reloads(tmp_path, kind, source):
     path = tmp_path / "problem.p"
     path.write_text(source)
     problem = load_tptp_problem(str(path))
@@ -59,18 +59,13 @@ def test_script_matches_python_and_legacy_checkpoint(tmp_path, kind, source):
     assert payload["epoch"] == 7
     assert payload["training_config"]["sat_policy"] == "satresetcop"
 
-    legacy = tmp_path / "model.pt"
-    torch.save(payload, legacy)
-    for path in (target, legacy, tmp_path):
+    for path in (target, tmp_path):
         predictor = AxiomPredictor.load(path, device = "cpu")
         with torch.no_grad():
             torch.testing.assert_close(predictor.model(batch), expected, rtol = 0, atol = 0)
 
-    legacy.write_bytes(b"invalid legacy file")
-    assert AxiomPredictor.load(tmp_path).training_config == payload["training_config"]
-
     with pytest.raises(ValueError, match = ".ts extension"):
-        save_checkpoint(legacy, model, training_config = {})
+        save_checkpoint(tmp_path / "model.pt", model, training_config = {})
 
     # A plain TorchScript scorer, such as a control model, loads without the training metadata.
     exported_only = tmp_path / "missing-metadata.ts"

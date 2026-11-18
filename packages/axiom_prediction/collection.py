@@ -6,7 +6,7 @@ from pathlib import Path
 import time
 from typing import Any
 
-from connections.agent.sat import SATCoPCon, SATResetCoP
+from connections.agent.sat import SATResetCoP
 from connections.clausification import matrix_from_file
 from connections.interaction.run import Problem, run_schedule
 from connections.interaction.strategy import MatrixOptions, PolicyOptions, Strategy, StrategySchedule
@@ -249,7 +249,7 @@ def collect_proof_example(
             path, root = resolve_tptp_problem(problem, tptp_root = tptp_root)
             declared_outcome = declared_non_refutable(path)
             if ProverPolicy(sat_policy) != ProverPolicy.SatCoP:
-                return python_example(problem, path, root, declared_outcome, step_limit, timeout_s, sat_policy, seed)
+                return python_example(problem, path, root, declared_outcome, step_limit, timeout_s, seed)
 
             if declared_outcome is not None:
                 return None, declared_outcome
@@ -260,8 +260,8 @@ def collect_proof_example(
     except CollectionTimeout:
         return None, "Timeout"
 
-def python_example(problem, path, root, declared_outcome, step_limit, timeout_s, sat_policy, seed):
-    policy_class = {ProverPolicy.SatCoPCon: SATCoPCon, ProverPolicy.SatResetCoP: SATResetCoP}[ProverPolicy(sat_policy)]
+# The Python SATResetCoP of the Connections prover; its core comes from CaDiCaL's failed assumptions.
+def python_example(problem, path, root, declared_outcome, step_limit, timeout_s, seed):
     source_dirs = () if root is None else (root,)
     if declared_outcome is not None:
         # Report parse errors even for problems we skip.
@@ -271,10 +271,10 @@ def python_example(problem, path, root, declared_outcome, step_limit, timeout_s,
     arguments = {"debug_sat_core": True, "seed": seed}
     strategy = Strategy(
         matrix = MatrixOptions(mark_conjecture = True, equality_axioms = selector_equality_axioms()),
-        policy = PolicyOptions(policy_class = policy_class, args = arguments),
+        policy = PolicyOptions(policy_class = SATResetCoP, args = arguments),
     )
 
-    agent = policy_class(**arguments)
+    agent = SATResetCoP(**arguments)
     result = run_schedule(
         Problem(path, logic = "classical", domain = "constant", source_file_dirs = source_dirs),
         agent = agent,

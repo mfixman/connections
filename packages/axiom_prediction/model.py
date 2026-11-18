@@ -53,7 +53,7 @@ class AxiomPredictor:
 
         resolved_device = resolve_device(device)
         # Exported TorchScript without training metadata, such as a control model, is scored through its forward.
-        if checkpoint_path.suffix == ".ts" and not has_checkpoint_metadata(checkpoint_path):
+        if not has_checkpoint_metadata(checkpoint_path):
             module = torch.jit.load(str(checkpoint_path), map_location = "cpu")
             log(f"loaded plain TorchScript model {checkpoint_path}")
             return cls(module, device = "cpu")
@@ -68,7 +68,7 @@ class AxiomPredictor:
         if not isinstance(payload, dict) or payload.get("format") != checkpoint_format:
             raise ValueError(f"not an axiom predictor checkpoint: {checkpoint_path}")
 
-        if payload.get("version") not in (2, checkpoint_version):
+        if payload.get("version") != checkpoint_version:
             raise ValueError(
                 f"unsupported axiom predictor checkpoint version: {payload.get('version')!r}"
             )
@@ -189,13 +189,7 @@ def save_checkpoint(
 
 def resolve_checkpoint(path):
     path = Path(path)
-    if path.is_dir():
-        if (path / "model.ts").exists():
-            return path / "model.ts"
-
-        return path / "model.pt"
-
-    return path
+    return path / "model.ts" if path.is_dir() else path
 
 def scripted_logits(module, example):
     from .representation.schema import node_types, relations
@@ -221,17 +215,14 @@ def has_checkpoint_metadata(path):
     with zipfile.ZipFile(path) as archive:
         return any(name.endswith("/extra/checkpoint.bin") for name in archive.namelist())
 
+# The training payload that save_checkpoint embeds in the TorchScript archive.
 def load_checkpoint(path):
-    path = resolve_checkpoint(path)
-    if path.suffix == ".ts":
-        with zipfile.ZipFile(path) as archive:
-            records = [name for name in archive.namelist() if name.endswith("/extra/checkpoint.bin")]
-            if len(records) != 1:
-                raise ValueError("TorchScript file has no Connections checkpoint metadata")
+    with zipfile.ZipFile(resolve_checkpoint(path)) as archive:
+        records = [name for name in archive.namelist() if name.endswith("/extra/checkpoint.bin")]
+        if len(records) != 1:
+            raise ValueError("TorchScript file has no Connections checkpoint metadata")
 
-            source = io.BytesIO(archive.read(records[0]))
-    else:
-        source = path
+        source = io.BytesIO(archive.read(records[0]))
 
     return torch.load(source, map_location = "cpu", weights_only = True)
 
